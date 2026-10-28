@@ -61,7 +61,7 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 ## Authentication
 
 - **Browser (PWA):** a confidential authentik client. The browser navigates to `/auth/login`; the API redirects to authentik (authorization code flow with PKCE and nonce), redeems the code at `/auth/callback` with the client secret, and stores the session in Redis. The browser only gets an HttpOnly, Secure, SameSite=Lax `homeloom_session` cookie; tokens and the secret never reach it. `POST /auth/logout` deletes the session and returns authentik's end-session URL.
-- **Other clients (iOS, MCP, third-party):** each is its own authentik provider and sends its access token as `Authorization: Bearer`. The API verifies the JWT against the issuer's JWKS and accepts `OIDC_CLIENT_ID` plus any client ID in `OIDC_CLIENT_IDS`. The provider must have a signing key so tokens are JWTs.
+- **Other clients (iOS, MCP, third-party):** each is its own authentik provider and sends its access token as `Authorization: Bearer`. The API verifies the JWT against the issuer's JWKS and accepts `OIDC_CLIENT_ID` plus any client ID in `OIDC_CLIENT_IDS` (add it to the compose file once such a client exists). The provider must have a signing key so tokens are JWTs.
 - The spec offers both schemes on every protected operation; either one is enough.
 - On the first request a local `users` row is created from the `sub`; later requests are served from the Redis user cache unless the profile changed.
 - If authentik or Redis cannot be reached the API returns `503 auth_unavailable`, not `401`, and health checks keep working. A failed login redirects to `/?auth_error=login_failed` or `/?auth_error=auth_unavailable`.
@@ -103,7 +103,7 @@ apps/web/
 ## Deployment on Coolify
 
 - Create a Docker Compose resource from this repository (`docker-compose.yml`).
-- Set `POSTGRES_PASSWORD`, `PUBLIC_URL`, `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET`; `OIDC_CLIENT_IDS` only for further bearer clients.
+- Set `POSTGRES_PASSWORD`, `PUBLIC_URL`, `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET`.
 - In authentik, register `PUBLIC_URL/auth/callback` as the redirect URI and `PUBLIC_URL/` as the post-logout redirect.
 - Assign the public domain to `homeloom-web` (port 8080). Its Caddy serves the PWA and forwards `/auth/*`, `/v1/*`, `/healthz` and `/readyz` to `homeloom-api`, so app and API share one origin and the session cookie stays first-party. The API, Postgres and Redis stay internal.
 
