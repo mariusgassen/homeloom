@@ -24,9 +24,11 @@ type Config struct {
 	UserCacheTTL   time.Duration
 	SessionTTL     time.Duration
 	LogLevel       string
-	// Mealie is optional: without MealieURL cooking is switched off.
+	// Mealie is optional and reached through its MCP server: without MealieMCPURL cooking is
+	// switched off. MealieURL is Mealie itself, only for links into it.
+	MealieMCPURL         string
+	MealieMCPToken       string
 	MealieURL            string
-	MealieToken          string
 	MealieShoppingListID string
 	// AnthropicAPIKey is optional: without it recipes are suggested at random.
 	AnthropicAPIKey string
@@ -58,8 +60,9 @@ func Load() (Config, error) {
 		OIDCClientIDs:        list(os.Getenv("OIDC_CLIENT_IDS")),
 		AllowedOrigins:       list(os.Getenv("CORS_ALLOWED_ORIGINS")),
 		LogLevel:             env("LOG_LEVEL", "info"),
+		MealieMCPURL:         os.Getenv("MEALIE_MCP_URL"),
+		MealieMCPToken:       os.Getenv("MEALIE_MCP_TOKEN"),
 		MealieURL:            os.Getenv("MEALIE_URL"),
-		MealieToken:          os.Getenv("MEALIE_API_TOKEN"),
 		MealieShoppingListID: os.Getenv("MEALIE_SHOPPING_LIST_ID"),
 		AnthropicAPIKey:      os.Getenv("ANTHROPIC_API_KEY"),
 		LLMModel:             env("LLM_MODEL", "claude-opus-5-5"),
@@ -88,8 +91,8 @@ func Load() (Config, error) {
 			missing = append(missing, req.name)
 		}
 	}
-	if c.MealieURL != "" && c.MealieToken == "" {
-		missing = append(missing, "MEALIE_API_TOKEN")
+	if c.MealieMCPURL != "" && c.MealieMCPToken == "" {
+		missing = append(missing, "MEALIE_MCP_TOKEN")
 	}
 	if c.HomeAssistantURL != "" && c.SecretKey == "" {
 		missing = append(missing, "HOMELOOM_SECRET_KEY")

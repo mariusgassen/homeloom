@@ -1,18 +1,21 @@
-// Package mealie is the driven adapter for Mealie's REST API: recipes and the shopping list.
+// Package mealie is the driven adapter for Mealie: recipes and the shopping list. It talks to
+// Mealie through its MCP server, which exposes one tool per Mealie endpoint and holds Mealie's
+// own credentials; Homeloom only has the MCP server's bearer token.
 package mealie
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/domain"
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/port"
@@ -22,25 +25,52 @@ import (
 const maxRecipes = 1000
 
 type Client struct {
-	base   *url.URL
-	token  string
-	listID string // empty: the most recently used shopping list
-	http   *http.Client
+	endpoint string
+	http     *http.Client
+	mcp      *mcp.Client
+	web      *url.URL // Mealie itself, for links; nil: no links
+	listID   string   // empty: the most recently used shopping list
 
 	mu        sync.Mutex
-	groupSlug string // for links into Mealie; looked up once
+	session   *mcp.ClientSession // reused; dropped after a transport error
+	groupSlug string             // for links into Mealie; looked up once
 }
 
 var _ port.RecipeBook = (*Client)(nil)
 
-// New talks to the Mealie at baseURL with an API token. listID picks the shopping list; if empty,
-// ingredients go to the list that changed last.
-func New(baseURL, token, listID string) (*Client, error) {
-	u, err := url.Parse(strings.TrimRight(baseURL, "/"))
+// New talks to the Mealie MCP server at mcpURL with its bearer token. webURL is Mealie's own
+// address, used only for "open in Mealie" links, and may be empty. listID picks the shopping list;
+// if empty, ingredients go to the list that changed last.
+func New(mcpURL, token, webURL, listID string) (*Client, error) {
+	u, err := url.Parse(mcpURL)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return nil, fmt.Errorf("MEALIE_URL %q is not an http(s) URL", baseURL)
+		return nil, fmt.Errorf("MEALIE_MCP_URL %q is not an http(s) URL", mcpURL)
 	}
-	return &Client{base: u, token: token, listID: listID, http: &http.Client{Timeout: 8 * time.Second}}, nil
+	c := &Client{
+		endpoint: mcpURL,
+		http:     &http.Client{Timeout: 8 * time.Second, Transport: bearer{token: token, next: http.DefaultTransport}},
+		mcp:      mcp.NewClient(&mcp.Implementation{Name: "homeloom", Version: "1"}, nil),
+		listID:   listID,
+	}
+	if webURL != "" {
+		w, err := url.Parse(strings.TrimRight(webURL, "/"))
+		if err != nil || (w.Scheme != "http" && w.Scheme != "https") || w.Host == "" {
+			return nil, fmt.Errorf("MEALIE_URL %q is not an http(s) URL", webURL)
+		}
+		c.web = w
+	}
+	return c, nil
+}
+
+type bearer struct {
+	token string
+	next  http.RoundTripper
+}
+
+func (b bearer) RoundTrip(r *http.Request) (*http.Response, error) {
+	r = r.Clone(r.Context())
+	r.Header.Set("Authorization", "Bearer "+b.token)
+	return b.next.RoundTrip(r)
 }
 
 type tag struct {
@@ -65,11 +95,11 @@ func (s summary) domain() domain.RecipeSummary {
 }
 
 func (c *Client) Recipes(ctx context.Context) ([]domain.RecipeSummary, error) {
-	q := url.Values{"page": {"1"}, "perPage": {strconv.Itoa(maxRecipes)}, "orderBy": {"name"}, "orderDirection": {"asc"}}
 	var page struct {
 		Items []summary `json:"items"`
 	}
-	if err := c.do(ctx, http.MethodGet, "/api/recipes", q, nil, &page); err != nil {
+	args := map[string]any{"page": 1, "perPage": maxRecipes, "orderBy": "name", "orderDirection": "asc"}
+	if err := c.call(ctx, "list_recipes", args, &page); err != nil {
 		return nil, err
 	}
 	out := make([]domain.RecipeSummary, len(page.Items))
@@ -99,7 +129,7 @@ type ingredient struct {
 
 func (c *Client) get(ctx context.Context, slug string) (recipe, error) {
 	var r recipe
-	err := c.do(ctx, http.MethodGet, "/api/recipes/"+url.PathEscape(slug), nil, nil, &r)
+	err := c.call(ctx, "get_recipes_by_slug", map[string]any{"slug": slug}, &r)
 	return r, err
 }
 
@@ -128,8 +158,8 @@ func (c *Client) Recipe(ctx context.Context, slug string) (domain.Recipe, error)
 			out.Steps = append(out.Steps, t)
 		}
 	}
-	if group := c.group(ctx); group != "" {
-		out.URL = c.base.JoinPath("g", group, "r", r.Slug).String()
+	if group := c.group(ctx); group != "" && c.web != nil {
+		out.URL = c.web.JoinPath("g", group, "r", r.Slug).String()
 	}
 	return out, nil
 }
@@ -159,7 +189,7 @@ func (c *Client) AddToShoppingList(ctx context.Context, slug string, ingredientI
 		return domain.ShoppingListAdded{}, err
 	}
 	body := []map[string]any{{"recipeId": r.ID, "recipeIncrementQuantity": 1, "recipeIngredients": selected}}
-	if err := c.do(ctx, http.MethodPost, "/api/households/shopping/lists/"+url.PathEscape(id)+"/recipe", nil, body, nil); err != nil {
+	if err := c.call(ctx, "create_households_shopping_lists_by_item_recipe", map[string]any{"item_id": id, "body": body}, nil); err != nil {
 		return domain.ShoppingListAdded{}, err
 	}
 	return domain.ShoppingListAdded{Added: len(selected), List: name}, nil
@@ -173,7 +203,7 @@ func (c *Client) list(ctx context.Context) (id, name string, err error) {
 	}
 	if c.listID != "" {
 		var l list
-		if err := c.do(ctx, http.MethodGet, "/api/households/shopping/lists/"+url.PathEscape(c.listID), nil, nil, &l); err != nil {
+		if err := c.call(ctx, "get_households_shopping_lists_by_item", map[string]any{"item_id": c.listID}, &l); err != nil {
 			return "", "", err
 		}
 		return l.ID, l.Name, nil
@@ -181,8 +211,8 @@ func (c *Client) list(ctx context.Context) (id, name string, err error) {
 	var page struct {
 		Items []list `json:"items"`
 	}
-	q := url.Values{"page": {"1"}, "perPage": {"1"}, "orderBy": {"updatedAt"}, "orderDirection": {"desc"}}
-	if err := c.do(ctx, http.MethodGet, "/api/households/shopping/lists", q, nil, &page); err != nil {
+	args := map[string]any{"page": 1, "perPage": 1, "orderBy": "updatedAt", "orderDirection": "desc"}
+	if err := c.call(ctx, "list_households_shopping_lists", args, &page); err != nil {
 		return "", "", err
 	}
 	if len(page.Items) == 0 {
@@ -191,64 +221,118 @@ func (c *Client) list(ctx context.Context) (id, name string, err error) {
 	return page.Items[0].ID, page.Items[0].Name, nil
 }
 
-// group returns the group's slug for recipe links, or "" if Mealie won't say.
+// group returns the group's slug for recipe links, or "" without MEALIE_URL or if Mealie won't say.
 func (c *Client) group(ctx context.Context) string {
+	if c.web == nil {
+		return ""
+	}
 	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.groupSlug == "" {
+	slug := c.groupSlug
+	c.mu.Unlock()
+	if slug == "" {
 		var g struct {
 			Slug string `json:"slug"`
 		}
-		if c.do(ctx, http.MethodGet, "/api/groups/self", nil, nil, &g) == nil {
-			c.groupSlug = g.Slug
+		if c.call(ctx, "list_groups_self", nil, &g) == nil {
+			slug = g.Slug
+			c.mu.Lock()
+			c.groupSlug = slug
+			c.mu.Unlock()
 		}
 	}
-	return c.groupSlug
+	return slug
 }
 
-// do sends one request. Mealie being down, slow or refusing the token is domain.ErrUnavailable;
-// a 404 is domain.ErrNotFound.
-func (c *Client) do(ctx context.Context, method, path string, query url.Values, body, out any) error {
-	u := c.base.JoinPath(path)
-	u.RawQuery = query.Encode()
-	var rd io.Reader
-	if body != nil {
-		b, err := json.Marshal(body)
-		if err != nil {
-			return err
+// httpStatus finds the status of the Mealie call in a tool error, e.g. "HTTP error 404: Not Found".
+var httpStatus = regexp.MustCompile(`HTTP error (\d{3})`)
+
+// call runs one MCP tool and decodes its JSON result into out. The MCP server or Mealie being
+// down, slow or refusing a token is domain.ErrUnavailable; a 404 from Mealie is domain.ErrNotFound.
+func (c *Client) call(ctx context.Context, tool string, args map[string]any, out any) error {
+	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+	res, err := c.callTool(ctx, &mcp.CallToolParams{Name: tool, Arguments: args})
+	if err != nil {
+		return fmt.Errorf("%w: mealie mcp %s: %w", domain.ErrUnavailable, tool, err)
+	}
+	text := ""
+	for _, ct := range res.Content {
+		if t, ok := ct.(*mcp.TextContent); ok {
+			text += t.Text
 		}
-		rd = bytes.NewReader(b)
 	}
-	req, err := http.NewRequestWithContext(ctx, method, u.String(), rd)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
-	req.Header.Set("Accept", "application/json")
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return fmt.Errorf("%w: mealie %s %s: %w", domain.ErrUnavailable, method, path, err)
-	}
-	defer resp.Body.Close()
-	switch {
-	case resp.StatusCode == http.StatusNotFound:
-		return fmt.Errorf("%w: mealie %s", domain.ErrNotFound, path)
-	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden || resp.StatusCode >= 500:
-		return fmt.Errorf("%w: mealie %s %s: %s", domain.ErrUnavailable, method, path, resp.Status)
-	case resp.StatusCode >= 300:
-		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return fmt.Errorf("mealie %s %s: %s: %s", method, path, resp.Status, msg)
+	if res.IsError {
+		status := 0
+		if m := httpStatus.FindStringSubmatch(text); m != nil {
+			status, _ = strconv.Atoi(m[1])
+		}
+		switch {
+		case status == http.StatusNotFound:
+			return fmt.Errorf("%w: mealie %s", domain.ErrNotFound, tool)
+		case status == 0 || status == http.StatusUnauthorized || status == http.StatusForbidden || status >= 500:
+			return fmt.Errorf("%w: mealie %s: %.200s", domain.ErrUnavailable, tool, text)
+		default:
+			return fmt.Errorf("mealie %s: %.200s", tool, text)
+		}
 	}
 	if out == nil {
 		return nil
 	}
-	if err := json.NewDecoder(io.LimitReader(resp.Body, 32<<20)).Decode(out); err != nil {
-		return fmt.Errorf("%w: mealie %s: %w", domain.ErrUnavailable, path, err)
+	raw := []byte(text)
+	if res.StructuredContent != nil {
+		if raw, err = json.Marshal(res.StructuredContent); err != nil {
+			return err
+		}
+	}
+	if err := json.Unmarshal(raw, out); err != nil {
+		return fmt.Errorf("%w: mealie %s: %w", domain.ErrUnavailable, tool, err)
 	}
 	return nil
+}
+
+// callTool calls on the open session. A session the server has since forgotten (say, after a
+// restart) fails once and is replaced by a fresh one.
+func (c *Client) callTool(ctx context.Context, params *mcp.CallToolParams) (*mcp.CallToolResult, error) {
+	for attempt := 0; ; attempt++ {
+		cs, fresh, err := c.connect(ctx)
+		if err != nil {
+			return nil, err
+		}
+		res, err := cs.CallTool(ctx, params)
+		if err == nil {
+			return res, nil
+		}
+		c.drop(cs)
+		if fresh || attempt > 0 || ctx.Err() != nil {
+			return nil, err
+		}
+	}
+}
+
+// connect returns the open MCP session, starting one if needed; fresh tells which.
+func (c *Client) connect(ctx context.Context) (*mcp.ClientSession, bool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.session != nil {
+		return c.session, false, nil
+	}
+	t := &mcp.StreamableClientTransport{Endpoint: c.endpoint, HTTPClient: c.http, MaxRetries: -1, DisableStandaloneSSE: true}
+	cs, err := c.mcp.Connect(ctx, t, nil)
+	if err != nil {
+		return nil, true, err
+	}
+	c.session = cs
+	return cs, true, nil
+}
+
+// drop closes a session that failed, so the next call starts a fresh one.
+func (c *Client) drop(cs *mcp.ClientSession) {
+	c.mu.Lock()
+	if c.session == cs {
+		c.session = nil
+	}
+	c.mu.Unlock()
+	_ = cs.Close()
 }
 
 func firstNonEmpty(s ...string) string {

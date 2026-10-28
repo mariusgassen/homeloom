@@ -100,8 +100,8 @@ func run() error {
 
 	// Mealie, Claude and Home Assistant are optional; a nil port switches the feature off or to its fallback.
 	var book port.RecipeBook
-	if cfg.MealieURL != "" {
-		if book, err = mealie.New(cfg.MealieURL, cfg.MealieToken, cfg.MealieShoppingListID); err != nil {
+	if cfg.MealieMCPURL != "" {
+		if book, err = mealie.New(cfg.MealieMCPURL, cfg.MealieMCPToken, cfg.MealieURL, cfg.MealieShoppingListID); err != nil {
 			return err
 		}
 	}
