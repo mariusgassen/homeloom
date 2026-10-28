@@ -12,7 +12,7 @@ import (
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/port"
 )
 
-// Home switches scenes and lights in Home Assistant. Each member connects their own Home Assistant
+// Home shows the home room by room and switches scenes and lights in Home Assistant. Each member connects their own Home Assistant
 // account, so every switch acts as, and is logged for, the person who made it. Only
 // entities Home Assistant lists can be switched, so a caller can't reach anything outside the
 // whitelist by guessing an id. Without Home Assistant (smart is nil) the feature is unavailable.
@@ -95,7 +95,7 @@ func (s *Home) Get(ctx context.Context, actor domain.User, householdID uuid.UUID
 	if err := s.ready(ctx, actor, householdID); err != nil {
 		return domain.Home{}, err
 	}
-	notConnected := domain.Home{Scenes: []domain.Scene{}, Lights: []domain.Light{}}
+	notConnected := domain.Home{Rooms: []domain.Room{}, Devices: domain.Devices{Scenes: []domain.Scene{}, Lights: []domain.Light{}, Readings: []domain.Reading{}}}
 	c, err := s.connections.HomeConnection(ctx, actor.ID)
 	if errors.Is(err, domain.ErrNotFound) {
 		return notConnected, nil
@@ -103,7 +103,7 @@ func (s *Home) Get(ctx context.Context, actor domain.User, householdID uuid.UUID
 	if err != nil {
 		return domain.Home{}, err
 	}
-	scenes, lights, err := s.smart.Devices(ctx, c.RefreshToken)
+	devices, err := s.smart.Devices(ctx, c.RefreshToken)
 	if errors.Is(err, domain.ErrUnauthenticated) {
 		// Revoked in Home Assistant: forget it, so the app offers to connect again.
 		slog.WarnContext(ctx, "home assistant rejected the connection", "err", err)
@@ -115,7 +115,51 @@ func (s *Home) Get(ctx context.Context, actor domain.User, householdID uuid.UUID
 	if err != nil {
 		return domain.Home{}, err
 	}
-	return domain.Home{Connected: true, Scenes: scenes, Lights: lights}, nil
+	layout, err := s.smart.Layout(ctx, c.RefreshToken)
+	if err != nil {
+		// Without the rooms the home still works, as one list.
+		slog.WarnContext(ctx, "home assistant rooms unavailable", "err", err)
+		layout = domain.Layout{}
+	}
+	return arrange(devices, layout), nil
+}
+
+// arrange puts each entity in its room and leaves out what Home Assistant hides. Only rooms that
+// end up holding something are kept.
+func arrange(d domain.Devices, l domain.Layout) domain.Home {
+	used := map[string]bool{}
+	room := func(id string) string {
+		r := l.Areas[id]
+		if r != "" {
+			used[r] = true
+		}
+		return r
+	}
+	h := domain.Home{Connected: true, Rooms: []domain.Room{}, Devices: domain.Devices{Scenes: []domain.Scene{}, Lights: []domain.Light{}, Readings: []domain.Reading{}}}
+	for _, x := range d.Scenes {
+		if !l.Hidden[x.ID] {
+			x.Room = room(x.ID)
+			h.Scenes = append(h.Scenes, x)
+		}
+	}
+	for _, x := range d.Lights {
+		if !l.Hidden[x.ID] {
+			x.Room = room(x.ID)
+			h.Lights = append(h.Lights, x)
+		}
+	}
+	for _, x := range d.Readings {
+		if !l.Hidden[x.ID] {
+			x.Room = room(x.ID)
+			h.Readings = append(h.Readings, x)
+		}
+	}
+	for _, r := range l.Rooms {
+		if used[r.ID] {
+			h.Rooms = append(h.Rooms, r)
+		}
+	}
+	return h
 }
 
 func (s *Home) ActivateScene(ctx context.Context, actor domain.User, householdID uuid.UUID, sceneID string) error {
@@ -123,11 +167,11 @@ func (s *Home) ActivateScene(ctx context.Context, actor domain.User, householdID
 	if err != nil {
 		return err
 	}
-	scenes, _, err := s.smart.Devices(ctx, token)
+	devices, err := s.smart.Devices(ctx, token)
 	if err != nil {
 		return unavailable(err)
 	}
-	for _, sc := range scenes {
+	for _, sc := range devices.Scenes {
 		if sc.ID == sceneID {
 			return unavailable(s.smart.ActivateScene(ctx, token, sceneID))
 		}
@@ -140,11 +184,11 @@ func (s *Home) ToggleLight(ctx context.Context, actor domain.User, householdID u
 	if err != nil {
 		return domain.Light{}, err
 	}
-	_, lights, err := s.smart.Devices(ctx, token)
+	devices, err := s.smart.Devices(ctx, token)
 	if err != nil {
 		return domain.Light{}, unavailable(err)
 	}
-	for _, l := range lights {
+	for _, l := range devices.Lights {
 		if l.ID == lightID {
 			l, err := s.smart.ToggleLight(ctx, token, lightID)
 			return l, unavailable(err)

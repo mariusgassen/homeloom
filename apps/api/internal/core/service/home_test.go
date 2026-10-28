@@ -155,3 +155,43 @@ func TestHomeIsUnavailableWithoutHomeAssistant(t *testing.T) {
 		}
 	}
 }
+
+func TestHomeGroupsByRoom(t *testing.T) {
+	ctx := context.Background()
+	store := memory.NewStore()
+	alice := newUser(t, store, "alice")
+	m, _ := service.NewHousehold(store).Create(ctx, alice, "Home")
+	smart := smartHome()
+	smart.Readings = []domain.Reading{
+		{ID: "sensor.kitchen_temperature", Name: "Kitchen", Kind: domain.Temperature, Value: 21.5, Unit: "°C"},
+		{ID: "sensor.fridge_temperature", Name: "Fridge", Kind: domain.Temperature, Value: 4},
+	}
+	smart.Floorplan = domain.Layout{
+		Rooms:  []domain.Room{{ID: "bedroom", Name: "Bedroom"}, {ID: "kitchen", Name: "Kitchen"}, {ID: "living", Name: "Living room"}},
+		Areas:  map[string]string{"light.kitchen": "kitchen", "sensor.kitchen_temperature": "kitchen", "scene.movie": "living"},
+		Hidden: map[string]bool{"sensor.fridge_temperature": true},
+	}
+	home := service.NewHome(store, store, memory.NewSessions(), smart)
+	connect(t, home, alice, m)
+
+	h, err := home.Get(ctx, alice, m.Household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Empty rooms and hidden entities are left out; the rest keep their room or have none.
+	if !slices.Equal(h.Rooms, []domain.Room{{ID: "kitchen", Name: "Kitchen"}, {ID: "living", Name: "Living room"}}) {
+		t.Fatalf("rooms %v", h.Rooms)
+	}
+	if !slices.Equal(h.Scenes, []domain.Scene{{ID: "scene.dinner", Name: "Dinner"}, {ID: "scene.movie", Name: "Movie", Room: "living"}}) ||
+		!slices.Equal(h.Lights, []domain.Light{{ID: "light.kitchen", Name: "Kitchen", Room: "kitchen", On: true}}) ||
+		!slices.Equal(h.Readings, []domain.Reading{{ID: "sensor.kitchen_temperature", Name: "Kitchen", Room: "kitchen", Kind: domain.Temperature, Value: 21.5, Unit: "°C"}}) {
+		t.Fatalf("got %+v", h)
+	}
+
+	// Without the rooms, the home still shows, as one list.
+	smart.LayoutDown = true
+	h, err = home.Get(ctx, alice, m.Household.ID)
+	if err != nil || len(h.Rooms) != 0 || len(h.Scenes) != 2 || len(h.Readings) != 2 || h.Lights[0].Room != "" {
+		t.Fatalf("without rooms: %+v, %v", h, err)
+	}
+}
