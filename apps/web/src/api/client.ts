@@ -23,6 +23,7 @@ export type Scene = components["schemas"]["Scene"];
 export type Reading = components["schemas"]["Reading"];
 export type Room = components["schemas"]["Room"];
 export type Entry = components["schemas"]["Entry"];
+export type ShoppingItem = components["schemas"]["ShoppingItem"];
 export type EntryKind = components["schemas"]["EntryKind"];
 export type EntryFields = components["schemas"]["EntryFields"];
 export type Visibility = components["schemas"]["Visibility"];

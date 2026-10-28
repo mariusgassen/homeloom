@@ -429,11 +429,94 @@ export interface paths {
             };
             cookie?: never;
         };
-        get?: never;
+        /**
+         * The household's shared shopping list (members only)
+         * @description Open items oldest first, then ticked ones, most recently ticked first. At most 500.
+         */
+        get: operations["listShoppingItems"];
         put?: never;
-        /** Put a recipe's missing ingredients on the Mealie shopping list (members only) */
+        /** Put a recipe's missing ingredients on the household's shopping list (members only) */
         post: operations["addToShoppingList"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/shopping-list/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Put something on the shopping list */
+        post: operations["addShoppingItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/shopping-list/items/{itemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                itemId: components["parameters"]["ShoppingItemId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Take an item off the list */
+        delete: operations["deleteShoppingItem"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/shopping-list/items/{itemId}/done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                itemId: components["parameters"]["ShoppingItemId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Tick an item off */
+        put: operations["tickShoppingItem"];
+        post?: never;
+        /** Untick an item */
+        delete: operations["untickShoppingItem"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/shopping-list/done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove every ticked item */
+        delete: operations["clearShoppingItems"];
         options?: never;
         head?: never;
         patch?: never;
@@ -903,8 +986,28 @@ export interface components {
         ShoppingListAdded: {
             /** @description How many ingredients were put on the list. */
             added: number;
-            /** @description The Mealie shopping list's name. */
+            /** @description The shopping list's name, in the request's language. */
             list: string;
+        };
+        NewShoppingItem: {
+            text: string;
+        };
+        ShoppingItem: {
+            /** Format: uuid */
+            id: string;
+            text: string;
+            /** @description The recipe the item came from, if any. */
+            recipe?: string;
+            /**
+             * Format: uuid
+             * @description Who added it; absent once they left.
+             */
+            addedBy?: string;
+            done: boolean;
+            /** Format: date-time */
+            doneAt?: string;
+            /** Format: date-time */
+            createdAt: string;
         };
         Home: {
             /** @description Whether you have connected your Home Assistant account. */
@@ -1068,6 +1171,7 @@ export interface components {
         HouseholdId: string;
         EntryId: string;
         CallId: string;
+        ShoppingItemId: string;
         RecipeSlug: string;
     };
     requestBodies: never;
@@ -1823,6 +1927,30 @@ export interface operations {
             503: components["responses"]["Unavailable"];
         };
     };
+    listShoppingItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The items. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingItem"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     addToShoppingList: {
         parameters: {
             query?: never;
@@ -1851,6 +1979,130 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             503: components["responses"]["Unavailable"];
+        };
+    };
+    addShoppingItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewShoppingItem"];
+            };
+        };
+        responses: {
+            /** @description The new item. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingItem"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteShoppingItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                itemId: components["parameters"]["ShoppingItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    tickShoppingItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                itemId: components["parameters"]["ShoppingItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The item, ticked. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingItem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    untickShoppingItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                itemId: components["parameters"]["ShoppingItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The item, open again. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingItem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    clearShoppingItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     getHome: {

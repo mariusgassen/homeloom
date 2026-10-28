@@ -9,9 +9,10 @@ import { Icon } from "../ui/Icon";
 import { ListRow } from "../ui/ListRow";
 import { ThreadAvatar, threadFor } from "../ui/ThreadAvatar";
 import { EntrySheet } from "./EntrySheet";
+import { Shopping } from "./Shopping";
 import { Screen } from "./Screen";
 
-const tabs = ["reminder", "event", "note"] as const;
+const tabs = ["reminder", "event", "note", "shopping"] as const;
 
 type Sheet = { entry?: Entry; kind: EntryKind } | null;
 
@@ -23,7 +24,8 @@ export function Lists() {
   if (session.state !== "signedIn" || !session.household) throw new Error("tab without a household");
   const { user: me, household } = session;
   const tab = tabs.find((k) => k === params.get("show")) ?? "reminder";
-  const { entries, failed, reload } = useEntries(household.id, tab);
+  const kind = tab === "shopping" ? null : tab;
+  const { entries, failed, reload } = useEntries(household.id, kind);
   const linked = params.get("entry");
 
   // A notification opens /lists?entry=<id>: show that entry's tab and open it.
@@ -41,27 +43,28 @@ export function Lists() {
   }, [linked, setParams]);
 
   const add = (
-    <button type="button" className="screen-action" aria-label={t("entries.add")} onClick={() => setSheet({ kind: tab })}>
+    <button type="button" className="screen-action" aria-label={t("entries.add")} onClick={() => kind && setSheet({ kind })}>
       <Icon name="plus" />
     </button>
   );
   return (
-    <Screen title={t("tabs.lists")} action={add}>
+    <Screen title={t("tabs.lists")} action={kind ? add : undefined}>
       <div className="segmented" role="tablist" aria-label={t("entries.kind")}>
         {tabs.map((k) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setParams({ show: k }, { replace: true })}>
-            {t(`entries.tabs.${k}`)}
+            {k === "shopping" ? t("shopping.tab") : t(`entries.tabs.${k}`)}
           </button>
         ))}
       </div>
-      {failed && (
+      {kind === null && <Shopping householdId={household.id} />}
+      {kind && failed && (
         <p className="callout error" role="alert">
           {t("entries.failed")}
         </p>
       )}
-      {entries?.length === 0 && (
-        <Card tone="sunken" title={t(`entries.empty.${tab}.title`)}>
-          {t(`entries.empty.${tab}.body`)}
+      {kind && entries?.length === 0 && (
+        <Card tone="sunken" title={t(`entries.empty.${kind}.title`)}>
+          {t(`entries.empty.${kind}.body`)}
         </Card>
       )}
       {entries && entries.length > 0 && tab === "reminder" && <Reminders entries={entries} household={household} me={me} onOpen={(entry) => setSheet({ entry, kind: entry.kind })} onChange={reload} />}

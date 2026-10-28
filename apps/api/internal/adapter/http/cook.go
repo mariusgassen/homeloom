@@ -78,7 +78,7 @@ func (h *handlers) AddToShoppingList(ctx context.Context, req oapi.AddToShopping
 	case err != nil:
 		return nil, err
 	}
-	return oapi.AddToShoppingList200JSONResponse{Added: added.Added, List: added.List}, nil
+	return oapi.AddToShoppingList200JSONResponse{Added: added, List: i18n.T(i18n.FromContext(ctx), "shopping.list")}, nil
 }
 
 func toRecipeSummary(r domain.RecipeSummary) oapi.RecipeSummary {

@@ -19,6 +19,7 @@ type handlers struct {
 	questions  port.QuestionService
 	entries    port.EntryService
 	cook       port.CookService
+	shopping   port.ShoppingService
 	home       port.HomeService
 	push       port.PushService
 	calls      port.CallService

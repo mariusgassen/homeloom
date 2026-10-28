@@ -13,3 +13,4 @@ func TestHomeConnections(t *testing.T)   { storetest.HomeConnections(t, memory.N
 func TestPushSubscriptions(t *testing.T) { storetest.PushSubscriptions(t, memory.NewStore()) }
 func TestEntries(t *testing.T)           { storetest.Entries(t, memory.NewStore()) }
 func TestCalendarFeeds(t *testing.T)     { storetest.CalendarFeeds(t, memory.NewStore()) }
+func TestShoppingItems(t *testing.T)     { storetest.ShoppingItems(t, memory.NewStore()) }

@@ -62,7 +62,19 @@ type CookService interface {
 	// Suggest picks recipes for a mood; lang is the language the reasons are written in.
 	Suggest(ctx context.Context, actor domain.User, householdID uuid.UUID, mood, lang string) (domain.Suggestions, error)
 	Recipe(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string) (domain.Recipe, error)
-	AddToShoppingList(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string, ingredientIDs []string) (domain.ShoppingListAdded, error)
+	// AddToShoppingList puts the recipe's ingredients with the given ids on the shopping list and
+	// returns how many; unknown ids are ignored.
+	AddToShoppingList(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string, ingredientIDs []string) (int, error)
+}
+
+type ShoppingService interface {
+	Items(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.ShoppingItem, error)
+	// Add puts the texts on the list, noting the recipe they came from ("" for none).
+	Add(ctx context.Context, actor domain.User, householdID uuid.UUID, texts []string, recipe string) ([]domain.ShoppingItem, error)
+	SetDone(ctx context.Context, actor domain.User, householdID, id uuid.UUID, done bool) (domain.ShoppingItem, error)
+	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
+	// ClearDone removes the ticked items.
+	ClearDone(ctx context.Context, actor domain.User, householdID uuid.UUID) error
 }
 
 type HomeService interface {

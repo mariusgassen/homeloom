@@ -222,7 +222,7 @@ export function RecipeScreen() {
               </div>
               {added ? (
                 <p className="callout success" role="status">
-                  {added}
+                  {added} <Link to="/lists?show=shopping">{t("shopping.open")}</Link>
                 </p>
               ) : (
                 <Button block disabled={busy || missing.length === 0} onClick={addMissing}>

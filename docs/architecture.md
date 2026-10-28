@@ -77,7 +77,12 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 
 - **Mealie** (`adapter/mealie`, port `RecipeBook`) holds the recipes and the shopping list. The API reaches it only through Mealie's MCP server (`MEALIE_MCP_URL`, bearer `MEALIE_MCP_TOKEN`), which exposes one tool per Mealie endpoint and holds Mealie's own credentials; the same server can later be handed to Claude for the assistant. The MCP session is reused and replaced once if the server has forgotten it. Cooking is optional: without `MEALIE_MCP_URL` the cook endpoints answer `503 cooking_unavailable`, and so do they when the MCP server or Mealie is down or refuses a token. Each call is bounded to 8 s. `MEALIE_URL`, if set, is only used for "Open in Mealie" links.
 - **Claude** (`adapter/claude`, port `Chef`) picks up to three recipes for a mood from the whole collection (one short line per recipe, cached as a prompt prefix) and writes why, in the request's language. The answer is constrained to a JSON schema, and the service drops any slug that isn't in the collection. Without `ANTHROPIC_API_KEY`, or when Claude is down, refuses or finds nothing, three recipes are picked at random (`chef: false`). One pick is bounded to 30 s.
-- Missing ingredients go to `MEALIE_SHOPPING_LIST_ID`, or to the list that changed last, through Mealie's "add recipe to list" so they stay linked to the recipe. The PWA asks what you already have and sends the rest.
+- Missing ingredients go to the household's own shopping list (below), noting the recipe they came from. The PWA asks what you already have and sends the rest.
+
+## Shopping list
+
+- One shared list per household (`shopping_items`), in the Lists tab. Every member sees, adds, ticks off and removes the same items; ticked items stay until someone clears them. Mealie's shopping lists are not used.
+- The service checks membership, and every query is scoped to the household, so an item id from another household is `404`.
 
 ## Smart home
 

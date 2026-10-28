@@ -36,6 +36,7 @@ type Store struct {
 
 	homeConnections   map[uuid.UUID]domain.HomeConnection
 	pushSubscriptions []domain.PushSubscription
+	shopping          []domain.ShoppingItem
 }
 
 func NewStore() *Store {

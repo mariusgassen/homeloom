@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.9.0
+  version: 0.10.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -27,6 +27,7 @@ tags:
   - name: questions
   - name: entries
   - name: cook
+  - name: shopping
   - name: home
   - name: push
   - name: calls
@@ -557,10 +558,25 @@ paths:
   /v1/households/{householdId}/shopping-list:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [shopping]
+      operationId: listShoppingItems
+      summary: The household's shared shopping list (members only)
+      description: Open items oldest first, then ticked ones, most recently ticked first. At most 500.
+      responses:
+        "200":
+          description: The items.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ShoppingItem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
     post:
       tags: [cook]
       operationId: addToShoppingList
-      summary: Put a recipe's missing ingredients on the Mealie shopping list (members only)
+      summary: Put a recipe's missing ingredients on the household's shopping list (members only)
       requestBody:
         required: true
         content:
@@ -576,6 +592,82 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/shopping-list/items:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [shopping]
+      operationId: addShoppingItem
+      summary: Put something on the shopping list
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NewShoppingItem" }
+      responses:
+        "201":
+          description: The new item.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShoppingItem" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/shopping-list/items/{itemId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/ShoppingItemId"
+    delete:
+      tags: [shopping]
+      operationId: deleteShoppingItem
+      summary: Take an item off the list
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/shopping-list/items/{itemId}/done:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/ShoppingItemId"
+    put:
+      tags: [shopping]
+      operationId: tickShoppingItem
+      summary: Tick an item off
+      responses:
+        "200":
+          description: The item, ticked.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShoppingItem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [shopping]
+      operationId: untickShoppingItem
+      summary: Untick an item
+      responses:
+        "200":
+          description: The item, open again.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShoppingItem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/shopping-list/done:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    delete:
+      tags: [shopping]
+      operationId: clearShoppingItems
+      summary: Remove every ticked item
+      responses:
+        "204": { description: Removed. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/households/{householdId}/home:
     parameters:
@@ -870,6 +962,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    ShoppingItemId:
+      name: itemId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     RecipeSlug:
       name: slug
       in: path
@@ -1127,7 +1224,25 @@ components:
       required: [added, list]
       properties:
         added: { type: integer, description: How many ingredients were put on the list. }
-        list: { type: string, description: The Mealie shopping list's name. }
+        list: { type: string, description: "The shopping list's name, in the request's language." }
+
+    NewShoppingItem:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, minLength: 1, maxLength: 200 }
+
+    ShoppingItem:
+      type: object
+      required: [id, text, done, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        text: { type: string }
+        recipe: { type: string, description: "The recipe the item came from, if any." }
+        addedBy: { type: string, format: uuid, description: Who added it; absent once they left. }
+        done: { type: boolean }
+        doneAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
 
     Home:
       type: object

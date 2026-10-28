@@ -107,16 +107,25 @@ type CalendarFeedRepository interface {
 	DeleteCalendarFeed(ctx context.Context, f domain.CalendarFeed) error
 }
 
-// RecipeBook is the household's recipe collection and shopping list (Mealie). Every method
-// returns domain.ErrUnavailable when the service can't be reached.
+// RecipeBook is the household's recipe collection (Mealie). Every method returns
+// domain.ErrUnavailable when the service can't be reached.
 type RecipeBook interface {
 	// Recipes returns the summaries of all recipes (up to a few hundred).
 	Recipes(ctx context.Context) ([]domain.RecipeSummary, error)
 	// Recipe returns domain.ErrNotFound for an unknown slug.
 	Recipe(ctx context.Context, slug string) (domain.Recipe, error)
-	// AddToShoppingList puts the recipe's ingredients with the given ids on the shopping list.
-	// Unknown ids are ignored; domain.ErrNotFound means the recipe or the list is missing.
-	AddToShoppingList(ctx context.Context, slug string, ingredientIDs []string) (domain.ShoppingListAdded, error)
+}
+
+// ShoppingRepository keeps the household's shopping list. Calls that name an item return
+// domain.ErrNotFound when it isn't on that household's list.
+type ShoppingRepository interface {
+	// ShoppingItems returns open items oldest first, then ticked ones, most recently ticked first.
+	ShoppingItems(ctx context.Context, householdID uuid.UUID, limit int) ([]domain.ShoppingItem, error)
+	// AddShoppingItems stores the items, all or none.
+	AddShoppingItems(ctx context.Context, items []domain.ShoppingItem) ([]domain.ShoppingItem, error)
+	SetShoppingItemDone(ctx context.Context, householdID, id uuid.UUID, done bool) (domain.ShoppingItem, error)
+	DeleteShoppingItem(ctx context.Context, householdID, id uuid.UUID) error
+	ClearDoneShoppingItems(ctx context.Context, householdID uuid.UUID) error
 }
 
 // Chef is the LLM's cooking judgement.

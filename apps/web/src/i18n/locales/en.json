@@ -166,6 +166,7 @@
       "Which song should be on our shared playlist?"
     ]
   },
+  "shopping": { "tab": "Shopping", "placeholder": "Add an item", "add": "Add", "remove": "Remove {{item}}", "clear": "Clear", "emptyTitle": "Nothing to buy", "emptyBody": "Add what you need.", "open": "Open list" },
   "invite": {
     "create": "Invite someone",
     "body": "Send this link to your partner. It works once and until {{date}}.",

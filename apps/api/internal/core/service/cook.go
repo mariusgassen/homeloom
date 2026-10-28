@@ -14,16 +14,18 @@ import (
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/port"
 )
 
-// Cook suggests recipes from Mealie. Without Mealie (book is nil) cooking is unavailable; without
-// an LLM (chef is nil or down) suggestions are random, so the feature degrades instead of breaking.
+// Cook suggests recipes from Mealie and puts missing ingredients on the household's shopping list.
+// Without Mealie (book is nil) cooking is unavailable; without an LLM (chef is nil or down)
+// suggestions are random, so the feature degrades instead of breaking.
 type Cook struct {
 	households port.HouseholdRepository
 	book       port.RecipeBook
 	chef       port.Chef
+	shopping   port.ShoppingService
 }
 
-func NewCook(households port.HouseholdRepository, book port.RecipeBook, chef port.Chef) *Cook {
-	return &Cook{households: households, book: book, chef: chef}
+func NewCook(households port.HouseholdRepository, book port.RecipeBook, chef port.Chef, shopping port.ShoppingService) *Cook {
+	return &Cook{households: households, book: book, chef: chef, shopping: shopping}
 }
 
 func (s *Cook) Suggest(ctx context.Context, actor domain.User, householdID uuid.UUID, mood, lang string) (domain.Suggestions, error) {
@@ -61,14 +63,29 @@ func (s *Cook) Recipe(ctx context.Context, actor domain.User, householdID uuid.U
 	return s.book.Recipe(ctx, slug)
 }
 
-func (s *Cook) AddToShoppingList(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string, ingredientIDs []string) (domain.ShoppingListAdded, error) {
+func (s *Cook) AddToShoppingList(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string, ingredientIDs []string) (int, error) {
 	if err := s.ready(ctx, actor, householdID); err != nil {
-		return domain.ShoppingListAdded{}, err
+		return 0, err
 	}
-	if len(ingredientIDs) == 0 {
-		return domain.ShoppingListAdded{}, fmt.Errorf("%w: no ingredients", domain.ErrInvalid)
+	r, err := s.book.Recipe(ctx, slug)
+	if err != nil {
+		return 0, err
 	}
-	return s.book.AddToShoppingList(ctx, slug, ingredientIDs)
+	want := make(map[string]bool, len(ingredientIDs))
+	for _, id := range ingredientIDs {
+		want[id] = true
+	}
+	var texts []string
+	for _, in := range r.Ingredients {
+		if want[in.ID] {
+			texts = append(texts, in.Text)
+		}
+	}
+	if len(texts) == 0 {
+		return 0, fmt.Errorf("%w: none of the ingredients belong to %s", domain.ErrInvalid, slug)
+	}
+	added, err := s.shopping.Add(ctx, actor, householdID, texts, r.Name)
+	return len(added), err
 }
 
 // ready checks membership first, so non-members learn nothing about whether Mealie is set up.
