@@ -84,6 +84,7 @@
     "camera": "Camera",
     "flip": "Flip camera",
     "react": "React",
+    "effects": { "title": "Effects", "blur": "Blur background", "shades": "Sunglasses", "crown": "Crown", "cat": "Cat", "hearts": "Heart eyes", "clown": "Clown nose" },
     "swap": "Swap views",
     "spotlight": "Show {{name}} large",
     "hangUp": "Hang up",

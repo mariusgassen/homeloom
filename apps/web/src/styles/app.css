@@ -162,8 +162,11 @@ h1, h2, h3, p { margin: 0; }
 .call-mirror .call-tile-video { transform: scaleX(-1); }
 .call-tile[role="button"] { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .call-tile-pinned { grid-column: 1 / -1; grid-row: span 2; order: -1; }
-.call-flip { position: absolute; top: var(--space-2); right: var(--space-2); width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(0, 0, 0, 0.45); color: #ffffff; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.call-grid .call-flip { top: max(var(--space-4), env(safe-area-inset-top, 0px)); right: auto; left: max(var(--space-4), env(safe-area-inset-left, 0px)); width: 44px; height: 44px; }
+.call-self-actions { position: absolute; top: var(--space-2); right: var(--space-2); display: flex; flex-direction: column; gap: var(--space-2); }
+.call-self-action { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(0, 0, 0, 0.45); color: #ffffff; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.call-self-action[aria-pressed="true"] { background: #ffffff; color: #000000; }
+.call-grid .call-self-actions { top: max(var(--space-4), env(safe-area-inset-top, 0px)); right: auto; left: max(var(--space-4), env(safe-area-inset-left, 0px)); }
+.call-grid .call-self-action { width: 44px; height: 44px; }
 /* Reactions rise from just above the controls and fade out. */
 .call-reactions { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; }
 .call-reaction { position: absolute; bottom: var(--call-bottom); font-size: 44px; line-height: 1; opacity: 0; animation: call-rise 2.6s ease-out forwards; }
@@ -172,6 +175,9 @@ h1, h2, h3, p { margin: 0; }
 @media (prefers-reduced-motion: reduce) { .call-reaction { animation-name: call-pop; } .call-float { transition: none; } }
 .call-tray { position: absolute; z-index: 3; bottom: var(--call-bottom); left: 50%; transform: translateX(-50%); display: flex; gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-pill); background: rgba(0, 0, 0, 0.55); }
 .call-tray-emoji { width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 50%; background: none; font-size: 28px; line-height: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.call-tray-emoji[aria-pressed="true"] { background: rgba(255, 255, 255, 0.3); }
+.call-tray[aria-busy="true"] { animation: call-busy 1s ease-in-out infinite alternate; }
+@keyframes call-busy { to { opacity: 0.6; } }
 .call-tray-emoji:active { background: rgba(255, 255, 255, 0.2); transform: scale(1.15); }
 .call-guest { display: flex; flex-direction: column; gap: var(--space-4); }
 .call-link { margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-sunken); overflow-wrap: anywhere; }
