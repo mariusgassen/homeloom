@@ -68,11 +68,13 @@ func (s *AgentAccess) Authenticate(ctx context.Context, token string) (domain.Ag
 	return g, nil
 }
 
-func (s *AgentAccess) AuthenticateCalendar(ctx context.Context, password string) (domain.AgentGrant, error) {
-	if !strings.HasPrefix(password, domain.CalendarPasswordPrefix) {
+// AuthenticateCalendar takes the token a calendar app sends as its password. Like every personal
+// token it is 256 random bits, so a fast hash is enough to look it up.
+func (s *AgentAccess) AuthenticateCalendar(ctx context.Context, token string) (domain.AgentGrant, error) {
+	if !strings.HasPrefix(token, domain.CalendarPasswordPrefix) {
 		return domain.AgentGrant{}, fmt.Errorf("%w: not a calendar password", domain.ErrUnauthenticated)
 	}
-	return s.personal(ctx, password, domain.AccessCalendar)
+	return s.personal(ctx, token, domain.AccessCalendar)
 }
 
 // personal looks up a personal token, which only opens what it was made for.

@@ -63,8 +63,9 @@ func NewHandler(d Deps) http.Handler {
 			http.Redirect(w, r, Prefix+"/", http.StatusMovedPermanently)
 			return
 		}
-		_, password, _ := r.BasicAuth()
-		g, err := d.Agents.AuthenticateCalendar(r.Context(), password)
+		// The password is a personal token; the user name means nothing.
+		_, token, _ := r.BasicAuth()
+		g, err := d.Agents.AuthenticateCalendar(r.Context(), token)
 		switch {
 		case errors.Is(err, domain.ErrUnauthenticated):
 			w.Header().Set("WWW-Authenticate", `Basic realm="Homeloom", charset="UTF-8"`)

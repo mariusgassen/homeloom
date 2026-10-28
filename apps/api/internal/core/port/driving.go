@@ -169,7 +169,7 @@ type AgentAccessService interface {
 	Authenticate(ctx context.Context, token string) (domain.AgentGrant, error)
 	// AuthenticateCalendar takes a personal password for calendar apps. It returns
 	// domain.ErrUnauthenticated for anything else.
-	AuthenticateCalendar(ctx context.Context, password string) (domain.AgentGrant, error)
+	AuthenticateCalendar(ctx context.Context, token string) (domain.AgentGrant, error)
 	Revoke(ctx context.Context, token string) error
 	// Tokens are the actor's personal tokens in the household.
 	Tokens(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.MCPToken, error)
