@@ -1,7 +1,7 @@
 {
   "error.already_revealed": "The answers are already open, so they can't change any more.",
   "error.auth_unavailable": "Sign-in is temporarily unavailable. Try again in a minute.",
-  "error.cooking_unavailable": "Cooking isn't available right now. Is Mealie set up and running?",
+  "error.cooking_unavailable": "Cooking isn't available right now.",
   "error.home_unavailable": "The smart home isn't reachable right now. Is Home Assistant set up and running?",
   "error.internal": "Something went wrong on our side.",
   "error.invalid": "The request is not valid.",

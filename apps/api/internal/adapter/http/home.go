@@ -24,13 +24,20 @@ func (h *handlers) GetHome(ctx context.Context, req oapi.GetHomeRequestObject) (
 		return nil, err
 	}
 	out := oapi.GetHome200JSONResponse{
-		Connected: home.Connected, Scenes: make([]oapi.Scene, len(home.Scenes)), Lights: make([]oapi.Light, len(home.Lights)),
+		Connected: home.Connected, Rooms: make([]oapi.Room, len(home.Rooms)), Scenes: make([]oapi.Scene, len(home.Scenes)),
+		Lights: make([]oapi.Light, len(home.Lights)), Readings: make([]oapi.Reading, len(home.Readings)),
+	}
+	for i, r := range home.Rooms {
+		out.Rooms[i] = oapi.Room{Id: r.ID, Name: r.Name}
 	}
 	for i, s := range home.Scenes {
-		out.Scenes[i] = oapi.Scene{Id: s.ID, Name: s.Name}
+		out.Scenes[i] = oapi.Scene{Id: s.ID, Name: s.Name, Room: optional(s.Room)}
 	}
 	for i, l := range home.Lights {
 		out.Lights[i] = toLight(l)
+	}
+	for i, r := range home.Readings {
+		out.Readings[i] = toReading(r)
 	}
 	return out, nil
 }
@@ -131,7 +138,17 @@ func (h *handlers) ToggleLight(ctx context.Context, req oapi.ToggleLightRequestO
 }
 
 func toLight(l domain.Light) oapi.Light {
-	return oapi.Light{Id: l.ID, Name: l.Name, On: l.On}
+	return oapi.Light{Id: l.ID, Name: l.Name, Room: optional(l.Room), On: l.On}
+}
+
+func toReading(r domain.Reading) oapi.Reading {
+	out := oapi.Reading{Id: r.ID, Name: r.Name, Room: optional(r.Room), Kind: oapi.ReadingKind(r.Kind)}
+	if r.Kind.Measured() {
+		out.Value, out.Unit = &r.Value, optional(r.Unit)
+	} else {
+		out.On = &r.On
+	}
+	return out
 }
 
 // homeUnavailable answers when Home Assistant is down or not set up; the cause is logged, not sent.

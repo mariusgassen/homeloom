@@ -278,7 +278,7 @@ func TestCookingWithoutMealie(t *testing.T) {
 	h := newServerWith(t, nil)
 	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
 	code, body := do(t, h, "POST", "/v1/households/"+created["id"].(string)+"/cook/suggestions", "token-alice", `{"mood":"cozy"}`, "Accept-Language", "de")
-	if code != 503 || body["code"] != "cooking_unavailable" || !strings.Contains(body["message"].(string), "Mealie") {
+	if code != 503 || body["code"] != "cooking_unavailable" || body["message"] != "Kochen geht gerade nicht." {
 		t.Fatalf("no Mealie: %d %v", code, body)
 	}
 }

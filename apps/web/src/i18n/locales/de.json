@@ -1,5 +1,5 @@
 {
-  "app": { "tagline": "Ein gemeinsames Zuhause für zwei. Essen, Momente und euer Smart Home an einem privaten Ort." },
+  "app": { "tagline": "Essen, Momente und euer Zuhause, gemeinsam." },
   "tabs": { "label": "Hauptmenü", "today": "Heute", "cook": "Kochen", "us": "Wir", "lists": "Listen", "home": "Zuhause" },
   "auth": {
     "signIn": "Anmelden",
@@ -21,9 +21,9 @@
   "settings": { "title": "Einstellungen", "you": "Du", "household": "Haushalt", "owner": "Inhaber:in", "member": "Mitglied", "open": "Haushalt und Einstellungen" },
   "push": { "title": "Mitteilungen", "switch": "Mitteilungen auf diesem Gerät", "hint": "Wenn eure Antworten offen sind", "install": "Für Mitteilungen auf dem iPhone leg Homeloom zuerst auf deinen Home-Bildschirm: Tipp auf Teilen, dann „Zum Home-Bildschirm“, und öffne es von dort.", "blocked": "Mitteilungen sind blockiert. Erlaube sie in den Einstellungen deines Handys unter Mitteilungen und versuch es nochmal.", "failed": "Das hat nicht geklappt. Versuch es bitte nochmal." },
   "today": {
-    "question": { "eyebrow": "Frage des Tages", "title": "Noch keine Frage", "body": "Stell eine, dann antwortet ihr beide. Die Antworten öffnen sich, sobald ihr fertig seid." },
-    "dinner": { "eyebrow": "Heute Abend", "title": "Noch nichts geplant", "body": "Rezepte aus Mealie und Kochen nach Laune erscheinen hier." },
-    "due": { "eyebrow": "Heute fällig", "title": "Alles erledigt", "body": "Gemeinsame Erinnerungen erscheinen hier." }
+    "question": { "eyebrow": "Frage des Tages", "title": "Noch keine Frage", "body": "Stell eine. Die Antworten öffnen sich, wenn ihr beide geantwortet habt." },
+    "dinner": { "eyebrow": "Heute Abend", "title": "Noch nichts geplant", "body": "Such dir was unter Kochen aus." },
+    "due": { "eyebrow": "Heute fällig", "title": "Alles erledigt", "body": "Nichts fällig." }
   },
   "cook": {
     "question": "Worauf habt ihr heute Lust?",
@@ -35,11 +35,10 @@
     "useUpPlaceholder": "z. B. Fenchel, eine halbe Zitrone",
     "suggest": "Abendessen vorschlagen",
     "thinking": "Stöbere in euren Rezepten…",
-    "hint": "Sucht aus euren eigenen Rezepten in Mealie und setzt Fehlendes auf die Einkaufsliste.",
     "suggestions": "Ideen für heute",
-    "random": "Diesmal ohne passenden Treffer, darum drei Rezepte per Zufall.",
+    "random": "Nichts passte so richtig, darum drei per Zufall.",
     "emptyTitle": "Noch keine Rezepte",
-    "emptyBody": "Leg ein paar Rezepte in Mealie an und frag dann nochmal.",
+    "emptyBody": "Leg zuerst ein paar Rezepte an.",
     "failed": "Das hat nicht geklappt. Versuch es bitte nochmal.",
     "servings": "Für {{servings}}",
     "ingredients": "Zutaten",
@@ -49,29 +48,28 @@
     "added_one": "{{count}} Zutat steht jetzt auf „{{list}}“.",
     "added_other": "{{count}} Zutaten stehen jetzt auf „{{list}}“.",
     "steps": "Zubereitung",
-    "openInMealie": "In Mealie öffnen"
+    "openRecipe": "Ganzes Rezept öffnen"
   },
   "us": {
     "title": "Noch keine Fragen",
-    "body": "Stell die erste, oder lass dir eine vorschlagen.",
-    "alone": { "title": "Zu zweit geht's besser", "body": "Antworten öffnen sich erst, wenn alle im Haushalt geantwortet haben. Lade zuerst deinen Schatz ein." }
+    "body": "Stell die erste.",
+    "alone": { "title": "Zu zweit geht's besser", "body": "Lade zuerst deinen Schatz ein." }
   },
-  "lists": { "title": "Noch keine Listen", "body": "Einkauf und gemeinsame To-dos, abgeglichen mit Mealie." },
+  "lists": { "title": "Noch keine Listen", "body": "Einkauf und To-dos, kommt bald." },
   "home": {
-    "connected": "Home Assistant verbunden",
     "scenes": "Szenen",
+    "other": "Weitere",
     "on": "An",
-    "lights": "Licht",
-    "whitelist": "Hier gibt's nur Szenen und Licht. Schlösser, Alarm und Garage bleiben in Home Assistant.",
+    "off": "Aus",
     "offTitle": "Smart Home ist gerade nicht da",
-    "connectTitle": "Verbinde dein Home Assistant",
-    "connectBody": "Melde dich mit deinem eigenen Home-Assistant-Konto an. Was du hier schaltest, steht dort unter deinem Namen.",
+    "connectTitle": "Verbinde dein Smart Home",
+    "connectBody": "Melde dich mit deinem eigenen Konto an.",
     "connect": "Verbinden",
-    "disconnect": "Mein Home Assistant trennen",
-    "error": { "connect_failed": "Das Verbinden hat nicht geklappt. Versuch es bitte noch mal.", "home_unavailable": "Home Assistant ist gerade nicht erreichbar. Versuch es später noch mal." },
-    "emptyTitle": "Noch nichts zum Schalten",
-    "emptyBody": "Leg Szenen oder Lichter in Home Assistant an, dann tauchen sie hier auf.",
-    "failed": "Das hat nicht geklappt. Versuch es bitte noch mal."
+    "disconnect": "Smart Home trennen",
+    "error": { "connect_failed": "Das Verbinden hat nicht geklappt. Versuch es bitte noch mal.", "home_unavailable": "Dein Smart Home ist gerade nicht erreichbar. Versuch es später noch mal." },
+    "emptyTitle": "Hier ist noch nichts",
+    "failed": "Das hat nicht geklappt. Versuch es bitte noch mal.",
+    "reading": { "window": "Fenster offen", "door": "Tür offen", "garage_door": "Garage offen", "motion": "Bewegung", "moisture": "Wasser", "smoke": "Rauch" }
   },
   "questions": {
     "ask": "Stell eine Frage",
@@ -79,7 +77,7 @@
     "askSend": "Fragen",
     "suggest": "Vorschlag",
     "yourAnswer": "Deine Antwort",
-    "private": "Bleibt verborgen, bis alle geantwortet haben.",
+    "private": "Verborgen, bis ihr beide geantwortet habt.",
     "send": "Antworten",
     "save": "Speichern",
     "edit": "Antwort ändern",

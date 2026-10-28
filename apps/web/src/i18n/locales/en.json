@@ -1,5 +1,5 @@
 {
-  "app": { "tagline": "A shared home for two. Meals, moments and your smart home, in one private place." },
+  "app": { "tagline": "Meals, moments and your home, together." },
   "tabs": { "label": "Main", "today": "Today", "cook": "Cook", "us": "Us", "lists": "Lists", "home": "Home" },
   "auth": {
     "signIn": "Sign in",
@@ -21,9 +21,9 @@
   "settings": { "title": "Settings", "you": "You", "household": "Household", "owner": "Owner", "member": "Member", "open": "Household and settings" },
   "push": { "title": "Notifications", "switch": "Notifications on this device", "hint": "When your answers open", "install": "To get notifications on your iPhone, add Homeloom to your Home Screen first: tap Share, then “Add to Home Screen”, and open it from there.", "blocked": "Notifications are blocked. Allow them in your phone's Settings under Notifications, then try again.", "failed": "That didn't work. Please try again." },
   "today": {
-    "question": { "eyebrow": "Today's question", "title": "No question yet", "body": "Ask one, and you'll both answer. The answers open once you have." },
-    "dinner": { "eyebrow": "Dinner tonight", "title": "Nothing planned yet", "body": "Recipes from Mealie and cook-by-mood will show up here." },
-    "due": { "eyebrow": "Due today", "title": "All clear", "body": "Shared reminders will appear here." }
+    "question": { "eyebrow": "Today's question", "title": "No question yet", "body": "Ask one. Answers open once you both replied." },
+    "dinner": { "eyebrow": "Dinner tonight", "title": "Nothing planned yet", "body": "Pick something under Cook." },
+    "due": { "eyebrow": "Due today", "title": "All clear", "body": "Nothing due." }
   },
   "cook": {
     "question": "What do you feel like tonight?",
@@ -35,11 +35,10 @@
     "useUpPlaceholder": "e.g. fennel, half a lemon",
     "suggest": "Suggest dinner",
     "thinking": "Looking through your recipes…",
-    "hint": "Picks from your own recipes in Mealie and adds anything missing to the shopping list.",
     "suggestions": "Ideas for tonight",
-    "random": "No fitting pick this time, so here are three recipes at random.",
+    "random": "Nothing quite fit, so here are three at random.",
     "emptyTitle": "No recipes yet",
-    "emptyBody": "Add a few recipes in Mealie, then ask again.",
+    "emptyBody": "Add a few recipes first.",
     "failed": "That didn't work. Please try again.",
     "servings": "Serves {{servings}}",
     "ingredients": "Ingredients",
@@ -49,29 +48,28 @@
     "added_one": "{{count}} item is on “{{list}}” now.",
     "added_other": "{{count}} items are on “{{list}}” now.",
     "steps": "Steps",
-    "openInMealie": "Open in Mealie"
+    "openRecipe": "Open full recipe"
   },
   "us": {
     "title": "No questions yet",
-    "body": "Ask the first one, or let Homeloom suggest one.",
-    "alone": { "title": "It takes two", "body": "Answers open once everyone in your household has answered. Invite your partner first." }
+    "body": "Ask the first one.",
+    "alone": { "title": "It takes two", "body": "Invite your partner first." }
   },
-  "lists": { "title": "No lists yet", "body": "Shopping and shared to-dos, synced with Mealie." },
+  "lists": { "title": "No lists yet", "body": "Shopping and to-dos, coming soon." },
   "home": {
-    "connected": "Home Assistant connected",
     "scenes": "Scenes",
+    "other": "Other",
     "on": "On",
-    "lights": "Lights",
-    "whitelist": "Only scenes and lights show here. Locks, alarm and garage stay in Home Assistant.",
+    "off": "Off",
     "offTitle": "Smart home isn't available",
-    "connectTitle": "Connect your Home Assistant",
-    "connectBody": "Sign in with your own Home Assistant account. Whatever you switch here shows up there under your name.",
+    "connectTitle": "Connect your smart home",
+    "connectBody": "Sign in with your own account.",
     "connect": "Connect",
-    "disconnect": "Disconnect my Home Assistant",
-    "error": { "connect_failed": "Connecting didn't work. Please try again.", "home_unavailable": "Home Assistant isn't reachable right now. Please try again later." },
-    "emptyTitle": "Nothing to switch yet",
-    "emptyBody": "Add scenes or lights in Home Assistant and they'll show up here.",
-    "failed": "That didn't work. Please try again."
+    "disconnect": "Disconnect smart home",
+    "error": { "connect_failed": "Connecting didn't work. Please try again.", "home_unavailable": "Your smart home isn't reachable right now. Please try again later." },
+    "emptyTitle": "Nothing here yet",
+    "failed": "That didn't work. Please try again.",
+    "reading": { "window": "Window open", "door": "Door open", "garage_door": "Garage open", "motion": "Motion", "moisture": "Water", "smoke": "Smoke" }
   },
   "questions": {
     "ask": "Ask a question",
@@ -79,7 +77,7 @@
     "askSend": "Ask",
     "suggest": "Suggest one",
     "yourAnswer": "Your answer",
-    "private": "Stays hidden until everyone has answered.",
+    "private": "Hidden until you both answered.",
     "send": "Answer",
     "save": "Save",
     "edit": "Change my answer",

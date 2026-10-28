@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.6.0
+  version: 0.7.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -379,11 +379,15 @@ paths:
     get:
       tags: [home]
       operationId: getHome
-      summary: Scenes and lights from Home Assistant, read live (members only)
+      summary: Rooms, scenes, lights and readings from Home Assistant, read live (members only)
       description: |
-        Only scenes and lights are exposed. Locks, alarms, covers and everything else never are.
+        Only scenes and lights can be switched. Readings (temperature, open windows and the like)
+        are read-only; locks, alarms, covers and everything else are never exposed.
         Each member connects their own Home Assistant account, and switches act as that person.
-        Until the caller has connected, `connected` is false and the lists are empty.
+        Rooms are Home Assistant's areas; an entity's `room` is its area, or its device's. Entities
+        that belong to a group helper, or that are hidden in Home Assistant, are left out, so a
+        group shows as one control. If the areas can't be read, `rooms` is empty and nothing has a
+        `room`. Until the caller has connected, `connected` is false and the lists are empty.
       responses:
         "200":
           description: The home.
@@ -453,7 +457,7 @@ paths:
       summary: Switch a light on or off
       responses:
         "200":
-          description: The light after switching.
+          description: The light after switching; `room` is left out.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Light" }
@@ -705,15 +709,29 @@ components:
 
     Home:
       type: object
-      required: [connected, scenes, lights]
+      required: [connected, rooms, scenes, lights, readings]
       properties:
         connected: { type: boolean, description: Whether you have connected your Home Assistant account. }
+        rooms:
+          type: array
+          description: Rooms that hold at least one scene, light or reading, by name.
+          items: { $ref: "#/components/schemas/Room" }
         scenes:
           type: array
           items: { $ref: "#/components/schemas/Scene" }
         lights:
           type: array
           items: { $ref: "#/components/schemas/Light" }
+        readings:
+          type: array
+          items: { $ref: "#/components/schemas/Reading" }
+
+    Room:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, description: "Home Assistant area id, e.g. kitchen." }
+        name: { type: string }
 
     HomeConnect:
       type: object
@@ -727,6 +745,7 @@ components:
       properties:
         id: { type: string, description: "Home Assistant entity id, e.g. scene.dinner." }
         name: { type: string }
+        room: { type: string, description: The room's id; absent when it has none. }
 
     Light:
       type: object
@@ -734,6 +753,7 @@ components:
       properties:
         id: { type: string, description: "Home Assistant entity id, e.g. light.kitchen." }
         name: { type: string }
+        room: { type: string, description: The room's id; absent when it has none. }
         on: { type: boolean }
 
     PushConfig:
@@ -754,6 +774,24 @@ components:
           properties:
             p256dh: { type: string, minLength: 1, maxLength: 200 }
             auth: { type: string, minLength: 1, maxLength: 100 }
+
+    Reading:
+      type: object
+      description: |
+        A live, read-only state. Measurements (temperature, humidity, power, co2) have `value`
+        and `unit`; the others (window, door, garage_door, motion, moisture, smoke) have `on`,
+        which means open, detected or wet.
+      required: [id, name, kind]
+      properties:
+        id: { type: string, description: "Home Assistant entity id, e.g. sensor.kitchen_temperature." }
+        name: { type: string }
+        room: { type: string, description: The room's id; absent when it has none. }
+        kind:
+          type: string
+          enum: [temperature, humidity, power, co2, window, door, garage_door, motion, moisture, smoke]
+        value: { type: number, format: double }
+        unit: { type: string }
+        "on": { type: boolean }
 
     Logout:
       type: object

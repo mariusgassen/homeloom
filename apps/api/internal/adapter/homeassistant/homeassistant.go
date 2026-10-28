@@ -1,6 +1,6 @@
 // Package homeassistant is the driven adapter for Home Assistant's REST API. It signs in through
-// Home Assistant's own OAuth flow and only ever reads states and calls scene.turn_on,
-// light.turn_on and light.turn_off.
+// Home Assistant's own OAuth flow and only ever reads states and the area, device and entity
+// registries, and calls scene.turn_on, light.turn_on and light.turn_off.
 package homeassistant
 
 import (
@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -162,7 +163,22 @@ type state struct {
 	State      string `json:"state"`
 	Attributes struct {
 		FriendlyName string `json:"friendly_name"`
+		DeviceClass  string `json:"device_class"`
+		Unit         string `json:"unit_of_measurement"`
+		// Members of a group helper; a scene lists the entities it sets here too.
+		EntityID members `json:"entity_id"`
 	} `json:"attributes"`
+}
+
+// members is a group's entity_id attribute, which some entities use for a single id instead.
+type members []string
+
+func (m *members) UnmarshalJSON(b []byte) error {
+	var ids []string
+	if json.Unmarshal(b, &ids) == nil {
+		*m = ids
+	}
+	return nil
 }
 
 func (s state) name() string {
@@ -172,26 +188,59 @@ func (s state) name() string {
 	return s.EntityID
 }
 
-func (c *Client) Devices(ctx context.Context, refreshToken string) ([]domain.Scene, []domain.Light, error) {
+// measured and detected are the sensor and binary sensor device classes shown as readings.
+var (
+	measured = map[string]domain.ReadingKind{
+		"temperature": domain.Temperature, "humidity": domain.Humidity, "power": domain.Power, "carbon_dioxide": domain.CO2,
+	}
+	detected = map[string]domain.ReadingKind{
+		"window": domain.Window, "door": domain.Door, "garage_door": domain.GarageDoor,
+		"motion": domain.Motion, "occupancy": domain.Motion, "moisture": domain.Moisture, "smoke": domain.Smoke,
+	}
+)
+
+func (c *Client) Devices(ctx context.Context, refreshToken string) (domain.Devices, error) {
 	var states []state
 	if err := c.do(ctx, refreshToken, http.MethodGet, "/api/states", nil, &states); err != nil {
-		return nil, nil, err
+		return domain.Devices{}, err
 	}
-	scenes, lights := []domain.Scene{}, []domain.Light{}
+	// A group helper stands for its members, so they are left out. Scenes list entities too,
+	// but don't group them.
+	grouped := map[string]bool{}
 	for _, s := range states {
-		if s.State == "unavailable" {
+		if !strings.HasPrefix(s.EntityID, "scene.") {
+			for _, id := range s.Attributes.EntityID {
+				grouped[id] = true
+			}
+		}
+	}
+	d := domain.Devices{Scenes: []domain.Scene{}, Lights: []domain.Light{}, Readings: []domain.Reading{}}
+	for _, s := range states {
+		if s.State == "unavailable" || grouped[s.EntityID] {
 			continue
 		}
-		switch {
-		case strings.HasPrefix(s.EntityID, "scene."):
-			scenes = append(scenes, domain.Scene{ID: s.EntityID, Name: s.name()})
-		case strings.HasPrefix(s.EntityID, "light."):
-			lights = append(lights, domain.Light{ID: s.EntityID, Name: s.name(), On: s.State == "on"})
+		domainName, _, _ := strings.Cut(s.EntityID, ".")
+		switch domainName {
+		case "scene":
+			d.Scenes = append(d.Scenes, domain.Scene{ID: s.EntityID, Name: s.name()})
+		case "light":
+			d.Lights = append(d.Lights, domain.Light{ID: s.EntityID, Name: s.name(), On: s.State == "on"})
+		case "sensor":
+			kind, ok := measured[s.Attributes.DeviceClass]
+			v, err := strconv.ParseFloat(s.State, 64)
+			if ok && err == nil {
+				d.Readings = append(d.Readings, domain.Reading{ID: s.EntityID, Name: s.name(), Kind: kind, Value: v, Unit: s.Attributes.Unit})
+			}
+		case "binary_sensor":
+			if kind, ok := detected[s.Attributes.DeviceClass]; ok && (s.State == "on" || s.State == "off") {
+				d.Readings = append(d.Readings, domain.Reading{ID: s.EntityID, Name: s.name(), Kind: kind, On: s.State == "on"})
+			}
 		}
 	}
-	sort.Slice(scenes, func(i, j int) bool { return scenes[i].Name < scenes[j].Name })
-	sort.Slice(lights, func(i, j int) bool { return lights[i].Name < lights[j].Name })
-	return scenes, lights, nil
+	sort.Slice(d.Scenes, func(i, j int) bool { return d.Scenes[i].Name < d.Scenes[j].Name })
+	sort.Slice(d.Lights, func(i, j int) bool { return d.Lights[i].Name < d.Lights[j].Name })
+	sort.Slice(d.Readings, func(i, j int) bool { return d.Readings[i].Name < d.Readings[j].Name })
+	return d, nil
 }
 
 func (c *Client) ActivateScene(ctx context.Context, refreshToken, id string) error {
