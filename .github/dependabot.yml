@@ -1,9 +1,14 @@
+# Commit prefixes make Dependabot's PR titles Conventional Commits (checked by pr-title.yml).
+# Updates that change the shipped image are fixes, so they cut a patch release.
 version: 2
 updates:
   - package-ecosystem: gomod
     directory: /apps/api
     schedule:
       interval: weekly
+    commit-message:
+      prefix: fix
+      include: scope
     groups:
       go-modules:
         patterns: ["*"]
@@ -12,16 +17,25 @@ updates:
     directory: /apps/api
     schedule:
       interval: weekly
+    commit-message:
+      prefix: fix
+      include: scope
 
   - package-ecosystem: docker-compose
     directory: /
     schedule:
       interval: weekly
+    commit-message:
+      prefix: chore
+      include: scope
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    commit-message:
+      prefix: ci
+      include: scope
     groups:
       actions:
         patterns: ["*"]
