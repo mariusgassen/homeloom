@@ -95,6 +95,7 @@ services:
       VOICE_LLM_MODEL: ${VOICE_LLM_MODEL:-claude-sonnet-5-5}
       HOMELOOM_MCP_URL: http://homeloom-api:8080/mcp
       TIME_ZONE: ${TIME_ZONE:-Europe/Berlin}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       - homeloom-livekit
       - homeloom-api
