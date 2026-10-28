@@ -5,6 +5,7 @@ package port
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -50,6 +51,23 @@ type HouseholdRepository interface {
 	Role(ctx context.Context, householdID, userID uuid.UUID) (domain.Role, error)
 	Get(ctx context.Context, id uuid.UUID) (domain.Household, error)
 	Members(ctx context.Context, householdID uuid.UUID) ([]domain.Member, error)
+	CreateInvite(ctx context.Context, householdID, createdBy uuid.UUID, codeHash []byte, expiresAt time.Time) error
+	// AcceptInvite adds the user to the invite's household and uses the invite up, atomically.
+	// An existing member gets the membership back and the invite stays unused. It returns
+	// domain.ErrNotFound for an unknown, used or expired invite.
+	AcceptInvite(ctx context.Context, codeHash []byte, userID uuid.UUID) (domain.Membership, error)
+}
+
+type QuestionRepository interface {
+	CreateQuestion(ctx context.Context, householdID, askedBy uuid.UUID, text string) (domain.Question, error)
+	// GetQuestion returns domain.ErrNotFound for an unknown id.
+	GetQuestion(ctx context.Context, id uuid.UUID) (domain.Question, error)
+	// ListQuestions returns the newest questions first, with their answers.
+	ListQuestions(ctx context.Context, householdID uuid.UUID, limit int) ([]domain.Question, error)
+	// Answer stores or replaces the user's answer and, in the same transaction, reveals the
+	// question once every member of its household (at least two) has answered. It returns
+	// domain.ErrConflict if the question was already revealed.
+	Answer(ctx context.Context, questionID, userID uuid.UUID, text string) (domain.Question, error)
 }
 
 type HealthCheck interface {

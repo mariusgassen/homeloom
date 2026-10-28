@@ -152,6 +152,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a one-time invite link code (members only) */
+        post: operations["createInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/invites/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Join the household an invite belongs to
+         * @description Uses the invite up. Accepting an invite to a household you already belong to leaves it unused.
+         */
+        post: operations["acceptInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /** The household's questions, newest first (members only) */
+        get: operations["listQuestions"];
+        put?: never;
+        /** Ask the household a question */
+        post: operations["askQuestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/questions/{questionId}/answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Write or change your answer; the question opens once every member has answered */
+        put: operations["answerQuestion"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -188,6 +268,43 @@ export interface components {
             checks: {
                 [key: string]: string;
             };
+        };
+        Invite: {
+            /** @description Share as `<PUBLIC_URL>/join/<code>`. */
+            code: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        AskQuestion: {
+            text: string;
+        };
+        AnswerQuestion: {
+            text: string;
+        };
+        Question: {
+            /** Format: uuid */
+            id: string;
+            text: string;
+            /**
+             * Format: uuid
+             * @description User id of the member who asked.
+             */
+            askedBy: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description True once every member has answered; answers are then visible to all and fixed. */
+            revealed: boolean;
+            /** Format: date-time */
+            revealedAt?: string;
+            answers: components["schemas"]["Answer"][];
+        };
+        Answer: {
+            /** Format: uuid */
+            userId: string;
+            /** @description Present for your own answer */
+            text?: string;
+            /** Format: date-time */
+            answeredAt: string;
         };
         Logout: {
             /** @description authentik's end-session URL. */
@@ -257,7 +374,9 @@ export interface components {
             };
         };
     };
-    parameters: never;
+    parameters: {
+        HouseholdId: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -474,6 +593,153 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    createInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The invite. The code is shown once; only its hash is stored. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Invite"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    acceptInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The household joined. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Household"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Unknown, used or expired invite (code `invite_invalid`). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listQuestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Up to 50 questions. Other members' answers carry no text until the question is revealed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Question"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    askQuestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskQuestion"];
+            };
+        };
+        responses: {
+            /** @description The new question. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Question"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    answerQuestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnswerQuestion"];
+            };
+        };
+        responses: {
+            /** @description The question after answering. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Question"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description The question is already revealed; answers can no longer change (code `already_revealed`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
 }

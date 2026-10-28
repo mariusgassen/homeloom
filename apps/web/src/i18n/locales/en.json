@@ -20,12 +20,59 @@
   },
   "settings": { "title": "Settings", "you": "You", "household": "Household", "owner": "Owner", "member": "Member", "open": "Household and settings" },
   "today": {
-    "question": { "eyebrow": "Tonight's question", "title": "Questions are on their way", "body": "You'll both answer, and the answers open once you have." },
+    "question": { "eyebrow": "Today's question", "title": "No question yet", "body": "Ask one, and you'll both answer. The answers open once you have." },
     "dinner": { "eyebrow": "Dinner tonight", "title": "Nothing planned yet", "body": "Recipes from Mealie and cook-by-mood will show up here." },
     "due": { "eyebrow": "Due today", "title": "All clear", "body": "Shared reminders will appear here." }
   },
   "cook": { "title": "Not cooking yet", "body": "Pick a mood, and Homeloom finds a recipe in Mealie and puts what's missing on the shopping list." },
-  "us": { "title": "Your questions live here", "body": "Questions you answer together, plus notes that stay private, shared, or open later." },
+  "us": {
+    "title": "No questions yet",
+    "body": "Ask the first one, or let Homeloom suggest one.",
+    "alone": { "title": "It takes two", "body": "Answers open once everyone in your household has answered. Invite your partner first." }
+  },
   "lists": { "title": "No lists yet", "body": "Shopping and shared to-dos, synced with Mealie." },
-  "home": { "title": "Smart home comes later", "body": "Dinner mode and scenes from Home Assistant, only for lights, scenes and music." }
+  "home": { "title": "Smart home comes later", "body": "Dinner mode and scenes from Home Assistant, only for lights, scenes and music." },
+  "questions": {
+    "ask": "Ask a question",
+    "askPlaceholder": "What would you like to know?",
+    "askSend": "Ask",
+    "suggest": "Suggest one",
+    "yourAnswer": "Your answer",
+    "private": "Stays hidden until everyone has answered.",
+    "send": "Answer",
+    "save": "Save",
+    "edit": "Change my answer",
+    "opened": "Open",
+    "sealed": "Sealed",
+    "you": "You",
+    "theyAnswered": "{{name}} has answered",
+    "waiting": "Waiting for {{name}}",
+    "failed": "That didn't work. Please try again.",
+    "suggestions": [
+      "What made you smile this week?",
+      "Which trip together would you take again tomorrow?",
+      "What's a small thing I do that you love?",
+      "What should we try for the first time this year?",
+      "Which meal reminds you of home?",
+      "What would your perfect lazy Sunday look like?",
+      "What are you looking forward to right now?",
+      "Which song should be on our shared playlist?"
+    ]
+  },
+  "invite": {
+    "create": "Invite someone",
+    "body": "Send this link to your partner. It works once and until {{date}}.",
+    "share": "Share link",
+    "copy": "Copy link",
+    "copied": "Copied",
+    "shareText": "Join our home on Homeloom.",
+    "failed": "Couldn't create an invite. Please try again."
+  },
+  "join": {
+    "signIn": "You've been invited to a home on Homeloom. Sign in to join.",
+    "joining": "Joining…",
+    "title": "This invite didn't work",
+    "failed": "That didn't work. Please try again.",
+    "continue": "Continue"
+  }
 }

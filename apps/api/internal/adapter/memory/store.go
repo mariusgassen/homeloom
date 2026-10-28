@@ -16,12 +16,20 @@ type membership struct {
 	role                domain.Role
 }
 
+type invite struct {
+	householdID uuid.UUID
+	expiresAt   time.Time
+	used        bool
+}
+
 type Store struct {
 	mu          sync.Mutex
 	usersBySub  map[string]domain.User
 	users       map[uuid.UUID]domain.User
 	households  map[uuid.UUID]domain.Household
 	memberships []membership
+	invites     map[string]*invite
+	questions   []*domain.Question
 }
 
 func NewStore() *Store {
@@ -29,6 +37,7 @@ func NewStore() *Store {
 		usersBySub: map[string]domain.User{},
 		users:      map[uuid.UUID]domain.User{},
 		households: map[uuid.UUID]domain.Household{},
+		invites:    map[string]*invite{},
 	}
 }
 
@@ -54,11 +63,20 @@ func (s *Store) Create(_ context.Context, name string, owner uuid.UUID) (domain.
 	return domain.Membership{Household: h, Role: domain.RoleOwner}, nil
 }
 
-// AddMember is a test helper until invitations exist.
+// AddMember is a test helper that skips the invite.
 func (s *Store) AddMember(householdID, userID uuid.UUID, role domain.Role) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.memberships = append(s.memberships, membership{householdID, userID, role})
+}
+
+// ExpireInvites is a test helper: it makes every invite expired.
+func (s *Store) ExpireInvites() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, inv := range s.invites {
+		inv.expiresAt = time.Time{}
+	}
 }
 
 func (s *Store) ListForUser(_ context.Context, userID uuid.UUID) ([]domain.Membership, error) {

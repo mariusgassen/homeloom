@@ -7,4 +7,6 @@ var (
 	ErrNotFound        = errors.New("not found")
 	ErrInvalid         = errors.New("invalid input")
 	ErrUnauthenticated = errors.New("unauthenticated")
+	// ErrConflict means the request is valid but the current state does not allow it.
+	ErrConflict = errors.New("conflict")
 )

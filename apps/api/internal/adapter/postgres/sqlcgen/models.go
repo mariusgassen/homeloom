@@ -54,10 +54,27 @@ func (ns NullHouseholdRole) Value() (driver.Value, error) {
 	return string(ns.HouseholdRole), nil
 }
 
+type Answer struct {
+	QuestionID uuid.UUID
+	UserID     uuid.UUID
+	Text       string
+	AnsweredAt time.Time
+}
+
 type Household struct {
 	ID        uuid.UUID
 	Name      string
 	CreatedAt time.Time
+}
+
+type Invite struct {
+	CodeHash    []byte
+	HouseholdID uuid.UUID
+	CreatedBy   uuid.UUID
+	ExpiresAt   time.Time
+	UsedBy      *uuid.UUID
+	UsedAt      *time.Time
+	CreatedAt   time.Time
 }
 
 type Membership struct {
@@ -65,6 +82,15 @@ type Membership struct {
 	UserID      uuid.UUID
 	Role        HouseholdRole
 	CreatedAt   time.Time
+}
+
+type Question struct {
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+	AskedBy     uuid.UUID
+	Text        string
+	CreatedAt   time.Time
+	RevealedAt  *time.Time
 }
 
 type User struct {

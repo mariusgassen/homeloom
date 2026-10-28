@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { Navigate, Route, Routes } from "react-router";
+import { useEffect } from "react";
+import { matchPath, Navigate, Route, Routes, useLocation } from "react-router";
+import { Join, pendingInvite } from "./screens/Join";
 import { Onboarding } from "./screens/Onboarding";
 import { Settings } from "./screens/Settings";
 import { Cook, Home, Lists, Today, Us } from "./screens/Tabs";
@@ -10,15 +12,22 @@ import { TabBar } from "./ui/TabBar";
 export function App() {
   const { t } = useTranslation();
   const { session, reload } = useSession();
+  const linked = matchPath("/join/:code", useLocation().pathname)?.params.code;
+  const invite = linked ?? pendingInvite.get();
+
+  useEffect(() => {
+    if (linked) pendingInvite.set(linked);
+  }, [linked]);
 
   switch (session.state) {
     case "loading":
       return null;
     case "signedOut":
-      return <Welcome />;
+      return <Welcome invited={!!invite} />;
     case "unavailable":
       return <Unavailable onRetry={reload} />;
   }
+  if (invite) return <Join code={invite} />;
   if (!session.household) return <Onboarding />;
 
   return (

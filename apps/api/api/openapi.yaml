@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.2.0
+  version: 0.3.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -24,6 +24,7 @@ tags:
   - name: auth
   - name: me
   - name: households
+  - name: questions
 
 paths:
   /healthz:
@@ -177,7 +178,120 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/households/{householdId}/invites:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [households]
+      operationId: createInvite
+      summary: Create a one-time invite link code (members only)
+      responses:
+        "201":
+          description: The invite. The code is shown once; only its hash is stored.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Invite" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/invites/{code}:
+    parameters:
+      - name: code
+        in: path
+        required: true
+        schema: { type: string, minLength: 1, maxLength: 100 }
+    post:
+      tags: [households]
+      operationId: acceptInvite
+      summary: Join the household an invite belongs to
+      description: Uses the invite up. Accepting an invite to a household you already belong to leaves it unused.
+      responses:
+        "200":
+          description: The household joined.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Household" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404":
+          description: Unknown, used or expired invite (code `invite_invalid`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/households/{householdId}/questions:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [questions]
+      operationId: listQuestions
+      summary: The household's questions, newest first (members only)
+      responses:
+        "200":
+          description: Up to 50 questions. Other members' answers carry no text until the question is revealed.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Question" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [questions]
+      operationId: askQuestion
+      summary: Ask the household a question
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AskQuestion" }
+      responses:
+        "201":
+          description: The new question.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Question" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/questions/{questionId}/answer:
+    parameters:
+      - name: questionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      tags: [questions]
+      operationId: answerQuestion
+      summary: Write or change your answer; the question opens once every member has answered
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AnswerQuestion" }
+      responses:
+        "200":
+          description: The question after answering.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Question" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The question is already revealed; answers can no longer change (code `already_revealed`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
 components:
+  parameters:
+    HouseholdId:
+      name: householdId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
   securitySchemes:
     bearerAuth:
       type: http
@@ -237,6 +351,47 @@ components:
           type: object
           additionalProperties: { type: string }
           example: { postgres: ok, redis: ok }
+
+    Invite:
+      type: object
+      required: [code, expiresAt]
+      properties:
+        code: { type: string, description: "Share as `<PUBLIC_URL>/join/<code>`." }
+        expiresAt: { type: string, format: date-time }
+
+    AskQuestion:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, minLength: 1, maxLength: 280 }
+
+    AnswerQuestion:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, minLength: 1, maxLength: 2000 }
+
+    Question:
+      type: object
+      required: [id, text, askedBy, createdAt, revealed, answers]
+      properties:
+        id: { type: string, format: uuid }
+        text: { type: string }
+        askedBy: { type: string, format: uuid, description: User id of the member who asked. }
+        createdAt: { type: string, format: date-time }
+        revealed: { type: boolean, description: True once every member has answered; answers are then visible to all and fixed. }
+        revealedAt: { type: string, format: date-time }
+        answers:
+          type: array
+          items: { $ref: "#/components/schemas/Answer" }
+
+    Answer:
+      type: object
+      required: [userId, answeredAt]
+      properties:
+        userId: { type: string, format: uuid }
+        text: { type: string, description: Present for your own answer, and for everyone's once the question is revealed. }
+        answeredAt: { type: string, format: date-time }
 
     Logout:
       type: object
