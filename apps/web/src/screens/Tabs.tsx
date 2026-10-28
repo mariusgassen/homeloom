@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
-import type { HouseholdDetail, Question, User } from "../api/client";
+import { useNavigate, useSearchParams } from "react-router";
+import type { HouseholdDetail, Moment, Question, User } from "../api/client";
 import { dueToday, useEntries } from "../entries";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
@@ -12,8 +12,10 @@ import { ListRow } from "../ui/ListRow";
 import { CallButton } from "./Call";
 import { EntrySheet } from "./EntrySheet";
 import { useWhen } from "./Lists";
+import { MomentSheet } from "./MomentSheet";
 import { AskForm, QuestionCard, useQuestions } from "./questions";
 import { Screen } from "./Screen";
+import { Timeline } from "./Timeline";
 
 function useHome() {
   const { session } = useSession();
@@ -35,7 +37,7 @@ function TodayQuestion({ household, me }: { household: HouseholdDetail; me: User
         eyebrow={<span>{t("today.question.eyebrow")}</span>}
         title={t("today.question.title")}
         footer={
-          <Button size="sm" variant="secondary" onClick={() => navigate("/us")}>
+          <Button size="sm" variant="secondary" onClick={() => navigate("/us?show=questions")}>
             {t("questions.askSend")}
           </Button>
         }
@@ -114,15 +116,31 @@ function DueToday({ household }: { household: HouseholdDetail }) {
   );
 }
 
+const usTabs = ["moments", "questions"] as const;
+
 export function Us() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
   const { household, me } = useHome();
-  const { questions, failed, reload, replace } = useQuestions(household.id);
-  const day = new Intl.DateTimeFormat(i18n.language, { day: "numeric", month: "long" });
-  const asked = (q: Question) => day.format(new Date(q.createdAt));
+  const [sheet, setSheet] = useState<Moment | "new" | null>(null);
+  const [generation, setGeneration] = useState(0);
+  const tab = usTabs.find((k) => k === params.get("show")) ?? "moments";
+  const add = (
+    <button type="button" className="screen-action screen-add" aria-label={t("moments.add")} onClick={() => setSheet("new")}>
+      <Icon name="plus" />
+    </button>
+  );
   return (
-    <Screen title={t("tabs.us")} action={<CallButton />}>
+    <Screen
+      title={t("tabs.us")}
+      action={
+        <>
+          {tab === "moments" && add}
+          <CallButton />
+        </>
+      }
+    >
       {household.members.length < 2 && (
         <Card
           tone="sunken"
@@ -136,6 +154,41 @@ export function Us() {
           {t("us.alone.body")}
         </Card>
       )}
+      <div className="segmented" role="tablist" aria-label={t("tabs.us")}>
+        {usTabs.map((k) => (
+          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setParams({ show: k }, { replace: true })}>
+            {t(`us.tabs.${k}`)}
+          </button>
+        ))}
+      </div>
+      {tab === "moments" ? (
+        <Timeline key={generation} household={household} me={me} month={params.get("month") ?? undefined} onOpen={setSheet} />
+      ) : (
+        <Questions household={household} me={me} />
+      )}
+      {sheet && (
+        <MomentSheet
+          household={household}
+          me={me}
+          moment={sheet === "new" ? undefined : sheet}
+          onClose={() => setSheet(null)}
+          onSaved={() => {
+            setSheet(null);
+            setGeneration((g) => g + 1);
+          }}
+        />
+      )}
+    </Screen>
+  );
+}
+
+function Questions({ household, me }: { household: HouseholdDetail; me: User }) {
+  const { t, i18n } = useTranslation();
+  const { questions, failed, reload, replace } = useQuestions(household.id);
+  const day = new Intl.DateTimeFormat(i18n.language, { day: "numeric", month: "long" });
+  const asked = (q: Question) => day.format(new Date(q.createdAt));
+  return (
+    <>
       <AskForm householdId={household.id} onAsked={reload} />
       {failed && (
         <p className="callout error" role="alert">
@@ -148,6 +201,6 @@ export function Us() {
       {questions?.map((q) => (
         <QuestionCard key={q.id} question={q} household={household} me={me} eyebrow={asked(q)} onChange={replace} />
       ))}
-    </Screen>
+    </>
   );
 }

@@ -121,6 +121,13 @@ apps/web/
   - **Names:** an entry made in Homeloom is `<id>.ics` with UID `<id>@homeloom`; one a calendar app made keeps the app's resource name and UID (`entries.ical_name`, `ical_uid`), so the app finds it where it put it. ETags hash the object.
   - **What carries over:** title, times (all-day too), repeats (daily, weekly, monthly, yearly; intervals, weekdays and ends are dropped), an event's first alert, a reminder's due time and done state. A reminder with only a date is due at 9:00. Changes to single times of a repeat, notes, locations and invitees are not kept. List colours and order are accepted but not stored.
 
+## Moments and gratitude
+
+- One `moments` table holds the Us tab's timeline: **moments** (a line, the day it happened, maybe a photo) and **gratitude lines** (one per person and day; writing again that day replaces the line, enforced by a partial unique index). Both use the entries' visibility model; only the author changes or deletes theirs. `reveal` (sealed until `revealAt`, photo included) is ready for letters to the future; the app doesn't offer it yet.
+- `GET /v1/households/{id}/moments?month=YYYY-MM` returns one month, newest day first, and the latest earlier month with anything in it, so the app pages month by month. `…/moments/resurfaced` returns this day in earlier years and one gratitude line older than a week, at random.
+- **Photos** are JPEGs of at most 5 MB in Postgres (`moment_photos`, apart from the rows so lists never read them). The PWA makes them at most 1600 px on the long side before upload. `photoUrl` carries the photo's version, so browsers may cache it privately. The API checks the JPEG signature and bounds every request body.
+- **Daily notifications** (`Moments.NotifyDaily`, every minute on each instance): this day in earlier years at 9:00, last month's look back on the 1st at 19:00, and at 20:00, with a one-in-three chance per person, a gratitude line from more than two weeks ago. Each job claims its day in `job_runs`, so it runs once across instances. Days count in `TIME_ZONE`.
+
 ## Assistant
 
 - **Ask Homeloom** is a chat opened from the sparkle in every header. `POST /v1/households/{id}/chat` stores the message and streams the answer back as server-sent events (`conversation`, `tool`, `text`, `done` or `error`). The answer goes on when the browser goes away, so it is there when the person comes back. Each conversation belongs to one person and is visible only to them (`conversations`, `chat_messages`); the assistant reads its last 40 messages.

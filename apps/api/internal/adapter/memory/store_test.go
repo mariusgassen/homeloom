@@ -16,3 +16,4 @@ func TestCalendarFeeds(t *testing.T)     { storetest.CalendarFeeds(t, memory.New
 func TestShoppingItems(t *testing.T)     { storetest.ShoppingItems(t, memory.NewStore()) }
 func TestConversations(t *testing.T)     { storetest.Conversations(t, memory.NewStore()) }
 func TestMCPTokens(t *testing.T)         { storetest.MCPTokens(t, memory.NewStore()) }
+func TestMoments(t *testing.T)           { storetest.Moments(t, memory.NewStore()) }

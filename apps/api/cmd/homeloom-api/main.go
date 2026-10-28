@@ -162,6 +162,8 @@ func run() error {
 	entries := service.NewEntry(store, store, store, push, cfg.TimeZone)
 	shopping := service.NewShopping(store, store)
 	go notifyDue(ctx, entries)
+	moments := service.NewMoments(store, store, store, push, cfg.TimeZone)
+	go notifyDaily(ctx, moments)
 	cook := service.NewCook(store, book, chef, shopping)
 	homeService := service.NewHome(store, homeConnections, sessions, home)
 	households := service.NewHousehold(store)
@@ -176,6 +178,7 @@ func run() error {
 		Households:     households,
 		Questions:      service.NewQuestion(store, store, push),
 		Entries:        entries,
+		Moments:        moments,
 		Cook:           cook,
 		Shopping:       shopping,
 		Home:           homeService,
@@ -234,6 +237,23 @@ func notifyDue(ctx context.Context, entries *service.Entry) {
 			if n < service.DueBatch {
 				break
 			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+		}
+	}
+}
+
+// notifyDaily sends the timeline's daily notifications until ctx ends. Several API instances may
+// run it: each goes out once a day.
+func notifyDaily(ctx context.Context, moments *service.Moments) {
+	tick := time.NewTicker(time.Minute)
+	defer tick.Stop()
+	for {
+		if err := moments.NotifyDaily(ctx); err != nil {
+			slog.WarnContext(ctx, "notify daily moments", "err", err)
 		}
 		select {
 		case <-ctx.Done():

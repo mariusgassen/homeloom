@@ -377,6 +377,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/moments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * One month of the timeline you can see (members only)
+         * @description Moments and gratitude lines of one month, newest day first: your own plus everyone's shared
+         *     and "later" ones; others' private ones never appear. A "later" moment by someone else carries
+         *     no text or photo until `revealAt` (`sealed` is true). At most 500.
+         */
+        get: operations["listMoments"];
+        put?: never;
+        /**
+         * Keep a moment, or write today's gratitude line
+         * @description A gratitude line is always for today, in the household's time zone; writing a second one on
+         *     the same day replaces the first. A moment's `day` may lie in the past and is today when
+         *     absent. Only moments can open later (`reveal`).
+         */
+        post: operations["createMoment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/moments/resurfaced": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * What comes back today
+         * @description Moments and lines you can see from this day in earlier years, and one gratitude line from
+         *     more than a week ago, picked at random on every call. Sealed ones are left out.
+         */
+        get: operations["getResurfaced"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/moments/{momentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        /** One moment or gratitude line */
+        get: operations["getMoment"];
+        /**
+         * Change your moment or line
+         * @description Only its author can change it. A gratitude line keeps its day.
+         */
+        put: operations["updateMoment"];
+        post?: never;
+        /** Delete your moment or line, with its photo */
+        delete: operations["deleteMoment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/moments/{momentId}/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A moment's photo
+         * @description Use the moment's `photoUrl`; it changes with the photo, so the answer may be cached.
+         */
+        get: operations["getMomentPhoto"];
+        /**
+         * Add or replace the photo of your moment
+         * @description A JPEG of at most 5 MB; the app makes photos smaller first. Gratitude lines have no photo.
+         */
+        put: operations["setMomentPhoto"];
+        post?: never;
+        /** Remove the photo of your moment */
+        delete: operations["deleteMomentPhoto"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/cook/suggestions": {
         parameters: {
             query?: never;
@@ -1024,7 +1128,7 @@ export interface components {
         EntryKind: "event" | "note" | "reminder";
         /**
          * @description `private`: only the author. `shared`: every member. `reveal`: every member sees that it
-         *     exists, but its text opens only at `revealAt` (notes only).
+         *     exists, but its text opens only at `revealAt` (notes and moments only).
          * @enum {string}
          */
         Visibility: "private" | "shared" | "reveal";
@@ -1102,6 +1206,59 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        /** @enum {string} */
+        MomentKind: "moment" | "gratitude";
+        /** @example 2026-10 */
+        Month: string;
+        MomentFields: {
+            /** @description A moment's text, or a gratitude line (at most 200 characters). */
+            text: string;
+            visibility: components["schemas"]["Visibility"];
+            /**
+             * Format: date-time
+             * @description When a `reveal` moment opens; required for it.
+             */
+            revealAt?: string;
+            /**
+             * Format: date
+             * @description Moments only: the day it happened, not after today. Today when absent.
+             */
+            day?: string;
+        };
+        CreateMoment: components["schemas"]["MomentFields"] & {
+            kind: components["schemas"]["MomentKind"];
+        };
+        Moment: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["MomentKind"];
+            /** Format: uuid */
+            authorId: string;
+            /** Format: date */
+            day: string;
+            visibility: components["schemas"]["Visibility"];
+            /** Format: date-time */
+            revealAt?: string;
+            /** @description True while you may not read it yet; `text` and `photoUrl` are then absent. */
+            sealed: boolean;
+            text?: string;
+            /** @description Where its photo is */
+            photoUrl?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        MomentMonth: {
+            month: components["schemas"]["Month"];
+            moments: components["schemas"]["Moment"][];
+            /** @description The latest earlier month with something you can see; absent when there is none. */
+            earlier?: components["schemas"]["Month"];
+        };
+        Resurfaced: {
+            onThisDay: components["schemas"]["Moment"][];
+            gratitude?: components["schemas"]["Moment"];
         };
         CalendarFeedState: {
             active: boolean;
@@ -1406,6 +1563,7 @@ export interface components {
     parameters: {
         HouseholdId: string;
         EntryId: string;
+        MomentId: string;
         CallId: string;
         ShoppingItemId: string;
         ConversationId: string;
@@ -2106,6 +2264,279 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    listMoments: {
+        parameters: {
+            query?: {
+                /** @description `YYYY-MM`; this month in the household's time zone when absent. */
+                month?: components["schemas"]["Month"];
+            };
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The month. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MomentMonth"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createMoment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMoment"];
+            };
+        };
+        responses: {
+            /** @description The moment or line. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getResurfaced: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Today's look back. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Resurfaced"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getMoment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The moment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateMoment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MomentFields"];
+            };
+        };
+        responses: {
+            /** @description The moment after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description You can see it but not change it (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteMoment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description You can see it but not delete it (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getMomentPhoto: {
+        parameters: {
+            query?: {
+                /** @description The photo's version, part of `photoUrl`. */
+                v?: string;
+            };
+            header?: never;
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The photo. */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setMomentPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            /** @description The moment with its photo. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description You can see it but not change it (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteMomentPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The moment without a photo. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description You can see it but not change it (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
         };
     };
     suggestRecipes: {

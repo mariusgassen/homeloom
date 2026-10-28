@@ -71,6 +71,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Households:    service.NewHousehold(store),
 		Questions:     service.NewQuestion(store, store, push),
 		Entries:       entries,
+		Moments:       service.NewMoments(store, store, store, push, time.UTC),
 		Cook:          cook,
 		Shopping:      shopping,
 		Home:          home,
@@ -191,6 +192,92 @@ func TestUnknownPath(t *testing.T) {
 	code, body := do(t, newServer(t), "GET", "/v1/nope", "token-alice", "")
 	if code != http.StatusNotFound || body["code"] != "not_found" {
 		t.Fatalf("got %d %v", code, body)
+	}
+}
+
+func TestMomentsFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	id := created["id"].(string)
+	_, inv := do(t, h, "POST", "/v1/households/"+id+"/invites", "token-alice", "")
+	do(t, h, "POST", "/v1/invites/"+inv["code"].(string), "token-bob", "")
+	moments := "/v1/households/" + id + "/moments"
+	today := time.Now().UTC().Format(time.DateOnly)
+
+	code, trip := do(t, h, "POST", moments, "token-alice", `{"kind":"moment","text":"Lake day","visibility":"shared","day":"2026-08-02"}`)
+	if code != 201 || trip["day"] != "2026-08-02" || trip["photoUrl"] != nil {
+		t.Fatalf("create: %d %v", code, trip)
+	}
+	if code, body := do(t, h, "POST", moments, "token-alice", `{"kind":"moment","text":"Soon","visibility":"shared","day":"2999-01-01"}`); code != 400 || body["code"] != "invalid_moment_day" {
+		t.Fatalf("future moment: %d %v", code, body)
+	}
+	do(t, h, "POST", moments, "token-alice", `{"kind":"gratitude","text":"Coffee in bed","visibility":"shared"}`)
+	code, line := do(t, h, "POST", moments, "token-alice", `{"kind":"gratitude","text":"The walk","visibility":"shared","day":"2026-01-01"}`)
+	if code != 201 || line["text"] != "The walk" || line["day"] != today {
+		t.Fatalf("second line replaces the first, always today: %d %v", code, line)
+	}
+	do(t, h, "POST", moments, "token-bob", `{"kind":"moment","text":"Just mine","visibility":"private"}`)
+
+	code, month := do(t, h, "GET", moments, "token-alice", "")
+	if code != 200 || month["month"] != today[:7] || len(month["moments"].([]any)) != 1 || month["earlier"] != "2026-08" {
+		t.Fatalf("this month, without bob's private moment: %d %v", code, month)
+	}
+	if code, body := do(t, h, "GET", moments+"?month=2026-08", "token-bob", ""); code != 200 || len(body["moments"].([]any)) != 1 {
+		t.Fatalf("august: %d %v", code, body)
+	}
+	if code, body := do(t, h, "GET", moments+"?month=2026-13", "token-alice", ""); code != 400 {
+		t.Fatalf("bad month: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "GET", moments, "token-eve", ""); code != 404 {
+		t.Fatalf("non-member: %d", code)
+	}
+
+	photo := "/v1/moments/" + trip["id"].(string) + "/photo"
+	put := func(token, body string) (int, map[string]any) {
+		t.Helper()
+		req := httptest.NewRequest("PUT", photo, strings.NewReader(body))
+		req.Header.Set("Content-Type", "image/jpeg")
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		var out map[string]any
+		_ = json.Unmarshal(rec.Body.Bytes(), &out)
+		return rec.Code, out
+	}
+	jpeg := "\xFF\xD8\xFF\xE0 a photo"
+	if code, body := put("token-bob", jpeg); code != 403 || body["code"] != "not_yours" {
+		t.Fatalf("someone else's moment: %d %v", code, body)
+	}
+	if code, body := put("token-alice", "not a jpeg"); code != 400 || body["code"] != "invalid_photo" {
+		t.Fatalf("not a JPEG: %d %v", code, body)
+	}
+	code, withPhoto := put("token-alice", jpeg)
+	url, _ := withPhoto["photoUrl"].(string)
+	if code != 200 || !strings.HasPrefix(url, photo+"?v=") {
+		t.Fatalf("set photo: %d %v", code, withPhoto)
+	}
+	req := httptest.NewRequest("GET", url, nil)
+	req.Header.Set("Authorization", "Bearer token-bob")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != 200 || rec.Body.String() != jpeg || rec.Header().Get("Content-Type") != "image/jpeg" || !strings.Contains(rec.Header().Get("Cache-Control"), "private") {
+		t.Fatalf("get photo: %d %q %v", rec.Code, rec.Body.String(), rec.Header())
+	}
+	if code, body := do(t, h, "DELETE", photo, "token-alice", ""); code != 200 || body["photoUrl"] != nil {
+		t.Fatalf("remove photo: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "GET", photo, "token-alice", ""); code != 404 {
+		t.Fatalf("removed photo: %d", code)
+	}
+
+	if code, body := do(t, h, "PUT", "/v1/moments/"+line["id"].(string), "token-bob", `{"text":"Mine now","visibility":"shared"}`); code != 403 {
+		t.Fatalf("change someone else's line: %d %v", code, body)
+	}
+	if code, body := do(t, h, "GET", "/v1/households/"+id+"/moments/resurfaced", "token-alice", ""); code != 200 || len(body["onThisDay"].([]any)) != 0 || body["gratitude"] != nil {
+		t.Fatalf("nothing old enough yet: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "DELETE", "/v1/moments/"+trip["id"].(string), "token-alice", ""); code != 204 {
+		t.Fatalf("delete: %d", code)
 	}
 }
 

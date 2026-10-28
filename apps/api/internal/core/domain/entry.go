@@ -18,7 +18,7 @@ const (
 )
 
 var (
-	ErrRevealAt  = fmt.Errorf("%w: a reveal entry needs revealAt, and only notes can be revealed later", ErrInvalid)
+	ErrRevealAt  = fmt.Errorf("%w: a reveal entry needs revealAt, and only notes and moments can be revealed later", ErrInvalid)
 	ErrAssignee  = fmt.Errorf("%w: assignee must be a member and the reminder shared", ErrInvalid)
 	ErrEventTime = fmt.Errorf("%w: an event needs a start, an end not before it, and an alert of 0-%d minutes before", ErrInvalid, MaxAlertMinutes)
 	// ErrEntryFields means a field that doesn't fit the kind, such as a due time on a note.

@@ -89,7 +89,22 @@
   "us": {
     "title": "No questions yet",
     "body": "Ask the first one.",
+    "tabs": { "moments": "Moments", "questions": "Questions" },
     "alone": { "title": "It takes two", "body": "Invite your partner first." }
+  },
+  "moments": {
+    "add": "Keep a moment", "new": "New moment", "edit": "Moment",
+    "text": "What happened", "day": "Day",
+    "photo": "Add a photo", "photoChange": "Other photo", "photoRemove": "Remove photo",
+    "photoFailed": "The photo didn't work. Please try another one.",
+    "empty": { "title": "Your story starts here", "body": "Keep a first moment." },
+    "earlier": "Earlier",
+    "count": { "moments_one": "{{count}} moment", "moments_other": "{{count}} moments", "thanks_one": "{{count}} thank-you", "thanks_other": "{{count}} thank-yous" },
+    "onThisDay": "On this day · {{year}}",
+    "grateful": "{{name}} was grateful", "gratefulMe": "You were grateful",
+    "gratitude": { "eyebrow": "Grateful today", "label": "What are you grateful for today?", "placeholder": "One line is enough", "save": "Save", "change": "Change my line" },
+    "justMe": "Just for me", "you": "You",
+    "failed": "That didn't work. Please try again."
   },
   "entries": {
     "add": "Add",

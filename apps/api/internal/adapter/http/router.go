@@ -31,6 +31,7 @@ type Deps struct {
 	Households     port.HouseholdService
 	Questions      port.QuestionService
 	Entries        port.EntryService
+	Moments        port.MomentService
 	Cook           port.CookService
 	Shopping       port.ShoppingService
 	Home           port.HomeService
@@ -48,6 +49,14 @@ type Deps struct {
 	// CalDAV, if set, is served at /dav and /.well-known/caldav, outside the contract; it
 	// authenticates on its own.
 	CalDAV http.Handler
+}
+
+// maxBody bounds a request body to the API: a photo and some room.
+const maxBody = domain.MaxPhotoBytes + 64<<10
+
+func init() {
+	// Photos are sent as they are; the validator only needs to know it may read them.
+	openapi3filter.RegisterBodyDecoder("image/jpeg", openapi3filter.FileBodyDecoder)
 }
 
 func NewRouter(d Deps) (http.Handler, error) {
@@ -79,7 +88,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		writeError(r.Context(), w, http.StatusNotFound, "not_found", "")
 	})
-	api := r.With(withAuthSlot, validator.OapiRequestValidatorWithOptions(spec, &validator.Options{
+	api := r.With(withAuthSlot, limitBody, validator.OapiRequestValidatorWithOptions(spec, &validator.Options{
 		Options: openapi3filter.Options{
 			AuthenticationFunc: authenticate(d.Identity),
 			MultiError:         false,
@@ -93,6 +102,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 		households: d.Households,
 		questions:  d.Questions,
 		entries:    d.Entries,
+		moments:    d.Moments,
 		cook:       d.Cook,
 		shopping:   d.Shopping,
 		home:       d.Home,
@@ -143,6 +153,14 @@ func writeError(ctx context.Context, w http.ResponseWriter, status int, code, de
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(errorBody(ctx, code, detail))
+}
+
+// limitBody keeps a request body from growing without bound before the validator reads it.
+func limitBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxBody)
+		next.ServeHTTP(w, r)
+	})
 }
 
 // withLanguage negotiates the response language once per request; handlers read it with i18n.FromContext.
