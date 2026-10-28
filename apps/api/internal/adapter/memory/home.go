@@ -16,6 +16,11 @@ type SmartHome struct {
 	scenes []domain.Scene
 	lights []domain.Light
 	Down   bool
+	// Readings are listed with the scenes and lights; Floorplan is what Layout returns, and
+	// LayoutDown makes only Layout unavailable.
+	Readings   []domain.Reading
+	Floorplan  domain.Layout
+	LayoutDown bool
 	// Activated lists the scenes turned on, in order; Revoked the refresh tokens revoked.
 	Activated []string
 	Revoked   []string
@@ -54,13 +59,29 @@ func (h *SmartHome) check(refreshToken string) error {
 	return nil
 }
 
-func (h *SmartHome) Devices(_ context.Context, refreshToken string) ([]domain.Scene, []domain.Light, error) {
+func (h *SmartHome) Devices(_ context.Context, refreshToken string) (domain.Devices, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if err := h.check(refreshToken); err != nil {
-		return nil, nil, err
+		return domain.Devices{}, err
 	}
-	return append([]domain.Scene{}, h.scenes...), append([]domain.Light{}, h.lights...), nil
+	return domain.Devices{
+		Scenes:   append([]domain.Scene{}, h.scenes...),
+		Lights:   append([]domain.Light{}, h.lights...),
+		Readings: append([]domain.Reading{}, h.Readings...),
+	}, nil
+}
+
+func (h *SmartHome) Layout(_ context.Context, refreshToken string) (domain.Layout, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if err := h.check(refreshToken); err != nil {
+		return domain.Layout{}, err
+	}
+	if h.LayoutDown {
+		return domain.Layout{}, domain.ErrUnavailable
+	}
+	return h.Floorplan, nil
 }
 
 func (h *SmartHome) ActivateScene(_ context.Context, refreshToken, id string) error {

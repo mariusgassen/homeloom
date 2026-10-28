@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -214,20 +214,34 @@ test("cooking says so when Mealie is down", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent("Cooking isn't available");
 });
 
-test("home switches live scenes and lights", async () => {
+test("home switches live scenes and lights, room by room", async () => {
   const calls = serve(
     ...signedIn(),
     at("GET", `/v1/households/${home.id}/home`, () =>
       json({
         connected: true,
-        scenes: [{ id: "scene.dinner", name: "Abendessen" }, { id: "scene.movie", name: "Movie night" }],
-        lights: [{ id: "light.kitchen", name: "Kitchen", on: false }],
+        rooms: [{ id: "kitchen", name: "Kitchen" }],
+        scenes: [{ id: "scene.dinner", name: "Abendessen", room: "kitchen" }, { id: "scene.movie", name: "Movie night" }],
+        lights: [
+          { id: "light.kitchen", name: "Kitchen", room: "kitchen", on: false },
+          { id: "light.hall", name: "Hall", on: true },
+        ],
+        readings: [
+          { id: "sensor.kitchen_temperature", name: "Kitchen temperature", room: "kitchen", kind: "temperature", value: 21.46, unit: "°C" },
+          { id: "binary_sensor.kitchen_window", name: "Kitchen window", room: "kitchen", kind: "window", on: true },
+          { id: "binary_sensor.hall_door", name: "Hall door", kind: "door", on: false },
+        ],
       }),
     ),
     at("POST", `/v1/households/${home.id}/home/scenes/scene.movie`, () => new Response(null, { status: 204 })),
     at("POST", `/v1/households/${home.id}/home/lights/light.kitchen/toggle`, () => json({ id: "light.kitchen", name: "Kitchen", on: true })),
   );
   renderApp("/home");
+  const kitchen = await screen.findByRole("region", { name: "Kitchen" });
+  expect(kitchen).toHaveTextContent("21.5 °C");
+  expect(kitchen).toHaveTextContent("Window open");
+  expect(screen.getByRole("region", { name: "Other" })).not.toHaveTextContent("Door open");
+  expect(within(kitchen).getByRole("button", { name: /Abendessen/ })).toBeInTheDocument();
   await userEvent.click(await screen.findByRole("button", { name: "Movie night" }));
   await waitFor(() => expect(screen.getByRole("button", { name: /Movie night/ })).toHaveAttribute("aria-pressed", "true"));
 
@@ -246,7 +260,7 @@ test("home asks you to connect your own Home Assistant", async () => {
   vi.stubGlobal("location", { ...window.location, assign });
   const calls = serve(
     ...signedIn(),
-    at("GET", `/v1/households/${home.id}/home`, () => json({ connected: false, scenes: [], lights: [] })),
+    at("GET", `/v1/households/${home.id}/home`, () => json({ connected: false, rooms: [], scenes: [], lights: [], readings: [] })),
     at("POST", `/v1/households/${home.id}/home/connection`, () => json({ url: "https://ha.example/auth/authorize?state=s" })),
   );
   renderApp("/home?home_error=connect_failed");

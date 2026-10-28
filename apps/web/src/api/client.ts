@@ -19,3 +19,6 @@ export type Suggestions = components["schemas"]["Suggestions"];
 export type Recipe = components["schemas"]["Recipe"];
 export type Home = components["schemas"]["Home"];
 export type Light = components["schemas"]["Light"];
+export type Scene = components["schemas"]["Scene"];
+export type Reading = components["schemas"]["Reading"];
+export type Room = components["schemas"]["Room"];

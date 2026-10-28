@@ -92,8 +92,9 @@ type Chef interface {
 	Pick(ctx context.Context, mood, lang string, candidates []domain.RecipeSummary, n int) ([]domain.Pick, error)
 }
 
-// SmartHome is Home Assistant, narrowed to what Homeloom may do: read scenes and lights, turn a
-// scene on, switch a light. Locks, alarms, covers and other domains are deliberately not here.
+// SmartHome is Home Assistant, narrowed to what Homeloom may do: read scenes, lights, a few
+// sensors and the rooms, turn a scene on, switch a light. Locks, alarms, covers and other domains
+// are deliberately not here.
 // Calls act as the person who signed in, through the refresh token from that sign-in. Every
 // method returns domain.ErrUnavailable when Home Assistant can't be reached, and
 // domain.ErrUnauthenticated when it no longer accepts the refresh token.
@@ -103,7 +104,9 @@ type SmartHome interface {
 	// Exchange redeems the code and returns the refresh token.
 	Exchange(ctx context.Context, code string) (string, error)
 	Revoke(ctx context.Context, refreshToken string) error
-	Devices(ctx context.Context, refreshToken string) ([]domain.Scene, []domain.Light, error)
+	Devices(ctx context.Context, refreshToken string) (domain.Devices, error)
+	// Layout reads the rooms and which entities are in them or hidden.
+	Layout(ctx context.Context, refreshToken string) (domain.Layout, error)
 	// ActivateScene and ToggleLight take an id that Devices returned.
 	ActivateScene(ctx context.Context, refreshToken, id string) error
 	ToggleLight(ctx context.Context, refreshToken, id string) (domain.Light, error)

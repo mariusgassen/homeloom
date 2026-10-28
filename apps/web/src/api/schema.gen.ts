@@ -325,10 +325,14 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Scenes and lights from Home Assistant, read live (members only)
-         * @description Only scenes and lights are exposed. Locks, alarms, covers and everything else never are.
+         * Rooms, scenes, lights and readings from Home Assistant, read live (members only)
+         * @description Only scenes and lights can be switched. Readings (temperature, open windows and the like)
+         *     are read-only; locks, alarms, covers and everything else are never exposed.
          *     Each member connects their own Home Assistant account, and switches act as that person.
-         *     Until the caller has connected, `connected` is false and the lists are empty.
+         *     Rooms are Home Assistant's areas; an entity's `room` is its area, or its device's. Entities
+         *     that belong to a group helper, or that are hidden in Home Assistant, are left out, so a
+         *     group shows as one control. If the areas can't be read, `rooms` is empty and nothing has a
+         *     `room`. Until the caller has connected, `connected` is false and the lists are empty.
          */
         get: operations["getHome"];
         put?: never;
@@ -530,8 +534,16 @@ export interface components {
         Home: {
             /** @description Whether you have connected your Home Assistant account. */
             connected: boolean;
+            /** @description Rooms that hold at least one scene, light or reading, by name. */
+            rooms: components["schemas"]["Room"][];
             scenes: components["schemas"]["Scene"][];
             lights: components["schemas"]["Light"][];
+            readings: components["schemas"]["Reading"][];
+        };
+        Room: {
+            /** @description Home Assistant area id, e.g. kitchen. */
+            id: string;
+            name: string;
         };
         HomeConnect: {
             /** @description Home Assistant's sign-in page. */
@@ -541,12 +553,34 @@ export interface components {
             /** @description Home Assistant entity id, e.g. scene.dinner. */
             id: string;
             name: string;
+            /** @description The room's id; absent when it has none. */
+            room?: string;
         };
         Light: {
             /** @description Home Assistant entity id, e.g. light.kitchen. */
             id: string;
             name: string;
+            /** @description The room's id; absent when it has none. */
+            room?: string;
             on: boolean;
+        };
+        /**
+         * @description A live, read-only state. Measurements (temperature, humidity, power, co2) have `value`
+         *     and `unit`; the others (window, door, garage_door, motion, moisture, smoke) have `on`,
+         *     which means open, detected or wet.
+         */
+        Reading: {
+            /** @description Home Assistant entity id, e.g. sensor.kitchen_temperature. */
+            id: string;
+            name: string;
+            /** @description The room's id; absent when it has none. */
+            room?: string;
+            /** @enum {string} */
+            kind: "temperature" | "humidity" | "power" | "co2" | "window" | "door" | "garage_door" | "motion" | "moisture" | "smoke";
+            /** Format: double */
+            value?: number;
+            unit?: string;
+            on?: boolean;
         };
         Logout: {
             /** @description authentik's end-session URL. */
@@ -1205,7 +1239,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The light after switching. */
+            /** @description The light after switching; `room` is left out. */
             200: {
                 headers: {
                     [name: string]: unknown;
