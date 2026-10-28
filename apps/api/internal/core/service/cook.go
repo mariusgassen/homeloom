@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -86,6 +87,51 @@ func (s *Cook) AddToShoppingList(ctx context.Context, actor domain.User, househo
 	}
 	added, err := s.shopping.Add(ctx, actor, householdID, texts, r.Name)
 	return len(added), err
+}
+
+func (s *Cook) Find(ctx context.Context, actor domain.User, householdID uuid.UUID, query string, n int) ([]domain.RecipeSummary, error) {
+	if err := s.ready(ctx, actor, householdID); err != nil {
+		return nil, err
+	}
+	all, err := s.book.Recipes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	words := strings.Fields(strings.ToLower(query))
+	if len(words) == 0 {
+		out := []domain.RecipeSummary{}
+		for _, r := range random(all, n) {
+			out = append(out, r.Recipe)
+		}
+		return out, nil
+	}
+	type scored struct {
+		r     domain.RecipeSummary
+		score int
+	}
+	var hits []scored
+	for _, r := range all {
+		name := strings.ToLower(r.Name)
+		rest := strings.ToLower(strings.Join(r.Tags, " ") + " " + r.Description)
+		score := 0
+		for _, w := range words {
+			// A word in the name counts more than one in the tags or description.
+			if strings.Contains(name, w) {
+				score += 2
+			} else if strings.Contains(rest, w) {
+				score++
+			}
+		}
+		if score > 0 {
+			hits = append(hits, scored{r, score})
+		}
+	}
+	slices.SortStableFunc(hits, func(a, b scored) int { return b.score - a.score })
+	out := []domain.RecipeSummary{}
+	for _, h := range hits[:min(n, len(hits))] {
+		out = append(out, h.r)
+	}
+	return out, nil
 }
 
 // ready checks membership first, so non-members learn nothing about whether Mealie is set up.

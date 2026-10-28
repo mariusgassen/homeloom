@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.9.0
+  version: 0.10.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -30,6 +30,7 @@ tags:
   - name: shopping
   - name: home
   - name: push
+  - name: assistant
 
 paths:
   /healthz:
@@ -809,6 +810,89 @@ paths:
         "204": { description: Unsubscribed, or was not subscribed. }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /v1/households/{householdId}/conversations:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [assistant]
+      operationId: listConversations
+      summary: Your chats with the assistant in this household, last used first
+      description: Only you see your conversations. `503 assistant_unavailable` when no LLM is set up.
+      responses:
+        "200":
+          description: Up to 30 conversations.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Conversation" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/chat:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [assistant]
+      operationId: chat
+      summary: Ask the assistant; the answer streams back as server-sent events
+      description: |
+        Stores your message, in a new conversation unless `conversationId` is given, and streams the
+        answer as `text/event-stream`. The assistant acts only as you, through the same rules as the
+        rest of the API: it reads and adds reminders, events and notes you can see, finds recipes,
+        reads and adds to the shopping list, and reads the home and switches its scenes and lights.
+        It can't delete anything.
+
+        Events, each with a JSON `data` line:
+        - `conversation`: a `Conversation`, first.
+        - `tool`: a `ChatTool`, when the assistant starts to use a tool.
+        - `text`: a `ChatText`, the next piece of the answer.
+        - `done`: the stored answer, a `ChatMessage`; the stream then ends.
+        - `error`: an `Error` (e.g. `assistant_unavailable`) when the answer fails after the stream
+          has started; the stream then ends. Your message stays stored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChatRequest" }
+      responses:
+        "200":
+          description: The answer, as server-sent events.
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/conversations/{conversationId}:
+    parameters:
+      - $ref: "#/components/parameters/ConversationId"
+    get:
+      tags: [assistant]
+      operationId: getConversation
+      summary: One of your conversations with its last 40 messages, oldest first
+      responses:
+        "200":
+          description: The conversation.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConversationDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [assistant]
+      operationId: deleteConversation
+      summary: Delete one of your conversations
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
 components:
   parameters:
     HouseholdId:
@@ -823,6 +907,11 @@ components:
       schema: { type: string, format: uuid }
     ShoppingItemId:
       name: itemId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    ConversationId:
+      name: conversationId
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -861,7 +950,7 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     Unavailable:
-      description: A dependency (authentik, Redis, Mealie, Home Assistant, Web Push) cannot be reached or isn't set up.
+      description: A dependency (authentik, Redis, Mealie, Home Assistant, Web Push, the LLM) cannot be reached or isn't set up.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -1237,3 +1326,55 @@ components:
     Role:
       type: string
       enum: [owner, member]
+
+    ChatRequest:
+      type: object
+      required: [text]
+      properties:
+        conversationId: { type: string, format: uuid, description: Continue this conversation; absent starts a new one. }
+        text: { type: string, minLength: 1, maxLength: 2000 }
+
+    Conversation:
+      type: object
+      required: [id, title, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string, description: The start of its first message. }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    ConversationDetail:
+      allOf:
+        - $ref: "#/components/schemas/Conversation"
+        - type: object
+          required: [messages]
+          properties:
+            messages:
+              type: array
+              items: { $ref: "#/components/schemas/ChatMessage" }
+
+    ChatMessage:
+      type: object
+      required: [id, role, text, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        role: { type: string, enum: [user, assistant] }
+        text: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    ChatTool:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: |
+            The tool: `list_entries`, `add_reminder`, `add_event`, `add_note`, `complete_reminder`,
+            `search_recipes`, `get_recipe`, `list_shopping`, `add_to_shopping_list`, `get_home`,
+            `activate_scene` or `set_light`. More may come.
+
+    ChatText:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string }

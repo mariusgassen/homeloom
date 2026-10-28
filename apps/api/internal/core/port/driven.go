@@ -174,6 +174,31 @@ type Pusher interface {
 	Send(ctx context.Context, sub domain.PushSubscription, n domain.Notification) error
 }
 
+// Assistant is the LLM as a chat partner that can use tools.
+type Assistant interface {
+	// Reply answers the last user message of history. It runs each tool the model asks for with
+	// run, passes its text to emit as it is written, and returns the whole answer. It returns
+	// domain.ErrUnavailable when the LLM can't be asked.
+	Reply(ctx context.Context, brief domain.AssistantBrief, history []domain.ChatMessage, tools []domain.Tool, run ToolRunner, emit func(domain.ChatEvent)) (string, error)
+}
+
+// ToolRunner runs one tool call. Its result goes back to the model; an error is shown to the model
+// as a failed call, so its message must be fit for that.
+type ToolRunner func(ctx context.Context, call domain.ToolCall) (string, error)
+
+type ConversationRepository interface {
+	CreateConversation(ctx context.Context, c domain.Conversation) (domain.Conversation, error)
+	// GetConversation returns domain.ErrNotFound for an unknown id.
+	GetConversation(ctx context.Context, id uuid.UUID) (domain.Conversation, error)
+	// ListConversations returns the person's conversations in the household, last used first.
+	ListConversations(ctx context.Context, householdID, userID uuid.UUID, limit int) ([]domain.Conversation, error)
+	DeleteConversation(ctx context.Context, id uuid.UUID) error
+	// AddChatMessage stores the message and marks its conversation as just used.
+	AddChatMessage(ctx context.Context, m domain.ChatMessage) (domain.ChatMessage, error)
+	// ChatMessages returns the last limit messages of the conversation, oldest first.
+	ChatMessages(ctx context.Context, conversationID uuid.UUID, limit int) ([]domain.ChatMessage, error)
+}
+
 type HealthCheck interface {
 	Name() string
 	Check(ctx context.Context) error

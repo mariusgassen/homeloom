@@ -75,7 +75,7 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 
 ## Cooking
 
-- **Mealie** (`adapter/mealie`, port `RecipeBook`) holds the recipes and the shopping list. The API reaches it only through Mealie's MCP server (`MEALIE_MCP_URL`, bearer `MEALIE_MCP_TOKEN`), which exposes one tool per Mealie endpoint and holds Mealie's own credentials; the same server can later be handed to Claude for the assistant. The MCP session is reused and replaced once if the server has forgotten it. Cooking is optional: without `MEALIE_MCP_URL` the cook endpoints answer `503 cooking_unavailable`, and so do they when the MCP server or Mealie is down or refuses a token. Each call is bounded to 8 s. `MEALIE_URL`, if set, is only used for "Open in Mealie" links.
+- **Mealie** (`adapter/mealie`, port `RecipeBook`) holds the recipes and the shopping list. The API reaches it only through Mealie's MCP server (`MEALIE_MCP_URL`, bearer `MEALIE_MCP_TOKEN`), which exposes one tool per Mealie endpoint and holds Mealie's own credentials. The assistant reaches recipes through the API's own tools, not this server. The MCP session is reused and replaced once if the server has forgotten it. Cooking is optional: without `MEALIE_MCP_URL` the cook endpoints answer `503 cooking_unavailable`, and so do they when the MCP server or Mealie is down or refuses a token. Each call is bounded to 8 s. `MEALIE_URL`, if set, is only used for "Open in Mealie" links.
 - **Claude** (`adapter/claude`, port `Chef`) picks up to three recipes for a mood from the whole collection (one short line per recipe, cached as a prompt prefix) and writes why, in the request's language. The answer is constrained to a JSON schema, and the service drops any slug that isn't in the collection. Without `ANTHROPIC_API_KEY`, or when Claude is down, refuses or finds nothing, three recipes are picked at random (`chef: false`). One pick is bounded to 30 s.
 - Missing ingredients go to the household's own shopping list (below), noting the recipe they came from. The PWA asks what you already have and sends the rest.
 
@@ -115,6 +115,13 @@ apps/web/
 - **Time zone:** repeats and all-day events keep their wall-clock time in `TIME_ZONE` (an IANA name, `Europe/Berlin` in the compose file), across daylight saving time.
 - **Calendar subscription:** each member can make a private link (`POST /v1/households/{id}/calendar-feed`); only its SHA-256 is stored, a new one replaces the old. `GET /v1/calendar-feeds/{token}` serves an iCalendar feed of the events and dated open reminders that member can see, without a session, for Apple Calendar and others (`webcal://`). Repeats become `RRULE`s in the household's time zone; alerts are left out because Homeloom sends its own. The token never appears in the request log.
 
+## Assistant
+
+- **Ask Homeloom** is a chat opened from the sparkle in every header. `POST /v1/households/{id}/chat` stores the message and streams the answer back as server-sent events (`conversation`, `tool`, `text`, `done` or `error`). The answer goes on when the browser goes away, so it is there when the person comes back. Each conversation belongs to one person and is visible only to them (`conversations`, `chat_messages`); the assistant reads its last 40 messages.
+- **The tools are the whitelist** (`core/service/assistant_tools.go`): list and add reminders, events and notes, tick a reminder off, search and open recipes, read and add to the shopping list, read the home, turn a scene on and switch a light. Nothing deletes. Every tool calls the same service the app does, with the person as the actor, so private entries and unopened notes stay hidden exactly as in the app. Tool input is decoded strictly and validated by the services; a failure goes back to the model as a failed call, and only failures it can fix carry details.
+- **Claude** (`adapter/claude`, port `Assistant`) runs the tool loop: up to 10 rounds, each call bounded to 60 s and the whole answer to 2 minutes. The instructions and tools are cached; the time, time zone, the person's name and the other members follow them. It acts when asked and asks first when something is its own idea. Without `ANTHROPIC_API_KEY` the assistant answers `503 assistant_unavailable` and the app says so.
+- The same tools are meant for the MCP server and the LiveKit voice agent, so neither needs rules of its own.
+
 ## Notifications
 
 - **Web Push with VAPID** (`adapter/webpush`, port `Pusher`) is optional: without `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`, `GET /v1/push` answers `503 push_unavailable` and the PWA hides the switch. `homeloom-api vapid-keys` prints a new pair. `VAPID_SUBJECT` defaults to `PUBLIC_URL`.
@@ -140,7 +147,7 @@ apps/web/
 
 | Component | Shape |
 |---|---|
-| MCP server | Second driving adapter on the same services, served at `/mcp`, with its own authentik client |
+| MCP server | Second driving adapter on the same services and the assistant's tools, served at `/mcp`, with its own authentik client |
 | Home Assistant media | Media players join scenes and lights in the whitelist |
 | LiveKit calls with a Homeloom agent | Self-hosted LiveKit on Coolify; the API issues room tokens; the agent is a separate service (LiveKit Agents) that calls the API |
 | Third-party apps | Per-app authentik clients or tokens, outgoing webhooks |

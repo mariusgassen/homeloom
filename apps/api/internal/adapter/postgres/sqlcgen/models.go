@@ -68,6 +68,23 @@ type CalendarFeed struct {
 	CreatedAt   time.Time
 }
 
+type ChatMessage struct {
+	ID             uuid.UUID
+	ConversationID uuid.UUID
+	Role           string
+	Text           string
+	CreatedAt      time.Time
+}
+
+type Conversation struct {
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+	UserID      uuid.UUID
+	Title       string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
 type Entry struct {
 	ID           uuid.UUID
 	HouseholdID  uuid.UUID

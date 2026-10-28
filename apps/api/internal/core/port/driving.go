@@ -65,6 +65,9 @@ type CookService interface {
 	// AddToShoppingList puts the recipe's ingredients with the given ids on the shopping list and
 	// returns how many; unknown ids are ignored.
 	AddToShoppingList(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string, ingredientIDs []string) (int, error)
+	// Find returns up to n recipes whose name, tags or description hold the query's words, best
+	// first; an empty query returns n at random.
+	Find(ctx context.Context, actor domain.User, householdID uuid.UUID, query string, n int) ([]domain.RecipeSummary, error)
 }
 
 type ShoppingService interface {
@@ -95,4 +98,18 @@ type PushService interface {
 	// Subscribe stores the actor's device; lang is the language its notifications are written in.
 	Subscribe(ctx context.Context, actor domain.User, sub domain.PushSubscription) error
 	Unsubscribe(ctx context.Context, actor domain.User, endpoint string) error
+}
+
+// AssistantService is the chat assistant. Each conversation belongs to one person, and the
+// assistant acts only as that person, with the same rules as every other service.
+type AssistantService interface {
+	Conversations(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.Conversation, error)
+	Conversation(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Conversation, []domain.ChatMessage, error)
+	DeleteConversation(ctx context.Context, actor domain.User, id uuid.UUID) error
+	// Ask stores the actor's message, in a new conversation when conversationID is nil. It returns
+	// domain.ErrUnavailable when the assistant isn't set up, before anything is stored.
+	Ask(ctx context.Context, actor domain.User, householdID uuid.UUID, conversationID *uuid.UUID, text string) (domain.Conversation, domain.ChatMessage, error)
+	// Answer replies to the conversation's last message in the language lang, streaming through
+	// emit, and stores the reply.
+	Answer(ctx context.Context, actor domain.User, conversationID uuid.UUID, lang string, emit func(domain.ChatEvent)) (domain.ChatMessage, error)
 }
