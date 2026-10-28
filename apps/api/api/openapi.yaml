@@ -1,0 +1,204 @@
+openapi: 3.0.3
+info:
+  title: Homeloom API
+  version: 0.1.0
+  description: |
+    The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
+    This file is the source of truth: server code is generated from it, never the other way round.
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+tags:
+  - name: system
+  - name: me
+  - name: households
+
+paths:
+  /healthz:
+    get:
+      tags: [system]
+      operationId: getHealth
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: The process is up.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+
+  /readyz:
+    get:
+      tags: [system]
+      operationId: getReadiness
+      summary: Readiness probe (checks Postgres and Redis)
+      security: []
+      responses:
+        "200":
+          description: All dependencies are reachable.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Readiness" }
+        "503":
+          description: At least one dependency is down.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Readiness" }
+
+  /v1/me:
+    get:
+      tags: [me]
+      operationId: getMe
+      summary: The signed-in user, created on first call
+      responses:
+        "200":
+          description: The current user.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/households:
+    get:
+      tags: [households]
+      operationId: listHouseholds
+      summary: Households the current user belongs to
+      responses:
+        "200":
+          description: The user's households.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Household" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      tags: [households]
+      operationId: createHousehold
+      summary: Create a household; the caller becomes its owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateHousehold" }
+      responses:
+        "201":
+          description: The new household.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Household" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/households/{householdId}:
+    parameters:
+      - name: householdId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [households]
+      operationId: getHousehold
+      summary: One household with its members (members only)
+      responses:
+        "200":
+          description: The household.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HouseholdDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token issued by authentik.
+
+  responses:
+    BadRequest:
+      description: The request is invalid.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Missing or invalid access token.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Not found, or not visible to the caller.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, example: not_found }
+        message: { type: string }
+
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, example: ok }
+
+    Readiness:
+      type: object
+      required: [status, checks]
+      properties:
+        status: { type: string, enum: [ok, degraded] }
+        checks:
+          type: object
+          additionalProperties: { type: string }
+          example: { postgres: ok, redis: ok }
+
+    User:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string }
+        avatarUrl: { type: string }
+
+    CreateHousehold:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+
+    Household:
+      type: object
+      required: [id, name, role]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+
+    HouseholdDetail:
+      allOf:
+        - $ref: "#/components/schemas/Household"
+        - type: object
+          required: [members]
+          properties:
+            members:
+              type: array
+              items: { $ref: "#/components/schemas/Member" }
+
+    Member:
+      type: object
+      required: [user, role]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        role: { $ref: "#/components/schemas/Role" }
+
+    Role:
+      type: string
+      enum: [owner, member]

@@ -1,0 +1,54 @@
+name: api
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "apps/api/**"
+      - "docker-compose*.yml"
+      - ".github/workflows/api.yml"
+
+defaults:
+  run:
+    working-directory: apps/api
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: homeloom
+          POSTGRES_PASSWORD: homeloom
+          POSTGRES_DB: homeloom
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U homeloom" --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://homeloom:homeloom@localhost:5432/homeloom?sslmode=disable
+      TEST_REDIS_URL: redis://localhost:6379/0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+      - name: Generated code is up to date
+        run: |
+          go generate ./...
+          git diff --exit-code -- .
+      - run: go vet ./...
+      - run: go test -race ./...
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t homeloom-api:ci .
