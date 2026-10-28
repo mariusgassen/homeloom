@@ -1,0 +1,53 @@
+# Deployed by Coolify as a Docker Compose resource. Service names carry the homeloom- prefix
+# so the containers are easy to find in Coolify. Assign the public domain to homeloom-api in
+# the Coolify UI; Postgres and Redis stay on the internal network.
+services:
+  homeloom-api:
+    build: ./apps/api
+    restart: unless-stopped
+    environment:
+      HTTP_ADDR: ":8080"
+      DATABASE_URL: postgres://${POSTGRES_USER:-homeloom}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@homeloom-postgres:5432/${POSTGRES_DB:-homeloom}?sslmode=disable
+      REDIS_URL: redis://homeloom-redis:6379/0
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:?set OIDC_ISSUER_URL}
+      OIDC_CLIENT_IDS: ${OIDC_CLIENT_IDS:?set OIDC_CLIENT_IDS}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    expose:
+      - "8080"
+    depends_on:
+      homeloom-postgres:
+        condition: service_healthy
+      homeloom-redis:
+        condition: service_healthy
+
+  homeloom-postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-homeloom}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-homeloom}
+    volumes:
+      - homeloom-postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  homeloom-redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - homeloom-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  homeloom-postgres-data:
+  homeloom-redis-data:
