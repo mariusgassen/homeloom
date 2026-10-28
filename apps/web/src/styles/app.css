@@ -99,8 +99,8 @@ h1, h2, h3, p { margin: 0; }
 .note { border: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
 .note-text { margin: 0; font: 400 17px/24px var(--font-text); white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 8; -webkit-box-orient: vertical; overflow: hidden; }
 
-.sheet-backdrop { position: fixed; inset: 0; z-index: 30; background: color-mix(in srgb, var(--ink) 35%, transparent); display: flex; align-items: flex-end; justify-content: center; }
-.sheet { width: 100%; max-width: 640px; max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--space-4)); overflow-y: auto; overscroll-behavior: contain; background: var(--surface-raised); border-radius: 24px 24px 0 0; box-shadow: var(--shadow-sheet); padding: var(--space-2) var(--space-4) max(var(--space-8), env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: var(--space-4); }
+.sheet-backdrop { position: fixed; inset: 0; z-index: 30; background: var(--scrim); display: flex; align-items: flex-end; justify-content: center; }
+.sheet { width: 100%; max-width: 640px; max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--space-4)); overflow-y: auto; overscroll-behavior: contain; background: var(--surface-raised); color: var(--ink); border-radius: 24px 24px 0 0; box-shadow: var(--shadow-sheet); padding: var(--space-2) var(--space-4) max(var(--space-8), env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: var(--space-4); }
 .sheet-grabber { width: 36px; height: 5px; border-radius: var(--radius-pill); background: var(--line); align-self: center; }
 .sheet-bar { display: flex; align-items: center; gap: var(--space-2); }
 .sheet-bar .hl-btn-plain { padding: 0; }
