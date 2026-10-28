@@ -23,6 +23,7 @@ type handlers struct {
 	home       port.HomeService
 	push       port.PushService
 	calls      port.CallService
+	assistant  port.AssistantService
 	login      port.LoginService
 	cookies    cookies
 	checks     []port.HealthCheck

@@ -1,5 +1,6 @@
 {
   "error.already_revealed": "Die Antworten sind schon offen und lassen sich nicht mehr ändern.",
+  "error.assistant_unavailable": "Der Assistent ist gerade nicht erreichbar.",
   "error.auth_unavailable": "Die Anmeldung ist gerade nicht erreichbar. Versuch es in einer Minute noch einmal.",
   "error.calls_unavailable": "Anrufe gehen gerade nicht.",
   "error.cooking_unavailable": "Kochen geht gerade nicht.",

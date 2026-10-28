@@ -18,7 +18,7 @@ The app speaks German and English. The API answers in the language of the `Accep
 ```sh
 cp .env.example .env   # set POSTGRES_PASSWORD, PUBLIC_URL=http://localhost:3000, the authentik values
                        # and LIVEKIT_API_SECRET (32+ characters) for calls
-                       # optional: MEALIE_MCP_URL + MEALIE_MCP_TOKEN for cooking, ANTHROPIC_API_KEY for Claude
+                       # optional: MEALIE_MCP_URL + MEALIE_MCP_TOKEN for cooking, ANTHROPIC_API_KEY for Claude and the assistant
                        # optional: HOME_ASSISTANT_URL + HOMELOOM_SECRET_KEY for scenes and lights
                        # optional: VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY for notifications (see .env.example)
                        # optional: TIME_ZONE for reminders and the calendar (Europe/Berlin by default)

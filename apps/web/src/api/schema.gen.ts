@@ -775,6 +775,82 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Your chats with the assistant in this household, last used first
+         * @description Only you see your conversations. `503 assistant_unavailable` when no LLM is set up.
+         */
+        get: operations["listConversations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/chat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask the assistant; the answer streams back as server-sent events
+         * @description Stores your message, in a new conversation unless `conversationId` is given, and streams the
+         *     answer as `text/event-stream`. The assistant acts only as you, through the same rules as the
+         *     rest of the API: it reads and adds reminders, events and notes you can see, finds recipes,
+         *     reads and adds to the shopping list, and reads the home and switches its scenes and lights.
+         *     It can't delete anything.
+         *
+         *     Events, each with a JSON `data` line:
+         *     - `conversation`: a `Conversation`, first.
+         *     - `tool`: a `ChatTool`, when the assistant starts to use a tool.
+         *     - `text`: a `ChatText`, the next piece of the answer.
+         *     - `done`: the stored answer, a `ChatMessage`; the stream then ends.
+         *     - `error`: an `Error` (e.g. `assistant_unavailable`) when the answer fails after the stream
+         *       has started; the stream then ends. Your message stays stored.
+         */
+        post: operations["chat"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/conversations/{conversationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        /** One of your conversations with its last 40 messages, oldest first */
+        get: operations["getConversation"];
+        put?: never;
+        post?: never;
+        /** Delete one of your conversations */
+        delete: operations["deleteConversation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1128,6 +1204,47 @@ export interface components {
         };
         /** @enum {string} */
         Role: "owner" | "member";
+        ChatRequest: {
+            /**
+             * Format: uuid
+             * @description Continue this conversation; absent starts a new one.
+             */
+            conversationId?: string;
+            text: string;
+        };
+        Conversation: {
+            /** Format: uuid */
+            id: string;
+            /** @description The start of its first message. */
+            title: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ConversationDetail: components["schemas"]["Conversation"] & {
+            messages: components["schemas"]["ChatMessage"][];
+        };
+        ChatMessage: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            role: "user" | "assistant";
+            text: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ChatTool: {
+            /**
+             * @description The tool: `list_entries`, `add_reminder`, `add_event`, `add_note`, `complete_reminder`,
+             *     `search_recipes`, `get_recipe`, `list_shopping`, `add_to_shopping_list`, `get_home`,
+             *     `activate_scene` or `set_light`. More may come.
+             */
+            name: string;
+        };
+        ChatText: {
+            text: string;
+        };
     };
     responses: {
         /** @description The request is invalid. */
@@ -1157,7 +1274,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description A dependency (authentik, Redis, Mealie, Home Assistant, Web Push, LiveKit) cannot be reached or isn't set up. */
+        /** @description A dependency (authentik, Redis, Mealie, Home Assistant, Web Push, the LLM, LiveKit) cannot be reached or isn't set up. */
         Unavailable: {
             headers: {
                 [name: string]: unknown;
@@ -1172,6 +1289,7 @@ export interface components {
         EntryId: string;
         CallId: string;
         ShoppingItemId: string;
+        ConversationId: string;
         RecipeSlug: string;
     };
     requestBodies: never;
@@ -2466,6 +2584,109 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    listConversations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Up to 30 conversations. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    chat: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatRequest"];
+            };
+        };
+        responses: {
+            /** @description The answer, as server-sent events. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The conversation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    deleteConversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversationId: components["parameters"]["ConversationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
         };
     };
 }

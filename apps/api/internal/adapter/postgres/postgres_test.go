@@ -39,6 +39,7 @@ func TestPushSubscriptions(t *testing.T) { storetest.PushSubscriptions(t, store(
 func TestEntries(t *testing.T)           { storetest.Entries(t, store(t)) }
 func TestCalendarFeeds(t *testing.T)     { storetest.CalendarFeeds(t, store(t)) }
 func TestShoppingItems(t *testing.T)     { storetest.ShoppingItems(t, store(t)) }
+func TestConversations(t *testing.T)     { storetest.Conversations(t, store(t)) }
 
 func TestStore(t *testing.T) {
 	ctx := context.Background()

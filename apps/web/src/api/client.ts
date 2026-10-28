@@ -29,3 +29,7 @@ export type EntryFields = components["schemas"]["EntryFields"];
 export type Visibility = components["schemas"]["Visibility"];
 export type Repeat = components["schemas"]["Repeat"];
 export type Call = components["schemas"]["Call"];
+export type Conversation = components["schemas"]["Conversation"];
+export type ChatMessage = components["schemas"]["ChatMessage"];
+export type ChatRequest = components["schemas"]["ChatRequest"];
+export type ApiError = components["schemas"]["Error"];

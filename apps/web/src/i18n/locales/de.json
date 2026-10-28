@@ -182,5 +182,19 @@
     "title": "Die Einladung hat nicht geklappt",
     "failed": "Das hat nicht geklappt. Versuch es bitte nochmal.",
     "continue": "Weiter"
+  },
+  "assistant": {
+    "open": "Frag Homeloom",
+    "title": "Frag Homeloom",
+    "done": "Fertig",
+    "new": "Neuer Chat",
+    "intro": "Homeloom kennt eure Rezepte, Listen und euer Zuhause. Es fragt nach, bevor es etwas tut, worum du nicht gebeten hast.",
+    "recent": "Letzte Chats",
+    "placeholder": "Frag nach Essen, Listen oder dem Zuhause",
+    "message": "Nachricht",
+    "send": "Senden",
+    "failed": "Das hat nicht geklappt. Versuch es noch mal.",
+    "unavailable": { "title": "Nicht verfügbar", "body": "Der Assistent ist auf diesem Server nicht eingerichtet." },
+    "steps": { "lists": "Schaut in eure Listen…", "write": "Schreibt es auf…", "done": "Hakt es ab…", "recipes": "Sucht in euren Rezepten…", "shopping": "Schaut auf die Einkaufsliste…", "home": "Schaut nach dem Zuhause…", "other": "Einen Moment…" }
   }
 }

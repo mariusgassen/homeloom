@@ -612,3 +612,71 @@ test("an expired guest link says so", async () => {
   renderApp("/guest/oldtoken");
   expect(await screen.findByRole("alert")).toHaveTextContent("This link has expired");
 });
+
+const sse = (...events: [string, unknown][]) =>
+  new Response(events.map(([e, d]) => `event: ${e}\ndata: ${JSON.stringify(d)}\n\n`).join(""), { headers: { "Content-Type": "text/event-stream" } });
+
+test("the assistant answers in a chat and the screen loads again after it changed something", async () => {
+  const conv = { id: "55555555-5555-4555-8555-555555555555", title: "Remind us", createdAt: "2026-10-28T12:00:00Z", updatedAt: "2026-10-28T12:00:00Z" };
+  let entryLoads = 0;
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => {
+      entryLoads++;
+      return json([]);
+    }),
+    at("GET", `/v1/households/${home.id}/conversations`, () => json([])),
+    at("POST", `/v1/households/${home.id}/chat`, () =>
+      sse(
+        ["conversation", conv],
+        ["tool", { name: "add_reminder" }],
+        ["text", { text: "Done, " }],
+        ["text", { text: "it's on the list." }],
+        ["done", { id: "66666666-6666-4666-8666-666666666666", role: "assistant", text: "Done, it's on the list.", createdAt: conv.createdAt }],
+      ),
+    ),
+  );
+  renderApp();
+  await userEvent.click(await screen.findByRole("button", { name: "Ask Homeloom" }));
+  const dialog = await screen.findByRole("dialog", { name: "Ask Homeloom" });
+  await userEvent.type(within(dialog).getByLabelText("Message"), "Remind us to water the plants tomorrow at 8");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Send" }));
+  expect(await within(dialog).findByText("Done, it's on the list.")).toBeInTheDocument();
+  expect(within(dialog).getByText("Remind us to water the plants tomorrow at 8")).toHaveClass("bubble-me");
+  const post = calls.find((c) => c.method === "POST");
+  expect(await post?.json()).toEqual({ text: "Remind us to water the plants tomorrow at 8" });
+
+  const before = entryLoads;
+  await userEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  await waitFor(() => expect(entryLoads).toBeGreaterThan(before));
+});
+
+test("the assistant continues a recent chat and says when it isn't set up", async () => {
+  const conv = { id: "55555555-5555-4555-8555-555555555555", title: "Was kochen wir?", createdAt: "2026-10-28T12:00:00Z", updatedAt: "2026-10-28T12:00:00Z" };
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/conversations`, () => json([conv])),
+    at("GET", `/v1/conversations/${conv.id}`, () =>
+      json({ ...conv, messages: [{ id: "a", role: "user", text: "Was kochen wir?", createdAt: conv.createdAt }, { id: "b", role: "assistant", text: "Curry!", createdAt: conv.createdAt }] }),
+    ),
+    at("POST", `/v1/households/${home.id}/chat`, () => json({ code: "assistant_unavailable", message: "The assistant isn't available right now." }, 503)),
+  );
+  renderApp();
+  await userEvent.click(await screen.findByRole("button", { name: "Ask Homeloom" }));
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.click(await within(dialog).findByRole("button", { name: "Was kochen wir?" }));
+  expect(await within(dialog).findByText("Curry!")).toBeInTheDocument();
+  await userEvent.type(within(dialog).getByLabelText("Message"), "Und morgen?");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Send" }));
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent("The assistant isn't available right now.");
+  expect(await calls.find((c) => c.method === "POST")?.json()).toEqual({ text: "Und morgen?", conversationId: conv.id });
+});
+
+test("without the assistant the chat says so", async () => {
+  serve(...signedIn(), at("GET", `/v1/households/${home.id}/conversations`, () => json({ code: "assistant_unavailable", message: "" }, 503)));
+  renderApp();
+  await userEvent.click(await screen.findByRole("button", { name: "Ask Homeloom" }));
+  expect(await screen.findByText("Not available")).toBeInTheDocument();
+  expect(screen.getByLabelText("Message")).toBeDisabled();
+});

@@ -18,7 +18,7 @@ Die App spricht Deutsch und Englisch. Die API antwortet in der Sprache aus dem `
 ```sh
 cp .env.example .env   # POSTGRES_PASSWORD, PUBLIC_URL=http://localhost:3000, die authentik-Werte
                        # und LIVEKIT_API_SECRET (32+ Zeichen) für Anrufe setzen
-                       # optional: MEALIE_MCP_URL + MEALIE_MCP_TOKEN zum Kochen, ANTHROPIC_API_KEY für Claude
+                       # optional: MEALIE_MCP_URL + MEALIE_MCP_TOKEN zum Kochen, ANTHROPIC_API_KEY für Claude und den Assistenten
                        # optional: HOME_ASSISTANT_URL + HOMELOOM_SECRET_KEY für Szenen und Licht
                        # optional: VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY für Mitteilungen (siehe .env.example)
                        # optional: TIME_ZONE für Erinnerungen und Kalender (Standard: Europe/Berlin)
