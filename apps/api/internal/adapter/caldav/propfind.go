@@ -156,18 +156,18 @@ func (b *backend) propfind(w http.ResponseWriter, r *http.Request) bool {
 		out = append(out, resp)
 		return err
 	}
-	switch {
-	case p == Prefix+"/":
+	switch p {
+	case Prefix + "/":
 		err = add(p, b.rootProps(ctx))
 		if err == nil && deep {
 			err = add(principal, b.principalProps(ctx))
 		}
-	case p == principal:
+	case principal:
 		err = add(p, b.principalProps(ctx))
 		if err == nil && deep {
 			err = add(home, b.homeProps(ctx))
 		}
-	case p == home:
+	case home:
 		err = add(p, b.homeProps(ctx))
 		for _, l := range lists {
 			if err == nil && deep {
