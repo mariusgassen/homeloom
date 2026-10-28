@@ -11,7 +11,6 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      pwaAssets: { config: true, injectThemeColor: false },
       manifest: {
         name: "Homeloom",
         short_name: "Homeloom",
@@ -22,6 +21,13 @@ export default defineConfig({
         start_url: "/",
         theme_color: "#1f4d47",
         background_color: "#f2f3ee",
+        // Copies of brand/; regenerate there, then copy them over.
+        icons: [
+          { src: "icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "icon-maskable-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
+          { src: "icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        ],
       },
       workbox: {
         // Sign-in and API calls must always reach the server, never the app shell.
