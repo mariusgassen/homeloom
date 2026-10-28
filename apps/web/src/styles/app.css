@@ -7,14 +7,15 @@ h1, h2, h3, p { margin: 0; }
 .error { color: var(--danger); }
 
 .app { min-height: 100dvh; }
-/* A strip in the page colour behind the clock: content scrolls under it, so iOS's edge fade has nothing to show. */
+/* A strip in the page colour behind the clock, full width beyond the screen's max width. */
 .app::before { content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: 20; height: env(safe-area-inset-top, 0px); background: var(--surface); }
 .hl-tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; }
 .hl-tab { text-decoration: none; }
 
-.screen { padding: env(safe-area-inset-top, 0px) max(var(--space-4), env(safe-area-inset-right, 0px)) 0 max(var(--space-4), env(safe-area-inset-left, 0px)); max-width: 640px; margin: 0 auto; }
-.screen-header { padding: var(--space-2) 0; display: flex; flex-direction: column; gap: var(--space-1); }
-.screen-toolbar { display: flex; align-items: center; gap: var(--space-2); min-height: var(--hit-min); }
+.screen { --screen-pad-left: max(var(--space-4), env(safe-area-inset-left, 0px)); --screen-pad-right: max(var(--space-4), env(safe-area-inset-right, 0px)); padding: 0 var(--screen-pad-right) 0 var(--screen-pad-left); max-width: 640px; margin: 0 auto; }
+/* A solid bar over the clock and the toolbar: iOS 26 blurs a band deeper than the safe area, so that band must be opaque page colour, not scrolling content. */
+.screen-toolbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: var(--space-2); min-height: calc(var(--hit-min) + env(safe-area-inset-top, 0px) + var(--space-2)); margin: 0 calc(-1 * var(--screen-pad-right)) 0 calc(-1 * var(--screen-pad-left)); padding: calc(env(safe-area-inset-top, 0px) + var(--space-2)) var(--screen-pad-right) 0 var(--screen-pad-left); background: var(--surface); }
+.screen-header { padding: var(--space-1) 0 var(--space-2); }
 .screen-overline { flex-grow: 1; color: var(--ink-muted); }
 .screen-household { color: inherit; text-decoration: none; min-width: var(--hit-min); min-height: var(--hit-min); display: grid; place-items: center; border-radius: var(--radius-pill); }
 .screen-main { display: flex; flex-direction: column; gap: var(--space-6); padding: var(--space-2) 0 calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px) + var(--space-8)); }
@@ -81,8 +82,9 @@ h1, h2, h3, p { margin: 0; }
 .switch-on::after { transform: translateX(20px); }
 
 .screen-action { min-width: var(--hit-min); min-height: var(--hit-min); display: grid; place-items: center; border: 0; border-radius: var(--radius-pill); background: none; color: var(--spruce); cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.segmented { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--space-1); padding: var(--space-1); background: var(--surface-sunken); border-radius: var(--radius-md); }
-.segmented button { min-height: 36px; border: 0; border-radius: 10px; background: none; color: var(--ink-muted); font: 600 15px/20px var(--font-text); cursor: pointer; }
+/* Segments share the width by label length, so a long German label still fits on a 375pt phone; ellipsis is the last resort. */
+.segmented { display: flex; gap: 2px; padding: var(--space-1); background: var(--surface-sunken); border-radius: var(--radius-md); }
+.segmented button { flex: 1 1 auto; min-width: 0; min-height: 36px; padding: 0 var(--space-2); border: 0; border-radius: 10px; background: none; color: var(--ink-muted); font: 600 13px/18px var(--font-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
 .segmented button[aria-selected="true"] { background: var(--surface-raised); color: var(--ink); }
 
 .entry-row { display: flex; align-items: center; padding-left: var(--space-4); }
