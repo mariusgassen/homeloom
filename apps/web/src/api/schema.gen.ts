@@ -543,11 +543,12 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Join the household's voice and video call (members only)
-         * @description Returns a LiveKit access token for the household's call room, valid for ten minutes to
-         *     connect. When no other member is in the call yet, they get a push notification that opens
-         *     `/call?from=<caller's id>`. Answers `503 calls_unavailable` when LiveKit isn't set up or
-         *     can't be reached.
+         * Call another member of the household, or answer their call (members only)
+         * @description Returns a LiveKit access token for the room the caller shares with the member in `with`,
+         *     valid for ten minutes to connect. When that member isn't in the call yet, they get a push
+         *     notification that opens `/call?from=<caller's id>`; answering is the same request with the
+         *     caller in `with`. Answers `503 calls_unavailable` when LiveKit isn't set up or can't be
+         *     reached.
          */
         post: operations["joinCall"];
         delete?: never;
@@ -846,6 +847,13 @@ export interface components {
             /** @description The room's id; absent when it has none. */
             room?: string;
             on: boolean;
+        };
+        CallWith: {
+            /**
+             * Format: uuid
+             * @description The member to call, or whose call to answer.
+             */
+            with: string;
         };
         Call: {
             /** @description The LiveKit server to connect to (wss://). */
@@ -1872,7 +1880,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CallWith"];
+            };
+        };
         responses: {
             /** @description Where to connect, and the token to connect with. */
             200: {
@@ -1883,6 +1895,7 @@ export interface operations {
                     "application/json": components["schemas"]["Call"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             503: components["responses"]["Unavailable"];

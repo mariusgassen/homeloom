@@ -51,6 +51,7 @@
     "openRecipe": "Open full recipe"
   },
   "call": {
+    "pick": "Who to call",
     "start": "Call {{name}}",
     "incoming": "{{name}} is calling",
     "answer": "Answer",

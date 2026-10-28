@@ -86,7 +86,9 @@ type PushService interface {
 }
 
 type CallService interface {
-	// Join lets the actor into the household's call. When no other member is in it yet, they are
-	// rung. It returns domain.ErrUnavailable when calls aren't set up or LiveKit is down.
-	Join(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Call, error)
+	// Join lets the actor into their call with another member of the household, ringing that
+	// member when they aren't in it yet. It returns domain.ErrNotFound when with isn't a member,
+	// domain.ErrInvalid for the actor themselves, and domain.ErrUnavailable when calls aren't set
+	// up or LiveKit is down.
+	Join(ctx context.Context, actor domain.User, householdID, with uuid.UUID) (domain.Call, error)
 }

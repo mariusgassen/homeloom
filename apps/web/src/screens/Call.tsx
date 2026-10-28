@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { useCall, type CallState } from "../call";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
+import { ListRow } from "../ui/ListRow";
 import { cx, Icon } from "../ui/Icon";
 import { ThreadAvatar, threadFor } from "../ui/ThreadAvatar";
 
@@ -19,23 +20,54 @@ function usePartners() {
   };
 }
 
-// The phone button in a screen's header: calls everyone else in the household.
+// The phone button in a screen's header. With one other person it calls them; with more it asks
+// who to call first.
 export function CallButton() {
   const { t } = useTranslation();
   const { start, room } = useCall();
   const { householdId, partners } = usePartners();
-  const partner = partners[0];
-  if (!householdId || !partner) return null;
+  const [picking, setPicking] = useState(false);
+  if (!householdId || partners.length === 0) return null;
+  const only = partners.length === 1 ? partners[0] : undefined;
   return (
-    <button
-      type="button"
-      className="screen-action"
-      aria-label={t("call.start", { name: partner.name })}
-      disabled={!!room}
-      onClick={() => start(householdId)}
-    >
-      <Icon name="phone" />
-    </button>
+    <>
+      <button
+        type="button"
+        className="screen-action"
+        aria-label={only ? t("call.start", { name: only.name }) : t("call.pick")}
+        disabled={!!room}
+        onClick={() => (only ? start(householdId, only.id) : setPicking(true))}
+      >
+        <Icon name="phone" />
+      </button>
+      {picking && (
+        <div className="sheet-backdrop" onClick={(e) => e.target === e.currentTarget && setPicking(false)}>
+          <div className="sheet" role="dialog" aria-modal="true" aria-label={t("call.pick")}>
+            <div className="sheet-grabber" aria-hidden="true" />
+            <div className="sheet-bar">
+              <Button variant="plain" onClick={() => setPicking(false)}>
+                {t("entries.cancel")}
+              </Button>
+              <h2 className="headline sheet-title">{t("call.pick")}</h2>
+            </div>
+            <div className="hl-list sheet-choices">
+              {partners.map((p) => (
+                <ListRow
+                  key={p.id}
+                  leading={<ThreadAvatar name={p.name} src={p.avatarUrl} thread={p.thread} />}
+                  title={p.name}
+                  trailing={<Icon name="phone" />}
+                  onClick={() => {
+                    setPicking(false);
+                    start(householdId, p.id);
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -61,7 +93,7 @@ export function IncomingCall() {
         <Button
           icon="phone"
           onClick={() => {
-            start(householdId);
+            start(householdId, caller.id);
             navigate("/us", { replace: true });
           }}
         >
@@ -74,11 +106,11 @@ export function IncomingCall() {
 
 // The call itself, over everything else while it lasts.
 export function CallView() {
-  const { room, state, since, hangUp } = useCall();
+  const { room, peer, state, since, hangUp } = useCall();
   const { partners } = usePartners();
   if (!room) return null;
   const remote = [...room.remoteParticipants.values()][0];
-  const partner = partners.find((p) => p.id === remote?.identity) ?? partners[0];
+  const partner = partners.find((p) => p.id === peer);
   const remoteVideo = remote?.getTrackPublication(Track.Source.Camera);
   const localVideo = room.localParticipant.getTrackPublication(Track.Source.Camera);
   const showRemote = remoteVideo?.videoTrack && !remoteVideo.isMuted;

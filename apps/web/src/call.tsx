@@ -7,11 +7,13 @@ export type CallState = "connecting" | "ringing" | "live" | "reconnecting" | "en
 
 type Value = {
   room: Room | null;
+  // Who the call is with.
+  peer?: string;
   state: CallState;
   // When the other one joined, for the call's timer.
   since?: number;
   // start must run from a tap: iOS only lets a call be heard when its audio starts in a gesture.
-  start: (householdId: string) => void;
+  start: (householdId: string, peer: string) => void;
   hangUp: () => void;
 };
 
@@ -24,6 +26,7 @@ const lingerFor = 1_500;
 
 export function CallProvider({ children }: { children: ReactNode }) {
   const [room, setRoom] = useState<Room | null>(null);
+  const [peer, setPeer] = useState<string>();
   const [state, setState] = useState<CallState>("connecting");
   const [since, setSince] = useState<number>();
   const [, rerender] = useState(0);
@@ -52,11 +55,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
   );
 
   const start = useCallback(
-    (householdId: string) => {
+    (householdId: string, peer: string) => {
       if (current.current) return;
       const r = new Room({ adaptiveStream: true, dynacast: true });
       current.current = r;
       setRoom(r);
+      setPeer(peer);
       setState("connecting");
       void r.startAudio();
 
@@ -89,7 +93,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
       void (async () => {
         try {
-          const { data } = await api.POST("/v1/households/{householdId}/call", { params: { path: { householdId } } });
+          const { data } = await api.POST("/v1/households/{householdId}/call", { params: { path: { householdId } }, body: { with: peer } });
           if (!data) return finish(r, "failed");
           await r.connect(data.url, data.token);
         } catch {
@@ -118,7 +122,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("pagehide", leave);
   }, []);
 
-  return <CallContext value={{ room, state, since, start, hangUp }}>{children}</CallContext>;
+  return <CallContext value={{ room, peer, state, since, start, hangUp }}>{children}</CallContext>;
 }
 
 export function useCall() {

@@ -51,6 +51,7 @@
     "openRecipe": "Ganzes Rezept öffnen"
   },
   "call": {
+    "pick": "Wen anrufen?",
     "start": "{{name}} anrufen",
     "incoming": "{{name}} ruft an",
     "answer": "Annehmen",

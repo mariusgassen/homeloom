@@ -471,14 +471,28 @@ func TestPushFlow(t *testing.T) {
 func TestCallFlow(t *testing.T) {
 	h := newServer(t)
 	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
-	call := "/v1/households/" + created["id"].(string) + "/call"
-	if code, body := do(t, h, "POST", call, "token-alice", ""); code != 200 || body["url"] != "wss://calls.example" || body["room"] != "household-"+created["id"].(string) || body["token"] == "" {
-		t.Fatalf("join: %d %v", code, body)
+	id := created["id"].(string)
+	_, inv := do(t, h, "POST", "/v1/households/"+id+"/invites", "token-alice", "")
+	do(t, h, "POST", "/v1/invites/"+inv["code"].(string), "token-bob", "")
+	_, bob := do(t, h, "GET", "/v1/me", "token-bob", "")
+	_, alice := do(t, h, "GET", "/v1/me", "token-alice", "")
+	call := "/v1/households/" + id + "/call"
+	with := func(u map[string]any) string { return `{"with":"` + u["id"].(string) + `"}` }
+
+	code, body := do(t, h, "POST", call, "token-alice", with(bob))
+	if code != 200 || body["url"] != "wss://calls.example" || body["token"] == "" {
+		t.Fatalf("call: %d %v", code, body)
 	}
-	if code, body := do(t, h, "POST", call, "token-eve", ""); code != 404 || body["code"] != "not_found" {
+	if code, answer := do(t, h, "POST", call, "token-bob", with(alice)); code != 200 || answer["room"] != body["room"] {
+		t.Fatalf("answer: %d %v", code, answer)
+	}
+	if code, body := do(t, h, "POST", call, "token-alice", with(alice)); code != 400 || body["code"] != "invalid" {
+		t.Fatalf("yourself: %d %v", code, body)
+	}
+	if code, body := do(t, h, "POST", call, "token-eve", with(alice)); code != 404 || body["code"] != "not_found" {
 		t.Fatalf("outsider: %d %v", code, body)
 	}
-	if code, _ := do(t, h, "POST", call, "", ""); code != 401 {
+	if code, _ := do(t, h, "POST", call, "", with(alice)); code != 401 {
 		t.Fatalf("needs auth: %d", code)
 	}
 }

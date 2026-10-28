@@ -487,7 +487,7 @@ test("calling from Us rings and shows the call until hung up", async () => {
   renderApp("/us");
   await userEvent.click(await screen.findByRole("button", { name: "Call Jo" }));
   expect(await screen.findByText("Calling…")).toBeInTheDocument();
-  expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/call"))).toBe(true);
+  expect(await calls.find((c) => c.method === "POST" && c.url.endsWith("/call"))?.json()).toEqual({ with: jo.id });
   const room = rooms[0] as unknown as { connect: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn>; join: (id: string, name: string) => void };
   expect(room.connect).toHaveBeenCalledWith("wss://home.example", "t");
 
@@ -515,4 +515,25 @@ test("a call notification asks before answering", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Answer" }));
   await waitFor(() => expect(rooms).toHaveLength(1));
   expect(await screen.findByText("Calling…")).toBeInTheDocument();
+});
+
+test("with more than one other person, you pick who to call", async () => {
+  rooms.length = 0;
+  const sam = { id: "44444444-4444-4444-8444-444444444444", name: "Sam" };
+  const calls = serve(
+    at("GET", "/v1/me", () => json(marius)),
+    at("GET", "/v1/households", () => json([home])),
+    at("GET", `/v1/households/${home.id}`, () =>
+      json({ ...home, members: [{ user: marius, role: "owner" }, { user: jo, role: "member" }, { user: sam, role: "member" }] }),
+    ),
+    at("GET", `/v1/households/${home.id}/questions`, () => json([])),
+    at("POST", `/v1/households/${home.id}/call`, callJoin),
+  );
+  renderApp("/us");
+  await userEvent.click(await screen.findByRole("button", { name: "Who to call" }));
+  const sheet = screen.getByRole("dialog", { name: "Who to call" });
+  await userEvent.click(within(sheet).getByRole("button", { name: /Sam/ }));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/call"))).toBe(true));
+  expect(await calls.find((c) => c.method === "POST" && c.url.endsWith("/call"))?.json()).toEqual({ with: sam.id });
 });

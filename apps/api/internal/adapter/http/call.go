@@ -14,8 +14,10 @@ func (h *handlers) JoinCall(ctx context.Context, req oapi.JoinCallRequestObject)
 	if err != nil {
 		return nil, err
 	}
-	c, err := h.calls.Join(ctx, u, req.HouseholdId)
+	c, err := h.calls.Join(ctx, u, req.HouseholdId, req.Body.With)
 	switch {
+	case errors.Is(err, domain.ErrInvalid):
+		return oapi.JoinCall400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "invalid", err.Error()))}, nil
 	case errors.Is(err, domain.ErrNotFound):
 		return oapi.JoinCall404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
 	case errors.Is(err, domain.ErrUnavailable):
