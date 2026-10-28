@@ -18,6 +18,7 @@ import (
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/homeassistant"
 	httpadapter "github.com/mariusgassen/homeloom/apps/api/internal/adapter/http"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/livekit"
+	mcpadapter "github.com/mariusgassen/homeloom/apps/api/internal/adapter/mcp"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/mealie"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/oidc"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/postgres"
@@ -162,12 +163,15 @@ func run() error {
 	go notifyDue(ctx, entries)
 	cook := service.NewCook(store, book, chef, shopping)
 	homeService := service.NewHome(store, homeConnections, sessions, home)
+	households := service.NewHousehold(store)
+	assistant := service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone)
+	agents := service.NewAgentAccess(store, sessions, store)
 
 	handler, err := httpadapter.NewRouter(httpadapter.Deps{
 		Version:        version,
 		Identity:       identity,
 		Login:          login,
-		Households:     service.NewHousehold(store),
+		Households:     households,
 		Questions:      service.NewQuestion(store, store, push),
 		Entries:        entries,
 		Cook:           cook,
@@ -175,11 +179,19 @@ func run() error {
 		Home:           homeService,
 		Push:           push,
 		Calls:          service.NewCall(store, sessions, calls, push),
-		Assistant:      service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone),
+		Assistant:      assistant,
+		Agents:         agents,
 		HealthChecks:   []port.HealthCheck{postgres.HealthCheck{Pool: pool}, redis.HealthCheck{Client: rdb}},
 		AllowedOrigins: cfg.AllowedOrigins,
 		SecureCookies:  cfg.SecureCookies(),
 		SessionTTL:     cfg.SessionTTL,
+		MCP: mcpadapter.NewHandler(mcpadapter.Deps{
+			Version:    version,
+			Identity:   identity,
+			Agents:     agents,
+			Households: households,
+			Tools:      assistant,
+		}),
 	})
 	if err != nil {
 		return err

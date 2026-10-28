@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -136,6 +137,25 @@ func (s *Assistant) Answer(ctx context.Context, actor domain.User, conversationI
 	}
 	// The reply is stored even when the person has gone, so it is there when they come back.
 	return s.conversations.AddChatMessage(context.WithoutCancel(ctx), domain.ChatMessage{ConversationID: c.ID, Role: domain.RoleAssistant, Text: text})
+}
+
+// Tools are what the assistant can do; the MCP server offers the same.
+func (s *Assistant) Tools() []domain.Tool {
+	return slices.Clone(tools)
+}
+
+// RunTool runs a tool for a client other than the assistant's own chat. It needs no LLM.
+func (s *Assistant) RunTool(ctx context.Context, actor domain.User, householdID uuid.UUID, call domain.ToolCall) (string, error) {
+	box := &toolbox{s: s, actor: actor, householdID: householdID}
+	if _, err := s.households.Role(ctx, householdID, actor.ID); err != nil {
+		return "", box.explain(ctx, call.Name, err)
+	}
+	members, err := s.households.Members(ctx, householdID)
+	if err != nil {
+		return "", box.explain(ctx, call.Name, err)
+	}
+	box.members = members
+	return box.run(ctx, call)
 }
 
 // own returns the actor's conversation; anyone else's is domain.ErrNotFound.

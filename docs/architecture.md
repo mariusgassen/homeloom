@@ -61,7 +61,7 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 ## Authentication
 
 - **Browser (PWA):** a confidential authentik client. The browser navigates to `/auth/login`; the API redirects to authentik (authorization code flow with PKCE and nonce), redeems the code at `/auth/callback` with the client secret, and stores the session in Redis. The browser only gets an HttpOnly, Secure, SameSite=Lax `homeloom_session` cookie; tokens and the secret never reach it. `POST /auth/logout` deletes the session and returns authentik's end-session URL.
-- **Other clients (iOS, MCP, third-party):** each is its own authentik provider and sends its access token as `Authorization: Bearer`. The API verifies the JWT against the issuer's JWKS and accepts `OIDC_CLIENT_ID` plus any client ID in `OIDC_CLIENT_IDS` (add it to the compose file once such a client exists). The provider must have a signing key so tokens are JWTs.
+- **Other clients (iOS, MCP, third-party):** each is its own authentik provider and sends its access token as `Authorization: Bearer`. The API verifies the JWT against the issuer's JWKS and accepts `OIDC_CLIENT_ID` plus any client ID in `OIDC_CLIENT_IDS` (the compose file passes it through). The provider must have a signing key so tokens are JWTs.
 - The spec offers both schemes on every protected operation; either one is enough.
 - On the first request a local `users` row is created from the `sub`; later requests are served from the Redis user cache unless the profile changed.
 - If authentik or Redis cannot be reached the API returns `503 auth_unavailable`, not `401`, and health checks keep working. A failed login redirects to `/?auth_error=login_failed` or `/?auth_error=auth_unavailable`.
@@ -120,7 +120,16 @@ apps/web/
 - **Ask Homeloom** is a chat opened from the sparkle in every header. `POST /v1/households/{id}/chat` stores the message and streams the answer back as server-sent events (`conversation`, `tool`, `text`, `done` or `error`). The answer goes on when the browser goes away, so it is there when the person comes back. Each conversation belongs to one person and is visible only to them (`conversations`, `chat_messages`); the assistant reads its last 40 messages.
 - **The tools are the whitelist** (`core/service/assistant_tools.go`): list and add reminders, events and notes, tick a reminder off, search and open recipes, read and add to the shopping list, read the home, turn a scene on and switch a light. Nothing deletes. Every tool calls the same service the app does, with the person as the actor, so private entries and unopened notes stay hidden exactly as in the app. Tool input is decoded strictly and validated by the services; a failure goes back to the model as a failed call, and only failures it can fix carry details.
 - **Claude** (`adapter/claude`, port `Assistant`) runs the tool loop: up to 10 rounds, each call bounded to 60 s and the whole answer to 2 minutes. The instructions and tools are cached; the time, time zone, the person's name and the other members follow them. It acts when asked and asks first when something is its own idea. Without `ANTHROPIC_API_KEY` the assistant answers `503 assistant_unavailable` and the app says so.
-- The same tools are meant for the MCP server and the LiveKit voice agent, so neither needs rules of its own.
+- The same tools are served over MCP (below), so other assistants need no rules of their own.
+
+## MCP server
+
+- `adapter/mcp` serves the assistant's tools at `/mcp` (streamable HTTP, without sessions), outside the OpenAPI contract and next to it in the same router. It runs `ToolService.RunTool`, which checks membership and then calls the same tools as the chat, so a caller sees and changes exactly what they could in the app. It needs no LLM: the client brings its own model.
+- **Who it acts as** comes from the bearer token on every request:
+  - a **personal key** (`hlp_…`) a member makes under Settings › Other apps for one app (`/v1/households/{id}/mcp-tokens`). It acts as them in that household until they remove it. Only its SHA-256 is stored (`mcp_tokens`), and the key is shown once.
+  - an **access token from authentik**, for MCP clients such as Claude. Give the client its own authentik provider and add its client ID to `OIDC_CLIENT_IDS`. `?household=<id>` picks the household; members of just one may leave it out.
+  - an **agent token** (`hla_…`) for the voice agent. `AgentAccessService.Mint` makes one for a member and one household, lasting up to 6 hours, and `Revoke` ends it, for example when a call ends. Only a hash of the token is stored, in Redis, until it expires. It is never sent to authentik.
+- A missing or unknown token gets `401` with `WWW-Authenticate`; authentik being unreachable gets `503`.
 
 ## Notifications
 
@@ -150,14 +159,13 @@ apps/web/
 - Create a Docker Compose resource from this repository (`docker-compose.yml`).
 - Set `POSTGRES_PASSWORD`, `PUBLIC_URL`, `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` and `LIVEKIT_API_SECRET` (at least 32 characters).
 - In authentik, register `PUBLIC_URL/auth/callback` as the redirect URI and `PUBLIC_URL/` as the post-logout redirect.
-- Assign the public domain to `homeloom-web` (port 8080). Its Caddy serves the PWA and forwards `/auth/*`, `/v1/*`, `/healthz` and `/readyz` to `homeloom-api`, so app and API share one origin and the session cookie stays first-party, and `/rtc` to `homeloom-livekit`. The API, Postgres and Redis stay internal.
+- Assign the public domain to `homeloom-web` (port 8080). Its Caddy serves the PWA and forwards `/auth/*`, `/v1/*`, `/mcp`, `/healthz` and `/readyz` to `homeloom-api`, so app and API share one origin and the session cookie stays first-party, and `/rtc` to `homeloom-livekit`. The API, Postgres and Redis stay internal.
 - Open UDP 7882 and TCP 7881 in the server's firewall for call audio and video.
 
 ## Planned components
 
 | Component | Shape |
 |---|---|
-| MCP server | Second driving adapter on the same services and the assistant's tools, served at `/mcp`, with its own authentik client |
 | Home Assistant media | Media players join scenes and lights in the whitelist |
 | Homeloom voice agent | `homeloom-agent` (LiveKit Agents for Node) joins a call with Homeloom: OpenAI speech to text and text to speech, Claude as the LLM, and the assistant's tools through `/mcp`, acting as the caller |
 | Third-party apps | Per-app authentik clients or tokens, outgoing webhooks |

@@ -47,6 +47,11 @@ type SessionStore interface {
 	// ClaimGuestPass binds a guest link to the first device that uses it, atomically. It returns
 	// domain.ErrConflict when another device already has.
 	ClaimGuestPass(ctx context.Context, token, device string) error
+	// SaveAgentGrant keeps the grant until it expires; AgentGrant returns domain.ErrNotFound for
+	// an unknown or expired token.
+	SaveAgentGrant(ctx context.Context, token string, g domain.AgentGrant) error
+	AgentGrant(ctx context.Context, token string) (domain.AgentGrant, error)
+	DeleteAgentGrant(ctx context.Context, token string) error
 }
 
 type UserRepository interface {
@@ -204,6 +209,16 @@ type Assistant interface {
 // ToolRunner runs one tool call. Its result goes back to the model; an error is shown to the model
 // as a failed call, so its message must be fit for that.
 type ToolRunner func(ctx context.Context, call domain.ToolCall) (string, error)
+
+type MCPTokenRepository interface {
+	CreateMCPToken(ctx context.Context, tokenHash []byte, t domain.MCPToken) (domain.MCPToken, error)
+	// ListMCPTokens returns the user's tokens in the household, newest first.
+	ListMCPTokens(ctx context.Context, householdID, userID uuid.UUID) ([]domain.MCPToken, error)
+	// DeleteMCPToken returns domain.ErrNotFound unless the user has a token with that id.
+	DeleteMCPToken(ctx context.Context, id, userID uuid.UUID) error
+	// MCPTokenByHash returns the token and its owner, or domain.ErrNotFound.
+	MCPTokenByHash(ctx context.Context, tokenHash []byte) (domain.MCPToken, domain.User, error)
+}
 
 type ConversationRepository interface {
 	CreateConversation(ctx context.Context, c domain.Conversation) (domain.Conversation, error)

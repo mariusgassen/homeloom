@@ -40,6 +40,8 @@ type Store struct {
 
 	conversations []domain.Conversation
 	chatMessages  []domain.ChatMessage
+
+	mcpTokens []mcpToken
 }
 
 func NewStore() *Store {

@@ -36,11 +36,14 @@ type Deps struct {
 	Push           port.PushService
 	Calls          port.CallService
 	Assistant      port.AssistantService
+	Agents         port.AgentAccessService
 	HealthChecks   []port.HealthCheck
 	AllowedOrigins []string
 	// SecureCookies is true when the API is served over HTTPS; SessionTTL is how long a login lasts.
 	SecureCookies bool
 	SessionTTL    time.Duration
+	// MCP, if set, is served at /mcp, outside the OpenAPI contract; it authenticates on its own.
+	MCP http.Handler
 }
 
 func NewRouter(d Deps) (http.Handler, error) {
@@ -60,8 +63,14 @@ func NewRouter(d Deps) (http.Handler, error) {
 			MaxAge:         300,
 		}))
 	}
-	r.Use(withAuthSlot)
-	r.Use(validator.OapiRequestValidatorWithOptions(spec, &validator.Options{
+	if d.MCP != nil {
+		r.Handle("/mcp", d.MCP)
+	}
+	// Only the contract's own paths go through the validator, so other paths are answered here.
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		writeError(r.Context(), w, http.StatusNotFound, "not_found", "")
+	})
+	api := r.With(withAuthSlot, validator.OapiRequestValidatorWithOptions(spec, &validator.Options{
 		Options: openapi3filter.Options{
 			AuthenticationFunc: authenticate(d.Identity),
 			MultiError:         false,
@@ -80,6 +89,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 		push:       d.Push,
 		calls:      d.Calls,
 		assistant:  d.Assistant,
+		agents:     d.Agents,
 		login:      d.Login,
 		cookies:    cookies{secure: d.SecureCookies, sessionTTL: d.SessionTTL},
 		checks:     d.HealthChecks,
@@ -97,7 +107,8 @@ func NewRouter(d Deps) (http.Handler, error) {
 			writeError(r.Context(), w, http.StatusInternalServerError, "internal", "")
 		},
 	})
-	return oapi.HandlerWithOptions(strict, oapi.ChiServerOptions{BaseRouter: r}), nil
+	oapi.HandlerWithOptions(strict, oapi.ChiServerOptions{BaseRouter: api})
+	return r, nil
 }
 
 func validationError(ctx context.Context, err error, w http.ResponseWriter, _ *http.Request, opts validator.ErrorHandlerOpts) {
