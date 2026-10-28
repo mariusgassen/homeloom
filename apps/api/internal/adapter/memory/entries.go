@@ -30,6 +30,17 @@ func (s *Store) GetEntry(_ context.Context, id uuid.UUID) (domain.Entry, error) 
 	return domain.Entry{}, domain.ErrNotFound
 }
 
+func (s *Store) EntryByICalName(_ context.Context, householdID uuid.UUID, name string) (domain.Entry, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, e := range s.entries {
+		if e.HouseholdID == householdID && e.ICalName != "" && e.ICalName == name {
+			return e, nil
+		}
+	}
+	return domain.Entry{}, domain.ErrNotFound
+}
+
 func (s *Store) ListEntries(_ context.Context, householdID, viewer uuid.UUID, kind domain.EntryKind, since time.Time, limit int) ([]domain.Entry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

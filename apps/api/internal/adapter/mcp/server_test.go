@@ -150,7 +150,7 @@ func TestToolsActAsTheCaller(t *testing.T) {
 	}
 
 	// So is a personal token she made for an app, until she deletes it.
-	tok, secret, err := f.agents.CreateToken(ctx, alice, m.Household.ID, "Claude")
+	tok, secret, err := f.agents.CreateToken(ctx, alice, m.Household.ID, "Claude", domain.AccessTools)
 	if err != nil {
 		t.Fatal(err)
 	}

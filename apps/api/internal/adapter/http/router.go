@@ -25,6 +25,7 @@ import (
 
 type Deps struct {
 	Version        string
+	PublicURL      string // where the app is served; calendar profiles point there
 	Identity       port.IdentityService
 	Login          port.LoginService
 	Households     port.HouseholdService
@@ -44,6 +45,9 @@ type Deps struct {
 	SessionTTL    time.Duration
 	// MCP, if set, is served at /mcp, outside the OpenAPI contract; it authenticates on its own.
 	MCP http.Handler
+	// CalDAV, if set, is served at /dav and /.well-known/caldav, outside the contract; it
+	// authenticates on its own.
+	CalDAV http.Handler
 }
 
 func NewRouter(d Deps) (http.Handler, error) {
@@ -66,6 +70,11 @@ func NewRouter(d Deps) (http.Handler, error) {
 	if d.MCP != nil {
 		r.Handle("/mcp", d.MCP)
 	}
+	if d.CalDAV != nil {
+		r.Handle("/.well-known/caldav", d.CalDAV)
+		r.Handle("/dav", d.CalDAV)
+		r.Handle("/dav/*", d.CalDAV)
+	}
 	// Only the contract's own paths go through the validator, so other paths are answered here.
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		writeError(r.Context(), w, http.StatusNotFound, "not_found", "")
@@ -80,6 +89,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 
 	h := &handlers{
 		version:    d.Version,
+		publicURL:  d.PublicURL,
 		households: d.Households,
 		questions:  d.Questions,
 		entries:    d.Entries,

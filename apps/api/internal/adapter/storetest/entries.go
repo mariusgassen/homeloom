@@ -56,6 +56,23 @@ func Entries(t *testing.T, s interface {
 		t.Fatalf("unknown entry: want ErrNotFound, got %v", err)
 	}
 
+	// An entry a calendar app made is found by the name the app gave it, in its household only.
+	name := uuid.NewString() + ".ics"
+	synced, err := s.CreateEntry(ctx, domain.Entry{HouseholdID: h, AuthorID: bob.ID, Kind: domain.KindReminder, ICalUID: "uid-1", ICalName: name,
+		EntryFields: domain.EntryFields{Text: "from the phone", Visibility: domain.VisibilityShared, Repeat: domain.RepeatNever}})
+	if err != nil || synced.ICalUID != "uid-1" || synced.ICalName != name {
+		t.Fatalf("create synced: %+v, %v", synced, err)
+	}
+	if got, err := s.EntryByICalName(ctx, h, name); err != nil || got.ID != synced.ID || got.ICalUID != "uid-1" {
+		t.Fatalf("by name: %+v, %v", got, err)
+	}
+	if _, err := s.EntryByICalName(ctx, uuid.New(), name); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("another household's name: %v", err)
+	}
+	if err := s.DeleteEntry(ctx, synced.ID); err != nil {
+		t.Fatal(err)
+	}
+
 	ids := func(es []domain.Entry) []uuid.UUID {
 		out := make([]uuid.UUID, len(es))
 		for i, e := range es {

@@ -884,15 +884,43 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Your tokens for other apps that use Homeloom's tools at /mcp */
+        /** Your keys and passwords for other apps */
         get: operations["listMcpTokens"];
         put?: never;
         /**
-         * Make a token for an app that uses Homeloom's tools
-         * @description The app sends it as `Authorization: Bearer <secret>` to `/mcp` and acts as you in this
-         *     household until you delete the token. Only a hash of it is stored.
+         * Make a key or password for another app
+         * @description With `access: tools` (the default) the secret is a key: an assistant sends it as
+         *     `Authorization: Bearer <secret>` to `/mcp`. With `access: calendar` it is a password for a
+         *     calendar app, which syncs your events and reminders over CalDAV at `/dav` (any user name).
+         *     Either acts as you in this household, opens only what it was made for, and works until you
+         *     delete it. Only a hash of it is stored.
          */
         post: operations["createMcpToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/calendar-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a calendar password and an iPhone profile that adds it as a CalDAV account
+         * @description Makes a password like `createMcpToken` with `access: calendar` and returns it inside an
+         *     Apple configuration profile for the server, so installing the profile sets up Calendar and
+         *     Reminders. Sent as a form so the browser navigates to it and iOS offers to install it. The
+         *     password is in the response only; remove it like any other.
+         */
+        post: operations["createCalendarProfile"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1292,16 +1320,25 @@ export interface components {
         McpTokenRequest: {
             /** @description Which app it is for. */
             name: string;
+            access?: components["schemas"]["TokenAccess"];
         };
+        /**
+         * @description What it opens: `tools` is the assistant's tools at /mcp (a bearer key), `calendar` is your
+         *     events and reminders over CalDAV at /dav (a password).
+         * @default tools
+         * @enum {string}
+         */
+        TokenAccess: "tools" | "calendar";
         McpToken: {
             /** Format: uuid */
             id: string;
             name: string;
+            access: components["schemas"]["TokenAccess"];
             /** Format: date-time */
             createdAt: string;
         };
         McpTokenCreated: components["schemas"]["McpToken"] & {
-            /** @description The bearer token. */
+            /** @description The bearer key or the calendar password. */
             secret: string;
         };
         ConversationDetail: components["schemas"]["Conversation"] & {
@@ -2807,7 +2844,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Your tokens in this household, newest first; the secrets are only shown when made. */
+            /** @description Your keys and passwords in this household, newest first; the secrets are only shown when made. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2842,6 +2879,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["McpTokenCreated"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createCalendarProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": {
+                    /** @description Which device it is for. */
+                    name: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The configuration profile. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/x-apple-aspen-config": string;
                 };
             };
             400: components["responses"]["BadRequest"];

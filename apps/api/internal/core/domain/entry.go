@@ -76,6 +76,10 @@ type Entry struct {
 	NotifiedAt *time.Time
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
+	// ICalUID and ICalName are the UID and resource name a calendar app gave an entry it made;
+	// empty for entries made in Homeloom.
+	ICalUID  string
+	ICalName string
 	// Sealed means the caller may not read Text yet; it is then empty.
 	Sealed bool
 }
@@ -97,6 +101,33 @@ type EntryFields struct {
 	Repeat       Repeat
 	// AssigneeID is who a shared reminder is for; nil means everyone.
 	AssigneeID *uuid.UUID
+}
+
+// SyncList is one list a calendar app syncs: the household's shared events or reminders, or the
+// actor's private ones.
+type SyncList struct {
+	Kind       EntryKind
+	Visibility Visibility
+}
+
+// SyncEntry is an event or reminder as a calendar app sends it.
+type SyncEntry struct {
+	// UID is the app's id for it, kept for entries the app makes.
+	UID string
+	EntryFields
+	// Done is whether a reminder is ticked off.
+	Done bool
+}
+
+// MaxICalName is the longest resource name a calendar app may give an entry.
+const MaxICalName = 200
+
+// SyncName is the resource name calendar apps know the entry by.
+func (e Entry) SyncName() string {
+	if e.ICalName != "" {
+		return e.ICalName
+	}
+	return e.ID.String() + ".ics"
 }
 
 // CalendarFeed lets a calendar app subscribe to what one member of a household can see. Only a

@@ -14,6 +14,7 @@ import (
 	"time"
 	_ "time/tzdata" // TIME_ZONE works in the distroless image
 
+	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/caldav"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/claude"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/homeassistant"
 	httpadapter "github.com/mariusgassen/homeloom/apps/api/internal/adapter/http"
@@ -169,6 +170,7 @@ func run() error {
 
 	handler, err := httpadapter.NewRouter(httpadapter.Deps{
 		Version:        version,
+		PublicURL:      cfg.PublicURL,
 		Identity:       identity,
 		Login:          login,
 		Households:     households,
@@ -192,6 +194,7 @@ func run() error {
 			Households: households,
 			Tools:      assistant,
 		}),
+		CalDAV: caldav.NewHandler(caldav.Deps{Agents: agents, Entries: entries, Location: cfg.TimeZone}),
 	})
 	if err != nil {
 		return err

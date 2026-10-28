@@ -15,6 +15,7 @@ import (
 // handlers translates between the generated API types and the core. It holds no business rules.
 type handlers struct {
 	version    string
+	publicURL  string
 	households port.HouseholdService
 	questions  port.QuestionService
 	entries    port.EntryService

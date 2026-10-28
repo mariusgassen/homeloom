@@ -33,4 +33,5 @@ export type Conversation = components["schemas"]["Conversation"];
 export type ChatMessage = components["schemas"]["ChatMessage"];
 export type ChatRequest = components["schemas"]["ChatRequest"];
 export type McpToken = components["schemas"]["McpToken"];
+export type TokenAccess = components["schemas"]["TokenAccess"];
 export type ApiError = components["schemas"]["Error"];
