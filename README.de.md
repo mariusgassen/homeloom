@@ -18,7 +18,7 @@ Die App spricht Deutsch und Englisch. Die API antwortet in der Sprache aus dem `
 ```sh
 cp .env.example .env   # POSTGRES_PASSWORD, PUBLIC_URL=http://localhost:3000 und die authentik-Werte setzen
                        # optional: MEALIE_URL + MEALIE_API_TOKEN zum Kochen, ANTHROPIC_API_KEY für Claude
-                       # optional: HOME_ASSISTANT_URL + HOME_ASSISTANT_TOKEN für Szenen und Licht
+                       # optional: HOME_ASSISTANT_URL + HOMELOOM_SECRET_KEY für Szenen und Licht
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 open http://localhost:3000
 ```

@@ -98,6 +98,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/homeassistant/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Redirect target of Home Assistant's sign-in; connects the caller
+         * @description Always redirects back to `/home`. On failure it adds `?home_error=<code>`, where code is
+         *     `connect_failed` or `home_unavailable`.
+         */
+        get: operations["completeHomeConnection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -304,13 +325,39 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Scenes and lights from Home Assistant (members only)
+         * Scenes and lights from Home Assistant, read live (members only)
          * @description Only scenes and lights are exposed. Locks, alarms, covers and everything else never are.
+         *     Each member connects their own Home Assistant account, and switches act as that person.
+         *     Until the caller has connected, `connected` is false and the lists are empty.
          */
         get: operations["getHome"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/home/connection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start connecting your Home Assistant account
+         * @description Returns Home Assistant's sign-in page. Send the browser there (a navigation, not a fetch);
+         *     it comes back through `/auth/homeassistant/callback`.
+         */
+        post: operations["connectHome"];
+        /** Disconnect your Home Assistant account and revoke its token */
+        delete: operations["disconnectHome"];
         options?: never;
         head?: never;
         patch?: never;
@@ -481,8 +528,14 @@ export interface components {
             list: string;
         };
         Home: {
+            /** @description Whether you have connected your Home Assistant account. */
+            connected: boolean;
             scenes: components["schemas"]["Scene"][];
             lights: components["schemas"]["Light"][];
+        };
+        HomeConnect: {
+            /** @description Home Assistant's sign-in page. */
+            url: string;
         };
         Scene: {
             /** @description Home Assistant entity id, e.g. scene.dinner. */
@@ -691,6 +744,31 @@ export interface operations {
                     "application/json": components["schemas"]["Logout"];
                 };
             };
+        };
+    };
+    completeHomeConnection: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+                /** @description Set when the sign-in was cancelled or denied. */
+                error?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Back to the app. */
+            302: {
+                headers: {
+                    Location: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
         };
     };
     getMe: {
@@ -1037,6 +1115,54 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Home"];
                 };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    connectHome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Where to sign in. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeConnect"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    disconnectHome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Disconnected. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];

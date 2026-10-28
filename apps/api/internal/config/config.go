@@ -31,9 +31,10 @@ type Config struct {
 	// AnthropicAPIKey is optional: without it recipes are suggested at random.
 	AnthropicAPIKey string
 	LLMModel        string
-	// Home Assistant is optional: without HomeAssistantURL the Home tab is switched off.
-	HomeAssistantURL   string
-	HomeAssistantToken string
+	// Home Assistant is optional: without HomeAssistantURL the Home tab is switched off. A member
+	// connects it by signing in there; SecretKey encrypts the token that sign-in gives.
+	HomeAssistantURL string
+	SecretKey        string
 }
 
 // RedirectURL is the login callback to register in authentik.
@@ -63,7 +64,7 @@ func Load() (Config, error) {
 		AnthropicAPIKey:      os.Getenv("ANTHROPIC_API_KEY"),
 		LLMModel:             env("LLM_MODEL", "claude-opus-5-5"),
 		HomeAssistantURL:     os.Getenv("HOME_ASSISTANT_URL"),
-		HomeAssistantToken:   os.Getenv("HOME_ASSISTANT_TOKEN"),
+		SecretKey:            os.Getenv("HOMELOOM_SECRET_KEY"),
 	}
 	ttl, err := time.ParseDuration(env("USER_CACHE_TTL", "5m"))
 	if err != nil {
@@ -90,8 +91,8 @@ func Load() (Config, error) {
 	if c.MealieURL != "" && c.MealieToken == "" {
 		missing = append(missing, "MEALIE_API_TOKEN")
 	}
-	if c.HomeAssistantURL != "" && c.HomeAssistantToken == "" {
-		missing = append(missing, "HOME_ASSISTANT_TOKEN")
+	if c.HomeAssistantURL != "" && c.SecretKey == "" {
+		missing = append(missing, "HOMELOOM_SECRET_KEY")
 	}
 	if len(missing) > 0 {
 		return c, errors.New("missing required env: " + strings.Join(missing, ", "))

@@ -19,6 +19,7 @@ import (
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/oidc"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/postgres"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/redis"
+	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/secretbox"
 	"github.com/mariusgassen/homeloom/apps/api/internal/config"
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/port"
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/service"
@@ -109,10 +110,16 @@ func run() error {
 		chef = claude.NewChef(cfg.AnthropicAPIKey, cfg.LLMModel)
 	}
 	var home port.SmartHome
+	var homeConnections port.HomeConnectionRepository = store
 	if cfg.HomeAssistantURL != "" {
-		if home, err = homeassistant.New(cfg.HomeAssistantURL, cfg.HomeAssistantToken); err != nil {
+		if home, err = homeassistant.New(cfg.HomeAssistantURL, cfg.PublicURL); err != nil {
 			return err
 		}
+		box, err := secretbox.New(cfg.SecretKey)
+		if err != nil {
+			return err
+		}
+		homeConnections = secretbox.NewHomeConnections(store, box)
 	}
 
 	handler, err := httpadapter.NewRouter(httpadapter.Deps{
@@ -122,7 +129,7 @@ func run() error {
 		Households:     service.NewHousehold(store),
 		Questions:      service.NewQuestion(store, store),
 		Cook:           service.NewCook(store, book, chef),
-		Home:           service.NewHome(store, home),
+		Home:           service.NewHome(store, homeConnections, sessions, home),
 		HealthChecks:   []port.HealthCheck{postgres.HealthCheck{Pool: pool}, redis.HealthCheck{Client: rdb}},
 		AllowedOrigins: cfg.AllowedOrigins,
 		SecureCookies:  cfg.SecureCookies(),

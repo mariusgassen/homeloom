@@ -81,7 +81,8 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 
 ## Smart home
 
-- **Home Assistant** (`adapter/homeassistant`, port `SmartHome`) is optional: without `HOME_ASSISTANT_URL` the home endpoints answer `503 home_unavailable`, and so do they when Home Assistant is down or rejects the token. Each call is bounded to 5 s.
+- **Home Assistant** (`adapter/homeassistant`, port `SmartHome`) is optional: without `HOME_ASSISTANT_URL` the home endpoints answer `503 home_unavailable`, and so do they when Home Assistant is down. Each call is bounded to 5 s.
+- **Each person connects their own account** through Home Assistant's OAuth sign-in, so every switch is made, and logged, as that person. The client id is `PUBLIC_URL/` and the redirect is `PUBLIC_URL/auth/homeassistant/callback`; Home Assistant needs no client registration for that. The state is bound to the person who started the sign-in (Redis, 10 minutes). The refresh token is sealed with AES-GCM under `HOMELOOM_SECRET_KEY` (`adapter/secretbox`, a decorator on the repository) before it reaches Postgres; access tokens live only in the API's memory. When Home Assistant rejects the refresh token, the connection is dropped and the app asks to connect again. Disconnecting revokes the token.
 - The whitelist is the port itself: it can list scenes and lights, turn a scene on and switch a light. Nothing else in Home Assistant is reachable, so locks, alarms, covers and garage doors are never exposed. The contract only accepts `scene.*` and `light.*` ids, the service only switches ids Home Assistant listed, and the adapter checks the domain once more.
 
 ## PWA

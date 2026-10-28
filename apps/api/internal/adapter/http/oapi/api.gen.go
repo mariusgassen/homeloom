@@ -124,8 +124,16 @@ type Health struct {
 
 // Home defines model for Home.
 type Home struct {
-	Lights []Light `json:"lights"`
-	Scenes []Scene `json:"scenes"`
+	// Connected Whether you have connected your Home Assistant account.
+	Connected bool    `json:"connected"`
+	Lights    []Light `json:"lights"`
+	Scenes    []Scene `json:"scenes"`
+}
+
+// HomeConnect defines model for HomeConnect.
+type HomeConnect struct {
+	// Url Home Assistant's sign-in page.
+	Url string `json:"url"`
 }
 
 // Household defines model for Household.
@@ -297,6 +305,15 @@ type CompleteLoginParams struct {
 	HomeloomLogin *string `form:"homeloom_login,omitempty" json:"homeloom_login,omitempty"`
 }
 
+// CompleteHomeConnectionParams defines parameters for CompleteHomeConnection.
+type CompleteHomeConnectionParams struct {
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+
+	// Error Set when the sign-in was cancelled or denied.
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
+}
+
 // LogoutParams defines parameters for Logout.
 type LogoutParams struct {
 	HomeloomSession *string `form:"homeloom_session,omitempty" json:"homeloom_session,omitempty"`
@@ -322,6 +339,9 @@ type ServerInterface interface {
 	// CompleteLogin Redirect target registered in authentik; finishes the sign-in
 	// (GET /auth/callback)
 	CompleteLogin(w http.ResponseWriter, r *http.Request, params CompleteLoginParams)
+	// CompleteHomeConnection Redirect target of Home Assistant's sign-in; connects the caller
+	// (GET /auth/homeassistant/callback)
+	CompleteHomeConnection(w http.ResponseWriter, r *http.Request, params CompleteHomeConnectionParams)
 	// StartLogin Start the sign-in at authentik (browser navigation, not fetch)
 	// (GET /auth/login)
 	StartLogin(w http.ResponseWriter, r *http.Request)
@@ -346,9 +366,15 @@ type ServerInterface interface {
 	// SuggestRecipes Pick recipes from Mealie that fit a mood (members only)
 	// (POST /v1/households/{householdId}/cook/suggestions)
 	SuggestRecipes(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
-	// GetHome Scenes and lights from Home Assistant (members only)
+	// GetHome Scenes and lights from Home Assistant, read live (members only)
 	// (GET /v1/households/{householdId}/home)
 	GetHome(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
+	// DisconnectHome Disconnect your Home Assistant account and revoke its token
+	// (DELETE /v1/households/{householdId}/home/connection)
+	DisconnectHome(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
+	// ConnectHome Start connecting your Home Assistant account
+	// (POST /v1/households/{householdId}/home/connection)
+	ConnectHome(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
 	// ToggleLight Switch a light on or off
 	// (POST /v1/households/{householdId}/home/lights/{lightId}/toggle)
 	ToggleLight(w http.ResponseWriter, r *http.Request, householdId HouseholdId, lightId string)
@@ -388,6 +414,12 @@ type Unimplemented struct{}
 // CompleteLogin Redirect target registered in authentik; finishes the sign-in
 // (GET /auth/callback)
 func (_ Unimplemented) CompleteLogin(w http.ResponseWriter, r *http.Request, params CompleteLoginParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CompleteHomeConnection Redirect target of Home Assistant's sign-in; connects the caller
+// (GET /auth/homeassistant/callback)
+func (_ Unimplemented) CompleteHomeConnection(w http.ResponseWriter, r *http.Request, params CompleteHomeConnectionParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -439,9 +471,21 @@ func (_ Unimplemented) SuggestRecipes(w http.ResponseWriter, r *http.Request, ho
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// GetHome Scenes and lights from Home Assistant (members only)
+// GetHome Scenes and lights from Home Assistant, read live (members only)
 // (GET /v1/households/{householdId}/home)
 func (_ Unimplemented) GetHome(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DisconnectHome Disconnect your Home Assistant account and revoke its token
+// (DELETE /v1/households/{householdId}/home/connection)
+func (_ Unimplemented) DisconnectHome(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ConnectHome Start connecting your Home Assistant account
+// (POST /v1/households/{householdId}/home/connection)
+func (_ Unimplemented) ConnectHome(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -579,6 +623,65 @@ func (siw *ServerInterfaceWrapper) CompleteLogin(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CompleteLogin(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CompleteHomeConnection operation middleware
+func (siw *ServerInterfaceWrapper) CompleteHomeConnection(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CompleteHomeConnectionParams
+
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "error" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error", r.URL.Query(), &params.Error, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "error"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "error", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CompleteHomeConnection(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -762,6 +865,58 @@ func (siw *ServerInterfaceWrapper) GetHome(w http.ResponseWriter, r *http.Reques
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetHome(w, r, householdId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DisconnectHome operation middleware
+func (siw *ServerInterfaceWrapper) DisconnectHome(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DisconnectHome(w, r, householdId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConnectHome operation middleware
+func (siw *ServerInterfaceWrapper) ConnectHome(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConnectHome(w, r, householdId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1175,6 +1330,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/auth/logout", wrapper.Logout)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/auth/homeassistant/callback", wrapper.CompleteHomeConnection)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/me", wrapper.GetMe)
 	})
 	r.Group(func(r chi.Router) {
@@ -1212,6 +1370,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/households/{householdId}/home", wrapper.GetHome)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/households/{householdId}/home/connection", wrapper.DisconnectHome)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/households/{householdId}/home/connection", wrapper.ConnectHome)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/households/{householdId}/home/scenes/{sceneId}", wrapper.ActivateScene)
@@ -1255,6 +1419,42 @@ func (response CompleteLogin302Response) VisitCompleteLoginResponse(w http.Respo
 	}
 	w.WriteHeader(302)
 	return nil
+}
+
+type CompleteHomeConnectionRequestObject struct {
+	Params CompleteHomeConnectionParams
+}
+
+type CompleteHomeConnectionResponseObject interface {
+	VisitCompleteHomeConnectionResponse(w http.ResponseWriter) error
+}
+
+type CompleteHomeConnection302ResponseHeaders struct {
+	Location string
+}
+
+type CompleteHomeConnection302Response struct {
+	Headers CompleteHomeConnection302ResponseHeaders
+}
+
+func (response CompleteHomeConnection302Response) VisitCompleteHomeConnectionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Location", fmt.Sprint(response.Headers.Location))
+	w.WriteHeader(302)
+	return nil
+}
+
+type CompleteHomeConnection401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CompleteHomeConnection401JSONResponse) VisitCompleteHomeConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
 }
 
 type StartLoginRequestObject struct {
@@ -1647,6 +1847,128 @@ func (response GetHome404JSONResponse) VisitGetHomeResponse(w http.ResponseWrite
 type GetHome503JSONResponse struct{ UnavailableJSONResponse }
 
 func (response GetHome503JSONResponse) VisitGetHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisconnectHomeRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+}
+
+type DisconnectHomeResponseObject interface {
+	VisitDisconnectHomeResponse(w http.ResponseWriter) error
+}
+
+type DisconnectHome204Response struct {
+}
+
+func (response DisconnectHome204Response) VisitDisconnectHomeResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DisconnectHome401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DisconnectHome401JSONResponse) VisitDisconnectHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisconnectHome404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DisconnectHome404JSONResponse) VisitDisconnectHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisconnectHome503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response DisconnectHome503JSONResponse) VisitDisconnectHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConnectHomeRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+}
+
+type ConnectHomeResponseObject interface {
+	VisitConnectHomeResponse(w http.ResponseWriter) error
+}
+
+type ConnectHome200JSONResponse HomeConnect
+
+func (response ConnectHome200JSONResponse) VisitConnectHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConnectHome401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ConnectHome401JSONResponse) VisitConnectHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConnectHome404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ConnectHome404JSONResponse) VisitConnectHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConnectHome503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response ConnectHome503JSONResponse) VisitConnectHomeResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -2260,6 +2582,9 @@ type StrictServerInterface interface {
 	// CompleteLogin Redirect target registered in authentik; finishes the sign-in
 	// (GET /auth/callback)
 	CompleteLogin(ctx context.Context, request CompleteLoginRequestObject) (CompleteLoginResponseObject, error)
+	// CompleteHomeConnection Redirect target of Home Assistant's sign-in; connects the caller
+	// (GET /auth/homeassistant/callback)
+	CompleteHomeConnection(ctx context.Context, request CompleteHomeConnectionRequestObject) (CompleteHomeConnectionResponseObject, error)
 	// StartLogin Start the sign-in at authentik (browser navigation, not fetch)
 	// (GET /auth/login)
 	StartLogin(ctx context.Context, request StartLoginRequestObject) (StartLoginResponseObject, error)
@@ -2284,9 +2609,15 @@ type StrictServerInterface interface {
 	// SuggestRecipes Pick recipes from Mealie that fit a mood (members only)
 	// (POST /v1/households/{householdId}/cook/suggestions)
 	SuggestRecipes(ctx context.Context, request SuggestRecipesRequestObject) (SuggestRecipesResponseObject, error)
-	// GetHome Scenes and lights from Home Assistant (members only)
+	// GetHome Scenes and lights from Home Assistant, read live (members only)
 	// (GET /v1/households/{householdId}/home)
 	GetHome(ctx context.Context, request GetHomeRequestObject) (GetHomeResponseObject, error)
+	// DisconnectHome Disconnect your Home Assistant account and revoke its token
+	// (DELETE /v1/households/{householdId}/home/connection)
+	DisconnectHome(ctx context.Context, request DisconnectHomeRequestObject) (DisconnectHomeResponseObject, error)
+	// ConnectHome Start connecting your Home Assistant account
+	// (POST /v1/households/{householdId}/home/connection)
+	ConnectHome(ctx context.Context, request ConnectHomeRequestObject) (ConnectHomeResponseObject, error)
 	// ToggleLight Switch a light on or off
 	// (POST /v1/households/{householdId}/home/lights/{lightId}/toggle)
 	ToggleLight(ctx context.Context, request ToggleLightRequestObject) (ToggleLightResponseObject, error)
@@ -2377,6 +2708,32 @@ func (sh *strictHandler) CompleteLogin(w http.ResponseWriter, r *http.Request, p
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CompleteLoginResponseObject); ok {
 		if err := validResponse.VisitCompleteLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CompleteHomeConnection operation middleware
+func (sh *strictHandler) CompleteHomeConnection(w http.ResponseWriter, r *http.Request, params CompleteHomeConnectionParams) {
+	var request CompleteHomeConnectionRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CompleteHomeConnection(ctx, request.(CompleteHomeConnectionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CompleteHomeConnection")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CompleteHomeConnectionResponseObject); ok {
+		if err := validResponse.VisitCompleteHomeConnectionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -2615,6 +2972,58 @@ func (sh *strictHandler) GetHome(w http.ResponseWriter, r *http.Request, househo
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetHomeResponseObject); ok {
 		if err := validResponse.VisitGetHomeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DisconnectHome operation middleware
+func (sh *strictHandler) DisconnectHome(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	var request DisconnectHomeRequestObject
+
+	request.HouseholdId = householdId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DisconnectHome(ctx, request.(DisconnectHomeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DisconnectHome")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DisconnectHomeResponseObject); ok {
+		if err := validResponse.VisitDisconnectHomeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ConnectHome operation middleware
+func (sh *strictHandler) ConnectHome(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	var request ConnectHomeRequestObject
+
+	request.HouseholdId = householdId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ConnectHome(ctx, request.(ConnectHomeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ConnectHome")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ConnectHomeResponseObject); ok {
+		if err := validResponse.VisitConnectHomeResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -2909,77 +3318,83 @@ func (sh *strictHandler) AnswerQuestion(w http.ResponseWriter, r *http.Request, 
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

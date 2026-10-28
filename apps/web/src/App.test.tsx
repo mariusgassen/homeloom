@@ -219,6 +219,7 @@ test("home switches live scenes and lights", async () => {
     ...signedIn(),
     at("GET", `/v1/households/${home.id}/home`, () =>
       json({
+        connected: true,
         scenes: [{ id: "scene.dinner", name: "Abendessen" }, { id: "scene.movie", name: "Movie night" }],
         lights: [{ id: "light.kitchen", name: "Kitchen", on: false }],
       }),
@@ -240,6 +241,21 @@ test("home switches live scenes and lights", async () => {
   ]);
 });
 
+test("home asks you to connect your own Home Assistant", async () => {
+  const assign = vi.fn();
+  vi.stubGlobal("location", { ...window.location, assign });
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/home`, () => json({ connected: false, scenes: [], lights: [] })),
+    at("POST", `/v1/households/${home.id}/home/connection`, () => json({ url: "https://ha.example/auth/authorize?state=s" })),
+  );
+  renderApp("/home?home_error=connect_failed");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Connecting didn't work.");
+  await userEvent.click(await screen.findByRole("button", { name: "Connect" }));
+  await waitFor(() => expect(assign).toHaveBeenCalledWith("https://ha.example/auth/authorize?state=s"));
+  expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/home/connection"))).toBe(true);
+});
+
 test("home says so when Home Assistant isn't set up", async () => {
   serve(
     ...signedIn(),
@@ -247,5 +263,5 @@ test("home says so when Home Assistant isn't set up", async () => {
   );
   renderApp("/home");
   expect(await screen.findByText("The smart home isn't reachable right now.")).toBeInTheDocument();
-  expect(screen.getByText("Smart home isn't connected")).toBeInTheDocument();
+  expect(screen.getByText("Smart home isn't available")).toBeInTheDocument();
 });

@@ -32,8 +32,9 @@ func store(t *testing.T) *postgres.Store {
 	return postgres.NewStore(pool)
 }
 
-func TestInvites(t *testing.T)   { storetest.Invites(t, store(t)) }
-func TestQuestions(t *testing.T) { storetest.Questions(t, store(t)) }
+func TestInvites(t *testing.T)         { storetest.Invites(t, store(t)) }
+func TestQuestions(t *testing.T)       { storetest.Questions(t, store(t)) }
+func TestHomeConnections(t *testing.T) { storetest.HomeConnections(t, store(t)) }
 
 func TestStore(t *testing.T) {
 	ctx := context.Background()
