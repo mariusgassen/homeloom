@@ -12,10 +12,11 @@ type Sessions struct {
 	mu       sync.Mutex
 	logins   map[string]domain.PendingLogin
 	sessions map[string]domain.Session
+	homes    map[string]domain.PendingHomeConnection
 }
 
 func NewSessions() *Sessions {
-	return &Sessions{logins: map[string]domain.PendingLogin{}, sessions: map[string]domain.Session{}}
+	return &Sessions{logins: map[string]domain.PendingLogin{}, sessions: map[string]domain.Session{}, homes: map[string]domain.PendingHomeConnection{}}
 }
 
 func (s *Sessions) SaveLogin(_ context.Context, state string, l domain.PendingLogin) error {
@@ -58,4 +59,22 @@ func (s *Sessions) Delete(_ context.Context, id string) error {
 	defer s.mu.Unlock()
 	delete(s.sessions, id)
 	return nil
+}
+
+func (s *Sessions) SaveHomeConnection(_ context.Context, state string, p domain.PendingHomeConnection) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.homes[state] = p
+	return nil
+}
+
+func (s *Sessions) TakeHomeConnection(_ context.Context, state string) (domain.PendingHomeConnection, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p, ok := s.homes[state]
+	if !ok {
+		return p, domain.ErrNotFound
+	}
+	delete(s.homes, state)
+	return p, nil
 }

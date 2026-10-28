@@ -213,3 +213,55 @@ test("cooking says so when Mealie is down", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Suggest dinner" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Cooking isn't available");
 });
+
+test("home switches live scenes and lights", async () => {
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/home`, () =>
+      json({
+        connected: true,
+        scenes: [{ id: "scene.dinner", name: "Abendessen" }, { id: "scene.movie", name: "Movie night" }],
+        lights: [{ id: "light.kitchen", name: "Kitchen", on: false }],
+      }),
+    ),
+    at("POST", `/v1/households/${home.id}/home/scenes/scene.movie`, () => new Response(null, { status: 204 })),
+    at("POST", `/v1/households/${home.id}/home/lights/light.kitchen/toggle`, () => json({ id: "light.kitchen", name: "Kitchen", on: true })),
+  );
+  renderApp("/home");
+  await userEvent.click(await screen.findByRole("button", { name: "Movie night" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: /Movie night/ })).toHaveAttribute("aria-pressed", "true"));
+
+  const light = screen.getByRole("switch", { name: "Kitchen" });
+  expect(light).toHaveAttribute("aria-checked", "false");
+  await userEvent.click(light);
+  await waitFor(() => expect(screen.getByRole("switch", { name: "Kitchen" })).toHaveAttribute("aria-checked", "true"));
+  expect(calls.filter((c) => c.method === "POST").map((c) => new URL(c.url).pathname.split("/").slice(4).join("/"))).toEqual([
+    "home/scenes/scene.movie",
+    "home/lights/light.kitchen/toggle",
+  ]);
+});
+
+test("home asks you to connect your own Home Assistant", async () => {
+  const assign = vi.fn();
+  vi.stubGlobal("location", { ...window.location, assign });
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/home`, () => json({ connected: false, scenes: [], lights: [] })),
+    at("POST", `/v1/households/${home.id}/home/connection`, () => json({ url: "https://ha.example/auth/authorize?state=s" })),
+  );
+  renderApp("/home?home_error=connect_failed");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Connecting didn't work.");
+  await userEvent.click(await screen.findByRole("button", { name: "Connect" }));
+  await waitFor(() => expect(assign).toHaveBeenCalledWith("https://ha.example/auth/authorize?state=s"));
+  expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/home/connection"))).toBe(true);
+});
+
+test("home says so when Home Assistant isn't set up", async () => {
+  serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/home`, () => json({ code: "home_unavailable", message: "The smart home isn't reachable right now." }, 503)),
+  );
+  renderApp("/home");
+  expect(await screen.findByText("The smart home isn't reachable right now.")).toBeInTheDocument();
+  expect(screen.getByText("Smart home isn't available")).toBeInTheDocument();
+});

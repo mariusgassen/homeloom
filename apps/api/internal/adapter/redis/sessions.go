@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	// loginTTL is how long a user has to finish signing in at authentik.
+	// loginTTL is how long a user has to finish signing in at authentik or Home Assistant.
 	loginTTL = 10 * time.Minute
 	// sessionTimeout bounds each call. Sessions have no fallback, so it is more generous than the cache's.
 	sessionTimeout = time.Second
@@ -41,6 +41,17 @@ func (s *Sessions) TakeLogin(ctx context.Context, state string) (domain.PendingL
 	ctx, cancel := context.WithTimeout(ctx, sessionTimeout)
 	defer cancel()
 	return l, decode(s.client.GetDel(ctx, hashedKey("login", state)), &l)
+}
+
+func (s *Sessions) SaveHomeConnection(ctx context.Context, state string, p domain.PendingHomeConnection) error {
+	return s.set(ctx, hashedKey("home-connect", state), p, loginTTL)
+}
+
+func (s *Sessions) TakeHomeConnection(ctx context.Context, state string) (domain.PendingHomeConnection, error) {
+	var p domain.PendingHomeConnection
+	ctx, cancel := context.WithTimeout(ctx, sessionTimeout)
+	defer cancel()
+	return p, decode(s.client.GetDel(ctx, hashedKey("home-connect", state)), &p)
 }
 
 func (s *Sessions) Save(ctx context.Context, id string, sess domain.Session) error {

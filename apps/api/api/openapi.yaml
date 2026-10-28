@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.4.0
+  version: 0.5.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -26,6 +26,7 @@ tags:
   - name: households
   - name: questions
   - name: cook
+  - name: home
 
 paths:
   /healthz:
@@ -114,6 +115,25 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Logout" }
+
+  /auth/homeassistant/callback:
+    get:
+      tags: [home]
+      operationId: completeHomeConnection
+      summary: Redirect target of Home Assistant's sign-in; connects the caller
+      description: |
+        Always redirects back to `/home`. On failure it adds `?home_error=<code>`, where code is
+        `connect_failed` or `home_unavailable`.
+      parameters:
+        - { name: code, in: query, schema: { type: string } }
+        - { name: state, in: query, schema: { type: string } }
+        - { name: error, in: query, schema: { type: string }, description: Set when the sign-in was cancelled or denied. }
+      responses:
+        "302":
+          description: Back to the app.
+          headers:
+            Location: { required: true, schema: { type: string } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
 
   /v1/me:
     get:
@@ -352,6 +372,94 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  /v1/households/{householdId}/home:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [home]
+      operationId: getHome
+      summary: Scenes and lights from Home Assistant, read live (members only)
+      description: |
+        Only scenes and lights are exposed. Locks, alarms, covers and everything else never are.
+        Each member connects their own Home Assistant account, and switches act as that person.
+        Until the caller has connected, `connected` is false and the lists are empty.
+      responses:
+        "200":
+          description: The home.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Home" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/home/connection:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [home]
+      operationId: connectHome
+      summary: Start connecting your Home Assistant account
+      description: |
+        Returns Home Assistant's sign-in page. Send the browser there (a navigation, not a fetch);
+        it comes back through `/auth/homeassistant/callback`.
+      responses:
+        "200":
+          description: Where to sign in.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HomeConnect" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [home]
+      operationId: disconnectHome
+      summary: Disconnect your Home Assistant account and revoke its token
+      responses:
+        "204": { description: Disconnected. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/home/scenes/{sceneId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - name: sceneId
+        in: path
+        required: true
+        schema: { type: string, pattern: "^scene\\.[a-z0-9_]{1,100}$" }
+    post:
+      tags: [home]
+      operationId: activateScene
+      summary: Turn a scene on
+      responses:
+        "204": { description: The scene is on. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/home/lights/{lightId}/toggle:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - name: lightId
+        in: path
+        required: true
+        schema: { type: string, pattern: "^light\\.[a-z0-9_]{1,100}$" }
+    post:
+      tags: [home]
+      operationId: toggleLight
+      summary: Switch a light on or off
+      responses:
+        "200":
+          description: The light after switching.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Light" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
 components:
   parameters:
     HouseholdId:
@@ -394,7 +502,7 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     Unavailable:
-      description: A dependency (authentik, Redis, Mealie) cannot be reached or isn't set up.
+      description: A dependency (authentik, Redis, Mealie, Home Assistant) cannot be reached or isn't set up.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -544,6 +652,39 @@ components:
       properties:
         added: { type: integer, description: How many ingredients were put on the list. }
         list: { type: string, description: The Mealie shopping list's name. }
+
+    Home:
+      type: object
+      required: [connected, scenes, lights]
+      properties:
+        connected: { type: boolean, description: Whether you have connected your Home Assistant account. }
+        scenes:
+          type: array
+          items: { $ref: "#/components/schemas/Scene" }
+        lights:
+          type: array
+          items: { $ref: "#/components/schemas/Light" }
+
+    HomeConnect:
+      type: object
+      required: [url]
+      properties:
+        url: { type: string, description: "Home Assistant's sign-in page." }
+
+    Scene:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, description: "Home Assistant entity id, e.g. scene.dinner." }
+        name: { type: string }
+
+    Light:
+      type: object
+      required: [id, name, on]
+      properties:
+        id: { type: string, description: "Home Assistant entity id, e.g. light.kitchen." }
+        name: { type: string }
+        on: { type: boolean }
 
     Logout:
       type: object

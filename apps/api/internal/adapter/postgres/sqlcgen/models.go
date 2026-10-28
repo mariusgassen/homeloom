@@ -61,6 +61,12 @@ type Answer struct {
 	AnsweredAt time.Time
 }
 
+type HomeConnection struct {
+	UserID       uuid.UUID
+	RefreshToken string
+	CreatedAt    time.Time
+}
+
 type Household struct {
 	ID        uuid.UUID
 	Name      string

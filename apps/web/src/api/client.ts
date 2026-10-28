@@ -17,3 +17,5 @@ export type Question = components["schemas"]["Question"];
 export type Member = components["schemas"]["Member"];
 export type Suggestions = components["schemas"]["Suggestions"];
 export type Recipe = components["schemas"]["Recipe"];
+export type Home = components["schemas"]["Home"];
+export type Light = components["schemas"]["Light"];

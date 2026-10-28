@@ -45,3 +45,15 @@ type CookService interface {
 	Recipe(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string) (domain.Recipe, error)
 	AddToShoppingList(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string, ingredientIDs []string) (domain.ShoppingListAdded, error)
 }
+
+type HomeService interface {
+	// Connect starts the actor's sign-in at Home Assistant and returns where to send the browser.
+	Connect(ctx context.Context, actor domain.User, householdID uuid.UUID) (string, error)
+	// CompleteConnect finishes it for the person who started it; it returns
+	// domain.ErrUnauthenticated for an unknown state or someone else's sign-in.
+	CompleteConnect(ctx context.Context, actor domain.User, state, code string) error
+	Disconnect(ctx context.Context, actor domain.User, householdID uuid.UUID) error
+	Get(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Home, error)
+	ActivateScene(ctx context.Context, actor domain.User, householdID uuid.UUID, sceneID string) error
+	ToggleLight(ctx context.Context, actor domain.User, householdID uuid.UUID, lightID string) (domain.Light, error)
+}

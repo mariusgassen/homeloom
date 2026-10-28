@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -55,6 +56,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 	if book != nil {
 		recipes = book
 	}
+	smart := memory.NewSmartHome([]domain.Scene{{ID: "scene.dinner", Name: "Dinner"}}, []domain.Light{{ID: "light.kitchen", Name: "Kitchen"}})
 	h, err := httpadapter.NewRouter(httpadapter.Deps{
 		Version:       "1.2.3",
 		Identity:      service.NewIdentity(fakeVerifier{}, sessions, store),
@@ -62,6 +64,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Households:    service.NewHousehold(store),
 		Questions:     service.NewQuestion(store, store),
 		Cook:          service.NewCook(store, recipes, memory.Chef{}),
+		Home:          service.NewHome(store, store, sessions, smart),
 		HealthChecks:  checks,
 		SecureCookies: true,
 		SessionTTL:    time.Hour,
@@ -372,4 +375,66 @@ func TestBrowserLoginFailuresRedirectBackToTheApp(t *testing.T) {
 	if res := browser(t, h, "GET", "/v1/me", &http.Cookie{Name: "homeloom_session", Value: "forged", HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode}); res.StatusCode != http.StatusUnauthorized {
 		t.Errorf("forged session: %d", res.StatusCode)
 	}
+}
+
+func TestHomeFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	base := "/v1/households/" + created["id"].(string)
+
+	if code, home := do(t, h, "GET", base+"/home", "token-alice", ""); code != 200 || home["connected"] != false {
+		t.Fatalf("before connecting: %d %v", code, home)
+	}
+	code, c := do(t, h, "POST", base+"/home/connection", "token-alice", "")
+	if code != 200 {
+		t.Fatalf("connect: %d %v", code, c)
+	}
+	to, _ := url.Parse(c["url"].(string))
+	callback := "/auth/homeassistant/callback?code=good&state=" + url.QueryEscape(to.Query().Get("state"))
+	if code, loc := redirect(t, h, callback, "token-alice"); code != 302 || loc != "/home" {
+		t.Fatalf("callback: %d %s", code, loc)
+	}
+	if _, loc := redirect(t, h, callback, "token-alice"); loc != "/home?home_error=connect_failed" {
+		t.Fatalf("state reused: %s", loc)
+	}
+
+	code, home := do(t, h, "GET", base+"/home", "token-alice", "")
+	if code != 200 || home["connected"] != true || len(home["scenes"].([]any)) != 1 || len(home["lights"].([]any)) != 1 {
+		t.Fatalf("home: %d %v", code, home)
+	}
+	if code, body := do(t, h, "GET", base+"/home", "token-eve", ""); code != 404 {
+		t.Fatalf("non-member: %d %v", code, body)
+	}
+	if code, body := do(t, h, "POST", base+"/home/scenes/scene.dinner", "token-alice", ""); code != 204 {
+		t.Fatalf("scene: %d %v", code, body)
+	}
+	if code, body := do(t, h, "POST", base+"/home/scenes/scene.party", "token-alice", ""); code != 404 {
+		t.Fatalf("unknown scene: %d %v", code, body)
+	}
+	if code, l := do(t, h, "POST", base+"/home/lights/light.kitchen/toggle", "token-alice", ""); code != 200 || l["on"] != true {
+		t.Fatalf("toggle: %d %v", code, l)
+	}
+	// Anything but a scene or light is refused before it reaches the core.
+	for _, path := range []string{"/home/scenes/lock.front_door", "/home/lights/alarm_control_panel.home/toggle"} {
+		if code, body := do(t, h, "POST", base+path, "token-alice", ""); code != 400 {
+			t.Fatalf("%s: %d %v", path, code, body)
+		}
+	}
+
+	if code, body := do(t, h, "DELETE", base+"/home/connection", "token-alice", ""); code != 204 {
+		t.Fatalf("disconnect: %d %v", code, body)
+	}
+	if code, body := do(t, h, "POST", base+"/home/scenes/scene.dinner", "token-alice", "", "Accept-Language", "de"); code != 503 || body["code"] != "home_unavailable" {
+		t.Fatalf("after disconnect: %d %v", code, body)
+	}
+}
+
+// redirect sends a GET and returns the status and where it redirects to.
+func redirect(t *testing.T, h http.Handler, path, token string) (int, string) {
+	t.Helper()
+	req := httptest.NewRequest("GET", path, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec.Code, rec.Header().Get("Location")
 }

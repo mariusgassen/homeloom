@@ -122,6 +122,20 @@ type Health struct {
 	Version string `json:"version"`
 }
 
+// Home defines model for Home.
+type Home struct {
+	// Connected Whether you have connected your Home Assistant account.
+	Connected bool    `json:"connected"`
+	Lights    []Light `json:"lights"`
+	Scenes    []Scene `json:"scenes"`
+}
+
+// HomeConnect defines model for HomeConnect.
+type HomeConnect struct {
+	// Url Home Assistant's sign-in page.
+	Url string `json:"url"`
+}
+
 // Household defines model for Household.
 type Household struct {
 	Id   openapi_types.UUID `json:"id"`
@@ -149,6 +163,14 @@ type Invite struct {
 	// Code Share as `<PUBLIC_URL>/join/<code>`.
 	Code      string    `json:"code"`
 	ExpiresAt time.Time `json:"expiresAt"`
+}
+
+// Light defines model for Light.
+type Light struct {
+	// Id Home Assistant entity id, e.g. light.kitchen.
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	On   bool   `json:"on"`
 }
 
 // Logout defines model for Logout.
@@ -217,6 +239,13 @@ type RecipeSummary struct {
 // Role defines model for Role.
 type Role string
 
+// Scene defines model for Scene.
+type Scene struct {
+	// Id Home Assistant entity id, e.g. scene.dinner.
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
 // ShoppingListAdded defines model for ShoppingListAdded.
 type ShoppingListAdded struct {
 	// Added How many ingredients were put on the list.
@@ -276,6 +305,15 @@ type CompleteLoginParams struct {
 	HomeloomLogin *string `form:"homeloom_login,omitempty" json:"homeloom_login,omitempty"`
 }
 
+// CompleteHomeConnectionParams defines parameters for CompleteHomeConnection.
+type CompleteHomeConnectionParams struct {
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+
+	// Error Set when the sign-in was cancelled or denied.
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
+}
+
 // LogoutParams defines parameters for Logout.
 type LogoutParams struct {
 	HomeloomSession *string `form:"homeloom_session,omitempty" json:"homeloom_session,omitempty"`
@@ -301,6 +339,9 @@ type ServerInterface interface {
 	// CompleteLogin Redirect target registered in authentik; finishes the sign-in
 	// (GET /auth/callback)
 	CompleteLogin(w http.ResponseWriter, r *http.Request, params CompleteLoginParams)
+	// CompleteHomeConnection Redirect target of Home Assistant's sign-in; connects the caller
+	// (GET /auth/homeassistant/callback)
+	CompleteHomeConnection(w http.ResponseWriter, r *http.Request, params CompleteHomeConnectionParams)
 	// StartLogin Start the sign-in at authentik (browser navigation, not fetch)
 	// (GET /auth/login)
 	StartLogin(w http.ResponseWriter, r *http.Request)
@@ -325,6 +366,21 @@ type ServerInterface interface {
 	// SuggestRecipes Pick recipes from Mealie that fit a mood (members only)
 	// (POST /v1/households/{householdId}/cook/suggestions)
 	SuggestRecipes(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
+	// GetHome Scenes and lights from Home Assistant, read live (members only)
+	// (GET /v1/households/{householdId}/home)
+	GetHome(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
+	// DisconnectHome Disconnect your Home Assistant account and revoke its token
+	// (DELETE /v1/households/{householdId}/home/connection)
+	DisconnectHome(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
+	// ConnectHome Start connecting your Home Assistant account
+	// (POST /v1/households/{householdId}/home/connection)
+	ConnectHome(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
+	// ToggleLight Switch a light on or off
+	// (POST /v1/households/{householdId}/home/lights/{lightId}/toggle)
+	ToggleLight(w http.ResponseWriter, r *http.Request, householdId HouseholdId, lightId string)
+	// ActivateScene Turn a scene on
+	// (POST /v1/households/{householdId}/home/scenes/{sceneId})
+	ActivateScene(w http.ResponseWriter, r *http.Request, householdId HouseholdId, sceneId string)
 	// CreateInvite Create a one-time invite link code (members only)
 	// (POST /v1/households/{householdId}/invites)
 	CreateInvite(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
@@ -358,6 +414,12 @@ type Unimplemented struct{}
 // CompleteLogin Redirect target registered in authentik; finishes the sign-in
 // (GET /auth/callback)
 func (_ Unimplemented) CompleteLogin(w http.ResponseWriter, r *http.Request, params CompleteLoginParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CompleteHomeConnection Redirect target of Home Assistant's sign-in; connects the caller
+// (GET /auth/homeassistant/callback)
+func (_ Unimplemented) CompleteHomeConnection(w http.ResponseWriter, r *http.Request, params CompleteHomeConnectionParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -406,6 +468,36 @@ func (_ Unimplemented) GetHousehold(w http.ResponseWriter, r *http.Request, hous
 // SuggestRecipes Pick recipes from Mealie that fit a mood (members only)
 // (POST /v1/households/{householdId}/cook/suggestions)
 func (_ Unimplemented) SuggestRecipes(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetHome Scenes and lights from Home Assistant, read live (members only)
+// (GET /v1/households/{householdId}/home)
+func (_ Unimplemented) GetHome(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DisconnectHome Disconnect your Home Assistant account and revoke its token
+// (DELETE /v1/households/{householdId}/home/connection)
+func (_ Unimplemented) DisconnectHome(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ConnectHome Start connecting your Home Assistant account
+// (POST /v1/households/{householdId}/home/connection)
+func (_ Unimplemented) ConnectHome(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ToggleLight Switch a light on or off
+// (POST /v1/households/{householdId}/home/lights/{lightId}/toggle)
+func (_ Unimplemented) ToggleLight(w http.ResponseWriter, r *http.Request, householdId HouseholdId, lightId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ActivateScene Turn a scene on
+// (POST /v1/households/{householdId}/home/scenes/{sceneId})
+func (_ Unimplemented) ActivateScene(w http.ResponseWriter, r *http.Request, householdId HouseholdId, sceneId string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -531,6 +623,65 @@ func (siw *ServerInterfaceWrapper) CompleteLogin(w http.ResponseWriter, r *http.
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CompleteLogin(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CompleteHomeConnection operation middleware
+func (siw *ServerInterfaceWrapper) CompleteHomeConnection(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CompleteHomeConnectionParams
+
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "error" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error", r.URL.Query(), &params.Error, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "error"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "error", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CompleteHomeConnection(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -688,6 +839,154 @@ func (siw *ServerInterfaceWrapper) SuggestRecipes(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SuggestRecipes(w, r, householdId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetHome operation middleware
+func (siw *ServerInterfaceWrapper) GetHome(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetHome(w, r, householdId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DisconnectHome operation middleware
+func (siw *ServerInterfaceWrapper) DisconnectHome(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DisconnectHome(w, r, householdId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConnectHome operation middleware
+func (siw *ServerInterfaceWrapper) ConnectHome(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConnectHome(w, r, householdId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ToggleLight operation middleware
+func (siw *ServerInterfaceWrapper) ToggleLight(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "lightId" -------------
+	var lightId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "lightId", chi.URLParam(r, "lightId"), &lightId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "lightId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ToggleLight(w, r, householdId, lightId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ActivateScene operation middleware
+func (siw *ServerInterfaceWrapper) ActivateScene(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "sceneId" -------------
+	var sceneId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sceneId", chi.URLParam(r, "sceneId"), &sceneId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sceneId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ActivateScene(w, r, householdId, sceneId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1031,6 +1330,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/auth/logout", wrapper.Logout)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/auth/homeassistant/callback", wrapper.CompleteHomeConnection)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/me", wrapper.GetMe)
 	})
 	r.Group(func(r chi.Router) {
@@ -1065,6 +1367,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/households/{householdId}/shopping-list", wrapper.AddToShoppingList)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/households/{householdId}/home", wrapper.GetHome)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/households/{householdId}/home/connection", wrapper.DisconnectHome)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/households/{householdId}/home/connection", wrapper.ConnectHome)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/households/{householdId}/home/scenes/{sceneId}", wrapper.ActivateScene)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/households/{householdId}/home/lights/{lightId}/toggle", wrapper.ToggleLight)
 	})
 
 	return r
@@ -1102,6 +1419,42 @@ func (response CompleteLogin302Response) VisitCompleteLoginResponse(w http.Respo
 	}
 	w.WriteHeader(302)
 	return nil
+}
+
+type CompleteHomeConnectionRequestObject struct {
+	Params CompleteHomeConnectionParams
+}
+
+type CompleteHomeConnectionResponseObject interface {
+	VisitCompleteHomeConnectionResponse(w http.ResponseWriter) error
+}
+
+type CompleteHomeConnection302ResponseHeaders struct {
+	Location string
+}
+
+type CompleteHomeConnection302Response struct {
+	Headers CompleteHomeConnection302ResponseHeaders
+}
+
+func (response CompleteHomeConnection302Response) VisitCompleteHomeConnectionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Location", fmt.Sprint(response.Headers.Location))
+	w.WriteHeader(302)
+	return nil
+}
+
+type CompleteHomeConnection401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CompleteHomeConnection401JSONResponse) VisitCompleteHomeConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
 }
 
 type StartLoginRequestObject struct {
@@ -1430,6 +1783,316 @@ func (response SuggestRecipes404JSONResponse) VisitSuggestRecipesResponse(w http
 type SuggestRecipes503JSONResponse struct{ UnavailableJSONResponse }
 
 func (response SuggestRecipes503JSONResponse) VisitSuggestRecipesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetHomeRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+}
+
+type GetHomeResponseObject interface {
+	VisitGetHomeResponse(w http.ResponseWriter) error
+}
+
+type GetHome200JSONResponse Home
+
+func (response GetHome200JSONResponse) VisitGetHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetHome401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetHome401JSONResponse) VisitGetHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetHome404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetHome404JSONResponse) VisitGetHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetHome503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response GetHome503JSONResponse) VisitGetHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisconnectHomeRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+}
+
+type DisconnectHomeResponseObject interface {
+	VisitDisconnectHomeResponse(w http.ResponseWriter) error
+}
+
+type DisconnectHome204Response struct {
+}
+
+func (response DisconnectHome204Response) VisitDisconnectHomeResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DisconnectHome401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DisconnectHome401JSONResponse) VisitDisconnectHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisconnectHome404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DisconnectHome404JSONResponse) VisitDisconnectHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisconnectHome503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response DisconnectHome503JSONResponse) VisitDisconnectHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConnectHomeRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+}
+
+type ConnectHomeResponseObject interface {
+	VisitConnectHomeResponse(w http.ResponseWriter) error
+}
+
+type ConnectHome200JSONResponse HomeConnect
+
+func (response ConnectHome200JSONResponse) VisitConnectHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConnectHome401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ConnectHome401JSONResponse) VisitConnectHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConnectHome404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ConnectHome404JSONResponse) VisitConnectHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConnectHome503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response ConnectHome503JSONResponse) VisitConnectHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ToggleLightRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+	LightId     string      `json:"lightId"`
+}
+
+type ToggleLightResponseObject interface {
+	VisitToggleLightResponse(w http.ResponseWriter) error
+}
+
+type ToggleLight200JSONResponse Light
+
+func (response ToggleLight200JSONResponse) VisitToggleLightResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ToggleLight401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ToggleLight401JSONResponse) VisitToggleLightResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ToggleLight404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ToggleLight404JSONResponse) VisitToggleLightResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ToggleLight503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response ToggleLight503JSONResponse) VisitToggleLightResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ActivateSceneRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+	SceneId     string      `json:"sceneId"`
+}
+
+type ActivateSceneResponseObject interface {
+	VisitActivateSceneResponse(w http.ResponseWriter) error
+}
+
+type ActivateScene204Response struct {
+}
+
+func (response ActivateScene204Response) VisitActivateSceneResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type ActivateScene401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ActivateScene401JSONResponse) VisitActivateSceneResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ActivateScene404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ActivateScene404JSONResponse) VisitActivateSceneResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ActivateScene503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response ActivateScene503JSONResponse) VisitActivateSceneResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1919,6 +2582,9 @@ type StrictServerInterface interface {
 	// CompleteLogin Redirect target registered in authentik; finishes the sign-in
 	// (GET /auth/callback)
 	CompleteLogin(ctx context.Context, request CompleteLoginRequestObject) (CompleteLoginResponseObject, error)
+	// CompleteHomeConnection Redirect target of Home Assistant's sign-in; connects the caller
+	// (GET /auth/homeassistant/callback)
+	CompleteHomeConnection(ctx context.Context, request CompleteHomeConnectionRequestObject) (CompleteHomeConnectionResponseObject, error)
 	// StartLogin Start the sign-in at authentik (browser navigation, not fetch)
 	// (GET /auth/login)
 	StartLogin(ctx context.Context, request StartLoginRequestObject) (StartLoginResponseObject, error)
@@ -1943,6 +2609,21 @@ type StrictServerInterface interface {
 	// SuggestRecipes Pick recipes from Mealie that fit a mood (members only)
 	// (POST /v1/households/{householdId}/cook/suggestions)
 	SuggestRecipes(ctx context.Context, request SuggestRecipesRequestObject) (SuggestRecipesResponseObject, error)
+	// GetHome Scenes and lights from Home Assistant, read live (members only)
+	// (GET /v1/households/{householdId}/home)
+	GetHome(ctx context.Context, request GetHomeRequestObject) (GetHomeResponseObject, error)
+	// DisconnectHome Disconnect your Home Assistant account and revoke its token
+	// (DELETE /v1/households/{householdId}/home/connection)
+	DisconnectHome(ctx context.Context, request DisconnectHomeRequestObject) (DisconnectHomeResponseObject, error)
+	// ConnectHome Start connecting your Home Assistant account
+	// (POST /v1/households/{householdId}/home/connection)
+	ConnectHome(ctx context.Context, request ConnectHomeRequestObject) (ConnectHomeResponseObject, error)
+	// ToggleLight Switch a light on or off
+	// (POST /v1/households/{householdId}/home/lights/{lightId}/toggle)
+	ToggleLight(ctx context.Context, request ToggleLightRequestObject) (ToggleLightResponseObject, error)
+	// ActivateScene Turn a scene on
+	// (POST /v1/households/{householdId}/home/scenes/{sceneId})
+	ActivateScene(ctx context.Context, request ActivateSceneRequestObject) (ActivateSceneResponseObject, error)
 	// CreateInvite Create a one-time invite link code (members only)
 	// (POST /v1/households/{householdId}/invites)
 	CreateInvite(ctx context.Context, request CreateInviteRequestObject) (CreateInviteResponseObject, error)
@@ -2027,6 +2708,32 @@ func (sh *strictHandler) CompleteLogin(w http.ResponseWriter, r *http.Request, p
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CompleteLoginResponseObject); ok {
 		if err := validResponse.VisitCompleteLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CompleteHomeConnection operation middleware
+func (sh *strictHandler) CompleteHomeConnection(w http.ResponseWriter, r *http.Request, params CompleteHomeConnectionParams) {
+	var request CompleteHomeConnectionRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CompleteHomeConnection(ctx, request.(CompleteHomeConnectionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CompleteHomeConnection")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CompleteHomeConnectionResponseObject); ok {
+		if err := validResponse.VisitCompleteHomeConnectionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -2239,6 +2946,138 @@ func (sh *strictHandler) SuggestRecipes(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SuggestRecipesResponseObject); ok {
 		if err := validResponse.VisitSuggestRecipesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetHome operation middleware
+func (sh *strictHandler) GetHome(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	var request GetHomeRequestObject
+
+	request.HouseholdId = householdId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetHome(ctx, request.(GetHomeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetHome")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetHomeResponseObject); ok {
+		if err := validResponse.VisitGetHomeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DisconnectHome operation middleware
+func (sh *strictHandler) DisconnectHome(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	var request DisconnectHomeRequestObject
+
+	request.HouseholdId = householdId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DisconnectHome(ctx, request.(DisconnectHomeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DisconnectHome")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DisconnectHomeResponseObject); ok {
+		if err := validResponse.VisitDisconnectHomeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ConnectHome operation middleware
+func (sh *strictHandler) ConnectHome(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	var request ConnectHomeRequestObject
+
+	request.HouseholdId = householdId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ConnectHome(ctx, request.(ConnectHomeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ConnectHome")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ConnectHomeResponseObject); ok {
+		if err := validResponse.VisitConnectHomeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ToggleLight operation middleware
+func (sh *strictHandler) ToggleLight(w http.ResponseWriter, r *http.Request, householdId HouseholdId, lightId string) {
+	var request ToggleLightRequestObject
+
+	request.HouseholdId = householdId
+	request.LightId = lightId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ToggleLight(ctx, request.(ToggleLightRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ToggleLight")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ToggleLightResponseObject); ok {
+		if err := validResponse.VisitToggleLightResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ActivateScene operation middleware
+func (sh *strictHandler) ActivateScene(w http.ResponseWriter, r *http.Request, householdId HouseholdId, sceneId string) {
+	var request ActivateSceneRequestObject
+
+	request.HouseholdId = householdId
+	request.SceneId = sceneId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ActivateScene(ctx, request.(ActivateSceneRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ActivateScene")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ActivateSceneResponseObject); ok {
+		if err := validResponse.VisitActivateSceneResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -2479,72 +3318,83 @@ func (sh *strictHandler) AnswerQuestion(w http.ResponseWriter, r *http.Request, 
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"rvcQkcLc+X8GAA==",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

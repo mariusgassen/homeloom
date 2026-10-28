@@ -37,6 +37,9 @@ type SessionStore interface {
 	// Get returns domain.ErrNotFound for an unknown or expired session.
 	Get(ctx context.Context, id string) (domain.Session, error)
 	Delete(ctx context.Context, id string) error
+	SaveHomeConnection(ctx context.Context, state string, p domain.PendingHomeConnection) error
+	// TakeHomeConnection works once per state, like TakeLogin.
+	TakeHomeConnection(ctx context.Context, state string) (domain.PendingHomeConnection, error)
 }
 
 type UserRepository interface {
@@ -87,6 +90,31 @@ type Chef interface {
 	// Pick chooses up to n of the candidates that fit the mood and says why, in the language
 	// given as a BCP 47 tag. It returns domain.ErrUnavailable when the LLM can't be asked.
 	Pick(ctx context.Context, mood, lang string, candidates []domain.RecipeSummary, n int) ([]domain.Pick, error)
+}
+
+// SmartHome is Home Assistant, narrowed to what Homeloom may do: read scenes and lights, turn a
+// scene on, switch a light. Locks, alarms, covers and other domains are deliberately not here.
+// Calls act as the person who signed in, through the refresh token from that sign-in. Every
+// method returns domain.ErrUnavailable when Home Assistant can't be reached, and
+// domain.ErrUnauthenticated when it no longer accepts the refresh token.
+type SmartHome interface {
+	// AuthorizeURL is Home Assistant's sign-in page; it redirects back with a code and the state.
+	AuthorizeURL(state string) string
+	// Exchange redeems the code and returns the refresh token.
+	Exchange(ctx context.Context, code string) (string, error)
+	Revoke(ctx context.Context, refreshToken string) error
+	Devices(ctx context.Context, refreshToken string) ([]domain.Scene, []domain.Light, error)
+	// ActivateScene and ToggleLight take an id that Devices returned.
+	ActivateScene(ctx context.Context, refreshToken, id string) error
+	ToggleLight(ctx context.Context, refreshToken, id string) (domain.Light, error)
+}
+
+type HomeConnectionRepository interface {
+	// SaveHomeConnection replaces the person's connection.
+	SaveHomeConnection(ctx context.Context, c domain.HomeConnection) error
+	// HomeConnection returns domain.ErrNotFound when the person has none.
+	HomeConnection(ctx context.Context, userID uuid.UUID) (domain.HomeConnection, error)
+	DeleteHomeConnection(ctx context.Context, userID uuid.UUID) error
 }
 
 type HealthCheck interface {
