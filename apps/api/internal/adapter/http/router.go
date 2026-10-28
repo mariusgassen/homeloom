@@ -29,14 +29,14 @@ type Deps struct {
 }
 
 func NewRouter(d Deps) (http.Handler, error) {
-	spec, err := oapi.GetSwagger()
+	spec, err := oapi.GetSpec()
 	if err != nil {
 		return nil, fmt.Errorf("load openapi spec: %w", err)
 	}
 	spec.Servers = nil
 
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID, middleware.RealIP, requestLogger, middleware.Recoverer)
+	r.Use(middleware.RequestID, requestLogger, middleware.Recoverer)
 	if len(d.AllowedOrigins) > 0 {
 		r.Use(cors.Handler(cors.Options{
 			AllowedOrigins: d.AllowedOrigins,
@@ -55,7 +55,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 	}))
 
 	strict := oapi.NewStrictHandlerWithOptions(&handlers{households: d.Households, checks: d.HealthChecks}, nil, oapi.StrictHTTPServerOptions{
-		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
+		RequestErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, err error) {
 			writeError(w, http.StatusBadRequest, "invalid", err.Error())
 		},
 		ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
@@ -70,7 +70,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 	return oapi.HandlerWithOptions(strict, oapi.ChiServerOptions{BaseRouter: r}), nil
 }
 
-func validationError(ctx context.Context, err error, w http.ResponseWriter, r *http.Request, opts validator.ErrorHandlerOpts) {
+func validationError(ctx context.Context, err error, w http.ResponseWriter, _ *http.Request, opts validator.ErrorHandlerOpts) {
 	if opts.StatusCode == http.StatusUnauthorized {
 		if slot := slotFrom(ctx); slot != nil && slot.err != nil && !errors.Is(slot.err, domain.ErrUnauthenticated) {
 			// The token could not be checked at all (e.g. authentik unreachable): not the caller's fault.

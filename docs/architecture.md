@@ -16,8 +16,8 @@ Homeloom is an API plus separate clients. The API is the only component that hol
 | Backend | Go, hexagonal architecture |
 | Contract | API first: `apps/api/api/openapi.yaml` is the source of truth |
 | HTTP | chi + oapi-codegen (strict server), requests validated against the spec |
-| Database | PostgreSQL 17, sqlc for queries, goose migrations embedded in the binary |
-| Cache / realtime | Redis 7 (user cache now; pub/sub fan-out, rate limits and job queues later) |
+| Database | PostgreSQL 18, sqlc for queries, goose migrations embedded in the binary |
+| Cache / realtime | Redis 8 (user cache now; pub/sub fan-out, rate limits and job queues later) |
 | Identity | authentik; the API is an OAuth2 resource server and only verifies access tokens |
 | LLM | Claude by default, behind a provider port so it can be swapped |
 | Frontend | Mobile-first PWA, separate app; both users are on iOS |

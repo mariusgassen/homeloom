@@ -41,14 +41,14 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (domain.Identity
 	}
 	tok, err := verifier.Verify(ctx, rawToken)
 	if err != nil {
-		return domain.Identity{}, fmt.Errorf("%w: %v", domain.ErrUnauthenticated, err)
+		return domain.Identity{}, fmt.Errorf("%w: %w", domain.ErrUnauthenticated, err)
 	}
 	if !slices.ContainsFunc(tok.Audience, func(aud string) bool { return slices.Contains(v.clientIDs, aud) }) {
 		return domain.Identity{}, fmt.Errorf("%w: unexpected audience", domain.ErrUnauthenticated)
 	}
 	var c claims
 	if err := tok.Claims(&c); err != nil {
-		return domain.Identity{}, fmt.Errorf("%w: %v", domain.ErrUnauthenticated, err)
+		return domain.Identity{}, fmt.Errorf("%w: %w", domain.ErrUnauthenticated, err)
 	}
 	name := c.Name
 	if name == "" {

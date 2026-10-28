@@ -38,7 +38,7 @@ func healthcheck() int {
 		port = "8080"
 	}
 	client := http.Client{Timeout: 3 * time.Second}
-	resp, err := client.Get("http://localhost:" + port + "/healthz")
+	resp, err := client.Get("http://localhost:" + port + "/healthz") //nolint:gosec // fixed host; the port comes from our own HTTP_ADDR
 	if err != nil {
 		return 1
 	}

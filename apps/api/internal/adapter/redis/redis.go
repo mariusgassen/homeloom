@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -50,7 +51,7 @@ func (c *UserCache) UpsertByIdentity(ctx context.Context, id domain.Identity) (d
 		if json.Unmarshal(raw, &u) == nil {
 			return u, nil
 		}
-	} else if err != goredis.Nil {
+	} else if !errors.Is(err, goredis.Nil) {
 		// Redis being down must not lock anyone out; fall through to the repository.
 		slog.WarnContext(ctx, "user cache read failed", "err", err)
 	}
