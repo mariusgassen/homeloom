@@ -108,7 +108,6 @@ export function Cook() {
         <Button type="submit" icon="sparkle" block disabled={busy || !wish}>
           {t(busy ? "cook.thinking" : "cook.suggest")}
         </Button>
-        <p className="caption muted">{t("cook.hint")}</p>
       </form>
 
       {result && (
@@ -246,7 +245,7 @@ export function RecipeScreen() {
           )}
           {recipe.mealieUrl && (
             <a className="body mealie-link" href={recipe.mealieUrl} target="_blank" rel="noreferrer">
-              {t("cook.openInMealie")}
+              {t("cook.openRecipe")}
             </a>
           )}
         </>
