@@ -51,6 +51,7 @@
     "openRecipe": "Ganzes Rezept öffnen"
   },
   "call": {
+    "homeloom": "Homeloom",
     "call": "Anrufen",
     "add": "Leute hinzufügen",
     "ringing": "Klingelt …",
@@ -185,6 +186,7 @@
     "continue": "Weiter"
   },
   "assistant": {
+    "call": "Mit Homeloom sprechen",
     "open": "Frag Homeloom",
     "title": "Frag Homeloom",
     "done": "Fertig",

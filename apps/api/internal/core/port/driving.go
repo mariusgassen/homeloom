@@ -116,6 +116,10 @@ type CallService interface {
 	// JoinAsGuest lets the link's holder into its call under the name they give. The first device
 	// to use a link claims it; another one gets domain.ErrConflict.
 	JoinAsGuest(ctx context.Context, token, device, name string) (domain.Call, error)
+	// TalkToHomeloom starts a private call between the actor and the Homeloom voice agent, which
+	// acts as the actor and speaks lang. It returns domain.ErrUnavailable when the agent isn't set
+	// up.
+	TalkToHomeloom(ctx context.Context, actor domain.User, householdID uuid.UUID, lang string) (domain.Call, error)
 }
 
 // AssistantService is the chat assistant. Each conversation belongs to one person, and the

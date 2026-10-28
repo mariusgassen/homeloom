@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -111,6 +112,27 @@ func TestCalls(t *testing.T) {
 	other, _ := service.NewHousehold(store).Create(ctx, eve, "Elsewhere")
 	if own, _ := calls.Join(ctx, eve, other.Household.ID, c.ID); own.Room == c.Room {
 		t.Fatal("a call id opens another household's room")
+	}
+
+	// Talking to Homeloom: a private room, and the agent gets a key that acts as Alice.
+	agents := service.NewAgentAccess(store, memory.NewSessions(), store)
+	voice := service.NewCall(store, memory.NewSessions(), server, push).WithVoiceAgent("homeloom", agents)
+	vc, err := voice.TalkToHomeloom(ctx, alice, h, "de")
+	if err != nil || !strings.HasPrefix(vc.Room, "homeloom-") || !strings.Contains(vc.Room, alice.ID.String()) {
+		t.Fatalf("voice call: %+v %v", vc, err)
+	}
+	var meta service.VoiceCall
+	if err := json.Unmarshal([]byte(server.Dispatched["homeloom@"+vc.Room]), &meta); err != nil || meta.Lang != "de" || meta.Name != "alice" {
+		t.Fatalf("dispatch: %+v %v", meta, err)
+	}
+	if grant, err := agents.Authenticate(ctx, meta.Key); err != nil || grant.User.ID != alice.ID || grant.HouseholdID != h {
+		t.Fatalf("agent key: %+v %v", grant, err)
+	}
+	if _, err := voice.TalkToHomeloom(ctx, eve, h, "en"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("outsider talking to homeloom: %v", err)
+	}
+	if _, err := calls.TalkToHomeloom(ctx, alice, h, "en"); !errors.Is(err, domain.ErrUnavailable) {
+		t.Fatalf("without the agent: %v", err)
 	}
 
 	server.Down = true

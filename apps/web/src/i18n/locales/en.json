@@ -51,6 +51,7 @@
     "openRecipe": "Open full recipe"
   },
   "call": {
+    "homeloom": "Homeloom",
     "call": "Call",
     "add": "Add people",
     "ringing": "Ringing…",
@@ -185,6 +186,7 @@
     "continue": "Continue"
   },
   "assistant": {
+    "call": "Talk to Homeloom",
     "open": "Ask Homeloom",
     "title": "Ask Homeloom",
     "done": "Done",

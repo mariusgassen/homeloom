@@ -1,0 +1,28 @@
+{
+  "name": "homeloom-agent",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/agent.js start",
+    "dev": "tsc -p tsconfig.build.json && node dist/agent.js dev",
+    "lint": "eslint .",
+    "typecheck": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@livekit/agents": "^1.9.4",
+    "@livekit/agents-plugin-anthropic": "^1.9.4",
+    "@livekit/agents-plugin-openai": "^1.9.4",
+    "@livekit/agents-plugin-silero": "^1.9.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^26.6.5",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.1",
+    "vitest": "^5.0.5"
+  }
+}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type ChatMessage, type Conversation } from "../api/client";
 import { chat, toolStep } from "../assistant";
+import { useCall } from "../call";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Icon } from "../ui/Icon";
@@ -13,6 +14,7 @@ type Bubble = Pick<ChatMessage, "role" | "text"> & { id: string };
 // the assistant used a tool, so the screen behind it can load what may have changed.
 export function Assistant({ householdId, onClose }: { householdId: string; onClose: (changed: boolean) => void }) {
   const { t, i18n } = useTranslation();
+  const { talkToHomeloom } = useCall();
   const [recent, setRecent] = useState<Conversation[] | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [conversation, setConversation] = useState<string | null>(null);
@@ -57,6 +59,12 @@ export function Assistant({ householdId, onClose }: { householdId: string; onClo
     input.current?.focus();
   }
 
+  // Homeloom may act during the call, so the screen behind loads again afterwards.
+  function call() {
+    changed.current = true;
+    talkToHomeloom(householdId);
+  }
+
   async function send(e: FormEvent) {
     e.preventDefault();
     const message = text.trim();
@@ -97,6 +105,11 @@ export function Assistant({ householdId, onClose }: { householdId: string; onClo
           {t("assistant.done")}
         </Button>
         <h2 className="headline sheet-title">{t("assistant.title")}</h2>
+        {!unavailable && (
+          <button type="button" className="screen-action" aria-label={t("assistant.call")} onClick={call}>
+            <Icon name="phone" />
+          </button>
+        )}
         {bubbles.length > 0 ? (
           <button type="button" className="screen-action" aria-label={t("assistant.new")} onClick={restart}>
             <Icon name="plus" />

@@ -59,6 +59,7 @@ type grant struct {
 	Room           string `json:"room"`
 	RoomJoin       bool   `json:"roomJoin,omitempty"`
 	RoomAdmin      bool   `json:"roomAdmin,omitempty"`
+	RoomCreate     bool   `json:"roomCreate,omitempty"`
 	CanPublish     *bool  `json:"canPublish,omitempty"`
 	CanSubscribe   *bool  `json:"canSubscribe,omitempty"`
 	CanPublishData *bool  `json:"canPublishData,omitempty"`
@@ -86,42 +87,62 @@ func (s *Server) sign(identity, name string, g grant) (string, error) {
 }
 
 func (s *Server) Participants(ctx context.Context, room string) ([]string, error) {
-	token, err := s.sign("homeloom-api", "", grant{Room: room, RoomAdmin: true})
-	if err != nil {
-		return nil, err
-	}
-	body, err := json.Marshal(map[string]string{"room": room})
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.apiURL+"/twirp/livekit.RoomService/ListParticipants", bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+token)
-	resp, err := s.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("%w: livekit: %w", domain.ErrUnavailable, err)
-	}
-	defer resp.Body.Close()
-	switch {
-	case resp.StatusCode == http.StatusNotFound:
-		return nil, nil // nobody has joined, so the room doesn't exist yet
-	case resp.StatusCode != http.StatusOK:
-		return nil, fmt.Errorf("%w: livekit answered %s", domain.ErrUnavailable, resp.Status)
-	}
 	var out struct {
 		Participants []struct {
 			Identity string `json:"identity"`
 		} `json:"participants"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return nil, fmt.Errorf("%w: livekit: %w", domain.ErrUnavailable, err)
+	found, err := s.twirp(ctx, room, "RoomService/ListParticipants", map[string]string{"room": room}, &out)
+	if err != nil || !found {
+		return nil, err // a room nobody has joined doesn't exist yet
 	}
 	ids := make([]string, len(out.Participants))
 	for i, p := range out.Participants {
 		ids[i] = p.Identity
 	}
 	return ids, nil
+}
+
+func (s *Server) Dispatch(ctx context.Context, room, agent, metadata string) error {
+	found, err := s.twirp(ctx, room, "AgentDispatchService/CreateDispatch", map[string]string{"room": room, "agent_name": agent, "metadata": metadata}, nil)
+	if err == nil && !found {
+		return fmt.Errorf("%w: livekit has no agent dispatch", domain.ErrUnavailable)
+	}
+	return err
+}
+
+// twirp calls the server API as an admin of room. found is false when LiveKit answers 404.
+func (s *Server) twirp(ctx context.Context, room, method string, in, out any) (found bool, err error) {
+	token, err := s.sign("homeloom-api", "", grant{Room: room, RoomAdmin: true, RoomCreate: true})
+	if err != nil {
+		return false, err
+	}
+	body, err := json.Marshal(in)
+	if err != nil {
+		return false, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.apiURL+"/twirp/livekit."+method, bytes.NewReader(body))
+	if err != nil {
+		return false, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("%w: livekit: %w", domain.ErrUnavailable, err)
+	}
+	defer resp.Body.Close()
+	switch {
+	case resp.StatusCode == http.StatusNotFound:
+		return false, nil
+	case resp.StatusCode != http.StatusOK:
+		return false, fmt.Errorf("%w: livekit answered %s", domain.ErrUnavailable, resp.Status)
+	}
+	if out == nil {
+		return true, nil
+	}
+	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+		return false, fmt.Errorf("%w: livekit: %w", domain.ErrUnavailable, err)
+	}
+	return true, nil
 }
