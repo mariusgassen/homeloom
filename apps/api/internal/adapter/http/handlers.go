@@ -24,6 +24,7 @@ type handlers struct {
 	home       port.HomeService
 	push       port.PushService
 	calls      port.CallService
+	voice      port.VoiceService
 	assistant  port.AssistantService
 	agents     port.AgentAccessService
 	login      port.LoginService

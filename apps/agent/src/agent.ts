@@ -6,6 +6,8 @@ import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import { greeting, instructions, parseCaller } from "./caller.js";
 
+type TTSVoice = NonNullable<ConstructorParameters<typeof openai.TTS>[0]>["voice"];
+
 // The API dispatches the agent by this name when someone taps the phone in the assistant sheet.
 const agentName = "homeloom";
 const mcpURL = process.env.HOMELOOM_MCP_URL || "http://homeloom-api:8080/mcp";
@@ -31,7 +33,13 @@ export default defineAgent({
       vad: ctx.proc.userData.vad as silero.VAD,
       stt: new openai.STT({ model: "gpt-4o-transcribe", language: caller.lang }),
       llm: new anthropic.LLM({ model }),
-      tts: new openai.TTS({ model: "gpt-4o-mini-tts", voice: "coral", instructions: "Speak warmly and naturally, like a friend at home." }),
+      tts: new openai.TTS({
+        model: "gpt-4o-mini-tts",
+        // The plugin lists only the older voices; the API checks the name against the model's.
+        voice: caller.voice.voice as TTSVoice,
+        speed: caller.voice.speed,
+        instructions: caller.voice.instructions,
+      }),
     });
 
     await ctx.connect();

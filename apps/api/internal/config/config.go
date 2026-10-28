@@ -48,9 +48,10 @@ type Config struct {
 	LiveKitAPISecret string
 	// VoiceAgent is the name the Homeloom voice agent registers with LiveKit; "" switches voice
 	// calls with Homeloom off. It is off without ANTHROPIC_API_KEY or OPENAI_API_KEY, since the
-	// agent thinks with Claude and hears and speaks with OpenAI. The API only checks that the
-	// OpenAI key is set; it never uses it.
+	// agent thinks with Claude and hears and speaks with OpenAI.
 	VoiceAgent string
+	// OpenAIAPIKey lets the API speak voice previews the way the agent speaks on a call.
+	OpenAIAPIKey string
 	// TimeZone is where the household lives; repeating reminders keep their time of day in it.
 	TimeZone *time.Location
 }
@@ -99,8 +100,9 @@ func Load() (Config, error) {
 		LiveKitAPIKey:    os.Getenv("LIVEKIT_API_KEY"),
 		LiveKitAPISecret: os.Getenv("LIVEKIT_API_SECRET"),
 		VoiceAgent:       env("VOICE_AGENT", "homeloom"),
+		OpenAIAPIKey:     os.Getenv("OPENAI_API_KEY"),
 	}
-	if c.AnthropicAPIKey == "" || os.Getenv("OPENAI_API_KEY") == "" {
+	if c.AnthropicAPIKey == "" || c.OpenAIAPIKey == "" {
 		c.VoiceAgent = ""
 	}
 	loc, err := time.LoadLocation(env("TIME_ZONE", "UTC"))

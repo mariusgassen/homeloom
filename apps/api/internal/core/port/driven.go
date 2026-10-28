@@ -206,6 +206,20 @@ type CallServer interface {
 	Dispatch(ctx context.Context, room, agent, metadata string) error
 }
 
+// VoiceSettingsRepository keeps how Homeloom sounds for each member. VoiceSettings returns
+// domain.ErrNotFound for a member who hasn't saved any.
+type VoiceSettingsRepository interface {
+	VoiceSettings(ctx context.Context, userID uuid.UUID) (domain.VoiceSettings, error)
+	SaveVoiceSettings(ctx context.Context, userID uuid.UUID, v domain.VoiceSettings) error
+}
+
+// Speaker turns text into speech, the way the voice agent speaks on a call.
+type Speaker interface {
+	// Speak returns text spoken with v as MP3. It returns domain.ErrUnavailable when the speech
+	// model can't be reached.
+	Speak(ctx context.Context, text string, v domain.VoiceSettings) ([]byte, error)
+}
+
 // Assistant is the LLM as a chat partner that can use tools.
 type Assistant interface {
 	// Reply answers the last user message of history. It runs each tool the model asks for with

@@ -23,6 +23,7 @@ import (
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/mealie"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/notesdav"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/oidc"
+	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/openai"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/postgres"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/redis"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/secretbox"
@@ -157,6 +158,12 @@ func run() error {
 			return err
 		}
 	}
+	// Homeloom speaks only where it can be called: with the voice agent set up.
+	var speaker port.Speaker
+	if cfg.VoiceAgent != "" {
+		speaker = openai.NewSpeaker(cfg.OpenAIAPIKey)
+	}
+	voice := service.NewVoice(store, speaker)
 	// Notifications still under way get to finish after the server has stopped taking requests.
 	defer push.Wait()
 
@@ -181,7 +188,8 @@ func run() error {
 		Shopping:       shopping,
 		Home:           homeService,
 		Push:           push,
-		Calls:          service.NewCall(store, sessions, calls, push).WithVoiceAgent(cfg.VoiceAgent, agents),
+		Calls:          service.NewCall(store, sessions, calls, push).WithVoiceAgent(cfg.VoiceAgent, agents).WithVoice(voice),
+		Voice:          voice,
 		Assistant:      assistant,
 		Agents:         agents,
 		HealthChecks:   []port.HealthCheck{postgres.HealthCheck{Pool: pool}, redis.HealthCheck{Client: rdb}},

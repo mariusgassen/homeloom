@@ -63,6 +63,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 	cook := service.NewCook(store, recipes, memory.Chef{}, shopping)
 	home := service.NewHome(store, store, sessions, smart)
 	agents := service.NewAgentAccess(store, sessions, store)
+	voice := service.NewVoice(store, &memory.Speaker{})
 	h, err := httpadapter.NewRouter(httpadapter.Deps{
 		Version:       "1.2.3",
 		PublicURL:     "https://homeloom.example.com",
@@ -75,7 +76,8 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Shopping:      shopping,
 		Home:          home,
 		Push:          push,
-		Calls:         service.NewCall(store, sessions, memory.NewCallServer(), push).WithVoiceAgent("homeloom", agents),
+		Calls:         service.NewCall(store, sessions, memory.NewCallServer(), push).WithVoiceAgent("homeloom", agents).WithVoice(voice),
+		Voice:         voice,
 		Assistant:     service.NewAssistant(store, store, &memory.Assistant{}, entries, cook, shopping, home, time.UTC),
 		Agents:        agents,
 		HealthChecks:  checks,
@@ -613,6 +615,34 @@ func TestPushFlow(t *testing.T) {
 	}
 	if code, _ := do(t, h, "POST", "/v1/push/subscriptions", "", sub("https://web.push.apple.com/abc")); code != 401 {
 		t.Fatalf("needs auth: %d", code)
+	}
+}
+
+func TestVoiceFlow(t *testing.T) {
+	h := newServer(t)
+	code, got := do(t, h, "GET", "/v1/me/voice", "token-alice", "")
+	settings, _ := got["settings"].(map[string]any)
+	if code != 200 || got["available"] != true || settings["voice"] != "coral" || settings["speed"] != 1.0 || settings["tone"] != "warm" {
+		t.Fatalf("defaults: %d %v", code, got)
+	}
+	if code, got := do(t, h, "PUT", "/v1/me/voice", "token-alice", `{"voice":"marin","speed":1.25,"tone":"calm"}`); code != 200 || got["voice"] != "marin" {
+		t.Fatalf("save: %d %v", code, got)
+	}
+	if _, got := do(t, h, "GET", "/v1/me/voice", "token-alice", ""); got["settings"].(map[string]any)["tone"] != "calm" {
+		t.Fatalf("saved: %v", got)
+	}
+	if code, _ := do(t, h, "PUT", "/v1/me/voice", "token-alice", `{"voice":"marin","speed":3,"tone":"calm"}`); code != 400 {
+		t.Fatalf("too fast: %d", code)
+	}
+
+	req := httptest.NewRequest("POST", "/v1/me/voice/preview", strings.NewReader(`{"voice":"cedar","speed":1,"tone":"playful"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer token-alice")
+	req.Header.Set("Accept-Language", "de")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != 200 || rec.Header().Get("Content-Type") != "audio/mpeg" || !strings.HasPrefix(rec.Body.String(), "cedar:Hi, ich bin Homeloom") {
+		t.Fatalf("preview: %d %q %q", rec.Code, rec.Header().Get("Content-Type"), rec.Body.String())
 	}
 }
 
