@@ -341,6 +341,23 @@ func (q *Queries) ListEntries(ctx context.Context, arg ListEntriesParams) ([]Ent
 	return items, nil
 }
 
+const renameEntry = `-- name: RenameEntry :execrows
+UPDATE entries SET ical_name = $2, updated_at = now() WHERE id = $1
+`
+
+type RenameEntryParams struct {
+	ID       uuid.UUID
+	IcalName *string
+}
+
+func (q *Queries) RenameEntry(ctx context.Context, arg RenameEntryParams) (int64, error) {
+	result, err := q.db.Exec(ctx, renameEntry, arg.ID, arg.IcalName)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const saveCalendarFeed = `-- name: SaveCalendarFeed :exec
 INSERT INTO calendar_feeds (token_hash, user_id, household_id) VALUES ($1, $2, $3)
 ON CONFLICT (user_id, household_id) DO UPDATE SET token_hash = EXCLUDED.token_hash, created_at = now()

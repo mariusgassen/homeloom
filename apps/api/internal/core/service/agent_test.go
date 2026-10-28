@@ -117,21 +117,27 @@ func TestCalendarPasswords(t *testing.T) {
 	if err != nil || tok.Access != domain.AccessCalendar || !strings.HasPrefix(password, domain.CalendarPasswordPrefix) {
 		t.Fatalf("create: %+v %q, %v", tok, password, err)
 	}
-	if g, err := agents.AuthenticateCalendar(ctx, password); err != nil || g.User.ID != f.alice.ID || g.HouseholdID != f.household {
+	if g, err := agents.AuthenticatePassword(ctx, domain.AccessCalendar, password); err != nil || g.User.ID != f.alice.ID || g.HouseholdID != f.household {
 		t.Fatalf("authenticate: %+v, %v", g, err)
 	}
 	// Neither kind opens the other.
 	if _, err := agents.Authenticate(ctx, password); !errors.Is(err, domain.ErrUnauthenticated) {
 		t.Fatalf("a calendar password opened the tools: %v", err)
 	}
+	if _, err := agents.AuthenticatePassword(ctx, domain.AccessNotes, password); !errors.Is(err, domain.ErrUnauthenticated) {
+		t.Fatalf("a calendar password opened the notes: %v", err)
+	}
+	if _, err := agents.AuthenticatePassword(ctx, domain.AccessNotes, domain.NotesPasswordPrefix+password[len(domain.CalendarPasswordPrefix):]); !errors.Is(err, domain.ErrUnauthenticated) {
+		t.Fatalf("a re-prefixed calendar password opened the notes: %v", err)
+	}
 	_, key, err := agents.CreateToken(ctx, f.alice, f.household, "Claude", domain.AccessTools)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := agents.AuthenticateCalendar(ctx, key); !errors.Is(err, domain.ErrUnauthenticated) {
+	if _, err := agents.AuthenticatePassword(ctx, domain.AccessCalendar, key); !errors.Is(err, domain.ErrUnauthenticated) {
 		t.Fatalf("a tools key opened the calendar: %v", err)
 	}
-	if _, err := agents.AuthenticateCalendar(ctx, domain.CalendarPasswordPrefix+key[len(domain.MCPTokenPrefix):]); !errors.Is(err, domain.ErrUnauthenticated) {
+	if _, err := agents.AuthenticatePassword(ctx, domain.AccessCalendar, domain.CalendarPasswordPrefix+key[len(domain.MCPTokenPrefix):]); !errors.Is(err, domain.ErrUnauthenticated) {
 		t.Fatalf("a re-prefixed tools key opened the calendar: %v", err)
 	}
 	// The right token with a wrong secret fails, also once the right one has been checked.
@@ -140,13 +146,13 @@ func TestCalendarPasswords(t *testing.T) {
 		last = "B"
 	}
 	wrong := password[:len(password)-1] + last
-	if _, err := agents.AuthenticateCalendar(ctx, wrong); !errors.Is(err, domain.ErrUnauthenticated) {
+	if _, err := agents.AuthenticatePassword(ctx, domain.AccessCalendar, wrong); !errors.Is(err, domain.ErrUnauthenticated) {
 		t.Fatalf("wrong secret: %v", err)
 	}
 	if err := agents.DeleteToken(ctx, f.alice, tok.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := agents.AuthenticateCalendar(ctx, password); !errors.Is(err, domain.ErrUnauthenticated) {
+	if _, err := agents.AuthenticatePassword(ctx, domain.AccessCalendar, password); !errors.Is(err, domain.ErrUnauthenticated) {
 		t.Fatalf("removed password: %v", err)
 	}
 }

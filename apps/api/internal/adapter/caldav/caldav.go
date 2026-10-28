@@ -65,7 +65,7 @@ func NewHandler(d Deps) http.Handler {
 		}
 		// The password is a personal token; the user name means nothing.
 		_, token, _ := r.BasicAuth()
-		g, err := d.Agents.AuthenticateCalendar(r.Context(), token)
+		g, err := d.Agents.AuthenticatePassword(r.Context(), domain.AccessCalendar, token)
 		switch {
 		case errors.Is(err, domain.ErrUnauthenticated):
 			w.Header().Set("WWW-Authenticate", `Basic realm="Homeloom", charset="UTF-8"`)

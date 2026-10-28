@@ -54,6 +54,9 @@ func MCPTokens(t *testing.T, s interface {
 	if tok, _, err := s.MCPTokenByHash(ctx, []byte(run+"hash-cal")); err != nil || tok.Access != domain.AccessCalendar {
 		t.Fatalf("calendar password by hash: %+v, %v", tok, err)
 	}
+	if notes, err := s.CreateMCPToken(ctx, []byte(run+"hash-notes"), domain.MCPToken{UserID: bob.ID, HouseholdID: h, Name: "iPhone", Access: domain.AccessNotes}); err != nil || notes.Access != domain.AccessNotes {
+		t.Fatalf("notes password: %+v, %v", notes, err)
+	}
 	if _, _, err := s.MCPTokenByHash(ctx, []byte(run+"hash-nope")); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("unknown hash: %v", err)
 	}

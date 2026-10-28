@@ -92,6 +92,8 @@ type EntryRepository interface {
 	// EntryByICalName returns the household's entry a calendar app made under that resource
 	// name, or domain.ErrNotFound.
 	EntryByICalName(ctx context.Context, householdID uuid.UUID, name string) (domain.Entry, error)
+	// RenameEntry sets the name an app knows the entry by; domain.ErrNotFound for an unknown id.
+	RenameEntry(ctx context.Context, id uuid.UUID, name string) error
 	// ListEntries returns the household's entries of the kind ("" for all) that are the viewer's
 	// own or not private, grouped by kind: events by start, those ending before since left out
 	// unless they repeat; notes newest first; open reminders by due time, then those done in the

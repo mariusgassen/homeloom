@@ -41,6 +41,17 @@ func (s *Store) EntryByICalName(_ context.Context, householdID uuid.UUID, name s
 	return domain.Entry{}, domain.ErrNotFound
 }
 
+func (s *Store) RenameEntry(_ context.Context, id uuid.UUID, name string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	i := s.findEntry(id)
+	if i < 0 {
+		return domain.ErrNotFound
+	}
+	s.entries[i].ICalName, s.entries[i].UpdatedAt = name, time.Now()
+	return nil
+}
+
 func (s *Store) ListEntries(_ context.Context, householdID, viewer uuid.UUID, kind domain.EntryKind, since time.Time, limit int) ([]domain.Entry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
