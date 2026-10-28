@@ -61,7 +61,7 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 ## Authentication
 
 - **Browser (PWA):** a confidential authentik client. The browser navigates to `/auth/login`; the API redirects to authentik (authorization code flow with PKCE and nonce), redeems the code at `/auth/callback` with the client secret, and stores the session in Redis. The browser only gets an HttpOnly, Secure, SameSite=Lax `homeloom_session` cookie; tokens and the secret never reach it. `POST /auth/logout` deletes the session and returns authentik's end-session URL.
-- **Other clients (iOS, MCP, third-party):** each is its own authentik provider and sends its access token as `Authorization: Bearer`. The API verifies the JWT against the issuer's JWKS and accepts `OIDC_CLIENT_ID` plus any client ID in `OIDC_CLIENT_IDS`. The provider must have a signing key so tokens are JWTs.
+- **Other clients (iOS, MCP, third-party):** each is its own authentik provider and sends its access token as `Authorization: Bearer`. The API verifies the JWT against the issuer's JWKS and accepts `OIDC_CLIENT_ID` plus any client ID in `OIDC_CLIENT_IDS` (add it to the compose file once such a client exists). The provider must have a signing key so tokens are JWTs.
 - The spec offers both schemes on every protected operation; either one is enough.
 - On the first request a local `users` row is created from the `sub`; later requests are served from the Redis user cache unless the profile changed.
 - If authentik or Redis cannot be reached the API returns `503 auth_unavailable`, not `401`, and health checks keep working. A failed login redirects to `/?auth_error=login_failed` or `/?auth_error=auth_unavailable`.
@@ -72,6 +72,12 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 - **Invites:** a member creates a one-time code (`POST /v1/households/{id}/invites`), shared as `PUBLIC_URL/join/<code>` and valid for 7 days. Only its SHA-256 is stored. Accepting it (`POST /v1/invites/{code}`) locks the invite row, so a code joins exactly one person. A used, expired or unknown code is the same `404 invite_invalid`. The PWA keeps a pending code in localStorage while the person signs in.
 - **Reveal together:** any member asks a question. Answers stay sealed, and the API leaves others' text out, until every current member (at least two) has answered. The last answer reveals the question in the same transaction, under a lock on the question row, so two simultaneous answers cannot both miss the reveal. You can change your answer until then; afterwards it is fixed (`409 already_revealed`).
 - Sealing happens in `core/service`, so later adapters (MCP, notifications) cannot leak an answer early.
+
+## Cooking
+
+- **Mealie** (`adapter/mealie`, port `RecipeBook`) holds the recipes and the shopping list. It is optional: without `MEALIE_URL` the cook endpoints answer `503 cooking_unavailable`, and so do they when Mealie is down or rejects the token. Each call is bounded to 8 s.
+- **Claude** (`adapter/claude`, port `Chef`) picks up to three recipes for a mood from the whole collection (one short line per recipe, cached as a prompt prefix) and writes why, in the request's language. The answer is constrained to a JSON schema, and the service drops any slug that isn't in the collection. Without `ANTHROPIC_API_KEY`, or when Claude is down, refuses or finds nothing, three recipes are picked at random (`chef: false`). One pick is bounded to 30 s.
+- Missing ingredients go to `MEALIE_SHOPPING_LIST_ID`, or to the list that changed last, through Mealie's "add recipe to list" so they stay linked to the recipe. The PWA asks what you already have and sends the rest.
 
 ## PWA
 
@@ -97,7 +103,7 @@ apps/web/
 ## Deployment on Coolify
 
 - Create a Docker Compose resource from this repository (`docker-compose.yml`).
-- Set `POSTGRES_PASSWORD`, `PUBLIC_URL`, `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET`; `OIDC_CLIENT_IDS` only for further bearer clients.
+- Set `POSTGRES_PASSWORD`, `PUBLIC_URL`, `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET`.
 - In authentik, register `PUBLIC_URL/auth/callback` as the redirect URI and `PUBLIC_URL/` as the post-logout redirect.
 - Assign the public domain to `homeloom-web` (port 8080). Its Caddy serves the PWA and forwards `/auth/*`, `/v1/*`, `/healthz` and `/readyz` to `homeloom-api`, so app and API share one origin and the session cookie stays first-party. The API, Postgres and Redis stay internal.
 
@@ -107,6 +113,6 @@ apps/web/
 |---|---|
 | MCP server | Second driving adapter on the same services, served at `/mcp`, with its own authentik client |
 | Reminders & notes | Core entries with `private / shared / reveal_after` visibility; jobs and push delivery via Redis |
-| Mealie, Home Assistant, Claude | Driven adapters behind ports; HA actions limited to a whitelist |
+| Home Assistant | Driven adapter behind a port; actions limited to a whitelist |
 | LiveKit calls with a Homeloom agent | Self-hosted LiveKit on Coolify; the API issues room tokens; the agent is a separate service (LiveKit Agents) that calls the API |
 | Third-party apps | Per-app authentik clients or tokens, outgoing webhooks, iCal feed for reminders |

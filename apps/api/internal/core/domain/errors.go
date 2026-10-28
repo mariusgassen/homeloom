@@ -9,4 +9,6 @@ var (
 	ErrUnauthenticated = errors.New("unauthenticated")
 	// ErrConflict means the request is valid but the current state does not allow it.
 	ErrConflict = errors.New("conflict")
+	// ErrUnavailable means an outside service (Mealie, the LLM, ...) is down or not set up.
+	ErrUnavailable = errors.New("unavailable")
 )

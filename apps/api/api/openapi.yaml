@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.3.0
+  version: 0.4.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -25,6 +25,7 @@ tags:
   - name: me
   - name: households
   - name: questions
+  - name: cook
 
 paths:
   /healthz:
@@ -284,6 +285,73 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
 
+  /v1/households/{householdId}/cook/suggestions:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [cook]
+      operationId: suggestRecipes
+      summary: Pick recipes from Mealie that fit a mood (members only)
+      description: |
+        Claude picks up to three recipes from the household's Mealie and says why each fits.
+        When Claude can't be reached, three recipes are picked at random instead (`chef` is false).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CookMood" }
+      responses:
+        "200":
+          description: Up to three suggestions; empty when Mealie has no recipes.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Suggestions" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/recipes/{slug}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/RecipeSlug"
+    get:
+      tags: [cook]
+      operationId: getRecipe
+      summary: A recipe from Mealie with its ingredients and steps (members only)
+      responses:
+        "200":
+          description: The recipe.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Recipe" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/shopping-list:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [cook]
+      operationId: addToShoppingList
+      summary: Put a recipe's missing ingredients on the Mealie shopping list (members only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddToShoppingList" }
+      responses:
+        "200":
+          description: What was added, and to which list.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShoppingListAdded" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
 components:
   parameters:
     HouseholdId:
@@ -291,6 +359,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    RecipeSlug:
+      name: slug
+      in: path
+      required: true
+      schema: { type: string, pattern: "^[A-Za-z0-9_-]{1,200}$" }
 
   securitySchemes:
     bearerAuth:
@@ -321,7 +394,7 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     Unavailable:
-      description: A dependency (authentik, Redis) cannot be reached.
+      description: A dependency (authentik, Redis, Mealie) cannot be reached or isn't set up.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -392,6 +465,85 @@ components:
         userId: { type: string, format: uuid }
         text: { type: string, description: Present for your own answer, and for everyone's once the question is revealed. }
         answeredAt: { type: string, format: date-time }
+
+    CookMood:
+      type: object
+      required: [mood]
+      properties:
+        mood: { type: string, minLength: 1, maxLength: 200, description: "In your own words, e.g. \"cozy, something with mushrooms\"." }
+
+    Suggestions:
+      type: object
+      required: [suggestions, chef]
+      properties:
+        suggestions:
+          type: array
+          items: { $ref: "#/components/schemas/Suggestion" }
+        chef: { type: boolean, description: True when Claude picked; false for the random fallback. }
+
+    Suggestion:
+      type: object
+      required: [recipe]
+      properties:
+        recipe: { $ref: "#/components/schemas/RecipeSummary" }
+        reason: { type: string, description: Why it fits the mood, in the request's language. Absent for random picks. }
+
+    RecipeSummary:
+      type: object
+      required: [slug, name, tags]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        description: { type: string }
+        totalTime: { type: string, description: As written in Mealie, e.g. "45 Minuten". }
+        tags:
+          type: array
+          items: { type: string }
+
+    Recipe:
+      type: object
+      required: [slug, name, tags, ingredients, steps]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        description: { type: string }
+        totalTime: { type: string }
+        servings: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        ingredients:
+          type: array
+          items: { $ref: "#/components/schemas/Ingredient" }
+        steps:
+          type: array
+          items: { type: string }
+        mealieUrl: { type: string, description: The recipe in Mealie. }
+
+    Ingredient:
+      type: object
+      required: [id, text]
+      properties:
+        id: { type: string, description: Mealie's reference id; pass it to addToShoppingList. }
+        text: { type: string }
+
+    AddToShoppingList:
+      type: object
+      required: [recipe, ingredientIds]
+      properties:
+        recipe: { type: string, pattern: "^[A-Za-z0-9_-]{1,200}$", description: The recipe's slug. }
+        ingredientIds:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: { type: string, maxLength: 100 }
+
+    ShoppingListAdded:
+      type: object
+      required: [added, list]
+      properties:
+        added: { type: integer, description: How many ingredients were put on the list. }
+        list: { type: string, description: The Mealie shopping list's name. }
 
     Logout:
       type: object

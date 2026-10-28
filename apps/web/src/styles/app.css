@@ -30,3 +30,21 @@ h1, h2, h3, p { margin: 0; }
 .answer-form { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-3); }
 .answer-form p { margin: 0; }
 .invite-link { margin: var(--space-2) 0 0; color: var(--ink-muted); word-break: break-all; user-select: all; }
+.success { color: var(--success); }
+
+.cook-form { background: var(--surface-raised); border-radius: var(--radius-lg); padding: var(--space-6) var(--space-4) var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); }
+.cook-form h2, .cook-form p { margin: 0; }
+.cook-group { display: flex; flex-direction: column; gap: var(--space-2); }
+.cook-label { color: var(--ink-muted); text-transform: uppercase; }
+.cook-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.cook-times { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.cook-times .hl-chip { justify-content: center; }
+.card-link { color: inherit; text-decoration: none; display: block; }
+.back { margin: 0 auto 0 calc(-1 * var(--space-3)); }
+.back-icon { display: inline-flex; transform: rotate(180deg); }
+.recipe-intro { margin: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.check-row { cursor: pointer; }
+.check-row input { width: 22px; height: 22px; accent-color: var(--spruce); flex: none; }
+.check-row .have { color: var(--ink-muted); text-decoration: line-through; font-weight: 400; }
+.steps { margin: 0; padding-left: var(--space-6); display: flex; flex-direction: column; gap: var(--space-3); }
+.mealie-link { color: var(--spruce); }

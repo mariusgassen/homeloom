@@ -232,6 +232,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/cook/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pick recipes from Mealie that fit a mood (members only)
+         * @description Claude picks up to three recipes from the household's Mealie and says why each fits.
+         *     When Claude can't be reached, three recipes are picked at random instead (`chef` is false).
+         */
+        post: operations["suggestRecipes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/recipes/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                slug: components["parameters"]["RecipeSlug"];
+            };
+            cookie?: never;
+        };
+        /** A recipe from Mealie with its ingredients and steps (members only) */
+        get: operations["getRecipe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/shopping-list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Put a recipe's missing ingredients on the Mealie shopping list (members only) */
+        post: operations["addToShoppingList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -306,6 +368,56 @@ export interface components {
             /** Format: date-time */
             answeredAt: string;
         };
+        CookMood: {
+            /** @description In your own words, e.g. "cozy, something with mushrooms". */
+            mood: string;
+        };
+        Suggestions: {
+            suggestions: components["schemas"]["Suggestion"][];
+            /** @description True when Claude picked; false for the random fallback. */
+            chef: boolean;
+        };
+        Suggestion: {
+            recipe: components["schemas"]["RecipeSummary"];
+            /** @description Why it fits the mood */
+            reason?: string;
+        };
+        RecipeSummary: {
+            slug: string;
+            name: string;
+            description?: string;
+            /** @description As written in Mealie */
+            totalTime?: string;
+            tags: string[];
+        };
+        Recipe: {
+            slug: string;
+            name: string;
+            description?: string;
+            totalTime?: string;
+            servings?: string;
+            tags: string[];
+            ingredients: components["schemas"]["Ingredient"][];
+            steps: string[];
+            /** @description The recipe in Mealie. */
+            mealieUrl?: string;
+        };
+        Ingredient: {
+            /** @description Mealie's reference id; pass it to addToShoppingList. */
+            id: string;
+            text: string;
+        };
+        AddToShoppingList: {
+            /** @description The recipe's slug. */
+            recipe: string;
+            ingredientIds: string[];
+        };
+        ShoppingListAdded: {
+            /** @description How many ingredients were put on the list. */
+            added: number;
+            /** @description The Mealie shopping list's name. */
+            list: string;
+        };
         Logout: {
             /** @description authentik's end-session URL. */
             redirectUrl?: string;
@@ -364,7 +476,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description A dependency (authentik, Redis) cannot be reached. */
+        /** @description A dependency (authentik, Redis, Mealie) cannot be reached or isn't set up. */
         Unavailable: {
             headers: {
                 [name: string]: unknown;
@@ -376,6 +488,7 @@ export interface components {
     };
     parameters: {
         HouseholdId: string;
+        RecipeSlug: string;
     };
     requestBodies: never;
     headers: never;
@@ -740,6 +853,92 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    suggestRecipes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CookMood"];
+            };
+        };
+        responses: {
+            /** @description Up to three suggestions; empty when Mealie has no recipes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Suggestions"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getRecipe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                slug: components["parameters"]["RecipeSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The recipe. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Recipe"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    addToShoppingList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddToShoppingList"];
+            };
+        };
+        responses: {
+            /** @description What was added, and to which list. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingListAdded"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
         };
     };
 }

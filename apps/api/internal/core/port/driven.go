@@ -70,6 +70,25 @@ type QuestionRepository interface {
 	Answer(ctx context.Context, questionID, userID uuid.UUID, text string) (domain.Question, error)
 }
 
+// RecipeBook is the household's recipe collection and shopping list (Mealie). Every method
+// returns domain.ErrUnavailable when the service can't be reached.
+type RecipeBook interface {
+	// Recipes returns the summaries of all recipes (up to a few hundred).
+	Recipes(ctx context.Context) ([]domain.RecipeSummary, error)
+	// Recipe returns domain.ErrNotFound for an unknown slug.
+	Recipe(ctx context.Context, slug string) (domain.Recipe, error)
+	// AddToShoppingList puts the recipe's ingredients with the given ids on the shopping list.
+	// Unknown ids are ignored; domain.ErrNotFound means the recipe or the list is missing.
+	AddToShoppingList(ctx context.Context, slug string, ingredientIDs []string) (domain.ShoppingListAdded, error)
+}
+
+// Chef is the LLM's cooking judgement.
+type Chef interface {
+	// Pick chooses up to n of the candidates that fit the mood and says why, in the language
+	// given as a BCP 47 tag. It returns domain.ErrUnavailable when the LLM can't be asked.
+	Pick(ctx context.Context, mood, lang string, candidates []domain.RecipeSummary, n int) ([]domain.Pick, error)
+}
+
 type HealthCheck interface {
 	Name() string
 	Check(ctx context.Context) error

@@ -4,7 +4,8 @@ import { matchPath, Navigate, Route, Routes, useLocation } from "react-router";
 import { Join, pendingInvite } from "./screens/Join";
 import { Onboarding } from "./screens/Onboarding";
 import { Settings } from "./screens/Settings";
-import { Cook, Home, Lists, Today, Us } from "./screens/Tabs";
+import { Cook, RecipeScreen } from "./screens/Cook";
+import { Home, Lists, Today, Us } from "./screens/Tabs";
 import { Unavailable, Welcome } from "./screens/Welcome";
 import { useSession } from "./session";
 import { TabBar } from "./ui/TabBar";
@@ -35,6 +36,7 @@ export function App() {
       <Routes>
         <Route path="/" element={<Today />} />
         <Route path="/cook" element={<Cook />} />
+        <Route path="/cook/:slug" element={<RecipeScreen />} />
         <Route path="/us" element={<Us />} />
         <Route path="/lists" element={<Lists />} />
         <Route path="/home" element={<Home />} />

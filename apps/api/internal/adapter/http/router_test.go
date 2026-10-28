@@ -38,13 +38,30 @@ func (failingCheck) Check(context.Context) error { return errors.New("down") }
 
 func newServer(t *testing.T, checks ...port.HealthCheck) http.Handler {
 	t.Helper()
+	return newServerWith(t, memory.NewRecipeBook(curry), checks...)
+}
+
+var curry = domain.Recipe{
+	RecipeSummary: domain.RecipeSummary{Slug: "green-curry", Name: "Green curry", Tags: []string{"Thai"}},
+	Ingredients:   []domain.Ingredient{{ID: "i1", Text: "Coconut milk"}, {ID: "i2", Text: "Rice"}},
+	Steps:         []string{"Cook."},
+}
+
+// newServerWith serves the API with the given Mealie stand-in; nil means Mealie isn't set up.
+func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthCheck) http.Handler {
+	t.Helper()
 	store, sessions := memory.NewStore(), memory.NewSessions()
+	var recipes port.RecipeBook
+	if book != nil {
+		recipes = book
+	}
 	h, err := httpadapter.NewRouter(httpadapter.Deps{
 		Version:       "1.2.3",
 		Identity:      service.NewIdentity(fakeVerifier{}, sessions, store),
 		Login:         service.NewLogin(memory.NewLoginProvider(), sessions),
 		Households:    service.NewHousehold(store),
 		Questions:     service.NewQuestion(store, store),
+		Cook:          service.NewCook(store, recipes, memory.Chef{}),
 		HealthChecks:  checks,
 		SecureCookies: true,
 		SessionTTL:    time.Hour,
@@ -213,6 +230,52 @@ type response struct {
 	Header     http.Header
 	cookies    []*http.Cookie
 	body       []byte
+}
+
+func TestCookFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	base := "/v1/households/" + created["id"].(string)
+
+	code, s := do(t, h, "POST", base+"/cook/suggestions", "token-alice", `{"mood":"curry tonight"}`, "Accept-Language", "de")
+	picks, _ := s["suggestions"].([]any)
+	if code != 200 || s["chef"] != true || len(picks) != 1 {
+		t.Fatalf("suggest: %d %v", code, s)
+	}
+	if first := picks[0].(map[string]any); first["reason"] != "de: fits curry" || first["recipe"].(map[string]any)["slug"] != "green-curry" {
+		t.Fatalf("suggestion: %v", first)
+	}
+	if code, body := do(t, h, "POST", base+"/cook/suggestions", "token-eve", `{"mood":"curry"}`); code != 404 {
+		t.Fatalf("non-member: %d %v", code, body)
+	}
+
+	code, r := do(t, h, "GET", base+"/recipes/green-curry", "token-alice", "")
+	if code != 200 || len(r["ingredients"].([]any)) != 2 || r["steps"].([]any)[0] != "Cook." {
+		t.Fatalf("recipe: %d %v", code, r)
+	}
+	if code, _ := do(t, h, "GET", base+"/recipes/no..pe", "token-alice", ""); code != 400 {
+		t.Fatalf("bad slug: want 400, got %d", code)
+	}
+	if code, _ := do(t, h, "GET", base+"/recipes/nope", "token-alice", ""); code != 404 {
+		t.Fatalf("unknown recipe: want 404, got %d", code)
+	}
+
+	code, added := do(t, h, "POST", base+"/shopping-list", "token-alice", `{"recipe":"green-curry","ingredientIds":["i2"]}`)
+	if code != 200 || added["added"] != 1.0 || added["list"] != "Groceries" {
+		t.Fatalf("add: %d %v", code, added)
+	}
+	if code, body := do(t, h, "POST", base+"/shopping-list", "token-alice", `{"recipe":"green-curry","ingredientIds":["x"]}`); code != 400 || body["code"] != "invalid_ingredients" {
+		t.Fatalf("foreign ingredient: %d %v", code, body)
+	}
+}
+
+func TestCookingWithoutMealie(t *testing.T) {
+	h := newServerWith(t, nil)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	code, body := do(t, h, "POST", "/v1/households/"+created["id"].(string)+"/cook/suggestions", "token-alice", `{"mood":"cozy"}`, "Accept-Language", "de")
+	if code != 503 || body["code"] != "cooking_unavailable" || !strings.Contains(body["message"].(string), "Mealie") {
+		t.Fatalf("no Mealie: %d %v", code, body)
+	}
 }
 
 func browser(t *testing.T, h http.Handler, method, path string, cookies ...*http.Cookie) response {

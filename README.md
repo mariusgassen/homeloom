@@ -17,6 +17,7 @@ The app speaks German and English. The API answers in the language of the `Accep
 
 ```sh
 cp .env.example .env   # set POSTGRES_PASSWORD, PUBLIC_URL=http://localhost:3000 and the authentik values
+                       # optional: MEALIE_URL + MEALIE_API_TOKEN for cooking, ANTHROPIC_API_KEY for Claude
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 open http://localhost:3000
 ```
