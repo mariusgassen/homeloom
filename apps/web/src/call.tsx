@@ -11,12 +11,15 @@ type Value = {
   call?: { householdId: string; id: string };
   // Who was called, shown until someone joins.
   invited: string[];
+  // Whether this is a voice call with Homeloom.
+  homeloom: boolean;
   state: CallState;
   // When someone else joined, for the call's timer.
   since?: number;
   // These must run from a tap: iOS only lets a call be heard when its audio starts in a gesture.
   start: (householdId: string, invite: string[]) => void;
   answer: (householdId: string, callId: string) => void;
+  talkToHomeloom: (householdId: string) => void;
   joinAsGuest: (token: string, name: string) => void;
   hangUp: () => void;
 };
@@ -32,6 +35,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [room, setRoom] = useState<Room | null>(null);
   const [call, setCall] = useState<Value["call"]>();
   const [invited, setInvited] = useState<string[]>([]);
+  const [homeloom, setHomeloom] = useState(false);
   const [state, setState] = useState<CallState>("connecting");
   const [since, setSince] = useState<number>();
   const [, rerender] = useState(0);
@@ -62,12 +66,13 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
   // enter connects to the call that ask returns, once per tap.
   const enter = useCallback(
-    (ask: () => Promise<Call | "linkUsed" | undefined>, householdId: string | undefined, invite: string[]) => {
+    (ask: () => Promise<Call | "linkUsed" | undefined>, householdId: string | undefined, invite: string[], withHomeloom = false) => {
       if (current.current) return;
       const r = new Room({ adaptiveStream: true, dynacast: true });
       current.current = r;
       setRoom(r);
       setInvited(invite);
+      setHomeloom(withHomeloom);
       setState("connecting");
       void r.startAudio();
 
@@ -137,6 +142,17 @@ export function CallProvider({ children }: { children: ReactNode }) {
       ),
     [enter],
   );
+  // A call with Homeloom is the caller's own: nobody else can be added, so it has no household call.
+  const talkToHomeloom = useCallback(
+    (householdId: string) =>
+      enter(
+        async () => (await api.POST("/v1/households/{householdId}/calls/homeloom", { params: { path: { householdId } } })).data,
+        undefined,
+        [],
+        true,
+      ),
+    [enter],
+  );
   const joinAsGuest = useCallback(
     (token: string, name: string) =>
       enter(
@@ -161,7 +177,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("pagehide", leave);
   }, []);
 
-  return <CallContext value={{ room, call, invited, state, since, start, answer, joinAsGuest, hangUp }}>{children}</CallContext>;
+  return <CallContext value={{ room, call, invited, homeloom, state, since, start, answer, talkToHomeloom, joinAsGuest, hangUp }}>{children}</CallContext>;
 }
 
 // guestDevice is this browser's id for a guest link: the first device to join claims the link, and

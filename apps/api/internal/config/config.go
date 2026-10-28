@@ -46,6 +46,9 @@ type Config struct {
 	LiveKitURL       string
 	LiveKitAPIKey    string
 	LiveKitAPISecret string
+	// VoiceAgent is the name the Homeloom voice agent registers with LiveKit; "" switches voice
+	// calls with Homeloom off, as does a missing ANTHROPIC_API_KEY, since the agent thinks with Claude.
+	VoiceAgent string
 	// TimeZone is where the household lives; repeating reminders keep their time of day in it.
 	TimeZone *time.Location
 }
@@ -93,6 +96,10 @@ func Load() (Config, error) {
 		LiveKitURL:       env("LIVEKIT_URL", "http://homeloom-livekit:7880"),
 		LiveKitAPIKey:    os.Getenv("LIVEKIT_API_KEY"),
 		LiveKitAPISecret: os.Getenv("LIVEKIT_API_SECRET"),
+		VoiceAgent:       os.Getenv("VOICE_AGENT"),
+	}
+	if c.AnthropicAPIKey == "" {
+		c.VoiceAgent = ""
 	}
 	loc, err := time.LoadLocation(env("TIME_ZONE", "UTC"))
 	if err != nil {

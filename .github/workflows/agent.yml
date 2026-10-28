@@ -1,0 +1,48 @@
+name: agent
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "apps/agent/**"
+      - ".github/workflows/agent.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: apps/agent
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: apps/agent/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build -t homeloom-agent:ci .
+      - name: Without keys the agent idles and stays healthy
+        run: |
+          docker run -d --name agent homeloom-agent:ci
+          sleep 3
+          docker exec agent node -e "fetch('http://localhost:8081/').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"
+          docker rm -f agent
