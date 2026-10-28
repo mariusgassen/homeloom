@@ -23,6 +23,8 @@ type issuer struct {
 	srv    *httptest.Server
 	key    *rsa.PrivateKey
 	signer jose.Signer
+	// tokenResponse answers the token endpoint; login tests set it.
+	tokenResponse func(w http.ResponseWriter, r *http.Request)
 }
 
 func newIssuer(t *testing.T) *issuer {
@@ -43,22 +45,34 @@ func newIssuer(t *testing.T) *issuer {
 			"jwks_uri":                              is.srv.URL + "/jwks",
 			"authorization_endpoint":                is.srv.URL + "/authorize",
 			"token_endpoint":                        is.srv.URL + "/token",
+			"end_session_endpoint":                  is.srv.URL + "/end-session/",
 			"id_token_signing_alg_values_supported": []string{"RS256"},
 		})
 	})
 	mux.HandleFunc("/jwks", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(jose.JSONWebKeySet{Keys: []jose.JSONWebKey{{Key: &key.PublicKey, KeyID: "k1", Algorithm: "RS256", Use: "sig"}}})
 	})
+	mux.HandleFunc("/token", func(w http.ResponseWriter, r *http.Request) {
+		if is.tokenResponse == nil {
+			http.Error(w, "no token endpoint", http.StatusNotImplemented)
+			return
+		}
+		is.tokenResponse(w, r)
+	})
 	is.srv = httptest.NewServer(mux)
 	t.Cleanup(is.srv.Close)
 	return is
 }
 
-func (is *issuer) token(t *testing.T, aud string, exp time.Time) string {
+func (is *issuer) token(t *testing.T, aud string, exp time.Time, extra ...map[string]any) string {
 	t.Helper()
-	raw, err := jwt.Signed(is.signer).Claims(jwt.Claims{
+	b := jwt.Signed(is.signer).Claims(jwt.Claims{
 		Issuer: is.srv.URL, Subject: "user-1", Audience: jwt.Audience{aud}, Expiry: jwt.NewNumericDate(exp),
-	}).Claims(map[string]any{"name": "Alice", "email": "alice@example.com"}).Serialize()
+	}).Claims(map[string]any{"name": "Alice", "email": "alice@example.com"})
+	for _, e := range extra {
+		b = b.Claims(e)
+	}
+	raw, err := b.Serialize()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +81,7 @@ func (is *issuer) token(t *testing.T, aud string, exp time.Time) string {
 
 func TestVerifier(t *testing.T) {
 	is := newIssuer(t)
-	v := oidc.NewVerifier(is.srv.URL, []string{"homeloom-pwa", "homeloom-ios"})
+	v := oidc.NewVerifier(oidc.NewProvider(is.srv.URL), []string{"homeloom-pwa", "homeloom-ios"})
 	ctx := context.Background()
 
 	id, err := v.Verify(ctx, is.token(t, "homeloom-ios", time.Now().Add(time.Hour)))
@@ -90,7 +104,7 @@ func TestVerifier(t *testing.T) {
 }
 
 func TestVerifierProviderDownIsNotAnAuthFailure(t *testing.T) {
-	v := oidc.NewVerifier("http://127.0.0.1:1", []string{"homeloom-pwa"})
+	v := oidc.NewVerifier(oidc.NewProvider("http://127.0.0.1:1"), []string{"homeloom-pwa"})
 	_, err := v.Verify(context.Background(), "whatever")
 	if err == nil || errors.Is(err, domain.ErrUnauthenticated) {
 		t.Fatalf("want an availability error, got %v", err)

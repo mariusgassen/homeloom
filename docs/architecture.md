@@ -38,9 +38,9 @@ apps/api/
   internal/adapter/
     http/                      driving: serves the contract (oapi/ is generated)
     postgres/                  driven: repositories (sqlcgen/ is generated, migrations/ embedded)
-    redis/                     driven: caches in front of other ports, health
-    oidc/                      driven: verifies authentik access tokens
-    memory/                    driven: in-memory repositories for tests
+    redis/                     driven: sessions, caches in front of other ports, health
+    oidc/                      driven: verifies authentik tokens, runs the browser login
+    memory/                    driven: in-memory repositories and a fake login provider for tests
   internal/config/             environment variables
 ```
 
@@ -60,10 +60,12 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 
 ## Authentication
 
-- Each client is its own OAuth2/OpenID provider application in authentik (PWA, iOS, MCP, ...). The PWA and native apps use authorization code + PKCE.
-- The API verifies the bearer JWT against the issuer's JWKS and accepts any client ID listed in `OIDC_CLIENT_IDS`. The provider must have a signing key so access tokens are JWTs.
-- On the first request a local `users` row is created from the token's `sub`; later requests are served from the Redis user cache unless the profile changed.
-- If authentik cannot be reached the API returns `503 auth_unavailable`, not `401`, and health checks keep working.
+- **Browser (PWA):** a confidential authentik client. The browser navigates to `/auth/login`; the API redirects to authentik (authorization code flow with PKCE and nonce), redeems the code at `/auth/callback` with the client secret, and stores the session in Redis. The browser only gets an HttpOnly, Secure, SameSite=Lax `homeloom_session` cookie; tokens and the secret never reach it. `POST /auth/logout` deletes the session and returns authentik's end-session URL.
+- **Other clients (iOS, MCP, third-party):** each is its own authentik provider and sends its access token as `Authorization: Bearer`. The API verifies the JWT against the issuer's JWKS and accepts `OIDC_CLIENT_ID` plus any client ID in `OIDC_CLIENT_IDS`. The provider must have a signing key so tokens are JWTs.
+- The spec offers both schemes on every protected operation; either one is enough.
+- On the first request a local `users` row is created from the `sub`; later requests are served from the Redis user cache unless the profile changed.
+- If authentik or Redis cannot be reached the API returns `503 auth_unavailable`, not `401`, and health checks keep working. A failed login redirects to `/?auth_error=login_failed` or `/?auth_error=auth_unavailable`.
+- Sessions are stored under a hash of their id, so a Redis dump holds no usable cookies. They last `SESSION_TTL` (30 days by default).
 
 ## Failure handling
 
@@ -74,8 +76,9 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 ## Deployment on Coolify
 
 - Create a Docker Compose resource from this repository (`docker-compose.yml`).
-- Set `POSTGRES_PASSWORD`, `OIDC_ISSUER_URL`, `OIDC_CLIENT_IDS` and, if the PWA runs on another origin, `CORS_ALLOWED_ORIGINS`.
-- Assign the public domain to `homeloom-api` (port 8080). Postgres and Redis stay internal.
+- Set `POSTGRES_PASSWORD`, `PUBLIC_URL`, `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET`; `OIDC_CLIENT_IDS` only for further bearer clients.
+- In authentik, register `PUBLIC_URL/auth/callback` as the redirect URI and `PUBLIC_URL/` as the post-logout redirect.
+- Assign the public domain to `homeloom-api` (port 8080). Once the PWA exists it shares the domain: `/auth/*`, `/v1/*`, `/healthz` and `/readyz` go to the API, everything else to the PWA, so the session cookie stays first-party. Postgres and Redis stay internal.
 
 ## Planned components
 

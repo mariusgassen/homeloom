@@ -82,17 +82,27 @@ func run() error {
 	defer rdb.Close()
 
 	store := postgres.NewStore(pool)
+	sessions := redis.NewSessions(rdb, cfg.SessionTTL)
+	provider := oidc.NewProvider(cfg.OIDCIssuerURL)
 	identity := service.NewIdentity(
-		oidc.NewVerifier(cfg.OIDCIssuerURL, cfg.OIDCClientIDs),
+		oidc.NewVerifier(provider, append([]string{cfg.OIDCClientID}, cfg.OIDCClientIDs...)),
+		sessions,
 		redis.NewUserCache(store, rdb, cfg.UserCacheTTL),
+	)
+	login := service.NewLogin(
+		oidc.NewLogin(provider, cfg.OIDCClientID, cfg.OIDCClientSecret, cfg.RedirectURL(), cfg.PostLogoutURL()),
+		sessions,
 	)
 
 	handler, err := httpadapter.NewRouter(httpadapter.Deps{
 		Version:        version,
 		Identity:       identity,
+		Login:          login,
 		Households:     service.NewHousehold(store),
 		HealthChecks:   []port.HealthCheck{postgres.HealthCheck{Pool: pool}, redis.HealthCheck{Client: rdb}},
 		AllowedOrigins: cfg.AllowedOrigins,
+		SecureCookies:  cfg.SecureCookies(),
+		SessionTTL:     cfg.SessionTTL,
 	})
 	if err != nil {
 		return err

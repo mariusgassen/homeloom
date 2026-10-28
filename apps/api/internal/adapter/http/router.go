@@ -25,9 +25,13 @@ import (
 type Deps struct {
 	Version        string
 	Identity       port.IdentityService
+	Login          port.LoginService
 	Households     port.HouseholdService
 	HealthChecks   []port.HealthCheck
 	AllowedOrigins []string
+	// SecureCookies is true when the API is served over HTTPS; SessionTTL is how long a login lasts.
+	SecureCookies bool
+	SessionTTL    time.Duration
 }
 
 func NewRouter(d Deps) (http.Handler, error) {
@@ -56,7 +60,14 @@ func NewRouter(d Deps) (http.Handler, error) {
 		ErrorHandlerWithOpts: validationError,
 	}))
 
-	strict := oapi.NewStrictHandlerWithOptions(&handlers{version: d.Version, households: d.Households, checks: d.HealthChecks}, nil, oapi.StrictHTTPServerOptions{
+	h := &handlers{
+		version:    d.Version,
+		households: d.Households,
+		login:      d.Login,
+		cookies:    cookies{secure: d.SecureCookies, sessionTTL: d.SessionTTL},
+		checks:     d.HealthChecks,
+	}
+	strict := oapi.NewStrictHandlerWithOptions(h, nil, oapi.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			writeError(r.Context(), w, http.StatusBadRequest, "invalid", err.Error())
 		},

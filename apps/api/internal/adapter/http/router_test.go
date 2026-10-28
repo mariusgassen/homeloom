@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	httpadapter "github.com/mariusgassen/homeloom/apps/api/internal/adapter/http"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/memory"
@@ -37,12 +38,15 @@ func (failingCheck) Check(context.Context) error { return errors.New("down") }
 
 func newServer(t *testing.T, checks ...port.HealthCheck) http.Handler {
 	t.Helper()
-	store := memory.NewStore()
+	store, sessions := memory.NewStore(), memory.NewSessions()
 	h, err := httpadapter.NewRouter(httpadapter.Deps{
-		Version:      "1.2.3",
-		Identity:     service.NewIdentity(fakeVerifier{}, store),
-		Households:   service.NewHousehold(store),
-		HealthChecks: checks,
+		Version:       "1.2.3",
+		Identity:      service.NewIdentity(fakeVerifier{}, sessions, store),
+		Login:         service.NewLogin(memory.NewLoginProvider(), sessions),
+		Households:    service.NewHousehold(store),
+		HealthChecks:  checks,
+		SecureCookies: true,
+		SessionTTL:    time.Hour,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -143,5 +147,108 @@ func TestHouseholdFlow(t *testing.T) {
 	}
 	if code, _ := do(t, h, "GET", "/v1/households/not-a-uuid", "token-alice", ""); code != 400 {
 		t.Fatalf("bad id: want 400, got %d", code)
+	}
+}
+
+type response struct {
+	StatusCode int
+	Header     http.Header
+	cookies    []*http.Cookie
+	body       []byte
+}
+
+func browser(t *testing.T, h http.Handler, method, path string, cookies ...*http.Cookie) response {
+	t.Helper()
+	req := httptest.NewRequest(method, path, nil)
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	res := rec.Result()
+	defer res.Body.Close()
+	return response{StatusCode: res.StatusCode, Header: res.Header, cookies: res.Cookies(), body: rec.Body.Bytes()}
+}
+
+func cookie(t *testing.T, res response, name string) *http.Cookie {
+	t.Helper()
+	for _, c := range res.cookies {
+		if c.Name == name {
+			if !c.HttpOnly || !c.Secure || c.SameSite != http.SameSiteLaxMode {
+				t.Errorf("cookie %s is not HttpOnly, Secure, SameSite=Lax: %+v", name, c)
+			}
+			return c
+		}
+	}
+	t.Fatalf("no %s cookie in %v", name, res.Header["Set-Cookie"])
+	return nil
+}
+
+func TestBrowserLogin(t *testing.T) {
+	h := newServer(t)
+
+	res := browser(t, h, "GET", "/auth/login")
+	if res.StatusCode != http.StatusFound || !strings.HasPrefix(res.Header.Get("Location"), "https://idp.test/authorize?") {
+		t.Fatalf("login: %d %s", res.StatusCode, res.Header.Get("Location"))
+	}
+	loginCookie := cookie(t, res, "homeloom_login")
+	if loginCookie.Path != "/auth/callback" {
+		t.Errorf("login cookie path %q", loginCookie.Path)
+	}
+
+	res = browser(t, h, "GET", "/auth/callback?code=code-alice&state="+loginCookie.Value, loginCookie)
+	if res.StatusCode != http.StatusFound || res.Header.Get("Location") != "/" {
+		t.Fatalf("callback: %d %s", res.StatusCode, res.Header.Get("Location"))
+	}
+	session := cookie(t, res, "homeloom_session")
+	if session.Path != "/" || session.MaxAge != 3600 {
+		t.Errorf("session cookie %+v", session)
+	}
+
+	res = browser(t, h, "GET", "/v1/me", session)
+	var me map[string]any
+	_ = json.Unmarshal(res.body, &me)
+	if res.StatusCode != http.StatusOK || me["name"] != "alice" {
+		t.Fatalf("me with cookie: %d %v", res.StatusCode, me)
+	}
+
+	res = browser(t, h, "POST", "/auth/logout", session)
+	var out map[string]any
+	_ = json.Unmarshal(res.body, &out)
+	if res.StatusCode != http.StatusOK || !strings.HasPrefix(out["redirectUrl"].(string), "https://idp.test/end-session/") {
+		t.Fatalf("logout: %d %v", res.StatusCode, out)
+	}
+	if c := cookie(t, res, "homeloom_session"); c.MaxAge >= 0 {
+		t.Errorf("logout must expire the cookie: %+v", c)
+	}
+	if res := browser(t, h, "GET", "/v1/me", session); res.StatusCode != http.StatusUnauthorized {
+		t.Errorf("me after logout: %d", res.StatusCode)
+	}
+}
+
+func TestBrowserLoginFailuresRedirectBackToTheApp(t *testing.T) {
+	h := newServer(t)
+	start := func() *http.Cookie { return cookie(t, browser(t, h, "GET", "/auth/login"), "homeloom_login") }
+
+	c := start()
+	for name, tc := range map[string]struct {
+		path string
+		want string
+	}{
+		"cancelled":     {"/auth/callback?error=access_denied&state=" + c.Value, "login_failed"},
+		"wrong state":   {"/auth/callback?code=code-alice&state=forged", "login_failed"},
+		"provider down": {"/auth/callback?code=code-down&state=" + c.Value, "auth_unavailable"},
+	} {
+		res := browser(t, h, "GET", tc.path, c)
+		if res.StatusCode != http.StatusFound || res.Header.Get("Location") != "/?auth_error="+tc.want {
+			t.Errorf("%s: %d %s", name, res.StatusCode, res.Header.Get("Location"))
+		}
+		if len(res.cookies) != 0 {
+			t.Errorf("%s: must not set a cookie", name)
+		}
+	}
+
+	if res := browser(t, h, "GET", "/v1/me", &http.Cookie{Name: "homeloom_session", Value: "forged", HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode}); res.StatusCode != http.StatusUnauthorized {
+		t.Errorf("forged session: %d", res.StatusCode)
 	}
 }
