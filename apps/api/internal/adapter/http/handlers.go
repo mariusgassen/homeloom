@@ -16,6 +16,8 @@ import (
 type handlers struct {
 	version    string
 	households port.HouseholdService
+	login      port.LoginService
+	cookies    cookies
 	checks     []port.HealthCheck
 }
 

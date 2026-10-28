@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.1.0
+  version: 0.2.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -9,12 +9,19 @@ info:
     Language: send `Accept-Language`; the API answers in German (`de`) or English (`en`, the fallback)
     and says which in `Content-Language`. `info.version` is the version of this contract, bumped by
     hand when the contract changes; the app's release version is reported by `/healthz`.
+
+    Sign-in: the PWA is a confidential authentik client and never sees a token. It navigates to
+    `/auth/login`; the API runs the authorization code flow (with PKCE) and sets an HttpOnly
+    `homeloom_session` cookie. Native apps, the MCP server and third-party clients send an
+    authentik access token as `Authorization: Bearer` instead. Either one authenticates a request.
 servers:
   - url: /
 security:
   - bearerAuth: []
+  - cookieAuth: []
 tags:
   - name: system
+  - name: auth
   - name: me
   - name: households
 
@@ -49,6 +56,62 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Readiness" }
+
+  /auth/login:
+    get:
+      tags: [auth]
+      operationId: startLogin
+      summary: Start the sign-in at authentik (browser navigation, not fetch)
+      security: []
+      responses:
+        "302":
+          description: Redirect to authentik. Sets a short-lived `homeloom_login` cookie that binds the attempt to this browser.
+          headers:
+            Location: { required: true, schema: { type: string } }
+            Set-Cookie: { required: true, schema: { type: string } }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /auth/callback:
+    get:
+      tags: [auth]
+      operationId: completeLogin
+      summary: Redirect target registered in authentik; finishes the sign-in
+      description: |
+        Always redirects back into the app. On success it sets the `homeloom_session` cookie and
+        redirects to `/`; otherwise it redirects to `/?auth_error=<code>`, where code is
+        `login_failed` or `auth_unavailable`.
+      security: []
+      parameters:
+        - { name: code, in: query, schema: { type: string } }
+        - { name: state, in: query, schema: { type: string } }
+        - { name: error, in: query, schema: { type: string }, description: Set by authentik when the user cancelled or was denied. }
+        - { name: homeloom_login, in: cookie, schema: { type: string } }
+      responses:
+        "302":
+          description: Back to the app.
+          headers:
+            Location: { required: true, schema: { type: string } }
+            Set-Cookie: { schema: { type: string } }
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: End the session
+      description: |
+        Deletes the session and clears the cookie. Works without a valid session. Send the browser
+        to `redirectUrl`, when present, to sign out of authentik as well.
+      security: []
+      parameters:
+        - { name: homeloom_session, in: cookie, schema: { type: string } }
+      responses:
+        "200":
+          description: Signed out.
+          headers:
+            Set-Cookie: { required: true, schema: { type: string } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Logout" }
 
   /v1/me:
     get:
@@ -121,6 +184,11 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: Access token issued by authentik.
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: homeloom_session
+      description: Session cookie set by `/auth/callback`.
 
   responses:
     BadRequest:
@@ -135,6 +203,11 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
     NotFound:
       description: Not found, or not visible to the caller.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unavailable:
+      description: A dependency (authentik, Redis) cannot be reached.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -164,6 +237,11 @@ components:
           type: object
           additionalProperties: { type: string }
           example: { postgres: ok, redis: ok }
+
+    Logout:
+      type: object
+      properties:
+        redirectUrl: { type: string, description: authentik's end-session URL. }
 
     User:
       type: object

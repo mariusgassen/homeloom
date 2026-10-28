@@ -1,4 +1,3 @@
-// Package oidc verifies access tokens issued by authentik (or any OIDC provider).
 package oidc
 
 import (
@@ -13,25 +12,17 @@ import (
 )
 
 // Verifier accepts JWT access tokens from one issuer, for any of the configured client IDs
-// (one per Homeloom client: PWA, iOS, MCP, ...). Discovery runs on first use rather than at
-// startup, so the API still boots, and serves health checks, while authentik is down.
+// (one per Homeloom client: PWA, iOS, MCP, ...).
 type Verifier struct {
-	issuer    string
+	provider  *Provider
 	clientIDs []string
 
 	mu       sync.Mutex
 	verifier *gooidc.IDTokenVerifier
 }
 
-func NewVerifier(issuer string, clientIDs []string) *Verifier {
-	return &Verifier{issuer: issuer, clientIDs: clientIDs}
-}
-
-type claims struct {
-	Name              string `json:"name"`
-	PreferredUsername string `json:"preferred_username"`
-	Email             string `json:"email"`
-	Picture           string `json:"picture"`
+func NewVerifier(provider *Provider, clientIDs []string) *Verifier {
+	return &Verifier{provider: provider, clientIDs: clientIDs}
 }
 
 func (v *Verifier) Verify(ctx context.Context, rawToken string) (domain.Identity, error) {
@@ -50,11 +41,7 @@ func (v *Verifier) Verify(ctx context.Context, rawToken string) (domain.Identity
 	if err := tok.Claims(&c); err != nil {
 		return domain.Identity{}, fmt.Errorf("%w: %w", domain.ErrUnauthenticated, err)
 	}
-	name := c.Name
-	if name == "" {
-		name = c.PreferredUsername
-	}
-	return domain.Identity{Subject: tok.Subject, Name: name, Email: c.Email, AvatarURL: c.Picture}, nil
+	return c.identity(tok.Subject), nil
 }
 
 func (v *Verifier) get(ctx context.Context) (*gooidc.IDTokenVerifier, error) {
@@ -63,10 +50,9 @@ func (v *Verifier) get(ctx context.Context) (*gooidc.IDTokenVerifier, error) {
 	if v.verifier != nil {
 		return v.verifier, nil
 	}
-	// The provider outlives this request, so it must not inherit its cancellation.
-	provider, err := gooidc.NewProvider(context.WithoutCancel(ctx), v.issuer)
+	provider, err := v.provider.get(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("oidc discovery for %s: %w", v.issuer, err)
+		return nil, err
 	}
 	// Audience is checked against the list in Verify.
 	v.verifier = provider.Verifier(&gooidc.Config{SkipClientIDCheck: true})

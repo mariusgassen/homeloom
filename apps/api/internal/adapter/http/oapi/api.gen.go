@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -102,6 +103,12 @@ type HouseholdDetail struct {
 	Role    Role               `json:"role"`
 }
 
+// Logout defines model for Logout.
+type Logout struct {
+	// RedirectUrl authentik's end-session URL.
+	RedirectUrl *string `json:"redirectUrl,omitempty"`
+}
+
 // Member defines model for Member.
 type Member struct {
 	Role Role `json:"role"`
@@ -138,11 +145,38 @@ type NotFound = Error
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = Error
 
+// Unavailable defines model for Unavailable.
+type Unavailable = Error
+
+// CompleteLoginParams defines parameters for CompleteLogin.
+type CompleteLoginParams struct {
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+
+	// Error Set by authentik when the user cancelled or was denied.
+	Error         *string `form:"error,omitempty" json:"error,omitempty"`
+	HomeloomLogin *string `form:"homeloom_login,omitempty" json:"homeloom_login,omitempty"`
+}
+
+// LogoutParams defines parameters for Logout.
+type LogoutParams struct {
+	HomeloomSession *string `form:"homeloom_session,omitempty" json:"homeloom_session,omitempty"`
+}
+
 // CreateHouseholdJSONRequestBody defines body for CreateHousehold for application/json ContentType.
 type CreateHouseholdJSONRequestBody = CreateHousehold
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// CompleteLogin Redirect target registered in authentik; finishes the sign-in
+	// (GET /auth/callback)
+	CompleteLogin(w http.ResponseWriter, r *http.Request, params CompleteLoginParams)
+	// StartLogin Start the sign-in at authentik (browser navigation, not fetch)
+	// (GET /auth/login)
+	StartLogin(w http.ResponseWriter, r *http.Request)
+	// Logout End the session
+	// (POST /auth/logout)
+	Logout(w http.ResponseWriter, r *http.Request, params LogoutParams)
 	// GetHealth Liveness probe
 	// (GET /healthz)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -166,6 +200,24 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// CompleteLogin Redirect target registered in authentik; finishes the sign-in
+// (GET /auth/callback)
+func (_ Unimplemented) CompleteLogin(w http.ResponseWriter, r *http.Request, params CompleteLoginParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// StartLogin Start the sign-in at authentik (browser navigation, not fetch)
+// (GET /auth/login)
+func (_ Unimplemented) StartLogin(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Logout End the session
+// (POST /auth/logout)
+func (_ Unimplemented) Logout(w http.ResponseWriter, r *http.Request, params LogoutParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // GetHealth Liveness probe
 // (GET /healthz)
@@ -211,6 +263,129 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// CompleteLogin operation middleware
+func (siw *ServerInterfaceWrapper) CompleteLogin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CompleteLoginParams
+
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "error" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error", r.URL.Query(), &params.Error, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "error"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "error", Err: err})
+		}
+		return
+	}
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("homeloom_login"); err == nil {
+			var value string
+			err = runtime.BindStyledParameterWithOptions("simple", "homeloom_login", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "homeloom_login", Err: err})
+				return
+			}
+			params.HomeloomLogin = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CompleteLogin(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartLogin operation middleware
+func (siw *ServerInterfaceWrapper) StartLogin(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartLogin(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// Logout operation middleware
+func (siw *ServerInterfaceWrapper) Logout(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params LogoutParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("homeloom_session"); err == nil {
+			var value string
+			err = runtime.BindStyledParameterWithOptions("simple", "homeloom_session", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "homeloom_session", Err: err})
+				return
+			}
+			params.HomeloomSession = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Logout(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // GetHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetHealth(w http.ResponseWriter, r *http.Request) {
@@ -428,6 +603,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/readyz", wrapper.GetReadiness)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/auth/login", wrapper.StartLogin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/auth/callback", wrapper.CompleteLogin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/auth/logout", wrapper.Logout)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/me", wrapper.GetMe)
 	})
 	r.Group(func(r chi.Router) {
@@ -448,6 +632,101 @@ type BadRequestJSONResponse Error
 type NotFoundJSONResponse Error
 
 type UnauthorizedJSONResponse Error
+
+type UnavailableJSONResponse Error
+
+type CompleteLoginRequestObject struct {
+	Params CompleteLoginParams
+}
+
+type CompleteLoginResponseObject interface {
+	VisitCompleteLoginResponse(w http.ResponseWriter) error
+}
+
+type CompleteLogin302ResponseHeaders struct {
+	Location  string
+	SetCookie *string
+}
+
+type CompleteLogin302Response struct {
+	Headers CompleteLogin302ResponseHeaders
+}
+
+func (response CompleteLogin302Response) VisitCompleteLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Location", fmt.Sprint(response.Headers.Location))
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(302)
+	return nil
+}
+
+type StartLoginRequestObject struct {
+}
+
+type StartLoginResponseObject interface {
+	VisitStartLoginResponse(w http.ResponseWriter) error
+}
+
+type StartLogin302ResponseHeaders struct {
+	Location  string
+	SetCookie string
+}
+
+type StartLogin302Response struct {
+	Headers StartLogin302ResponseHeaders
+}
+
+func (response StartLogin302Response) VisitStartLoginResponse(w http.ResponseWriter) error {
+	w.Header().Set("Location", fmt.Sprint(response.Headers.Location))
+	w.Header().Set("Set-Cookie", fmt.Sprint(response.Headers.SetCookie))
+	w.WriteHeader(302)
+	return nil
+}
+
+type StartLogin503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response StartLogin503JSONResponse) VisitStartLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LogoutRequestObject struct {
+	Params LogoutParams
+}
+
+type LogoutResponseObject interface {
+	VisitLogoutResponse(w http.ResponseWriter) error
+}
+
+type Logout200ResponseHeaders struct {
+	SetCookie string
+}
+
+type Logout200JSONResponse struct {
+	Body    Logout
+	Headers Logout200ResponseHeaders
+}
+
+func (response Logout200JSONResponse) VisitLogoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Set-Cookie", fmt.Sprint(response.Headers.SetCookie))
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
 
 type GetHealthRequestObject struct {
 }
@@ -677,6 +956,15 @@ func (response GetMe401JSONResponse) VisitGetMeResponse(w http.ResponseWriter) e
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// CompleteLogin Redirect target registered in authentik; finishes the sign-in
+	// (GET /auth/callback)
+	CompleteLogin(ctx context.Context, request CompleteLoginRequestObject) (CompleteLoginResponseObject, error)
+	// StartLogin Start the sign-in at authentik (browser navigation, not fetch)
+	// (GET /auth/login)
+	StartLogin(ctx context.Context, request StartLoginRequestObject) (StartLoginResponseObject, error)
+	// Logout End the session
+	// (POST /auth/logout)
+	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
 	// GetHealth Liveness probe
 	// (GET /healthz)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
@@ -734,6 +1022,82 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// CompleteLogin operation middleware
+func (sh *strictHandler) CompleteLogin(w http.ResponseWriter, r *http.Request, params CompleteLoginParams) {
+	var request CompleteLoginRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CompleteLogin(ctx, request.(CompleteLoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CompleteLogin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CompleteLoginResponseObject); ok {
+		if err := validResponse.VisitCompleteLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartLogin operation middleware
+func (sh *strictHandler) StartLogin(w http.ResponseWriter, r *http.Request) {
+	var request StartLoginRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartLogin(ctx, request.(StartLoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartLogin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartLoginResponseObject); ok {
+		if err := validResponse.VisitStartLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// Logout operation middleware
+func (sh *strictHandler) Logout(w http.ResponseWriter, r *http.Request, params LogoutParams) {
+	var request LogoutRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.Logout(ctx, request.(LogoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "Logout")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LogoutResponseObject); ok {
+		if err := validResponse.VisitLogoutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // GetHealth operation middleware
@@ -894,32 +1258,45 @@ func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"e/L99ubta9om2n4hA7rvJXbfOnzZ3G7+NwA=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
