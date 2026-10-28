@@ -1,6 +1,7 @@
 {
   "error.already_revealed": "The answers are already open, so they can't change any more.",
   "error.auth_unavailable": "Sign-in is temporarily unavailable. Try again in a minute.",
+  "error.calls_unavailable": "Calls aren't available right now.",
   "error.cooking_unavailable": "Cooking isn't available right now.",
   "error.home_unavailable": "The smart home isn't reachable right now. Is Home Assistant set up and running?",
   "error.internal": "Something went wrong on our side.",
@@ -18,6 +19,8 @@
   "error.not_yours": "Only the person who wrote this can change it.",
   "error.push_unavailable": "Notifications aren't set up on this server.",
   "error.unauthenticated": "Please sign in again.",
+  "push.call.body": "Tap to answer.",
+  "push.call.title": "{name} is calling",
   "push.event.body": "Starts at {time}.",
   "push.event.title": "{text}",
   "push.event_allday.body": "All day on {date}.",

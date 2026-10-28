@@ -50,6 +50,17 @@
     "steps": "Steps",
     "openRecipe": "Open full recipe"
   },
+  "call": {
+    "start": "Call {{name}}",
+    "incoming": "{{name}} is calling",
+    "answer": "Answer",
+    "decline": "Not now",
+    "mute": "Mute",
+    "camera": "Camera",
+    "hangUp": "Hang up",
+    "tapToHear": "Tap to hear",
+    "state": { "connecting": "Connecting…", "ringing": "Calling…", "reconnecting": "Reconnecting…", "ended": "Call ended", "noAnswer": "No answer", "failed": "The call didn't go through.", "micBlocked": "Calls need your microphone. Allow it in your phone's Settings." }
+  },
   "us": {
     "title": "No questions yet",
     "body": "Ask the first one.",

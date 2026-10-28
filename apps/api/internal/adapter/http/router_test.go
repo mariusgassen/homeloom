@@ -68,6 +68,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Cook:          service.NewCook(store, recipes, memory.Chef{}),
 		Home:          service.NewHome(store, store, sessions, smart),
 		Push:          push,
+		Calls:         service.NewCall(store, memory.NewCallServer(), push),
 		HealthChecks:  checks,
 		SecureCookies: true,
 		SessionTTL:    time.Hour,
@@ -463,6 +464,21 @@ func TestPushFlow(t *testing.T) {
 		t.Fatalf("unsubscribe: %d %v", code, body)
 	}
 	if code, _ := do(t, h, "POST", "/v1/push/subscriptions", "", sub("https://web.push.apple.com/abc")); code != 401 {
+		t.Fatalf("needs auth: %d", code)
+	}
+}
+
+func TestCallFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	call := "/v1/households/" + created["id"].(string) + "/call"
+	if code, body := do(t, h, "POST", call, "token-alice", ""); code != 200 || body["url"] != "wss://calls.example" || body["room"] != "household-"+created["id"].(string) || body["token"] == "" {
+		t.Fatalf("join: %d %v", code, body)
+	}
+	if code, body := do(t, h, "POST", call, "token-eve", ""); code != 404 || body["code"] != "not_found" {
+		t.Fatalf("outsider: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "POST", call, "", ""); code != 401 {
 		t.Fatalf("needs auth: %d", code)
 	}
 }

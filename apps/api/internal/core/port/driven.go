@@ -165,6 +165,17 @@ type Pusher interface {
 	Send(ctx context.Context, sub domain.PushSubscription, n domain.Notification) error
 }
 
+// CallServer is LiveKit, which carries the household's voice and video calls.
+type CallServer interface {
+	// URL is where clients connect.
+	URL() string
+	// Token lets the user into the room to talk, listen and share video.
+	Token(user domain.User, room string) (string, error)
+	// Participants returns the ids of the users in the room; none when it doesn't exist. It returns
+	// domain.ErrUnavailable when LiveKit can't be reached.
+	Participants(ctx context.Context, room string) ([]string, error)
+}
+
 type HealthCheck interface {
 	Name() string
 	Check(ctx context.Context) error

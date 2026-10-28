@@ -1,10 +1,50 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { App } from "./App";
 import i18n from "./i18n";
 import { SessionProvider } from "./session";
+
+// A stand-in for LiveKit's Room: connects at once and lets a test play the other side.
+const rooms = vi.hoisted(() => [] as InstanceType<typeof import("node:events").EventEmitter>[]);
+vi.mock("livekit-client", async () => {
+  const { EventEmitter } = await import("node:events");
+  class Room extends EventEmitter {
+    remoteParticipants = new Map<string, { identity: string; name: string; getTrackPublication: () => undefined }>();
+    canPlaybackAudio = true;
+    localParticipant = {
+      isMicrophoneEnabled: false,
+      isCameraEnabled: false,
+      getTrackPublication: () => undefined,
+      setMicrophoneEnabled: vi.fn(async (on: boolean) => {
+        this.localParticipant.isMicrophoneEnabled = on;
+      }),
+      setCameraEnabled: vi.fn(),
+    };
+    connect = vi.fn(async () => undefined);
+    disconnect = vi.fn(async () => undefined);
+    startAudio = vi.fn(async () => undefined);
+    constructor() {
+      super();
+      rooms.push(this);
+    }
+    join(identity: string, name: string) {
+      this.remoteParticipants.set(identity, { identity, name, getTrackPublication: () => undefined });
+      this.emit("participantConnected");
+    }
+  }
+  return {
+    Room,
+    RoomEvent: Object.fromEntries(
+      ["ParticipantConnected", "ParticipantDisconnected", "Reconnecting", "Reconnected", "Disconnected", "TrackSubscribed", "TrackUnsubscribed", "TrackMuted", "TrackUnmuted", "LocalTrackPublished", "LocalTrackUnpublished", "AudioPlaybackStatusChanged"].map((e) => [
+        e,
+        e.charAt(0).toLowerCase() + e.slice(1),
+      ]),
+    ),
+    Track: { Source: { Camera: "camera", Microphone: "microphone" }, Kind: { Video: "video", Audio: "audio" } },
+  };
+});
 
 type Route = (req: Request) => Response | undefined;
 
@@ -429,4 +469,50 @@ test("settings makes a calendar subscription link", async () => {
   await userEvent.click(await screen.findByRole("button", { name: "Add to Calendar" }));
   expect(await screen.findByRole("link", { name: "Open in Calendar" })).toHaveAttribute("href", `webcal://${window.location.host}/v1/calendar-feeds/secret`);
   expect(screen.getByRole("button", { name: "Turn off" })).toBeInTheDocument();
+});
+
+const household = () =>
+  json({ ...home, members: [{ user: marius, role: "owner" }, { user: jo, role: "member" }] });
+const callJoin = () => json({ url: "wss://home.example", token: "t", room: `household-${home.id}` });
+
+test("calling from Us rings and shows the call until hung up", async () => {
+  rooms.length = 0;
+  const calls = serve(
+    at("GET", "/v1/me", () => json(marius)),
+    at("GET", "/v1/households", () => json([home])),
+    at("GET", `/v1/households/${home.id}`, household),
+    at("GET", `/v1/households/${home.id}/questions`, () => json([])),
+    at("POST", `/v1/households/${home.id}/call`, callJoin),
+  );
+  renderApp("/us");
+  await userEvent.click(await screen.findByRole("button", { name: "Call Jo" }));
+  expect(await screen.findByText("Calling…")).toBeInTheDocument();
+  expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/call"))).toBe(true);
+  const room = rooms[0] as unknown as { connect: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn>; join: (id: string, name: string) => void };
+  expect(room.connect).toHaveBeenCalledWith("wss://home.example", "t");
+
+  act(() => room.join(jo.id, "Jo"));
+  expect(await screen.findByText("0:00")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Mute" })).toHaveAttribute("aria-pressed", "false");
+
+  await userEvent.click(screen.getByRole("button", { name: "Hang up" }));
+  expect(room.disconnect).toHaveBeenCalled();
+  expect(screen.queryByText("0:00")).not.toBeInTheDocument();
+});
+
+test("a call notification asks before answering", async () => {
+  rooms.length = 0;
+  serve(
+    at("GET", "/v1/me", () => json(marius)),
+    at("GET", "/v1/households", () => json([home])),
+    at("GET", `/v1/households/${home.id}`, household),
+    at("GET", `/v1/households/${home.id}/questions`, () => json([])),
+    at("POST", `/v1/households/${home.id}/call`, callJoin),
+  );
+  renderApp(`/call?from=${jo.id}`);
+  expect(await screen.findByRole("heading", { name: "Jo is calling" })).toBeInTheDocument();
+  expect(rooms).toHaveLength(0);
+  await userEvent.click(screen.getByRole("button", { name: "Answer" }));
+  await waitFor(() => expect(rooms).toHaveLength(1));
+  expect(await screen.findByText("Calling…")).toBeInTheDocument();
 });

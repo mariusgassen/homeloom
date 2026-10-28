@@ -1,6 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
 import { matchPath, Navigate, Route, Routes, useLocation } from "react-router";
+import { CallProvider } from "./call";
+import { CallView, IncomingCall } from "./screens/Call";
 import { Join, pendingInvite } from "./screens/Join";
 import { Onboarding } from "./screens/Onboarding";
 import { Settings } from "./screens/Settings";
@@ -34,27 +36,31 @@ export function App() {
   if (!session.household) return <Onboarding />;
 
   return (
-    <div className="app">
-      <Routes>
-        <Route path="/" element={<Today />} />
-        <Route path="/cook" element={<Cook />} />
-        <Route path="/cook/:slug" element={<RecipeScreen />} />
-        <Route path="/us" element={<Us />} />
-        <Route path="/lists" element={<Lists />} />
-        <Route path="/home" element={<Home />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-      <TabBar
-        label={t("tabs.label")}
-        items={[
-          { to: "/", label: t("tabs.today"), icon: "today" },
-          { to: "/cook", label: t("tabs.cook"), icon: "cook" },
-          { to: "/us", label: t("tabs.us"), icon: "us" },
-          { to: "/lists", label: t("tabs.lists"), icon: "lists" },
-          { to: "/home", label: t("tabs.home"), icon: "home" },
-        ]}
-      />
-    </div>
+    <CallProvider>
+      <div className="app">
+        <Routes>
+          <Route path="/" element={<Today />} />
+          <Route path="/cook" element={<Cook />} />
+          <Route path="/cook/:slug" element={<RecipeScreen />} />
+          <Route path="/us" element={<Us />} />
+          <Route path="/lists" element={<Lists />} />
+          <Route path="/home" element={<Home />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/call" element={<IncomingCall />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+        <TabBar
+          label={t("tabs.label")}
+          items={[
+            { to: "/", label: t("tabs.today"), icon: "today" },
+            { to: "/cook", label: t("tabs.cook"), icon: "cook" },
+            { to: "/us", label: t("tabs.us"), icon: "us" },
+            { to: "/lists", label: t("tabs.lists"), icon: "lists" },
+            { to: "/home", label: t("tabs.home"), icon: "home" },
+          ]}
+        />
+        <CallView />
+      </div>
+    </CallProvider>
   );
 }

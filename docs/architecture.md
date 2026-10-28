@@ -118,18 +118,26 @@ apps/web/
 - The core decides who hears what. Notifications are sent in the background, bounded to 10 s per push service and 30 s per round, and never fail the request that caused them; on shutdown the API waits for those under way.
 - When the last member answers a question, everyone else hears that the answers are open. Reminders and event alerts notify when they come due (see above).
 
+## Calls
+
+- **LiveKit** (`homeloom-livekit`, self-hosted) carries voice and video calls. Each household has one call room, `household-<id>`. The API (`adapter/livekit`, port `CallServer`) signs LiveKit access tokens with `LIVEKIT_API_KEY`/`LIVEKIT_API_SECRET` and asks LiveKit's room service who is in a room. Without the key pair calls are off and `POST /v1/households/{id}/call` answers `503 calls_unavailable`; so it does when LiveKit is down (bounded to 5 s).
+- **Joining** checks membership in `core/service` like everything else. A token is good for 10 minutes to connect; LiveKit refreshes it for a connected client. When no other member is in the call yet, they get a push ("Marius is calling") that opens `/call?from=<id>`, where answering is a tap, because iOS only plays a call's audio when it starts in a gesture. Someone already in the call means the joiner is answering or coming back, so nobody is rung.
+- **Network:** clients connect to `wss://PUBLIC_URL/rtc`; `homeloom-web`'s Caddy forwards `/rtc` to LiveKit, so there is no second domain or certificate. Audio and video go straight to LiveKit on UDP 7882 (TCP 7881 where UDP is blocked) on the server's public IP, which LiveKit finds by STUN. Both ports are published by the compose file and must be open in the firewall. There is no TURN server yet, so a network that blocks both won't connect.
+- **In the PWA**, the phone button on the Us tab calls the other members. The call shows over every tab until someone hangs up; it ends when the other one leaves or nobody answers within 45 s. The camera can be turned on during the call.
+
 ## Failure handling
 
 - `/healthz` reports the process is up; `/readyz` checks Postgres and Redis and returns `503` when one is down.
 - Redis outages degrade to direct database access; each Redis call is bounded to 250 ms.
-- Mealie, Home Assistant, the LLM and Web Push follow the same rule: their outage disables a feature, never the app.
+- Mealie, Home Assistant, the LLM, Web Push and LiveKit follow the same rule: their outage disables a feature, never the app.
 
 ## Deployment on Coolify
 
 - Create a Docker Compose resource from this repository (`docker-compose.yml`).
-- Set `POSTGRES_PASSWORD`, `PUBLIC_URL`, `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET`.
+- Set `POSTGRES_PASSWORD`, `PUBLIC_URL`, `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` and `LIVEKIT_API_SECRET` (at least 32 characters).
 - In authentik, register `PUBLIC_URL/auth/callback` as the redirect URI and `PUBLIC_URL/` as the post-logout redirect.
-- Assign the public domain to `homeloom-web` (port 8080). Its Caddy serves the PWA and forwards `/auth/*`, `/v1/*`, `/healthz` and `/readyz` to `homeloom-api`, so app and API share one origin and the session cookie stays first-party. The API, Postgres and Redis stay internal.
+- Assign the public domain to `homeloom-web` (port 8080). Its Caddy serves the PWA and forwards `/auth/*`, `/v1/*`, `/healthz` and `/readyz` to `homeloom-api`, so app and API share one origin and the session cookie stays first-party, and `/rtc` to `homeloom-livekit`. The API, Postgres and Redis stay internal.
+- Open UDP 7882 and TCP 7881 in the server's firewall for call audio and video.
 
 ## Planned components
 
@@ -137,5 +145,5 @@ apps/web/
 |---|---|
 | MCP server | Second driving adapter on the same services, served at `/mcp`, with its own authentik client |
 | Home Assistant media | Media players join scenes and lights in the whitelist |
-| LiveKit calls with a Homeloom agent | Self-hosted LiveKit on Coolify; the API issues room tokens; the agent is a separate service (LiveKit Agents) that calls the API |
+| Homeloom voice agent | `homeloom-agent` (LiveKit Agents for Node) joins a call with Homeloom: OpenAI speech to text and text to speech, Claude as the LLM, and the assistant's tools through `/mcp`, acting as the caller |
 | Third-party apps | Per-app authentik clients or tokens, outgoing webhooks |

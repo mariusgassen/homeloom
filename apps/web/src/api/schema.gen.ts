@@ -531,6 +531,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/call": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Join the household's voice and video call (members only)
+         * @description Returns a LiveKit access token for the household's call room, valid for ten minutes to
+         *     connect. When no other member is in the call yet, they get a push notification that opens
+         *     `/call?from=<caller's id>`. Answers `503 calls_unavailable` when LiveKit isn't set up or
+         *     can't be reached.
+         */
+        post: operations["joinCall"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/push": {
         parameters: {
             query?: never;
@@ -822,6 +847,13 @@ export interface components {
             room?: string;
             on: boolean;
         };
+        Call: {
+            /** @description The LiveKit server to connect to (wss://). */
+            url: string;
+            /** @description LiveKit access token for this person and room. */
+            token: string;
+            room: string;
+        };
         PushConfig: {
             /** @description The VAPID public key, base64url without padding. */
             publicKey: string;
@@ -910,7 +942,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description A dependency (authentik, Redis, Mealie, Home Assistant, Web Push) cannot be reached or isn't set up. */
+        /** @description A dependency (authentik, Redis, Mealie, Home Assistant, Web Push, LiveKit) cannot be reached or isn't set up. */
         Unavailable: {
             headers: {
                 [name: string]: unknown;
@@ -1824,6 +1856,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Light"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    joinCall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Where to connect, and the token to connect with. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Call"];
                 };
             };
             401: components["responses"]["Unauthorized"];

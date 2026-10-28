@@ -50,6 +50,17 @@
     "steps": "Zubereitung",
     "openRecipe": "Ganzes Rezept öffnen"
   },
+  "call": {
+    "start": "{{name}} anrufen",
+    "incoming": "{{name}} ruft an",
+    "answer": "Annehmen",
+    "decline": "Jetzt nicht",
+    "mute": "Stumm",
+    "camera": "Kamera",
+    "hangUp": "Auflegen",
+    "tapToHear": "Tippen zum Hören",
+    "state": { "connecting": "Verbinde …", "ringing": "Klingelt …", "reconnecting": "Verbinde neu …", "ended": "Anruf beendet", "noAnswer": "Keine Antwort", "failed": "Der Anruf hat nicht geklappt.", "micBlocked": "Für Anrufe braucht es dein Mikrofon. Erlaub es in den Einstellungen deines Handys." }
+  },
   "us": {
     "title": "Noch keine Fragen",
     "body": "Stell die erste.",

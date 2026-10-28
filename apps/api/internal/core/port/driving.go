@@ -84,3 +84,9 @@ type PushService interface {
 	Subscribe(ctx context.Context, actor domain.User, sub domain.PushSubscription) error
 	Unsubscribe(ctx context.Context, actor domain.User, endpoint string) error
 }
+
+type CallService interface {
+	// Join lets the actor into the household's call. When no other member is in it yet, they are
+	// rung. It returns domain.ErrUnavailable when calls aren't set up or LiveKit is down.
+	Join(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Call, error)
+}

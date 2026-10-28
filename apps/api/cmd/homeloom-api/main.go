@@ -17,6 +17,7 @@ import (
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/claude"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/homeassistant"
 	httpadapter "github.com/mariusgassen/homeloom/apps/api/internal/adapter/http"
+	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/livekit"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/mealie"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/oidc"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/postgres"
@@ -115,7 +116,7 @@ func run() error {
 		sessions,
 	)
 
-	// Mealie, Claude, Home Assistant and Web Push are optional; a nil port switches the feature off or to its fallback.
+	// Mealie, Claude, Home Assistant, Web Push and LiveKit are optional; a nil port switches the feature off or to its fallback.
 	var book port.RecipeBook
 	if cfg.MealieMCPURL != "" {
 		if book, err = mealie.New(cfg.MealieMCPURL, cfg.MealieMCPToken, cfg.MealieURL, cfg.MealieShoppingListID); err != nil {
@@ -145,6 +146,12 @@ func run() error {
 		}
 	}
 	push := service.NewPush(store, pusher)
+	var calls port.CallServer
+	if cfg.LiveKitAPIKey != "" {
+		if calls, err = livekit.New(cfg.LiveKitPublicURL(), cfg.LiveKitURL, cfg.LiveKitAPIKey, cfg.LiveKitAPISecret); err != nil {
+			return err
+		}
+	}
 	// Notifications still under way get to finish after the server has stopped taking requests.
 	defer push.Wait()
 
@@ -161,6 +168,7 @@ func run() error {
 		Cook:           service.NewCook(store, book, chef),
 		Home:           service.NewHome(store, homeConnections, sessions, home),
 		Push:           push,
+		Calls:          service.NewCall(store, calls, push),
 		HealthChecks:   []port.HealthCheck{postgres.HealthCheck{Pool: pool}, redis.HealthCheck{Client: rdb}},
 		AllowedOrigins: cfg.AllowedOrigins,
 		SecureCookies:  cfg.SecureCookies(),

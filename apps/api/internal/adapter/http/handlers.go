@@ -21,6 +21,7 @@ type handlers struct {
 	cook       port.CookService
 	home       port.HomeService
 	push       port.PushService
+	calls      port.CallService
 	login      port.LoginService
 	cookies    cookies
 	checks     []port.HealthCheck

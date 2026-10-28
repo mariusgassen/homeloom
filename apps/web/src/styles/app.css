@@ -110,3 +110,19 @@ h1, h2, h3, p { margin: 0; }
 .sheet-choice input { width: 20px; height: 20px; accent-color: var(--spruce); flex: none; }
 .hl-list > .sheet-choice + .sheet-choice { box-shadow: inset 0 1px 0 var(--line); }
 .entry-row .have { color: var(--ink-muted); text-decoration: line-through; font-weight: 400; }
+
+/* A call, over everything else: who, how it's going, then the controls at the bottom. */
+.call { position: fixed; inset: 0; z-index: 40; background: var(--spruce); color: var(--on-spruce); display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: max(var(--space-8), env(safe-area-inset-top, 0px)) var(--space-4) max(var(--space-8), env(safe-area-inset-bottom, 0px)); overflow: hidden; }
+.call-who { position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--space-3); padding-top: var(--space-8); text-align: center; }
+.call-who h1 { margin: 0; }
+.call-status { margin: 0; opacity: 0.8; font-variant-numeric: tabular-nums; }
+.call-video .call-who { text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5); color: #ffffff; }
+.call-remote { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000000; }
+.call-self { position: absolute; z-index: 1; top: max(var(--space-4), env(safe-area-inset-top, 0px)); right: var(--space-4); width: 96px; height: 128px; object-fit: cover; border-radius: var(--radius-md); transform: scaleX(-1); box-shadow: var(--shadow-sheet); }
+.call-controls { position: relative; display: flex; gap: var(--space-6); align-items: center; }
+.call-control { width: 64px; height: 64px; display: grid; place-items: center; border: 0; border-radius: 50%; background: color-mix(in srgb, var(--on-spruce) 18%, transparent); color: var(--on-spruce); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.call-control[aria-pressed="true"] { background: var(--on-spruce); color: var(--spruce); }
+.call-control:disabled { opacity: 0.4; }
+.call-hangup { background: var(--danger); color: var(--on-spruce); }
+.call-hangup .hl-icon { transform: rotate(135deg); }
+.call-video .call-control:not(.call-hangup, [aria-pressed="true"]) { background: rgba(0, 0, 0, 0.35); color: #ffffff; }
