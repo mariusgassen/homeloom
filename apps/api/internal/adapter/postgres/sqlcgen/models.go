@@ -90,6 +90,15 @@ type Membership struct {
 	CreatedAt   time.Time
 }
 
+type PushSubscription struct {
+	Endpoint  string
+	UserID    uuid.UUID
+	P256dh    string
+	Auth      string
+	Lang      string
+	CreatedAt time.Time
+}
+
 type Question struct {
 	ID          uuid.UUID
 	HouseholdID uuid.UUID

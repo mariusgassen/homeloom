@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.5.0
+  version: 0.6.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -27,6 +27,7 @@ tags:
   - name: questions
   - name: cook
   - name: home
+  - name: push
 
 paths:
   /healthz:
@@ -460,6 +461,55 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  /v1/push:
+    get:
+      tags: [push]
+      operationId: getPushConfig
+      summary: The VAPID public key to subscribe with
+      description: |
+        Pass `publicKey` as `applicationServerKey` to `PushManager.subscribe`. Answers `503
+        push_unavailable` when the server has no VAPID keys, so the app can hide the switch.
+      responses:
+        "200":
+          description: Push is set up.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PushConfig" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/push/subscriptions:
+    post:
+      tags: [push]
+      operationId: subscribePush
+      summary: Get notifications on this device
+      description: |
+        Stores the browser's push subscription for the caller; sending the same endpoint again
+        updates it. Notifications are written in the request's language. Only the push services
+        of Apple, Google, Mozilla and Microsoft are accepted as endpoints.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PushSubscription" }
+      responses:
+        "204": { description: Subscribed. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [push]
+      operationId: unsubscribePush
+      summary: Stop notifications on this device
+      parameters:
+        - name: endpoint
+          in: query
+          required: true
+          schema: { type: string, maxLength: 2048 }
+      responses:
+        "204": { description: Unsubscribed, or was not subscribed. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
 components:
   parameters:
     HouseholdId:
@@ -502,7 +552,7 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     Unavailable:
-      description: A dependency (authentik, Redis, Mealie, Home Assistant) cannot be reached or isn't set up.
+      description: A dependency (authentik, Redis, Mealie, Home Assistant, Web Push) cannot be reached or isn't set up.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -685,6 +735,25 @@ components:
         id: { type: string, description: "Home Assistant entity id, e.g. light.kitchen." }
         name: { type: string }
         on: { type: boolean }
+
+    PushConfig:
+      type: object
+      required: [publicKey]
+      properties:
+        publicKey: { type: string, description: "The VAPID public key, base64url without padding." }
+
+    PushSubscription:
+      type: object
+      required: [endpoint, keys]
+      description: What `PushSubscription.toJSON()` returns in the browser.
+      properties:
+        endpoint: { type: string, maxLength: 2048 }
+        keys:
+          type: object
+          required: [p256dh, auth]
+          properties:
+            p256dh: { type: string, minLength: 1, maxLength: 200 }
+            auth: { type: string, minLength: 1, maxLength: 100 }
 
     Logout:
       type: object

@@ -45,7 +45,10 @@ function renderApp(path = "/") {
 }
 
 beforeEach(() => i18n.changeLanguage("en"));
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  delete (navigator as { serviceWorker?: unknown }).serviceWorker;
+});
 
 test("signed out shows the sign-in", async () => {
   serve(at("GET", "/v1/me", () => json({ code: "unauthenticated", message: "" }, 401)));
@@ -141,6 +144,64 @@ test("settings creates an invite link", async () => {
   renderApp("/settings");
   await userEvent.click(await screen.findByRole("button", { name: "Invite someone" }));
   expect(await screen.findByText(`${window.location.origin}/join/abc`)).toBeInTheDocument();
+});
+
+// A browser that can do Web Push, with a push service that hands out one fixed subscription.
+function stubPush(permission: NotificationPermission) {
+  let current: PushSubscription | null = null;
+  const sub = {
+    endpoint: "https://web.push.apple.com/abc",
+    toJSON: () => ({ endpoint: "https://web.push.apple.com/abc", keys: { p256dh: "p", auth: "a" } }),
+    unsubscribe: vi.fn(async () => ((current = null), true)),
+  } as unknown as PushSubscription;
+  const pushManager = {
+    getSubscription: async () => current,
+    subscribe: vi.fn(async () => (current = sub)),
+  };
+  vi.stubGlobal("PushManager", function PushManager() {});
+  vi.stubGlobal("Notification", { permission, requestPermission: vi.fn(async () => permission) });
+  Object.defineProperty(navigator, "serviceWorker", { configurable: true, value: { ready: Promise.resolve({ pushManager }) } });
+  return pushManager;
+}
+
+test("settings turns on notifications for this device", async () => {
+  const pushManager = stubPush("granted");
+  const calls = serve(
+    ...signedIn(),
+    at("GET", "/v1/push", () => json({ publicKey: "AQID" })),
+    at("POST", "/v1/push/subscriptions", () => new Response(null, { status: 204 })),
+    at("DELETE", "/v1/push/subscriptions", () => new Response(null, { status: 204 })),
+  );
+  renderApp("/settings");
+  const toggle = await screen.findByRole("switch", { name: /Notifications on this device/ });
+  expect(toggle).toHaveAttribute("aria-checked", "false");
+  await userEvent.click(toggle);
+  await waitFor(() => expect(toggle).toHaveAttribute("aria-checked", "true"));
+  expect(pushManager.subscribe).toHaveBeenCalledWith({ userVisibleOnly: true, applicationServerKey: new Uint8Array([1, 2, 3]) });
+  const post = calls.find((c) => c.method === "POST");
+  expect(post?.headers.get("Accept-Language")).toBe("en");
+  expect(await post?.json()).toEqual({ endpoint: "https://web.push.apple.com/abc", keys: { p256dh: "p", auth: "a" } });
+
+  await userEvent.click(toggle);
+  await waitFor(() => expect(toggle).toHaveAttribute("aria-checked", "false"));
+  const del = calls.find((c) => c.method === "DELETE");
+  expect(new URL(del?.url ?? "/", window.location.origin).searchParams.get("endpoint")).toBe("https://web.push.apple.com/abc");
+});
+
+test("settings says when notifications are blocked", async () => {
+  stubPush("denied");
+  serve(...signedIn(), at("GET", "/v1/push", () => json({ publicKey: "AQID" })));
+  renderApp("/settings");
+  await userEvent.click(await screen.findByRole("switch", { name: /Notifications on this device/ }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Notifications are blocked.");
+});
+
+test("settings hides notifications when the server has none", async () => {
+  stubPush("default");
+  serve(...signedIn(), at("GET", "/v1/push", () => json({ code: "push_unavailable", message: "" }, 503)));
+  renderApp("/settings");
+  expect(await screen.findByRole("button", { name: "Invite someone" })).toBeInTheDocument();
+  expect(screen.queryByRole("switch")).not.toBeInTheDocument();
 });
 
 test("an invite link waits through sign-in, then joins", async () => {

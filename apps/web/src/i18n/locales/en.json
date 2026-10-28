@@ -19,6 +19,7 @@
     "failed": "That didn't work. Please try again."
   },
   "settings": { "title": "Settings", "you": "You", "household": "Household", "owner": "Owner", "member": "Member", "open": "Household and settings" },
+  "push": { "title": "Notifications", "switch": "Notifications on this device", "hint": "When your answers open", "install": "To get notifications on your iPhone, add Homeloom to your Home Screen first: tap Share, then “Add to Home Screen”, and open it from there.", "blocked": "Notifications are blocked. Allow them in your phone's Settings under Notifications, then try again.", "failed": "That didn't work. Please try again." },
   "today": {
     "question": { "eyebrow": "Today's question", "title": "No question yet", "body": "Ask one, and you'll both answer. The answers open once you have." },
     "dinner": { "eyebrow": "Dinner tonight", "title": "Nothing planned yet", "body": "Recipes from Mealie and cook-by-mood will show up here." },

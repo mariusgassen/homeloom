@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/postgres"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/redis"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/secretbox"
+	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/webpush"
 	"github.com/mariusgassen/homeloom/apps/api/internal/config"
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/port"
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/service"
@@ -32,6 +34,10 @@ func main() {
 	// The runtime image has no shell or curl, so the container healthcheck calls the binary itself.
 	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
 		os.Exit(healthcheck())
+	}
+	// Prints a VAPID key pair to set as VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY.
+	if len(os.Args) > 1 && os.Args[1] == "vapid-keys" {
+		os.Exit(vapidKeys())
 	}
 	if err := run(); err != nil {
 		slog.Error("homeloom-api stopped", "err", err)
@@ -53,6 +59,16 @@ func healthcheck() int {
 	if resp.StatusCode != http.StatusOK {
 		return 1
 	}
+	return 0
+}
+
+func vapidKeys() int {
+	pub, priv, err := webpush.GenerateKeys()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	fmt.Printf("VAPID_PUBLIC_KEY=%s\nVAPID_PRIVATE_KEY=%s\n", pub, priv)
 	return 0
 }
 
@@ -98,7 +114,7 @@ func run() error {
 		sessions,
 	)
 
-	// Mealie, Claude and Home Assistant are optional; a nil port switches the feature off or to its fallback.
+	// Mealie, Claude, Home Assistant and Web Push are optional; a nil port switches the feature off or to its fallback.
 	var book port.RecipeBook
 	if cfg.MealieMCPURL != "" {
 		if book, err = mealie.New(cfg.MealieMCPURL, cfg.MealieMCPToken, cfg.MealieURL, cfg.MealieShoppingListID); err != nil {
@@ -121,15 +137,25 @@ func run() error {
 		}
 		homeConnections = secretbox.NewHomeConnections(store, box)
 	}
+	var pusher port.Pusher
+	if cfg.VAPIDPublicKey != "" {
+		if pusher, err = webpush.New(cfg.VAPIDPublicKey, cfg.VAPIDPrivateKey, cfg.VAPIDSubject); err != nil {
+			return err
+		}
+	}
+	push := service.NewPush(store, pusher)
+	// Notifications still under way get to finish after the server has stopped taking requests.
+	defer push.Wait()
 
 	handler, err := httpadapter.NewRouter(httpadapter.Deps{
 		Version:        version,
 		Identity:       identity,
 		Login:          login,
 		Households:     service.NewHousehold(store),
-		Questions:      service.NewQuestion(store, store),
+		Questions:      service.NewQuestion(store, store, push),
 		Cook:           service.NewCook(store, book, chef),
 		Home:           service.NewHome(store, homeConnections, sessions, home),
+		Push:           push,
 		HealthChecks:   []port.HealthCheck{postgres.HealthCheck{Pool: pool}, redis.HealthCheck{Client: rdb}},
 		AllowedOrigins: cfg.AllowedOrigins,
 		SecureCookies:  cfg.SecureCookies(),

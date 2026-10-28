@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"unicode/utf8"
 
@@ -15,13 +16,19 @@ import (
 // listLimit caps how many questions one list returns.
 const listLimit = 50
 
+// notifier tells people about something that happened; *Push is the real one.
+type notifier interface {
+	Notify(ctx context.Context, userIDs []uuid.UUID, n domain.Notification)
+}
+
 type Question struct {
 	households port.HouseholdRepository
 	questions  port.QuestionRepository
+	notify     notifier
 }
 
-func NewQuestion(households port.HouseholdRepository, questions port.QuestionRepository) *Question {
-	return &Question{households: households, questions: questions}
+func NewQuestion(households port.HouseholdRepository, questions port.QuestionRepository, notify notifier) *Question {
+	return &Question{households: households, questions: questions, notify: notify}
 }
 
 func (s *Question) List(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.Question, error) {
@@ -65,7 +72,32 @@ func (s *Question) Answer(ctx context.Context, actor domain.User, questionID uui
 	if err != nil {
 		return domain.Question{}, err
 	}
+	// Answer refuses once a question is revealed, so this is the answer that revealed it.
+	if q.Revealed() {
+		s.notifyRevealed(ctx, actor, q)
+	}
 	return sealFor(q, actor.ID), nil
+}
+
+// notifyRevealed tells everyone but the last to answer that the answers are open.
+func (s *Question) notifyRevealed(ctx context.Context, actor domain.User, q domain.Question) {
+	members, err := s.households.Members(ctx, q.HouseholdID)
+	if err != nil {
+		slog.WarnContext(ctx, "question revealed: list members", "err", err)
+		return
+	}
+	var others []uuid.UUID
+	for _, m := range members {
+		if m.User.ID != actor.ID {
+			others = append(others, m.User.ID)
+		}
+	}
+	s.notify.Notify(ctx, others, domain.Notification{
+		Key:  "push.revealed",
+		Args: []any{"name", actor.Name, "question", q.Text},
+		URL:  "/us",
+		Tag:  "question-" + q.ID.String(),
+	})
 }
 
 // sealFor hides other members' answers from viewer until the question is revealed.

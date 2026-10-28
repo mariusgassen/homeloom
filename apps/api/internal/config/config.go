@@ -37,6 +37,11 @@ type Config struct {
 	// connects it by signing in there; SecretKey encrypts the token that sign-in gives.
 	HomeAssistantURL string
 	SecretKey        string
+	// Web Push is optional: without the VAPID key pair notifications are switched off. VAPIDSubject
+	// tells the push services who sends them (an https URL or e-mail address; PUBLIC_URL by default).
+	VAPIDPublicKey  string
+	VAPIDPrivateKey string
+	VAPIDSubject    string
 }
 
 // RedirectURL is the login callback to register in authentik.
@@ -68,6 +73,9 @@ func Load() (Config, error) {
 		LLMModel:             env("LLM_MODEL", "claude-opus-5-5"),
 		HomeAssistantURL:     os.Getenv("HOME_ASSISTANT_URL"),
 		SecretKey:            os.Getenv("HOMELOOM_SECRET_KEY"),
+		VAPIDPublicKey:       os.Getenv("VAPID_PUBLIC_KEY"),
+		VAPIDPrivateKey:      os.Getenv("VAPID_PRIVATE_KEY"),
+		VAPIDSubject:         env("VAPID_SUBJECT", os.Getenv("PUBLIC_URL")),
 	}
 	ttl, err := time.ParseDuration(env("USER_CACHE_TTL", "5m"))
 	if err != nil {
@@ -96,6 +104,12 @@ func Load() (Config, error) {
 	}
 	if c.HomeAssistantURL != "" && c.SecretKey == "" {
 		missing = append(missing, "HOMELOOM_SECRET_KEY")
+	}
+	if c.VAPIDPublicKey != "" && c.VAPIDPrivateKey == "" {
+		missing = append(missing, "VAPID_PRIVATE_KEY")
+	}
+	if c.VAPIDPrivateKey != "" && c.VAPIDPublicKey == "" {
+		missing = append(missing, "VAPID_PUBLIC_KEY")
 	}
 	if len(missing) > 0 {
 		return c, errors.New("missing required env: " + strings.Join(missing, ", "))
