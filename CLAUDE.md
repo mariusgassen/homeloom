@@ -9,7 +9,8 @@ Read `docs/architecture.md` before structural changes.
 - `apps/api`: Go API, hexagonal, API first. The only component that holds secrets or talks to Mealie, Home Assistant, authentik or the LLM.
 - `docs/`: architecture and decisions.
 - `docker-compose.yml`: the stack Coolify deploys; `docker-compose.dev.yml` publishes ports locally.
-- The PWA (mobile-first, iOS) is not in the repo yet. Its design system and screen layout live as Claude artifacts: design system https://claude.ai/artifact/8eznBKaYPaJu59aiVCnYMi, app layout https://claude.ai/artifact/NnTvP4yyGSMTeugLnM6SRD.
+- `apps/web`: the PWA (Vite, React, TypeScript; mobile-first, iOS). Holds no secrets; talks only to the API, on the same origin. Its Caddy image serves the app and forwards `/auth`, `/v1`, `/healthz` and `/readyz` to the API.
+- Design system and screen layout live as Claude artifacts: design system https://claude.ai/artifact/8eznBKaYPaJu59aiVCnYMi, app layout https://claude.ai/artifact/NnTvP4yyGSMTeugLnM6SRD. `apps/web/src/ui` and `src/styles` are the app's port of it; change them together.
 
 ## Commands (run in `apps/api`)
 
@@ -21,6 +22,18 @@ go test -race ./...     # set TEST_DATABASE_URL and TEST_REDIS_URL to include th
 ```
 
 CI (`.github/workflows/api.yml`) runs all of the above plus govulncheck and a Docker build; it fails if generated code is stale.
+
+## Commands (run in `apps/web`)
+
+```sh
+npm run generate   # after changing the API contract; regenerates src/api/schema.gen.ts
+npm run lint
+npm run typecheck
+npm test
+npm run dev        # proxies the API paths to localhost:8080
+```
+
+CI (`.github/workflows/web.yml`) runs these plus a build and a Docker build; it fails if the API types are stale.
 
 ## Rules
 
@@ -48,12 +61,13 @@ German and English from the start; English is the fallback.
 
 - The API negotiates `Accept-Language` per request (`internal/i18n`) and sets `Content-Language`. Error `code`s are stable and never translated; `message` is translated; `detail` is optional English for debugging.
 - Server-written text (errors now; notifications and generated text later) uses catalog keys in `internal/i18n/locales/{en,de}.json`. Add every key to both files; a test fails otherwise.
+- The PWA's copy lives in `apps/web/src/i18n/locales/{en,de}.json`, with the same both-files rule and test. It picks German or English from the browser's languages.
 - German copy uses informal "du", short and warm, matching the design system's voice.
 - Docs that users read come in both languages: `README.md` and `README.de.md` are kept in sync.
 
 ## Versioning and commits
 
 - SemVer, released by release-please from Conventional Commits. PRs are squash-merged, so the **PR title** must be a conventional commit (`feat: …`, `fix: …`, `chore: …`, `feat!: …` for breaking changes); a workflow checks it.
-- Merging to `main` updates a release PR; merging that tags `vX.Y.Z`, updates `CHANGELOG.md` and publishes `ghcr.io/mariusgassen/homeloom-api:X.Y.Z`.
+- Merging to `main` updates a release PR; merging that tags `vX.Y.Z`, updates `CHANGELOG.md` and publishes `ghcr.io/mariusgassen/homeloom-api:X.Y.Z` and `homeloom-web:X.Y.Z`.
 - The binary gets its version via `-ldflags "-X main.version=…"` (Docker build arg `VERSION`); `/healthz` reports it.
 - `info.version` in `openapi.yaml` is the contract's own version: bump it when the contract changes. Breaking API changes go to a new path prefix (`/v2`), not into `/v1`.

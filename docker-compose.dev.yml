@@ -1,6 +1,9 @@
 # Local development: publishes ports on localhost. Usage:
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 services:
+  homeloom-web:
+    ports:
+      - "127.0.0.1:3000:8080"
   homeloom-api:
     ports:
       - "127.0.0.1:8080:8080"

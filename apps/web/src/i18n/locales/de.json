@@ -1,0 +1,31 @@
+{
+  "app": { "tagline": "Ein gemeinsames Zuhause für zwei. Essen, Momente und euer Smart Home an einem privaten Ort." },
+  "tabs": { "label": "Hauptmenü", "today": "Heute", "cook": "Kochen", "us": "Wir", "lists": "Listen", "home": "Zuhause" },
+  "auth": {
+    "signIn": "Anmelden",
+    "signOut": "Abmelden",
+    "error": {
+      "login_failed": "Die Anmeldung hat nicht geklappt. Versuch es bitte noch mal.",
+      "auth_unavailable": "Die Anmeldung geht gerade nicht. Versuch es gleich noch mal."
+    }
+  },
+  "unavailable": { "title": "Homeloom ist nicht erreichbar", "body": "Prüf deine Verbindung oder versuch es gleich noch mal.", "retry": "Noch mal versuchen" },
+  "onboarding": {
+    "title": "Richte euer Zuhause ein",
+    "body": "Gib eurem Haushalt einen Namen.",
+    "name": "Name des Haushalts",
+    "placeholder": "Bei uns",
+    "create": "Haushalt anlegen",
+    "failed": "Das hat nicht geklappt. Versuch es bitte noch mal."
+  },
+  "settings": { "title": "Einstellungen", "you": "Du", "household": "Haushalt", "owner": "Inhaber:in", "member": "Mitglied", "open": "Haushalt und Einstellungen" },
+  "today": {
+    "question": { "eyebrow": "Frage des Abends", "title": "Fragen sind unterwegs", "body": "Ihr antwortet beide, und die Antworten öffnen sich, sobald ihr fertig seid." },
+    "dinner": { "eyebrow": "Heute Abend", "title": "Noch nichts geplant", "body": "Rezepte aus Mealie und Kochen nach Laune erscheinen hier." },
+    "due": { "eyebrow": "Heute fällig", "title": "Alles erledigt", "body": "Gemeinsame Erinnerungen erscheinen hier." }
+  },
+  "cook": { "title": "Noch wird nicht gekocht", "body": "Wähl eine Laune, und Homeloom findet ein Rezept in Mealie und setzt Fehlendes auf die Einkaufsliste." },
+  "us": { "title": "Hier wohnen eure Fragen", "body": "Fragen, die ihr gemeinsam beantwortet, und Notizen, die privat, geteilt oder später offen sind." },
+  "lists": { "title": "Noch keine Listen", "body": "Einkauf und gemeinsame To-dos, abgeglichen mit Mealie." },
+  "home": { "title": "Smart Home kommt später", "body": "Dinner-Modus und Szenen aus Home Assistant, nur für Licht, Szenen und Musik." }
+}

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#1f4d47"/>
+  <!-- two threads woven into a roof: saffron and berry, the two people of the house -->
+  <path d="M120 300 256 172l136 128" fill="none" stroke="#f0b93d" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M152 352h208" fill="none" stroke="#e5809f" stroke-width="40" stroke-linecap="round"/>
+</svg>

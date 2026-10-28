@@ -1,0 +1,83 @@
+/* Homeloom design tokens, from the design system (tokens.json). Dark follows the system unless data-theme is set. */
+:root, [data-theme="light"] {
+  --surface: #f2f3ee;
+  --surface-raised: #ffffff;
+  --surface-sunken: #e5e8e0;
+  --line: #d3d8cf;
+  --ink: #16201e;
+  --ink-muted: #55625d;
+  --spruce: #1f4d47;
+  --on-spruce: #ffffff;
+  --spruce-tint: #d9e8e4;
+  --saffron: #b57c06;
+  --berry: #b63d64;
+  --on-berry: #ffffff;
+  --on-saffron: #16201e;
+  --success: #24704a;
+  --danger: #a83a12;
+  --focus: var(--spruce);
+  --shadow-sheet: 0 -8px 32px rgba(22, 32, 30, 0.12);
+}
+[data-theme="dark"] {
+  --surface: #111918;
+  --surface-raised: #1a2422;
+  --surface-sunken: #0a100f;
+  --line: #2b3734;
+  --ink: #edf1ec;
+  --ink-muted: #a2afaa;
+  --spruce: #7cc3b8;
+  --on-spruce: #0a100f;
+  --spruce-tint: #1d3632;
+  --saffron: #f0b93d;
+  --berry: #e5809f;
+  --on-berry: #0a100f;
+  --on-saffron: #0a100f;
+  --success: #74d19e;
+  --danger: #ff9a73;
+  --focus: var(--spruce);
+  --shadow-sheet: 0 -8px 32px rgba(0, 0, 0, 0.5);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --surface: #111918;
+    --surface-raised: #1a2422;
+    --surface-sunken: #0a100f;
+    --line: #2b3734;
+    --ink: #edf1ec;
+    --ink-muted: #a2afaa;
+    --spruce: #7cc3b8;
+    --on-spruce: #0a100f;
+    --spruce-tint: #1d3632;
+    --saffron: #f0b93d;
+    --berry: #e5809f;
+    --on-berry: #0a100f;
+    --on-saffron: #0a100f;
+    --success: #74d19e;
+    --danger: #ff9a73;
+    --focus: var(--spruce);
+    --shadow-sheet: 0 -8px 32px rgba(0, 0, 0, 0.5);
+  }
+}
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 24px;
+  --radius-pill: 999px;
+  --hit-min: 44px;
+  --tabbar-height: 56px;
+  --font-display: "Bricolage Grotesque Variable", ui-rounded, system-ui, sans-serif;
+  --font-text: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", sans-serif;
+}
+.large-title { font-family: var(--font-display); font-size: 34px; line-height: 38px; font-weight: 700; letter-spacing: -0.5px; }
+.title { font-family: var(--font-display); font-size: 22px; line-height: 28px; font-weight: 650; letter-spacing: -0.2px; }
+.headline { font-family: var(--font-text); font-size: 17px; line-height: 22px; font-weight: 600; }
+.body { font-family: var(--font-text); font-size: 17px; line-height: 24px; font-weight: 400; }
+.callout { font-family: var(--font-text); font-size: 15px; line-height: 20px; font-weight: 400; }
+.caption { font-family: var(--font-text); font-size: 13px; line-height: 18px; font-weight: 400; }
+.label { font-family: var(--font-text); font-size: 12px; line-height: 16px; font-weight: 600; letter-spacing: 0.6px; }

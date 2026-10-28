@@ -1,0 +1,34 @@
+# Serves the PWA and forwards the API's paths to homeloom-api, so the app and its API share one
+# origin and the session cookie stays first-party. TLS ends at Coolify's proxy in front of this.
+{
+	admin off
+	auto_https off
+}
+
+:8080 {
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		Content-Security-Policy "default-src 'self'; img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+	}
+
+	@api path /auth/* /v1/* /healthz /readyz
+	handle @api {
+		reverse_proxy {$API_UPSTREAM:homeloom-api:8080}
+	}
+
+	handle {
+		root * /srv
+		# Hashed assets never change; everything else (the shell, manifest, service worker) revalidates.
+		@immutable path /assets/*
+		header @immutable Cache-Control "public, max-age=31536000, immutable"
+		header @revalidate Cache-Control "no-cache"
+		@revalidate not path /assets/*
+		try_files {path} /index.html
+		file_server
+	}
+}

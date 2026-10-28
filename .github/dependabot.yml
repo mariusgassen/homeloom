@@ -21,6 +21,25 @@ updates:
       prefix: fix
       include: scope
 
+  - package-ecosystem: npm
+    directory: /apps/web
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: fix
+      include: scope
+    groups:
+      npm:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /apps/web
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: fix
+      include: scope
+
   - package-ecosystem: docker-compose
     directory: /
     schedule:

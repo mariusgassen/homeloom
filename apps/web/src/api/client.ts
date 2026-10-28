@@ -1,0 +1,15 @@
+import createClient from "openapi-fetch";
+import type { components, paths } from "./schema.gen";
+
+// Same origin: Caddy (production) or the Vite proxy (development) forwards API paths, so the
+// HttpOnly session cookie travels with every call and no token ever reaches this code.
+export const api = createClient<paths>({
+  baseUrl: window.location.origin,
+  credentials: "same-origin",
+  // Looked up per call rather than captured once, so tests can stub fetch.
+  fetch: (req) => globalThis.fetch(req),
+});
+
+export type User = components["schemas"]["User"];
+export type Household = components["schemas"]["Household"];
+export type HouseholdDetail = components["schemas"]["HouseholdDetail"];

@@ -20,10 +20,10 @@ Homeloom is an API plus separate clients. The API is the only component that hol
 | Cache / realtime | Redis 8 (user cache now; pub/sub fan-out, rate limits and job queues later) |
 | Identity | authentik; the API is an OAuth2 resource server and only verifies access tokens |
 | LLM | Claude by default, behind a provider port so it can be swapped |
-| Frontend | Mobile-first PWA, separate app; both users are on iOS |
+| Frontend | Mobile-first PWA in `apps/web` (Vite, React, TypeScript, vite-plugin-pwa), served by Caddy on the same origin as the API; both users are on iOS |
 | Deployment | One Docker Compose resource on Coolify; every service is prefixed `homeloom-` |
 | Languages | German and English from the start, English as fallback; `Accept-Language` negotiated per request |
-| Versioning | SemVer via release-please from Conventional Commit PR titles; image `ghcr.io/mariusgassen/homeloom-api:X.Y.Z` per release |
+| Versioning | SemVer via release-please from Conventional Commit PR titles; images `ghcr.io/mariusgassen/homeloom-api:X.Y.Z` and `homeloom-web:X.Y.Z` per release |
 
 ## Hexagonal layout
 
@@ -67,6 +67,21 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 - If authentik or Redis cannot be reached the API returns `503 auth_unavailable`, not `401`, and health checks keep working. A failed login redirects to `/?auth_error=login_failed` or `/?auth_error=auth_unavailable`.
 - Sessions are stored under a hash of their id, so a Redis dump holds no usable cookies. They last `SESSION_TTL` (30 days by default).
 
+## PWA
+
+```
+apps/web/
+  src/api/            typed client; schema.gen.ts is generated from the OpenAPI contract
+  src/ui/, styles/    the design system's tokens and components, ported to React
+  src/screens/        one file per screen; tabs: Today, Cook, Us, Lists, Home
+  src/i18n/           German and English copy
+  Caddyfile           static files plus the reverse proxy to the API
+```
+
+- The app never sees a token: it starts sign-in with a full navigation to `/auth/login` and then calls the API with the session cookie.
+- The service worker precaches the app shell and never handles `/auth`, `/v1` or the health checks.
+- Installable on iOS from Safari's "Add to Home Screen"; Web Push for reminders comes with reminders and needs that install.
+
 ## Failure handling
 
 - `/healthz` reports the process is up; `/readyz` checks Postgres and Redis and returns `503` when one is down.
@@ -78,13 +93,12 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 - Create a Docker Compose resource from this repository (`docker-compose.yml`).
 - Set `POSTGRES_PASSWORD`, `PUBLIC_URL`, `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET`; `OIDC_CLIENT_IDS` only for further bearer clients.
 - In authentik, register `PUBLIC_URL/auth/callback` as the redirect URI and `PUBLIC_URL/` as the post-logout redirect.
-- Assign the public domain to `homeloom-api` (port 8080). Once the PWA exists it shares the domain: `/auth/*`, `/v1/*`, `/healthz` and `/readyz` go to the API, everything else to the PWA, so the session cookie stays first-party. Postgres and Redis stay internal.
+- Assign the public domain to `homeloom-web` (port 8080). Its Caddy serves the PWA and forwards `/auth/*`, `/v1/*`, `/healthz` and `/readyz` to `homeloom-api`, so app and API share one origin and the session cookie stays first-party. The API, Postgres and Redis stay internal.
 
 ## Planned components
 
 | Component | Shape |
 |---|---|
-| PWA | Separate app after the design system and layout sketch; Web Push for reminders (iOS requires the app to be added to the Home Screen) |
 | MCP server | Second driving adapter on the same services, served at `/mcp`, with its own authentik client |
 | Reminders & notes | Core entries with `private / shared / reveal_after` visibility; jobs and push delivery via Redis |
 | Mealie, Home Assistant, Claude | Driven adapters behind ports; HA actions limited to a whitelist |
