@@ -13,3 +13,5 @@ export const api = createClient<paths>({
 export type User = components["schemas"]["User"];
 export type Household = components["schemas"]["Household"];
 export type HouseholdDetail = components["schemas"]["HouseholdDetail"];
+export type Question = components["schemas"]["Question"];
+export type Member = components["schemas"]["Member"];

@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -49,4 +51,28 @@ func (s *Household) Get(ctx context.Context, actor domain.User, id uuid.UUID) (d
 		Membership: domain.Membership{Household: h, Role: role},
 		Members:    members,
 	}, nil
+}
+
+func (s *Household) Invite(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Invite, error) {
+	if _, err := s.repo.Role(ctx, householdID, actor.ID); err != nil {
+		return domain.Invite{}, err
+	}
+	inv := domain.Invite{Code: randomID(), ExpiresAt: time.Now().Add(domain.InviteTTL).UTC()}
+	if err := s.repo.CreateInvite(ctx, householdID, actor.ID, hashCode(inv.Code), inv.ExpiresAt); err != nil {
+		return domain.Invite{}, err
+	}
+	return inv, nil
+}
+
+func (s *Household) Join(ctx context.Context, actor domain.User, code string) (domain.Membership, error) {
+	if code == "" {
+		return domain.Membership{}, domain.ErrNotFound
+	}
+	return s.repo.AcceptInvite(ctx, hashCode(code), actor.ID)
+}
+
+// hashCode is what is stored for an invite, so a database dump holds no usable links.
+func hashCode(code string) []byte {
+	sum := sha256.Sum256([]byte(code))
+	return sum[:]
 }

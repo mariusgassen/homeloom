@@ -27,6 +27,7 @@ type Deps struct {
 	Identity       port.IdentityService
 	Login          port.LoginService
 	Households     port.HouseholdService
+	Questions      port.QuestionService
 	HealthChecks   []port.HealthCheck
 	AllowedOrigins []string
 	// SecureCookies is true when the API is served over HTTPS; SessionTTL is how long a login lasts.
@@ -63,6 +64,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 	h := &handlers{
 		version:    d.Version,
 		households: d.Households,
+		questions:  d.Questions,
 		login:      d.Login,
 		cookies:    cookies{secure: d.SecureCookies, sessionTTL: d.SessionTTL},
 		checks:     d.HealthChecks,

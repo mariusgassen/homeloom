@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
@@ -56,6 +57,25 @@ func (e Role) Valid() bool {
 	default:
 		return false
 	}
+}
+
+// Answer defines model for Answer.
+type Answer struct {
+	AnsweredAt time.Time `json:"answeredAt"`
+
+	// Text Present for your own answer
+	Text   *string            `json:"text,omitempty"`
+	UserId openapi_types.UUID `json:"userId"`
+}
+
+// AnswerQuestion defines model for AnswerQuestion.
+type AnswerQuestion struct {
+	Text string `json:"text"`
+}
+
+// AskQuestion defines model for AskQuestion.
+type AskQuestion struct {
+	Text string `json:"text"`
 }
 
 // CreateHousehold defines model for CreateHousehold.
@@ -103,6 +123,13 @@ type HouseholdDetail struct {
 	Role    Role               `json:"role"`
 }
 
+// Invite defines model for Invite.
+type Invite struct {
+	// Code Share as `<PUBLIC_URL>/join/<code>`.
+	Code      string    `json:"code"`
+	ExpiresAt time.Time `json:"expiresAt"`
+}
+
 // Logout defines model for Logout.
 type Logout struct {
 	// RedirectUrl authentik's end-session URL.
@@ -113,6 +140,21 @@ type Logout struct {
 type Member struct {
 	Role Role `json:"role"`
 	User User `json:"user"`
+}
+
+// Question defines model for Question.
+type Question struct {
+	Answers []Answer `json:"answers"`
+
+	// AskedBy User id of the member who asked.
+	AskedBy   openapi_types.UUID `json:"askedBy"`
+	CreatedAt time.Time          `json:"createdAt"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// Revealed True once every member has answered; answers are then visible to all and fixed.
+	Revealed   bool       `json:"revealed"`
+	RevealedAt *time.Time `json:"revealedAt,omitempty"`
+	Text       string     `json:"text"`
 }
 
 // Readiness defines model for Readiness.
@@ -135,6 +177,9 @@ type User struct {
 	Id        openapi_types.UUID `json:"id"`
 	Name      string             `json:"name"`
 }
+
+// HouseholdId defines model for HouseholdId.
+type HouseholdId = openapi_types.UUID
 
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
@@ -166,6 +211,12 @@ type LogoutParams struct {
 // CreateHouseholdJSONRequestBody defines body for CreateHousehold for application/json ContentType.
 type CreateHouseholdJSONRequestBody = CreateHousehold
 
+// AskQuestionJSONRequestBody defines body for AskQuestion for application/json ContentType.
+type AskQuestionJSONRequestBody = AskQuestion
+
+// AnswerQuestionJSONRequestBody defines body for AnswerQuestion for application/json ContentType.
+type AnswerQuestionJSONRequestBody = AnswerQuestion
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// CompleteLogin Redirect target registered in authentik; finishes the sign-in
@@ -192,9 +243,24 @@ type ServerInterface interface {
 	// GetHousehold One household with its members (members only)
 	// (GET /v1/households/{householdId})
 	GetHousehold(w http.ResponseWriter, r *http.Request, householdId openapi_types.UUID)
+	// CreateInvite Create a one-time invite link code (members only)
+	// (POST /v1/households/{householdId}/invites)
+	CreateInvite(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
+	// ListQuestions The household's questions, newest first (members only)
+	// (GET /v1/households/{householdId}/questions)
+	ListQuestions(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
+	// AskQuestion Ask the household a question
+	// (POST /v1/households/{householdId}/questions)
+	AskQuestion(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
+	// AcceptInvite Join the household an invite belongs to
+	// (POST /v1/invites/{code})
+	AcceptInvite(w http.ResponseWriter, r *http.Request, code string)
 	// GetMe The signed-in user, created on first call
 	// (GET /v1/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// AnswerQuestion Write or change your answer; the question opens once every member has answered
+	// (PUT /v1/questions/{questionId}/answer)
+	AnswerQuestion(w http.ResponseWriter, r *http.Request, questionId openapi_types.UUID)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -249,9 +315,39 @@ func (_ Unimplemented) GetHousehold(w http.ResponseWriter, r *http.Request, hous
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// CreateInvite Create a one-time invite link code (members only)
+// (POST /v1/households/{householdId}/invites)
+func (_ Unimplemented) CreateInvite(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListQuestions The household's questions, newest first (members only)
+// (GET /v1/households/{householdId}/questions)
+func (_ Unimplemented) ListQuestions(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AskQuestion Ask the household a question
+// (POST /v1/households/{householdId}/questions)
+func (_ Unimplemented) AskQuestion(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AcceptInvite Join the household an invite belongs to
+// (POST /v1/invites/{code})
+func (_ Unimplemented) AcceptInvite(w http.ResponseWriter, r *http.Request, code string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetMe The signed-in user, created on first call
 // (GET /v1/me)
 func (_ Unimplemented) GetMe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AnswerQuestion Write or change your answer; the question opens once every member has answered
+// (PUT /v1/questions/{questionId}/answer)
+func (_ Unimplemented) AnswerQuestion(w http.ResponseWriter, r *http.Request, questionId openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -469,11 +565,141 @@ func (siw *ServerInterfaceWrapper) GetHousehold(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// CreateInvite operation middleware
+func (siw *ServerInterfaceWrapper) CreateInvite(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateInvite(w, r, householdId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListQuestions operation middleware
+func (siw *ServerInterfaceWrapper) ListQuestions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListQuestions(w, r, householdId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AskQuestion operation middleware
+func (siw *ServerInterfaceWrapper) AskQuestion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AskQuestion(w, r, householdId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AcceptInvite operation middleware
+func (siw *ServerInterfaceWrapper) AcceptInvite(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "code" -------------
+	var code string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "code", chi.URLParam(r, "code"), &code, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AcceptInvite(w, r, code)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetMe operation middleware
 func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AnswerQuestion operation middleware
+func (siw *ServerInterfaceWrapper) AnswerQuestion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "questionId" -------------
+	var questionId openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "questionId", chi.URLParam(r, "questionId"), &questionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "questionId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AnswerQuestion(w, r, questionId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -622,6 +848,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/households/{householdId}", wrapper.GetHousehold)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/households/{householdId}/invites", wrapper.CreateInvite)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/invites/{code}", wrapper.AcceptInvite)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/households/{householdId}/questions", wrapper.ListQuestions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/households/{householdId}/questions", wrapper.AskQuestion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/questions/{questionId}/answer", wrapper.AnswerQuestion)
 	})
 
 	return r
@@ -919,6 +1160,221 @@ func (response GetHousehold404JSONResponse) VisitGetHouseholdResponse(w http.Res
 	return err
 }
 
+type CreateInviteRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+}
+
+type CreateInviteResponseObject interface {
+	VisitCreateInviteResponse(w http.ResponseWriter) error
+}
+
+type CreateInvite201JSONResponse Invite
+
+func (response CreateInvite201JSONResponse) VisitCreateInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateInvite401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CreateInvite401JSONResponse) VisitCreateInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateInvite404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response CreateInvite404JSONResponse) VisitCreateInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListQuestionsRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+}
+
+type ListQuestionsResponseObject interface {
+	VisitListQuestionsResponse(w http.ResponseWriter) error
+}
+
+type ListQuestions200JSONResponse []Question
+
+func (response ListQuestions200JSONResponse) VisitListQuestionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListQuestions401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListQuestions401JSONResponse) VisitListQuestionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListQuestions404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListQuestions404JSONResponse) VisitListQuestionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AskQuestionRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+	Body        *AskQuestionJSONRequestBody
+}
+
+type AskQuestionResponseObject interface {
+	VisitAskQuestionResponse(w http.ResponseWriter) error
+}
+
+type AskQuestion201JSONResponse Question
+
+func (response AskQuestion201JSONResponse) VisitAskQuestionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AskQuestion400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response AskQuestion400JSONResponse) VisitAskQuestionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AskQuestion401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response AskQuestion401JSONResponse) VisitAskQuestionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AskQuestion404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response AskQuestion404JSONResponse) VisitAskQuestionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptInviteRequestObject struct {
+	Code string `json:"code"`
+}
+
+type AcceptInviteResponseObject interface {
+	VisitAcceptInviteResponse(w http.ResponseWriter) error
+}
+
+type AcceptInvite200JSONResponse Household
+
+func (response AcceptInvite200JSONResponse) VisitAcceptInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptInvite401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response AcceptInvite401JSONResponse) VisitAcceptInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AcceptInvite404JSONResponse Error
+
+func (response AcceptInvite404JSONResponse) VisitAcceptInviteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetMeRequestObject struct {
 }
 
@@ -954,6 +1410,85 @@ func (response GetMe401JSONResponse) VisitGetMeResponse(w http.ResponseWriter) e
 	return err
 }
 
+type AnswerQuestionRequestObject struct {
+	QuestionId openapi_types.UUID `json:"questionId"`
+	Body       *AnswerQuestionJSONRequestBody
+}
+
+type AnswerQuestionResponseObject interface {
+	VisitAnswerQuestionResponse(w http.ResponseWriter) error
+}
+
+type AnswerQuestion200JSONResponse Question
+
+func (response AnswerQuestion200JSONResponse) VisitAnswerQuestionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnswerQuestion400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response AnswerQuestion400JSONResponse) VisitAnswerQuestionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnswerQuestion401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response AnswerQuestion401JSONResponse) VisitAnswerQuestionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnswerQuestion404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response AnswerQuestion404JSONResponse) VisitAnswerQuestionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnswerQuestion409JSONResponse Error
+
+func (response AnswerQuestion409JSONResponse) VisitAnswerQuestionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// CompleteLogin Redirect target registered in authentik; finishes the sign-in
@@ -980,9 +1515,24 @@ type StrictServerInterface interface {
 	// GetHousehold One household with its members (members only)
 	// (GET /v1/households/{householdId})
 	GetHousehold(ctx context.Context, request GetHouseholdRequestObject) (GetHouseholdResponseObject, error)
+	// CreateInvite Create a one-time invite link code (members only)
+	// (POST /v1/households/{householdId}/invites)
+	CreateInvite(ctx context.Context, request CreateInviteRequestObject) (CreateInviteResponseObject, error)
+	// ListQuestions The household's questions, newest first (members only)
+	// (GET /v1/households/{householdId}/questions)
+	ListQuestions(ctx context.Context, request ListQuestionsRequestObject) (ListQuestionsResponseObject, error)
+	// AskQuestion Ask the household a question
+	// (POST /v1/households/{householdId}/questions)
+	AskQuestion(ctx context.Context, request AskQuestionRequestObject) (AskQuestionResponseObject, error)
+	// AcceptInvite Join the household an invite belongs to
+	// (POST /v1/invites/{code})
+	AcceptInvite(ctx context.Context, request AcceptInviteRequestObject) (AcceptInviteResponseObject, error)
 	// GetMe The signed-in user, created on first call
 	// (GET /v1/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// AnswerQuestion Write or change your answer; the question opens once every member has answered
+	// (PUT /v1/questions/{questionId}/answer)
+	AnswerQuestion(ctx context.Context, request AnswerQuestionRequestObject) (AnswerQuestionResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -1229,6 +1779,117 @@ func (sh *strictHandler) GetHousehold(w http.ResponseWriter, r *http.Request, ho
 	}
 }
 
+// CreateInvite operation middleware
+func (sh *strictHandler) CreateInvite(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	var request CreateInviteRequestObject
+
+	request.HouseholdId = householdId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateInvite(ctx, request.(CreateInviteRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateInvite")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateInviteResponseObject); ok {
+		if err := validResponse.VisitCreateInviteResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListQuestions operation middleware
+func (sh *strictHandler) ListQuestions(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	var request ListQuestionsRequestObject
+
+	request.HouseholdId = householdId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListQuestions(ctx, request.(ListQuestionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListQuestions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListQuestionsResponseObject); ok {
+		if err := validResponse.VisitListQuestionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AskQuestion operation middleware
+func (sh *strictHandler) AskQuestion(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	var request AskQuestionRequestObject
+
+	request.HouseholdId = householdId
+
+	var body AskQuestionJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AskQuestion(ctx, request.(AskQuestionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AskQuestion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AskQuestionResponseObject); ok {
+		if err := validResponse.VisitAskQuestionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AcceptInvite operation middleware
+func (sh *strictHandler) AcceptInvite(w http.ResponseWriter, r *http.Request, code string) {
+	var request AcceptInviteRequestObject
+
+	request.Code = code
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AcceptInvite(ctx, request.(AcceptInviteRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AcceptInvite")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AcceptInviteResponseObject); ok {
+		if err := validResponse.VisitAcceptInviteResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetMe operation middleware
 func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	var request GetMeRequestObject
@@ -1253,50 +1914,96 @@ func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// AnswerQuestion operation middleware
+func (sh *strictHandler) AnswerQuestion(w http.ResponseWriter, r *http.Request, questionId openapi_types.UUID) {
+	var request AnswerQuestionRequestObject
+
+	request.QuestionId = questionId
+
+	var body AnswerQuestionJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AnswerQuestion(ctx, request.(AnswerQuestionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AnswerQuestion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AnswerQuestionResponseObject); ok {
+		if err := validResponse.VisitAnswerQuestionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
 // Stored as a slice of fixed-width chunks rather than one concatenated
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"e/L99ubta9om2n4hA7rvJXbfOnzZ3G7+NwA=",
+	"zFp7b9s21/8qB3pfoAmg2O66Ae/r4MGDNOvWbOmatQ36RxPUtHRscZFJjaTseoG/+4NDUhJtyZeuSfb8",
+	"pwvJc/udCw95HyVyVkiBwuhoeB8VTLEZGlT27bUsNWYyTy9SeuUiGkYFM1kUR4LNMBpGWTAijhT+WXKF",
+	"aTQ0qsQ40kmGM0ZTJ1LNmImGUVlyGmmWBU3XRnExjVarFU3WhRQaLeWXLH2Hf5aoDb0lUhgU9pEVRc4T",
+	"ZrgU/T+0FPStIfO/CifRMPqffiNV3/3V/VdKSeVIpagTxQtaJBpGHzIE5YgB18DFnOU87UWrOPpNmp9k",
+	"KdLHZ+I3aWBCpGKQCoQ0MOeaj3MEI8FkCAnLc1SWq2vBSpNJxf/CJ+DsDdeaiymx5VUDLElQazDyDkXF",
+	"0ZzxnI1zfHyGziDFAkWKIlnCEakCheF3MbzDlOtjSJgg/Y3JqizJkEy5qsBo0XUm9AIVPRVKFqgMd6hj",
+	"9jumZ2YNsykzeGL4DNvAjSODX5ygIoWJVIBzVEsp8JkGKRK0trPY4lIQvBTOkeXE1FCUeb4p3JVCjcLY",
+	"pZayVCAXAhxfXdRLjeoiXeN2i4eF3vmpmheHIt/Wk+T4D0wMre809bvnv62xSvoZ+3KJYmqyaPjdYDCI",
+	"oxkX1Yfn+5ixi3RS13dfR/r/HoryuUJmsI5/beou/q1Rf/61cts1uqg76LdoJjK1NNcR896Q28GMJRkX",
+	"eKKQpfYDje5FcYRf2Kwgv4yENJ9tjOlCUoqG8ZyWfyWmOdcZSJEvu0H61j6wHAwmmeAJy8FPjwmHkMup",
+	"BnKIFMfldMrFtEZ7i+4MtWbTDrlelzMmGnH8OODCupTAqTScGUwhZ2JasqkVdrfCrQIbkl2qf40sN1lb",
+	"99owU9qnRp/yrkuRc1TaA3ZdoHeYI9MIfgDIiZVElUJQfD27ulg316D3vDfYK5NnrKHbKdV2IPNDokdc",
+	"4731Q8kc94XydzRmk3FLxy7rF9nJ+I81PFmev51Ew0+7STYSr+JNkWc4G/sKhxuc6X3sv7Hjo1XNH1OK",
+	"LVsCVcu25bhdxdGFmHODBzt1xhQC0zC6KQeDF8nV9cvLi/PP1+8u7Tv2/5Bc9N0/WsF9HfW6TIdfCq5Q",
+	"H57Uur2mWabLUJdyKkvTFk9hyhUm5lrlbSnr3P1MA4r0RKO2nnH97rLbmVtkvWnaZA9Gpcuh+8Ze05iu",
+	"JLoLvNtzl8u6hyPQFywtBMYR03eYvly2dUscA0+rKOPACYtMgp3Si+IGC9ucPrFZ8KvKoQPDSVUFtfn+",
+	"oEp0lZOtpCrGM6ahqlVO/ZMGchKCUFgsszy3uWfCvzgxPfGxlDkyEVL/O3Xebl9x0tLQxjShHgPJ4xoF",
+	"Xdh5hyzlArXuiBgZJnf2iaUpd5n4am1ERwjwSeU+KqQ2U4W6yl/koP6ly8GCvCfKGYloZ6U4VSzFNOB9",
+	"X37ybHcK6721JrEQ1rOc7TtoxBbeHX41Z4YpH2tac3DGePefb0uCWxNbW1bSKCal4mb5nnzbsT1GplCd",
+	"lSZr3n6qmPnl44eotQUKNmDAtS4xhfES6nhKsLexwwLfrtfIkxlTWO+W8o5jRXUj//hI7MaARkPrj/pE",
+	"oU9b0TFL7my6sU0BNyxsC8wwl3L22Uf0hjgr+K+4dNs6LiayIwDQZlcKo1himh0VvPZLQpJzFAaOrj6e",
+	"xSCY4XMEVhQ6hjfnVzGYjKv0pGDKLO3n496N+JBxDROeI23AKBpqWaoEbWxUpcmGoFHNUdmamcZMUaCy",
+	"xeVEyRlwE4MgNuxkaTKKpGwJiorp3o24EZe+BqWVRAojMlBhTqrPo1M78+zqog5dXMDPqGZMwNEoxdEx",
+	"7a+ryvtohGIU2ykTr+vjG0FBTbOlhkXGk4wWGJ27jXZDpwcj0mrPF4OjSuC1mpPrWsExjMtZYdFzIzKi",
+	"sKBwakIbJBkTU9ROBFYUzzSojVLW7msLqYzD4aif2TL6r5FVzns+FSdcDO0CVx/PaDij9Sc8JbiyvEFu",
+	"ZV5ixalcI9Jw12yACwOCzfmUGST83wiPyVxOuQjUrErhJK9aJbYF4Qw8yeUCjhbcZHD16/mrY0tMo6EM",
+	"A6+NKd6KfHkjRpsoHnl36MFvIeyIypvzqwpDtFgIQieQdsBg4kY0soZ9FFvsnYXMDuGl9dwRcKENsrQH",
+	"r7jFnhRYayyxmmBVB6t3Y52NG7uFqJ3m7Ooi2CLQ3uJFb0BBQBYoWMGjYfSiN+i9iGLb4LNRad3Z6csU",
+	"Tdtfz/IFgbIq9DTQaODC961YUfTgrQBdOmG5caqmf1s1TEq8Ec2SRsKoPzp1rrfgGmmZjd//JnY/I22d",
+	"/9UqjGPCtcLKwW/EyALm84TxHNMROd/Izi+bTtbI6ZLyi7UH9Vmic0mJ1OAlTY/itYbpJ98i/bNEtWyC",
+	"oa+fm65XK310z6PMuXfiZtg2a3mg8WaqVakzlmCeY0ryLpiGFAV3RVIXA1aXB3G+Nf7nXk3bl7jd6Py+",
+	"GHzXxthLglQAqCiOMmSpL6EvpWswRsP7IBFvtqBbvJO2Ts4d58P7HSNXYdqOhp9u40iXsxlTS7urdygE",
+	"w9QUCZVTrg0qTClC15Y4hQkXXGfoE5ALiVEcGTYl6Ni9UHRLlIKAFjjdOgzfG6ZMhcH9+muYlEGRAO9t",
+	"zAOdSWVOcj7HNHBJF1ErhzQZMzDmIvVR1RicFcbZhGsYK7nQqB7FMIfPpLk/DF5s203VeuqH/epdxrVq",
+	"Dg0GzATedeTFrlISlyK2vfsJmiQ73m3darssdUdQ/RFzNBVWfC1GiSXJkSnt87PLRR+lutNA2UyWBhi4",
+	"Fr2fRDa2+QgrE91QYB4F23IXGwUUrvMck01JWqDl5CQQl2lYYJ53hUW//e+OhwdUh4fHh+8Ggwc7YvBc",
+	"d5wxUMlCYbI0G5D++9DcAbNX3kSNPjpw40uqrSHhZzS+efmIGvMUtpyiFUq6HK+hLHo7PeuSz1HQ2ELJ",
+	"MQYS66U2OPMyU/d3uVPkZp/8iFI3RLqOo/K8OZDi6JoS9uSJwksvamLSE/BigApzYyvE4JSMa0jlQuw2",
+	"Sb2yswkcuR07XPmOgQ1A7oxtm73mz/v1ibDearZLrs3rZtg3Gu6gBlrYDt7s4nZCmeqlZxoaaawhvx88",
+	"Pyi5NMezq1Wo4kZqF8JLpVAYSwzGmEsx1WBkoN1Am9RErpLFRk26cVjl2hGozUuZLh8MeJtUVut9DwqA",
+	"q5Ypnz9c5Fkn3LaYwEVjLm+twX5rBTcNHsDATknAGk5Og9N7GGMiZ0ibIA1Vk6vT1C1n6t8HVy1WO5PA",
+	"Gg4eKw9snMtsscmmPb5auTTp+/2T6nsa69Z4KwIWbIlkNe8PauCoeqCTzuMdXtdR0zzONZjbPXbvc3uK",
+	"1Lqqs+UwrBnSD6/yrG53RxJ/VPWIzuwpbEGNE7IHH7J6w057lIWw5wKn1lzWkBnTmf1ppMJ/CGO1x0vh",
+	"Dg88+5BzcefYPwxn+0xfXSLZnVd/r0c9RVqtqB2SVa8L2ln8MKhvw+gevLXtLK+eZ3VvNGFKLUFIoJMU",
+	"KIXh+Y57NP+E1deC2zPdyBRTHkJtYMKVNttNX0/oijAP4svh5ZnHqQhCCk9cDazT7S4GKhU/YS3wbaA6",
+	"03dgQmABq4XYAh0fNHxa6N9TvFl1ZIeOnOXbktuT1dddbQpw2DqIdtWuj4tl0QN3PEK3XpiovhsZlk10",
+	"+Q1YbjeAvjSmETmyua2foBSldq3LDdjbpbelsMHT1aONKHRX4wEC1ePeqrwWd0IuREybEdsfdvc90so8",
+	"RzaVjdzbZ38TdHTc28DwL9Jf0ApAXJt4/xbH43mGW5Pcz2jePKph/VWPTpuGG7YH2RB+8K1FTKm5SMvG",
+	"4G8LgBQ+idDmIVAYHSxXiqpjQf++eqRagTUXXPfGgWbet5WucVSUXWlo/QbpI2WidSIHJaPBkyWjumxh",
+	"E2MPCIlZeynyvzcx0YT/f5q792FVV0X8qro7DWpCQRUhBRBU/ky6Ckp+1udqVjssfVQUf2Q90V6tdkuf",
+	"rpeWskCh91xA2paM15tr6/c6Pt3SaVl45+LTLTmNOzV23lmqPBpGfVvUeQL39Wmg67Ot4voL2Td8n2H4",
+	"FoTV4GvD7up29Z8BAA==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

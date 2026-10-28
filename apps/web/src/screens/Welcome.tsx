@@ -3,14 +3,14 @@ import { Button } from "../ui/Button";
 
 const knownErrors = ["login_failed", "auth_unavailable"] as const;
 
-export function Welcome() {
+export function Welcome({ invited }: { invited?: boolean }) {
   const { t } = useTranslation();
   const code = new URLSearchParams(window.location.search).get("auth_error");
   const error = knownErrors.find((e) => e === code);
   return (
     <div className="center">
       <h1 className="large-title">Homeloom</h1>
-      <p className="body muted">{t("app.tagline")}</p>
+      <p className="body muted">{t(invited ? "join.signIn" : "app.tagline")}</p>
       {error && (
         <p className="callout error" role="alert">
           {t(`auth.error.${error}`)}

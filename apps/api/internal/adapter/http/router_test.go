@@ -44,6 +44,7 @@ func newServer(t *testing.T, checks ...port.HealthCheck) http.Handler {
 		Identity:      service.NewIdentity(fakeVerifier{}, sessions, store),
 		Login:         service.NewLogin(memory.NewLoginProvider(), sessions),
 		Households:    service.NewHousehold(store),
+		Questions:     service.NewQuestion(store, store),
 		HealthChecks:  checks,
 		SecureCookies: true,
 		SessionTTL:    time.Hour,
@@ -147,6 +148,63 @@ func TestHouseholdFlow(t *testing.T) {
 	}
 	if code, _ := do(t, h, "GET", "/v1/households/not-a-uuid", "token-alice", ""); code != 400 {
 		t.Fatalf("bad id: want 400, got %d", code)
+	}
+}
+
+func TestTogetherFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	id := created["id"].(string)
+
+	if code, _ := do(t, h, "POST", "/v1/households/"+id+"/invites", "token-eve", ""); code != 404 {
+		t.Fatalf("non-member invite: want 404, got %d", code)
+	}
+	code, inv := do(t, h, "POST", "/v1/households/"+id+"/invites", "token-alice", "")
+	if code != 201 || inv["code"] == "" || inv["expiresAt"] == nil {
+		t.Fatalf("invite: %d %v", code, inv)
+	}
+	if code, joined := do(t, h, "POST", "/v1/invites/"+inv["code"].(string), "token-bob", ""); code != 200 || joined["id"] != id || joined["role"] != "member" {
+		t.Fatalf("join: %d %v", code, joined)
+	}
+	if code, body := do(t, h, "POST", "/v1/invites/"+inv["code"].(string), "token-eve", "", "Accept-Language", "de"); code != 404 || body["code"] != "invite_invalid" || !strings.Contains(body["message"].(string), "gilt nicht mehr") {
+		t.Fatalf("reused invite: %d %v", code, body)
+	}
+
+	if code, body := do(t, h, "POST", "/v1/households/"+id+"/questions", "token-alice", `{"text":"  "}`); code != 400 || body["code"] != "invalid_text" {
+		t.Fatalf("blank question: %d %v", code, body)
+	}
+	code, q := do(t, h, "POST", "/v1/households/"+id+"/questions", "token-alice", `{"text":"Best moment today?"}`)
+	if code != 201 || q["revealed"] != false {
+		t.Fatalf("ask: %d %v", code, q)
+	}
+	answer := "/v1/questions/" + q["id"].(string) + "/answer"
+	if code, _ := do(t, h, "PUT", answer, "token-eve", `{"text":"hi"}`); code != 404 {
+		t.Fatalf("non-member answer: want 404, got %d", code)
+	}
+	if code, _ := do(t, h, "PUT", answer, "token-alice", `{"text":"Breakfast"}`); code != 200 {
+		t.Fatalf("alice answers: %d", code)
+	}
+
+	// Bob sees that Alice answered, but not what.
+	req := httptest.NewRequest("GET", "/v1/households/"+id+"/questions", nil)
+	req.Header.Set("Authorization", "Bearer token-bob")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	var list []map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil || len(list) != 1 {
+		t.Fatalf("list: %v %s", err, rec.Body)
+	}
+	sealed := list[0]["answers"].([]any)[0].(map[string]any)
+	if _, hasText := sealed["text"]; hasText {
+		t.Fatalf("bob must not see alice's text: %v", sealed)
+	}
+
+	code, q = do(t, h, "PUT", answer, "token-bob", `{"text":"The walk"}`)
+	if code != 200 || q["revealed"] != true || len(q["answers"].([]any)) != 2 {
+		t.Fatalf("bob answers, question opens: %d %v", code, q)
+	}
+	if code, body := do(t, h, "PUT", answer, "token-alice", `{"text":"changed"}`); code != 409 || body["code"] != "already_revealed" {
+		t.Fatalf("change after reveal: %d %v", code, body)
 	}
 }
 

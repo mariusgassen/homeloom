@@ -101,3 +101,76 @@ test("without a household, onboarding creates one", async () => {
   const post = calls.find((c) => c.method === "POST");
   expect(await post?.json()).toEqual({ name: "Our place" });
 });
+
+const pair = { ...home, members: [{ user: marius, role: "owner" }, { user: jo, role: "member" }] };
+const signedIn = (detail: unknown = pair): Route[] => [
+  at("GET", "/v1/me", () => json(marius)),
+  at("GET", "/v1/households", () => json([home])),
+  at("GET", `/v1/households/${home.id}`, () => json(detail)),
+];
+
+test("a question stays sealed until both have answered", async () => {
+  const q = { id: "44444444-4444-4444-8444-444444444444", text: "Best trip?", askedBy: jo.id, createdAt: "2026-10-27T18:00:00Z", revealed: false };
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/questions`, () => json([{ ...q, answers: [{ userId: jo.id, answeredAt: q.createdAt }] }])),
+    at("PUT", `/v1/questions/${q.id}/answer`, () =>
+      json({
+        ...q,
+        revealed: true,
+        revealedAt: "2026-10-28T08:00:00Z",
+        answers: [
+          { userId: jo.id, text: "Lisbon", answeredAt: q.createdAt },
+          { userId: marius.id, text: "Porto", answeredAt: "2026-10-28T08:00:00Z" },
+        ],
+      }),
+    ),
+  );
+  renderApp("/us");
+  expect(await screen.findByText("Jo has answered")).toBeInTheDocument();
+  expect(screen.queryByText("Lisbon")).not.toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText("Your answer"), "Porto");
+  await userEvent.click(screen.getByRole("button", { name: "Answer" }));
+  expect(await screen.findByText("Lisbon")).toBeInTheDocument();
+  expect(screen.getByText("Porto")).toBeInTheDocument();
+  expect(await calls.find((c) => c.method === "PUT")?.json()).toEqual({ text: "Porto" });
+});
+
+test("settings creates an invite link", async () => {
+  serve(...signedIn({ ...home, members: [{ user: marius, role: "owner" }] }), at("POST", `/v1/households/${home.id}/invites`, () => json({ code: "abc", expiresAt: "2026-11-04T10:00:00Z" }, 201)));
+  renderApp("/settings");
+  await userEvent.click(await screen.findByRole("button", { name: "Invite someone" }));
+  expect(await screen.findByText(`${window.location.origin}/join/abc`)).toBeInTheDocument();
+});
+
+test("an invite link waits through sign-in, then joins", async () => {
+  serve(at("GET", "/v1/me", () => json({}, 401)));
+  const { unmount } = renderApp("/join/abc");
+  expect(await screen.findByText(/Sign in to join/)).toBeInTheDocument();
+  unmount();
+  vi.unstubAllGlobals();
+
+  // Back from authentik on "/": the stored code is accepted before onboarding would show.
+  let joined = false;
+  serve(
+    at("GET", "/v1/me", () => json(marius)),
+    at("GET", "/v1/households", () => json(joined ? [home] : [])),
+    at("POST", "/v1/invites/abc", () => {
+      joined = true;
+      return json(home);
+    }),
+    at("GET", `/v1/households/${home.id}`, () => json(pair)),
+  );
+  renderApp("/");
+  expect(await screen.findByRole("heading", { level: 1, name: "Today" })).toBeInTheDocument();
+  expect(joined).toBe(true);
+  expect(localStorage.getItem("homeloom.invite")).toBeNull();
+});
+
+test("a used invite says so and lets you go on", async () => {
+  serve(...signedIn(), at("POST", "/v1/invites/old", () => json({ code: "invite_invalid", message: "This invite link is no longer valid." }, 404)));
+  renderApp("/join/old");
+  expect(await screen.findByRole("alert")).toHaveTextContent("no longer valid");
+  await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+  expect(await screen.findByRole("heading", { level: 1, name: "Today" })).toBeInTheDocument();
+});

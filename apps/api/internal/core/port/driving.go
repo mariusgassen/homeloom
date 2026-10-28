@@ -29,4 +29,12 @@ type HouseholdService interface {
 	List(ctx context.Context, actor domain.User) ([]domain.Membership, error)
 	Create(ctx context.Context, actor domain.User, name string) (domain.Membership, error)
 	Get(ctx context.Context, actor domain.User, id uuid.UUID) (domain.HouseholdDetail, error)
+	Invite(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Invite, error)
+	Join(ctx context.Context, actor domain.User, code string) (domain.Membership, error)
+}
+
+type QuestionService interface {
+	List(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.Question, error)
+	Ask(ctx context.Context, actor domain.User, householdID uuid.UUID, text string) (domain.Question, error)
+	Answer(ctx context.Context, actor domain.User, questionID uuid.UUID, text string) (domain.Question, error)
 }

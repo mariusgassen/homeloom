@@ -67,6 +67,12 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 - If authentik or Redis cannot be reached the API returns `503 auth_unavailable`, not `401`, and health checks keep working. A failed login redirects to `/?auth_error=login_failed` or `/?auth_error=auth_unavailable`.
 - Sessions are stored under a hash of their id, so a Redis dump holds no usable cookies. They last `SESSION_TTL` (30 days by default).
 
+## Households and questions
+
+- **Invites:** a member creates a one-time code (`POST /v1/households/{id}/invites`), shared as `PUBLIC_URL/join/<code>` and valid for 7 days. Only its SHA-256 is stored. Accepting it (`POST /v1/invites/{code}`) locks the invite row, so a code joins exactly one person. A used, expired or unknown code is the same `404 invite_invalid`. The PWA keeps a pending code in localStorage while the person signs in.
+- **Reveal together:** any member asks a question. Answers stay sealed, and the API leaves others' text out, until every current member (at least two) has answered. The last answer reveals the question in the same transaction, under a lock on the question row, so two simultaneous answers cannot both miss the reveal. You can change your answer until then; afterwards it is fixed (`409 already_revealed`).
+- Sealing happens in `core/service`, so later adapters (MCP, notifications) cannot leak an answer early.
+
 ## PWA
 
 ```

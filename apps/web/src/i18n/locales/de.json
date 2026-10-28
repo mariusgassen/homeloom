@@ -20,12 +20,59 @@
   },
   "settings": { "title": "Einstellungen", "you": "Du", "household": "Haushalt", "owner": "Inhaber:in", "member": "Mitglied", "open": "Haushalt und Einstellungen" },
   "today": {
-    "question": { "eyebrow": "Frage des Abends", "title": "Fragen sind unterwegs", "body": "Ihr antwortet beide, und die Antworten öffnen sich, sobald ihr fertig seid." },
+    "question": { "eyebrow": "Frage des Tages", "title": "Noch keine Frage", "body": "Stell eine, dann antwortet ihr beide. Die Antworten öffnen sich, sobald ihr fertig seid." },
     "dinner": { "eyebrow": "Heute Abend", "title": "Noch nichts geplant", "body": "Rezepte aus Mealie und Kochen nach Laune erscheinen hier." },
     "due": { "eyebrow": "Heute fällig", "title": "Alles erledigt", "body": "Gemeinsame Erinnerungen erscheinen hier." }
   },
   "cook": { "title": "Noch wird nicht gekocht", "body": "Wähl eine Laune, und Homeloom findet ein Rezept in Mealie und setzt Fehlendes auf die Einkaufsliste." },
-  "us": { "title": "Hier wohnen eure Fragen", "body": "Fragen, die ihr gemeinsam beantwortet, und Notizen, die privat, geteilt oder später offen sind." },
+  "us": {
+    "title": "Noch keine Fragen",
+    "body": "Stell die erste, oder lass dir eine vorschlagen.",
+    "alone": { "title": "Zu zweit geht's besser", "body": "Antworten öffnen sich erst, wenn alle im Haushalt geantwortet haben. Lade zuerst deinen Schatz ein." }
+  },
   "lists": { "title": "Noch keine Listen", "body": "Einkauf und gemeinsame To-dos, abgeglichen mit Mealie." },
-  "home": { "title": "Smart Home kommt später", "body": "Dinner-Modus und Szenen aus Home Assistant, nur für Licht, Szenen und Musik." }
+  "home": { "title": "Smart Home kommt später", "body": "Dinner-Modus und Szenen aus Home Assistant, nur für Licht, Szenen und Musik." },
+  "questions": {
+    "ask": "Stell eine Frage",
+    "askPlaceholder": "Was möchtest du wissen?",
+    "askSend": "Fragen",
+    "suggest": "Vorschlag",
+    "yourAnswer": "Deine Antwort",
+    "private": "Bleibt verborgen, bis alle geantwortet haben.",
+    "send": "Antworten",
+    "save": "Speichern",
+    "edit": "Antwort ändern",
+    "opened": "Offen",
+    "sealed": "Versiegelt",
+    "you": "Du",
+    "theyAnswered": "{{name}} hat geantwortet",
+    "waiting": "Warte auf {{name}}",
+    "failed": "Das hat nicht geklappt. Versuch es bitte nochmal.",
+    "suggestions": [
+      "Was hat dich diese Woche zum Lächeln gebracht?",
+      "Welche gemeinsame Reise würdest du morgen wieder machen?",
+      "Was ist eine Kleinigkeit, die ich mache und die du liebst?",
+      "Was sollten wir dieses Jahr zum ersten Mal ausprobieren?",
+      "Welches Essen erinnert dich an zu Hause?",
+      "Wie sähe dein perfekter fauler Sonntag aus?",
+      "Worauf freust du dich gerade?",
+      "Welcher Song gehört auf unsere gemeinsame Playlist?"
+    ]
+  },
+  "invite": {
+    "create": "Jemanden einladen",
+    "body": "Schick diesen Link an deinen Schatz. Er gilt einmal und bis {{date}}.",
+    "share": "Link teilen",
+    "copy": "Link kopieren",
+    "copied": "Kopiert",
+    "shareText": "Komm zu uns nach Hause auf Homeloom.",
+    "failed": "Die Einladung hat nicht geklappt. Versuch es bitte nochmal."
+  },
+  "join": {
+    "signIn": "Du wurdest in ein Zuhause auf Homeloom eingeladen. Melde dich an, um beizutreten.",
+    "joining": "Trete bei…",
+    "title": "Die Einladung hat nicht geklappt",
+    "failed": "Das hat nicht geklappt. Versuch es bitte nochmal.",
+    "continue": "Weiter"
+  }
 }

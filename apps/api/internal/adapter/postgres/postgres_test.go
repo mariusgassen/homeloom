@@ -9,11 +9,13 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/postgres"
+	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/storetest"
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/domain"
 )
 
-// Runs against a real database when TEST_DATABASE_URL is set (CI provides one).
-func TestStore(t *testing.T) {
+// store connects to TEST_DATABASE_URL (CI provides one) and migrates it, or skips the test.
+func store(t *testing.T) *postgres.Store {
+	t.Helper()
 	url := os.Getenv("TEST_DATABASE_URL")
 	if url == "" {
 		t.Skip("TEST_DATABASE_URL not set")
@@ -23,11 +25,19 @@ func TestStore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer pool.Close()
+	t.Cleanup(pool.Close)
 	if err := postgres.Migrate(ctx, pool); err != nil {
 		t.Fatal(err)
 	}
-	s := postgres.NewStore(pool)
+	return postgres.NewStore(pool)
+}
+
+func TestInvites(t *testing.T)   { storetest.Invites(t, store(t)) }
+func TestQuestions(t *testing.T) { storetest.Questions(t, store(t)) }
+
+func TestStore(t *testing.T) {
+	ctx := context.Background()
+	s := store(t)
 
 	sub := "sub-" + uuid.NewString()
 	alice, err := s.UpsertByIdentity(ctx, domain.Identity{Subject: sub, Name: "Alice"})

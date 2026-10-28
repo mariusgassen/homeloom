@@ -99,6 +99,7 @@ func run() error {
 		Identity:       identity,
 		Login:          login,
 		Households:     service.NewHousehold(store),
+		Questions:      service.NewQuestion(store, store),
 		HealthChecks:   []port.HealthCheck{postgres.HealthCheck{Pool: pool}, redis.HealthCheck{Client: rdb}},
 		AllowedOrigins: cfg.AllowedOrigins,
 		SecureCookies:  cfg.SecureCookies(),
