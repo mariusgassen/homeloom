@@ -15,7 +15,7 @@ import (
 func TestAgentTokens(t *testing.T) {
 	ctx := context.Background()
 	f := newEntryFixture(t)
-	agents := service.NewAgentAccess(f.store, memory.NewSessions())
+	agents := service.NewAgentAccess(f.store, memory.NewSessions(), f.store)
 	agents.SetClock(func() time.Time { return f.now })
 
 	if _, err := agents.Mint(ctx, f.eve, f.household, time.Hour); !errors.Is(err, domain.ErrNotFound) {
@@ -55,5 +55,52 @@ func TestAgentTokens(t *testing.T) {
 	}
 	if _, err := agents.Authenticate(ctx, token); !errors.Is(err, domain.ErrUnauthenticated) {
 		t.Fatalf("revoked token: %v", err)
+	}
+}
+
+func TestPersonalTokens(t *testing.T) {
+	ctx := context.Background()
+	f := newEntryFixture(t)
+	agents := service.NewAgentAccess(f.store, memory.NewSessions(), f.store)
+
+	if _, _, err := agents.CreateToken(ctx, f.eve, f.household, "Claude"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("a non-member made a token: %v", err)
+	}
+	var text domain.TextError
+	for _, name := range []string{"  ", strings.Repeat("x", domain.MaxMCPTokenName+1)} {
+		if _, _, err := agents.CreateToken(ctx, f.alice, f.household, name); !errors.As(err, &text) {
+			t.Fatalf("name %q: %v", name, err)
+		}
+	}
+
+	tok, secret, err := agents.CreateToken(ctx, f.alice, f.household, "  Claude   on my phone ")
+	if err != nil || tok.Name != "Claude on my phone" || !strings.HasPrefix(secret, domain.MCPTokenPrefix) {
+		t.Fatalf("create: %+v %q, %v", tok, secret, err)
+	}
+	g, err := agents.Authenticate(ctx, secret)
+	if err != nil || g.User.ID != f.alice.ID || g.HouseholdID != f.household {
+		t.Fatalf("authenticate: %+v, %v", g, err)
+	}
+	if _, err := agents.Authenticate(ctx, domain.MCPTokenPrefix+"made-up"); !errors.Is(err, domain.ErrUnauthenticated) {
+		t.Fatalf("made-up token: %v", err)
+	}
+
+	if ts, err := agents.Tokens(ctx, f.bob, f.household); err != nil || len(ts) != 0 {
+		t.Fatalf("bob sees: %+v, %v", ts, err)
+	}
+	if _, err := agents.Tokens(ctx, f.eve, f.household); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("eve lists: %v", err)
+	}
+	if ts, err := agents.Tokens(ctx, f.alice, f.household); err != nil || len(ts) != 1 || ts[0].ID != tok.ID {
+		t.Fatalf("alice sees: %+v, %v", ts, err)
+	}
+	if err := agents.DeleteToken(ctx, f.bob, tok.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("bob deleted alice's token: %v", err)
+	}
+	if err := agents.DeleteToken(ctx, f.alice, tok.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := agents.Authenticate(ctx, secret); !errors.Is(err, domain.ErrUnauthenticated) {
+		t.Fatalf("deleted token: %v", err)
 	}
 }

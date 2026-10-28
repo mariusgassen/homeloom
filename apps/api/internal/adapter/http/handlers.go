@@ -24,6 +24,7 @@ type handlers struct {
 	push       port.PushService
 	calls      port.CallService
 	assistant  port.AssistantService
+	agents     port.AgentAccessService
 	login      port.LoginService
 	cookies    cookies
 	checks     []port.HealthCheck

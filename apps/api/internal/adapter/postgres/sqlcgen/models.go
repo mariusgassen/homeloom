@@ -129,6 +129,15 @@ type Invite struct {
 	CreatedAt   time.Time
 }
 
+type McpToken struct {
+	ID          uuid.UUID
+	TokenHash   []byte
+	UserID      uuid.UUID
+	HouseholdID uuid.UUID
+	Name        string
+	CreatedAt   time.Time
+}
+
 type Membership struct {
 	HouseholdID uuid.UUID
 	UserID      uuid.UUID

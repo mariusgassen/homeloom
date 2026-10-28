@@ -210,6 +210,16 @@ type Assistant interface {
 // as a failed call, so its message must be fit for that.
 type ToolRunner func(ctx context.Context, call domain.ToolCall) (string, error)
 
+type MCPTokenRepository interface {
+	CreateMCPToken(ctx context.Context, tokenHash []byte, t domain.MCPToken) (domain.MCPToken, error)
+	// ListMCPTokens returns the user's tokens in the household, newest first.
+	ListMCPTokens(ctx context.Context, householdID, userID uuid.UUID) ([]domain.MCPToken, error)
+	// DeleteMCPToken returns domain.ErrNotFound unless the user has a token with that id.
+	DeleteMCPToken(ctx context.Context, id, userID uuid.UUID) error
+	// MCPTokenByHash returns the token and its owner, or domain.ErrNotFound.
+	MCPTokenByHash(ctx context.Context, tokenHash []byte) (domain.MCPToken, domain.User, error)
+}
+
 type ConversationRepository interface {
 	CreateConversation(ctx context.Context, c domain.Conversation) (domain.Conversation, error)
 	// GetConversation returns domain.ErrNotFound for an unknown id.

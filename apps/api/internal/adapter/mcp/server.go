@@ -40,8 +40,9 @@ type caller struct {
 type callerKey struct{}
 
 // NewHandler serves MCP over streamable HTTP without sessions. Every request carries a bearer
-// token: an access token from authentik, or an agent token from the API. With an access token,
-// ?household=<id> picks the household; it may be left out by members of just one.
+// token: a personal token a member made in the app, an agent token from the API, or an access
+// token from authentik. The first two belong to one household; with an access token,
+// ?household=<id> picks it, and members of just one may leave it out.
 func NewHandler(d Deps) http.Handler {
 	h := sdk.NewStreamableHTTPHandler(func(r *http.Request) *sdk.Server {
 		c, _ := r.Context().Value(callerKey{}).(caller)
@@ -77,7 +78,7 @@ func (d Deps) caller(r *http.Request) (caller, error) {
 		return caller{}, domain.ErrUnauthenticated
 	}
 	ctx := r.Context()
-	if strings.HasPrefix(token, domain.AgentTokenPrefix) {
+	if strings.HasPrefix(token, domain.AgentTokenPrefix) || strings.HasPrefix(token, domain.MCPTokenPrefix) {
 		g, err := d.Agents.Authenticate(ctx, token)
 		if err != nil {
 			return caller{}, err

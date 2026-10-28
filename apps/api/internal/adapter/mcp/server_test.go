@@ -50,7 +50,7 @@ func newFixture(t *testing.T) *fixture {
 	f := &fixture{
 		identity:   service.NewIdentity(fakeVerifier{}, sessions, store),
 		households: service.NewHousehold(store),
-		agents:     service.NewAgentAccess(store, sessions),
+		agents:     service.NewAgentAccess(store, sessions, store),
 	}
 	srv := httptest.NewServer(mcpadapter.NewHandler(mcpadapter.Deps{
 		Version:    "1.2.3",
@@ -149,6 +149,26 @@ func TestToolsActAsTheCaller(t *testing.T) {
 		t.Fatalf("the agent's view: %s", out)
 	}
 
+	// So is a personal token she made for an app, until she deletes it.
+	tok, secret, err := f.agents.CreateToken(ctx, alice, m.Household.ID, "Claude")
+	if err != nil {
+		t.Fatal(err)
+	}
+	app, err := connect(t, f.url, secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	if out, _ := call(t, app, "list_entries", map[string]any{"kind": "reminder"}); !strings.Contains(out, "Call grandma") {
+		t.Fatalf("the app's view: %s", out)
+	}
+	if err := f.agents.DeleteToken(ctx, alice, tok.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.CallTool(ctx, &sdk.CallToolParams{Name: "list_entries", Arguments: map[string]any{"kind": "reminder"}}); err == nil {
+		t.Fatal("a deleted token still works")
+	}
+
 	// Eve isn't a member: asking for the household gets her nothing.
 	f.user(t, "token-eve")
 	eve, err := connect(t, f.url+"?household="+m.Household.ID.String(), "token-eve")
@@ -177,6 +197,7 @@ func TestAuthentication(t *testing.T) {
 		{"", "", http.StatusUnauthorized},
 		{"nonsense", "", http.StatusUnauthorized},
 		{domain.AgentTokenPrefix + "made-up", "", http.StatusUnauthorized},
+		{domain.MCPTokenPrefix + "made-up", "", http.StatusUnauthorized},
 		{"token-down", "", http.StatusServiceUnavailable},
 		// With two households she has to pick one.
 		{"token-alice", "", http.StatusBadRequest},

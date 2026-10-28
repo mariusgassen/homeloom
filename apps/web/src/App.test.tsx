@@ -613,6 +613,28 @@ test("an expired guest link says so", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent("This link has expired");
 });
 
+test("settings makes and removes a key for another app", async () => {
+  const token = { id: "66666666-6666-4666-8666-666666666666", name: "Claude", createdAt: "2026-10-28T12:00:00Z" };
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/mcp-tokens`, () => json([])),
+    at("POST", `/v1/households/${home.id}/mcp-tokens`, () => json({ ...token, secret: "hlp_secret" }, 201)),
+    at("DELETE", `/v1/mcp-tokens/${token.id}`, () => new Response(null, { status: 204 })),
+  );
+  renderApp("/settings");
+  await userEvent.type(await screen.findByRole("textbox", { name: "App" }), "Claude");
+  await userEvent.click(screen.getByRole("button", { name: "Make key" }));
+  expect(await screen.findByText("hlp_secret")).toBeInTheDocument();
+  expect(screen.getByText(`${window.location.origin}/mcp`)).toBeInTheDocument();
+  const post = calls.find((c) => c.method === "POST" && c.url.endsWith("/mcp-tokens"));
+  expect(await post?.json()).toEqual({ name: "Claude" });
+
+  await userEvent.click(screen.getByRole("button", { name: "Done" }));
+  expect(screen.queryByText("hlp_secret")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+  await waitFor(() => expect(screen.queryByText("Claude")).not.toBeInTheDocument());
+});
+
 const sse = (...events: [string, unknown][]) =>
   new Response(events.map(([e, d]) => `event: ${e}\ndata: ${JSON.stringify(d)}\n\n`).join(""), { headers: { "Content-Type": "text/event-stream" } });
 

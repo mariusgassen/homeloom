@@ -36,6 +36,7 @@ type Deps struct {
 	Push           port.PushService
 	Calls          port.CallService
 	Assistant      port.AssistantService
+	Agents         port.AgentAccessService
 	HealthChecks   []port.HealthCheck
 	AllowedOrigins []string
 	// SecureCookies is true when the API is served over HTTPS; SessionTTL is how long a login lasts.
@@ -88,6 +89,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 		push:       d.Push,
 		calls:      d.Calls,
 		assistant:  d.Assistant,
+		agents:     d.Agents,
 		login:      d.Login,
 		cookies:    cookies{secure: d.SecureCookies, sessionTTL: d.SessionTTL},
 		checks:     d.HealthChecks,

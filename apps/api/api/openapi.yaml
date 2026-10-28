@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.11.0
+  version: 0.12.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -1029,6 +1029,60 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  /v1/households/{householdId}/mcp-tokens:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [assistant]
+      operationId: listMcpTokens
+      summary: Your tokens for other apps that use Homeloom's tools at /mcp
+      responses:
+        "200":
+          description: Your tokens in this household, newest first; the secrets are only shown when made.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/McpToken" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [assistant]
+      operationId: createMcpToken
+      summary: Make a token for an app that uses Homeloom's tools
+      description: |
+        The app sends it as `Authorization: Bearer <secret>` to `/mcp` and acts as you in this
+        household until you delete the token. Only a hash of it is stored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/McpTokenRequest" }
+      responses:
+        "201":
+          description: The new token with its secret, shown this once.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/McpTokenCreated" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/mcp-tokens/{tokenId}:
+    parameters:
+      - name: tokenId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    delete:
+      tags: [assistant]
+      operationId: deleteMcpToken
+      summary: Delete one of your tokens; the app loses access at once
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
 components:
   parameters:
     HouseholdId:
@@ -1523,6 +1577,28 @@ components:
         title: { type: string, description: The start of its first message. }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    McpTokenRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60, description: Which app it is for. }
+
+    McpToken:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    McpTokenCreated:
+      allOf:
+        - $ref: "#/components/schemas/McpToken"
+        - type: object
+          required: [secret]
+          properties:
+            secret: { type: string, description: The bearer token. }
 
     ConversationDetail:
       allOf:

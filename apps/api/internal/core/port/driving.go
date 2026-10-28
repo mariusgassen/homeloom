@@ -140,13 +140,19 @@ type ToolService interface {
 	RunTool(ctx context.Context, actor domain.User, householdID uuid.UUID, call domain.ToolCall) (string, error)
 }
 
-// AgentAccessService hands out tokens with which a helper, such as the voice agent, uses the
-// tools as one member of one household.
+// AgentAccessService hands out tokens with which another app or a helper, such as the voice
+// agent, uses the tools as one member of one household.
 type AgentAccessService interface {
 	// Mint returns a token for actor in the household that lasts ttl (at most
 	// domain.MaxAgentTokenTTL).
 	Mint(ctx context.Context, actor domain.User, householdID uuid.UUID, ttl time.Duration) (string, error)
-	// Authenticate returns domain.ErrUnauthenticated for an unknown, revoked or expired token.
+	// Authenticate takes a minted or a personal token. It returns domain.ErrUnauthenticated for
+	// an unknown, revoked or expired one.
 	Authenticate(ctx context.Context, token string) (domain.AgentGrant, error)
 	Revoke(ctx context.Context, token string) error
+	// Tokens are the actor's personal tokens in the household.
+	Tokens(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.MCPToken, error)
+	// CreateToken makes a personal token that lasts until it is deleted, and returns its secret.
+	CreateToken(ctx context.Context, actor domain.User, householdID uuid.UUID, name string) (domain.MCPToken, string, error)
+	DeleteToken(ctx context.Context, actor domain.User, id uuid.UUID) error
 }

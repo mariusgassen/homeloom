@@ -75,6 +75,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Push:          push,
 		Calls:         service.NewCall(store, sessions, memory.NewCallServer(), push),
 		Assistant:     service.NewAssistant(store, store, &memory.Assistant{}, entries, cook, shopping, home, time.UTC),
+		Agents:        service.NewAgentAccess(store, sessions, store),
 		HealthChecks:  checks,
 		SecureCookies: true,
 		SessionTTL:    time.Hour,
@@ -114,6 +115,33 @@ func doList(t *testing.T, h http.Handler, path, token string) (int, []map[string
 	var out []map[string]any
 	_ = json.Unmarshal(rec.Body.Bytes(), &out)
 	return rec.Code, out
+}
+
+func TestMcpTokensFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	tokens := "/v1/households/" + created["id"].(string) + "/mcp-tokens"
+
+	code, tok := do(t, h, "POST", tokens, "token-alice", `{"name":"Claude"}`)
+	if code != http.StatusCreated || tok["name"] != "Claude" || !strings.HasPrefix(tok["secret"].(string), domain.MCPTokenPrefix) {
+		t.Fatalf("create: %d %v", code, tok)
+	}
+	if code, body := do(t, h, "POST", tokens, "token-alice", `{"name":"   "}`); code != 400 || body["code"] != "invalid_text" {
+		t.Fatalf("blank name: %d %v", code, body)
+	}
+	code, list := doList(t, h, tokens, "token-alice")
+	if code != 200 || len(list) != 1 || list[0]["id"] != tok["id"] || list[0]["secret"] != nil {
+		t.Fatalf("list: %d %v", code, list)
+	}
+	if code, _ := doList(t, h, tokens, "token-bob"); code != 404 {
+		t.Fatalf("bob listed alice's household: %d", code)
+	}
+	if code, _ := do(t, h, "DELETE", "/v1/mcp-tokens/"+tok["id"].(string), "token-bob", ""); code != 404 {
+		t.Fatalf("bob deleted alice's token: %d", code)
+	}
+	if code, _ := do(t, h, "DELETE", "/v1/mcp-tokens/"+tok["id"].(string), "token-alice", ""); code != 204 {
+		t.Fatalf("delete: %d", code)
+	}
 }
 
 func TestUnknownPath(t *testing.T) {

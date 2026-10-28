@@ -165,6 +165,7 @@ func run() error {
 	homeService := service.NewHome(store, homeConnections, sessions, home)
 	households := service.NewHousehold(store)
 	assistant := service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone)
+	agents := service.NewAgentAccess(store, sessions, store)
 
 	handler, err := httpadapter.NewRouter(httpadapter.Deps{
 		Version:        version,
@@ -179,6 +180,7 @@ func run() error {
 		Push:           push,
 		Calls:          service.NewCall(store, sessions, calls, push),
 		Assistant:      assistant,
+		Agents:         agents,
 		HealthChecks:   []port.HealthCheck{postgres.HealthCheck{Pool: pool}, redis.HealthCheck{Client: rdb}},
 		AllowedOrigins: cfg.AllowedOrigins,
 		SecureCookies:  cfg.SecureCookies(),
@@ -186,7 +188,7 @@ func run() error {
 		MCP: mcpadapter.NewHandler(mcpadapter.Deps{
 			Version:    version,
 			Identity:   identity,
-			Agents:     service.NewAgentAccess(store, sessions),
+			Agents:     agents,
 			Households: households,
 			Tools:      assistant,
 		}),

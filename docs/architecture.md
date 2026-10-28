@@ -126,6 +126,7 @@ apps/web/
 
 - `adapter/mcp` serves the assistant's tools at `/mcp` (streamable HTTP, without sessions), outside the OpenAPI contract and next to it in the same router. It runs `ToolService.RunTool`, which checks membership and then calls the same tools as the chat, so a caller sees and changes exactly what they could in the app. It needs no LLM: the client brings its own model.
 - **Who it acts as** comes from the bearer token on every request:
+  - a **personal key** (`hlp_…`) a member makes under Settings › Other apps for one app (`/v1/households/{id}/mcp-tokens`). It acts as them in that household until they remove it. Only its SHA-256 is stored (`mcp_tokens`), and the key is shown once.
   - an **access token from authentik**, for MCP clients such as Claude. Give the client its own authentik provider and add its client ID to `OIDC_CLIENT_IDS`. `?household=<id>` picks the household; members of just one may leave it out.
   - an **agent token** (`hla_…`) for the voice agent. `AgentAccessService.Mint` makes one for a member and one household, lasting up to 6 hours, and `Revoke` ends it, for example when a call ends. Only a hash of the token is stored, in Redis, until it expires. It is never sent to authentik.
 - A missing or unknown token gets `401` with `WWW-Authenticate`; authentik being unreachable gets `503`.
