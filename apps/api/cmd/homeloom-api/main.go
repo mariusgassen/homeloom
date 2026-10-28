@@ -22,6 +22,7 @@ import (
 	mcpadapter "github.com/mariusgassen/homeloom/apps/api/internal/adapter/mcp"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/mealie"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/oidc"
+	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/plex"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/postgres"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/redis"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/secretbox"
@@ -118,7 +119,7 @@ func run() error {
 		sessions,
 	)
 
-	// Mealie, Claude, Home Assistant, Web Push and LiveKit are optional; a nil port switches the feature off or to its fallback.
+	// Mealie, Claude, Home Assistant, Plex, Web Push and LiveKit are optional; a nil port switches the feature off or to its fallback.
 	var book port.RecipeBook
 	if cfg.MealieMCPURL != "" {
 		if book, err = mealie.New(cfg.MealieMCPURL, cfg.MealieMCPToken, cfg.MealieURL); err != nil {
@@ -131,17 +132,26 @@ func run() error {
 		chef = claude.NewChef(cfg.AnthropicAPIKey, cfg.LLMModel)
 		llm = claude.NewAssistant(cfg.AnthropicAPIKey, cfg.LLMModel)
 	}
+	// Tokens from signing in to Home Assistant or Plex are sealed with HOMELOOM_SECRET_KEY.
+	var box *secretbox.Box
+	if cfg.SecretKey != "" {
+		if box, err = secretbox.New(cfg.SecretKey); err != nil {
+			return err
+		}
+	}
 	var home port.SmartHome
 	var homeConnections port.HomeConnectionRepository = store
 	if cfg.HomeAssistantURL != "" {
 		if home, err = homeassistant.New(cfg.HomeAssistantURL, cfg.PublicURL); err != nil {
 			return err
 		}
-		box, err := secretbox.New(cfg.SecretKey)
-		if err != nil {
-			return err
-		}
 		homeConnections = secretbox.NewHomeConnections(store, box)
+	}
+	var media port.MediaLibrary
+	var watchConnections port.WatchConnectionRepository = store
+	if cfg.Plex {
+		media = plex.New(cfg.PublicURL)
+		watchConnections = secretbox.NewWatchConnections(store, box)
 	}
 	var pusher port.Pusher
 	if cfg.VAPIDPublicKey != "" {
@@ -165,6 +175,7 @@ func run() error {
 	cook := service.NewCook(store, book, chef, shopping)
 	homeService := service.NewHome(store, homeConnections, sessions, home)
 	households := service.NewHousehold(store)
+	watch := service.NewWatch(store, watchConnections, sessions, media)
 	assistant := service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone)
 	agents := service.NewAgentAccess(store, sessions, store)
 
@@ -179,6 +190,7 @@ func run() error {
 		Cook:           cook,
 		Shopping:       shopping,
 		Home:           homeService,
+		Watch:          watch,
 		Push:           push,
 		Calls:          service.NewCall(store, sessions, calls, push).WithVoiceAgent(cfg.VoiceAgent, agents),
 		Assistant:      assistant,

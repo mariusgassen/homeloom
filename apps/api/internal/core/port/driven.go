@@ -40,6 +40,9 @@ type SessionStore interface {
 	SaveHomeConnection(ctx context.Context, state string, p domain.PendingHomeConnection) error
 	// TakeHomeConnection works once per state, like TakeLogin.
 	TakeHomeConnection(ctx context.Context, state string) (domain.PendingHomeConnection, error)
+	SaveWatchConnection(ctx context.Context, state string, p domain.PendingWatchConnection) error
+	// TakeWatchConnection works once per state, like TakeLogin.
+	TakeWatchConnection(ctx context.Context, state string) (domain.PendingWatchConnection, error)
 	// SaveGuestPass keeps a guest link for domain.GuestPassTTL.
 	SaveGuestPass(ctx context.Context, token string, p domain.GuestPass) error
 	// GuestPass returns domain.ErrNotFound for an unknown or expired link; it works until it expires.
@@ -169,6 +172,33 @@ type HomeConnectionRepository interface {
 	// HomeConnection returns domain.ErrNotFound when the person has none.
 	HomeConnection(ctx context.Context, userID uuid.UUID) (domain.HomeConnection, error)
 	DeleteHomeConnection(ctx context.Context, userID uuid.UUID) error
+}
+
+// MediaLibrary is Plex, narrowed to reading: the movie and series libraries on the servers a
+// person owns or that friends share with them, their titles and posters. Nothing is played or
+// changed. Calls act as the person who signed in, through the token from that sign-in. Every
+// method returns domain.ErrUnavailable when Plex can't be reached, and domain.ErrUnauthenticated
+// when it no longer accepts the token.
+type MediaLibrary interface {
+	// StartSignIn begins a sign-in at Plex. It returns Plex's id for it and the page to send the
+	// browser to; once the person has approved Homeloom there, it comes back with the state.
+	StartSignIn(ctx context.Context, state string) (pin, url string, err error)
+	// FinishSignIn returns the token once the sign-in is approved, and domain.ErrUnauthenticated
+	// when it wasn't.
+	FinishSignIn(ctx context.Context, pin string) (string, error)
+	Libraries(ctx context.Context, token string) ([]domain.Library, error)
+	// Titles and Poster take ids that Libraries and Titles returned; one the person can't reach
+	// is domain.ErrNotFound.
+	Titles(ctx context.Context, token, libraryID string) ([]domain.Title, error)
+	Poster(ctx context.Context, token, titleID string) (domain.Poster, error)
+}
+
+type WatchConnectionRepository interface {
+	// SaveWatchConnection replaces the person's connection.
+	SaveWatchConnection(ctx context.Context, c domain.WatchConnection) error
+	// WatchConnection returns domain.ErrNotFound when the person has none.
+	WatchConnection(ctx context.Context, userID uuid.UUID) (domain.WatchConnection, error)
+	DeleteWatchConnection(ctx context.Context, userID uuid.UUID) error
 }
 
 type PushSubscriptionRepository interface {

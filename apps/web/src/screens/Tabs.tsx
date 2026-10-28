@@ -137,6 +137,7 @@ export function Us() {
         </Card>
       )}
       <AskForm householdId={household.id} onAsked={reload} />
+      <ListRow leading={<Icon name="sparkle" />} title={t("watch.title")} subtitle={t("watch.teaser")} onClick={() => navigate("/watch")} />
       {failed && (
         <p className="callout error" role="alert">
           {t("questions.failed")}

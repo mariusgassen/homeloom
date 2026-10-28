@@ -146,6 +146,7 @@
     "failed": "Das hat nicht geklappt. Versuch es bitte noch mal.",
     "reading": { "window": "Fenster offen", "door": "Tür offen", "garage_door": "Garage offen", "motion": "Bewegung", "moisture": "Wasser", "smoke": "Rauch" }
   },
+  "watch": {"title": "Filme & Serien", "teaser": "Sucht euch was zum Schauen aus", "libraries": "Mediatheken", "offTitle": "Filme und Serien sind nicht verfügbar", "connectTitle": "Verbinde deine Filme und Serien", "connectBody": "Melde dich mit deinem eigenen Konto an. Deine Mediatheken und die mit dir geteilten erscheinen hier.", "connect": "Verbinden", "disconnect": "Filme und Serien trennen", "emptyTitle": "Noch keine Mediatheken", "emptyBody": "Film- und Serien-Mediatheken, die du schauen kannst, erscheinen hier.", "unseen": "Noch nicht gesehen", "count_one": "{{count}} Titel", "count_other": "{{count}} Titel", "surprise": "Überrasch uns", "another": "Was anderes", "allSeen": "Hier hast du schon alles gesehen", "seen": "Gesehen", "episodes_one": "{{count}} Folge", "episodes_other": "{{count}} Folgen", "minutes_one": "{{count}} Min.", "minutes_other": "{{count}} Min.", "failed": "Das hat nicht geklappt. Versuch es bitte nochmal.", "error": {"connect_failed": "Verbinden hat nicht geklappt. Versuch es bitte nochmal.", "watch_unavailable": "Deine Filme sind gerade nicht erreichbar. Versuch es später nochmal."}},
   "questions": {
     "ask": "Stell eine Frage",
     "askPlaceholder": "Was möchtest du wissen?",

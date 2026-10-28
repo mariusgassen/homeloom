@@ -91,6 +91,13 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 - The whitelist is the port itself: it can list scenes, lights and a few read-only readings (temperature, humidity, power, CO₂; open windows, doors and garage doors, motion, water, smoke), turn a scene on and switch a light. Locks, alarms and covers can't be switched. The contract only accepts `scene.*` and `light.*` ids, the service only switches ids Home Assistant listed, and the adapter checks the domain once more.
 - **Rooms** are Home Assistant's areas. The adapter reads the area, device and entity registries over Home Assistant's WebSocket API (the only place they're offered, and readable without admin rights); an entity's room is its own area or its device's. Members of a group helper are left out so the group shows as one control, and so are entities hidden in Home Assistant or marked as config or diagnostic. If the registries can't be read, the home still shows, without rooms.
 
+## Movies and shows
+
+- **Plex** (`adapter/plex`, port `MediaLibrary`) is on when `HOMELOOM_SECRET_KEY` is set, unless `PLEX_ENABLED=false`; otherwise the watch endpoints answer `503 watch_unavailable`. It only reads: libraries, titles and posters. Nothing is played or changed.
+- **Each person connects their own account** with Plex's PIN sign-in: the API creates a PIN at plex.tv, sends the browser to app.plex.tv with `forwardUrl` = `PUBLIC_URL/auth/plex/callback?state=…`, and redeems the PIN there. The state is bound to the person (Redis, 10 minutes). The token is sealed under `HOMELOOM_SECRET_KEY` like Home Assistant's, with its own associated data so the two can't be swapped. When plex.tv rejects it, the connection is dropped.
+- **Servers** come from plex.tv's resource list: the person's own and those friends share, each with its own access token. The adapter tries every address of a server at once and keeps the most direct that answers (local, then remote, then Plex's relay); a server that can't be reached is left out rather than failing the rest. Lists and addresses are cached for 5 minutes per person. Ids are `<server>.<key>` and only resolve on the caller's own servers, so they can't be probed.
+- **Posters** go through the API (`/watch/titles/{id}/poster`, transcoded by Plex to 342×513), so the token never reaches the client.
+
 ## PWA
 
 ```

@@ -35,6 +35,7 @@ type Store struct {
 	calendarFeeds map[string]domain.CalendarFeed
 
 	homeConnections   map[uuid.UUID]domain.HomeConnection
+	watchConnections  map[uuid.UUID]domain.WatchConnection
 	pushSubscriptions []domain.PushSubscription
 	shopping          []domain.ShoppingItem
 

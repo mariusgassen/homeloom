@@ -13,6 +13,7 @@ type Sessions struct {
 	logins   map[string]domain.PendingLogin
 	sessions map[string]domain.Session
 	homes    map[string]domain.PendingHomeConnection
+	watches  map[string]domain.PendingWatchConnection
 	guests   map[string]domain.GuestPass
 	claims   map[string]string
 	agents   map[string]domain.AgentGrant
@@ -21,7 +22,8 @@ type Sessions struct {
 func NewSessions() *Sessions {
 	return &Sessions{
 		logins: map[string]domain.PendingLogin{}, sessions: map[string]domain.Session{}, homes: map[string]domain.PendingHomeConnection{},
-		guests: map[string]domain.GuestPass{}, claims: map[string]string{}, agents: map[string]domain.AgentGrant{},
+		watches: map[string]domain.PendingWatchConnection{},
+		guests:  map[string]domain.GuestPass{}, claims: map[string]string{}, agents: map[string]domain.AgentGrant{},
 	}
 }
 
@@ -82,6 +84,24 @@ func (s *Sessions) TakeHomeConnection(_ context.Context, state string) (domain.P
 		return p, domain.ErrNotFound
 	}
 	delete(s.homes, state)
+	return p, nil
+}
+
+func (s *Sessions) SaveWatchConnection(_ context.Context, state string, p domain.PendingWatchConnection) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.watches[state] = p
+	return nil
+}
+
+func (s *Sessions) TakeWatchConnection(_ context.Context, state string) (domain.PendingWatchConnection, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p, ok := s.watches[state]
+	if !ok {
+		return p, domain.ErrNotFound
+	}
+	delete(s.watches, state)
 	return p, nil
 }
 
