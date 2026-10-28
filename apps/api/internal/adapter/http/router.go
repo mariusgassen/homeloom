@@ -34,6 +34,7 @@ type Deps struct {
 	Shopping       port.ShoppingService
 	Home           port.HomeService
 	Push           port.PushService
+	Calls          port.CallService
 	Assistant      port.AssistantService
 	HealthChecks   []port.HealthCheck
 	AllowedOrigins []string
@@ -77,6 +78,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 		shopping:   d.Shopping,
 		home:       d.Home,
 		push:       d.Push,
+		calls:      d.Calls,
 		assistant:  d.Assistant,
 		login:      d.Login,
 		cookies:    cookies{secure: d.SecureCookies, sessionTTL: d.SessionTTL},
@@ -143,10 +145,12 @@ func requestLogger(next http.Handler) http.Handler {
 	})
 }
 
-// logPath keeps calendar feed tokens, which work like passwords, out of the logs.
+// logPath keeps calendar feed tokens and guest links, which work like passwords, out of the logs.
 func logPath(path string) string {
-	if strings.HasPrefix(path, calendarFeedPath) {
-		return calendarFeedPath + "…"
+	for _, secret := range []string{calendarFeedPath, guestCallPath} {
+		if strings.HasPrefix(path, secret) {
+			return secret + "…"
+		}
 	}
 	return path
 }

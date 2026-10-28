@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.10.0
+  version: 0.11.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -31,6 +31,7 @@ tags:
   - name: home
   - name: push
   - name: assistant
+  - name: calls
 
 paths:
   /healthz:
@@ -761,6 +762,141 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  /v1/households/{householdId}/calls:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [calls]
+      operationId: startCall
+      summary: Start a voice and video call with other members (members only)
+      description: |
+        Opens a new call, returns a LiveKit access token for it (valid for ten minutes to connect)
+        and rings the members in `invite` with a push notification that opens
+        `/call/<callId>?from=<caller's id>`. Answers `503 calls_unavailable` when LiveKit isn't set
+        up or can't be reached.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CallInvite" }
+      responses:
+        "201":
+          description: The call, and the token to connect with.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Call" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/calls/{callId}/join:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/CallId"
+    post:
+      tags: [calls]
+      operationId: joinCall
+      summary: Join or answer one of the household's calls (members only)
+      responses:
+        "200":
+          description: The token to connect with.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Call" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/calls/{callId}/invites:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/CallId"
+    post:
+      tags: [calls]
+      operationId: inviteToCall
+      summary: Ring more members into a call (members only)
+      description: Members already in the call aren't rung.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CallInvite" }
+      responses:
+        "204": { description: Rung. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/calls/{callId}/guest-links:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/CallId"
+    post:
+      tags: [calls]
+      operationId: createGuestLink
+      summary: Make a link that lets someone without an account into the call (members only)
+      description: |
+        Share it as `PUBLIC_URL/guest/<token>`. It works for 12 hours and only for this call. The
+        first device that joins with it claims it and can come back; others get `409
+        guest_link_used`. Only hashes of the token and the device are stored.
+      responses:
+        "201":
+          description: The new link's token.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GuestLink" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/guest-calls/{token}:
+    parameters:
+      - name: token
+        in: path
+        required: true
+        schema: { type: string, pattern: "^[A-Za-z0-9_-]{20,100}$" }
+    get:
+      tags: [calls]
+      operationId: getGuestCall
+      summary: Who invited the holder of a guest link (no sign-in)
+      security: []
+      responses:
+        "200":
+          description: The link works.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GuestCall" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [calls]
+      operationId: joinGuestCall
+      summary: Join a call through a guest link (no sign-in)
+      description: |
+        `device` is a random id the browser keeps for this link. The first device claims the link;
+        another one gets `409 guest_link_used`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GuestJoin" }
+      responses:
+        "200":
+          description: The token to connect with.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Call" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Another device already uses this link (code `guest_link_used`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
   /v1/push:
     get:
       tags: [push]
@@ -905,6 +1041,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    CallId:
+      name: callId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     ShoppingItemId:
       name: itemId
       in: path
@@ -950,7 +1091,7 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     Unavailable:
-      description: A dependency (authentik, Redis, Mealie, Home Assistant, Web Push, the LLM) cannot be reached or isn't set up.
+      description: A dependency (authentik, Redis, Mealie, Home Assistant, Web Push, the LLM, LiveKit) cannot be reached or isn't set up.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -1240,6 +1381,46 @@ components:
         name: { type: string }
         room: { type: string, description: The room's id; absent when it has none. }
         on: { type: boolean }
+
+    CallInvite:
+      type: object
+      required: [invite]
+      properties:
+        invite:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { type: string, format: uuid }
+          description: The members to ring.
+
+    Call:
+      type: object
+      required: [id, url, token, room]
+      properties:
+        id: { type: string, format: uuid }
+        url: { type: string, description: "The LiveKit server to connect to (wss://)." }
+        token: { type: string, description: "LiveKit access token for this person and room." }
+        room: { type: string }
+
+    GuestLink:
+      type: object
+      required: [token, expiresAt]
+      properties:
+        token: { type: string }
+        expiresAt: { type: string, format: date-time }
+
+    GuestCall:
+      type: object
+      required: [invitedBy]
+      properties:
+        invitedBy: { type: string, description: "The name of the member who made the link." }
+
+    GuestJoin:
+      type: object
+      required: [name, device]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 50 }
+        device: { type: string, minLength: 16, maxLength: 100, description: "A random id this browser keeps for the link." }
 
     PushConfig:
       type: object

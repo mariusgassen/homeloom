@@ -614,6 +614,123 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a voice and video call with other members (members only)
+         * @description Opens a new call, returns a LiveKit access token for it (valid for ten minutes to connect)
+         *     and rings the members in `invite` with a push notification that opens
+         *     `/call/<callId>?from=<caller's id>`. Answers `503 calls_unavailable` when LiveKit isn't set
+         *     up or can't be reached.
+         */
+        post: operations["startCall"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/calls/{callId}/join": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                callId: components["parameters"]["CallId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Join or answer one of the household's calls (members only) */
+        post: operations["joinCall"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/calls/{callId}/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                callId: components["parameters"]["CallId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ring more members into a call (members only)
+         * @description Members already in the call aren't rung.
+         */
+        post: operations["inviteToCall"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/calls/{callId}/guest-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                callId: components["parameters"]["CallId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a link that lets someone without an account into the call (members only)
+         * @description Share it as `PUBLIC_URL/guest/<token>`. It works for 12 hours and only for this call. The
+         *     first device that joins with it claims it and can come back; others get `409
+         *     guest_link_used`. Only hashes of the token and the device are stored.
+         */
+        post: operations["createGuestLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/guest-calls/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        /** Who invited the holder of a guest link (no sign-in) */
+        get: operations["getGuestCall"];
+        put?: never;
+        /**
+         * Join a call through a guest link (no sign-in)
+         * @description `device` is a random id the browser keeps for this link. The first device claims the link;
+         *     another one gets `409 guest_link_used`.
+         */
+        post: operations["joinGuestCall"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/push": {
         parameters: {
             query?: never;
@@ -1001,6 +1118,33 @@ export interface components {
             room?: string;
             on: boolean;
         };
+        CallInvite: {
+            /** @description The members to ring. */
+            invite: string[];
+        };
+        Call: {
+            /** Format: uuid */
+            id: string;
+            /** @description The LiveKit server to connect to (wss://). */
+            url: string;
+            /** @description LiveKit access token for this person and room. */
+            token: string;
+            room: string;
+        };
+        GuestLink: {
+            token: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        GuestCall: {
+            /** @description The name of the member who made the link. */
+            invitedBy: string;
+        };
+        GuestJoin: {
+            name: string;
+            /** @description A random id this browser keeps for the link. */
+            device: string;
+        };
         PushConfig: {
             /** @description The VAPID public key, base64url without padding. */
             publicKey: string;
@@ -1130,7 +1274,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description A dependency (authentik, Redis, Mealie, Home Assistant, Web Push, the LLM) cannot be reached or isn't set up. */
+        /** @description A dependency (authentik, Redis, Mealie, Home Assistant, Web Push, the LLM, LiveKit) cannot be reached or isn't set up. */
         Unavailable: {
             headers: {
                 [name: string]: unknown;
@@ -1143,6 +1287,7 @@ export interface components {
     parameters: {
         HouseholdId: string;
         EntryId: string;
+        CallId: string;
         ShoppingItemId: string;
         ConversationId: string;
         RecipeSlug: string;
@@ -2198,6 +2343,178 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    startCall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CallInvite"];
+            };
+        };
+        responses: {
+            /** @description The call, and the token to connect with. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Call"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    joinCall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                callId: components["parameters"]["CallId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The token to connect with. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Call"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    inviteToCall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                callId: components["parameters"]["CallId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CallInvite"];
+            };
+        };
+        responses: {
+            /** @description Rung. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    createGuestLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                callId: components["parameters"]["CallId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new link's token. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuestLink"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getGuestCall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The link works. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GuestCall"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    joinGuestCall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GuestJoin"];
+            };
+        };
+        responses: {
+            /** @description The token to connect with. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Call"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            404: components["responses"]["NotFound"];
+            /** @description Another device already uses this link (code `guest_link_used`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             503: components["responses"]["Unavailable"];
         };
     };

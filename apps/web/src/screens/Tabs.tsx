@@ -8,6 +8,7 @@ import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Icon } from "../ui/Icon";
 import { ListRow } from "../ui/ListRow";
+import { CallButton } from "./Call";
 import { EntrySheet } from "./EntrySheet";
 import { useWhen } from "./Lists";
 import { AskForm, QuestionCard, useQuestions } from "./questions";
@@ -120,7 +121,7 @@ export function Us() {
   const day = new Intl.DateTimeFormat(i18n.language, { day: "numeric", month: "long" });
   const asked = (q: Question) => day.format(new Date(q.createdAt));
   return (
-    <Screen title={t("tabs.us")}>
+    <Screen title={t("tabs.us")} action={<CallButton />}>
       {household.members.length < 2 && (
         <Card
           tone="sunken"

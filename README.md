@@ -9,14 +9,15 @@ A shared home for two. Homeloom weaves your meals, moments and smart home into o
 - `apps/api`: the Go API (hexagonal, API first). Contract in `apps/api/api/openapi.yaml`.
 - `apps/web`: the PWA (Vite, React, TypeScript), installable on iPhone from Safari.
 - `docs/architecture.md`: decisions, layout and deployment.
-- `docker-compose.yml`: the stack Coolify deploys (`homeloom-web`, `homeloom-api`, `homeloom-postgres`, `homeloom-redis`).
+- `docker-compose.yml`: the stack Coolify deploys (`homeloom-web`, `homeloom-api`, `homeloom-livekit` for calls, `homeloom-postgres`, `homeloom-redis`).
 
 The app speaks German and English. The API answers in the language of the `Accept-Language` header.
 
 ## Run locally
 
 ```sh
-cp .env.example .env   # set POSTGRES_PASSWORD, PUBLIC_URL=http://localhost:3000 and the authentik values
+cp .env.example .env   # set POSTGRES_PASSWORD, PUBLIC_URL=http://localhost:3000, the authentik values
+                       # and LIVEKIT_API_SECRET (32+ characters) for calls
                        # optional: MEALIE_MCP_URL + MEALIE_MCP_TOKEN for cooking, ANTHROPIC_API_KEY for Claude and the assistant
                        # optional: HOME_ASSISTANT_URL + HOMELOOM_SECRET_KEY for scenes and lights
                        # optional: VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY for notifications (see .env.example)

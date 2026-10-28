@@ -41,6 +41,11 @@ type Config struct {
 	VAPIDPublicKey  string
 	VAPIDPrivateKey string
 	VAPIDSubject    string
+	// Calls are optional: without the LiveKit API key pair they are switched off. LiveKitURL is
+	// where the API reaches the server; clients connect through PUBLIC_URL, which forwards /rtc.
+	LiveKitURL       string
+	LiveKitAPIKey    string
+	LiveKitAPISecret string
 	// TimeZone is where the household lives; repeating reminders keep their time of day in it.
 	TimeZone *time.Location
 }
@@ -50,6 +55,15 @@ func (c Config) RedirectURL() string { return strings.TrimRight(c.PublicURL, "/"
 
 // PostLogoutURL is where authentik sends the browser after signing out.
 func (c Config) PostLogoutURL() string { return strings.TrimRight(c.PublicURL, "/") + "/" }
+
+// LiveKitPublicURL is where clients connect to LiveKit: the app's own origin, as a WebSocket URL.
+func (c Config) LiveKitPublicURL() string {
+	u := strings.TrimRight(c.PublicURL, "/")
+	if rest, ok := strings.CutPrefix(u, "https://"); ok {
+		return "wss://" + rest
+	}
+	return "ws://" + strings.TrimPrefix(u, "http://")
+}
 
 // SecureCookies is true when the app is served over HTTPS.
 func (c Config) SecureCookies() bool { return strings.HasPrefix(c.PublicURL, "https://") }
@@ -76,6 +90,9 @@ func Load() (Config, error) {
 		VAPIDPublicKey:   os.Getenv("VAPID_PUBLIC_KEY"),
 		VAPIDPrivateKey:  os.Getenv("VAPID_PRIVATE_KEY"),
 		VAPIDSubject:     env("VAPID_SUBJECT", os.Getenv("PUBLIC_URL")),
+		LiveKitURL:       env("LIVEKIT_URL", "http://homeloom-livekit:7880"),
+		LiveKitAPIKey:    os.Getenv("LIVEKIT_API_KEY"),
+		LiveKitAPISecret: os.Getenv("LIVEKIT_API_SECRET"),
 	}
 	loc, err := time.LoadLocation(env("TIME_ZONE", "UTC"))
 	if err != nil {
@@ -115,6 +132,9 @@ func Load() (Config, error) {
 	}
 	if c.VAPIDPrivateKey != "" && c.VAPIDPublicKey == "" {
 		missing = append(missing, "VAPID_PUBLIC_KEY")
+	}
+	if c.LiveKitAPIKey != "" && c.LiveKitAPISecret == "" {
+		missing = append(missing, "LIVEKIT_API_SECRET")
 	}
 	if len(missing) > 0 {
 		return c, errors.New("missing required env: " + strings.Join(missing, ", "))

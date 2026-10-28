@@ -38,6 +38,29 @@ func TestSessions(t *testing.T) {
 		t.Errorf("second take: want ErrNotFound, got %v", err)
 	}
 
+	token := uuid.NewString()
+	pass := domain.GuestPass{HouseholdID: uuid.New(), CallID: uuid.New(), InvitedBy: "Alice"}
+	if err := s.SaveGuestPass(ctx, token, pass); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 { // a guest link works more than once
+		if got, err := s.GuestPass(ctx, token); err != nil || got != pass {
+			t.Fatalf("guest pass: %+v, %v", got, err)
+		}
+	}
+	if err := s.ClaimGuestPass(ctx, token, "phone"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ClaimGuestPass(ctx, token, "phone"); err != nil {
+		t.Fatalf("same device again: %v", err)
+	}
+	if err := s.ClaimGuestPass(ctx, token, "laptop"); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("another device: want ErrConflict, got %v", err)
+	}
+	if _, err := s.GuestPass(ctx, uuid.NewString()); !errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("unknown guest pass: want ErrNotFound, got %v", err)
+	}
+
 	id := uuid.NewString()
 	want := domain.Session{Identity: domain.Identity{Subject: "sub", Name: "Alice"}, IDToken: "tok"}
 	if err := s.Save(ctx, id, want); err != nil {

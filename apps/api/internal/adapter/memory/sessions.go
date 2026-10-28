@@ -13,10 +13,12 @@ type Sessions struct {
 	logins   map[string]domain.PendingLogin
 	sessions map[string]domain.Session
 	homes    map[string]domain.PendingHomeConnection
+	guests   map[string]domain.GuestPass
+	claims   map[string]string
 }
 
 func NewSessions() *Sessions {
-	return &Sessions{logins: map[string]domain.PendingLogin{}, sessions: map[string]domain.Session{}, homes: map[string]domain.PendingHomeConnection{}}
+	return &Sessions{logins: map[string]domain.PendingLogin{}, sessions: map[string]domain.Session{}, homes: map[string]domain.PendingHomeConnection{}, guests: map[string]domain.GuestPass{}, claims: map[string]string{}}
 }
 
 func (s *Sessions) SaveLogin(_ context.Context, state string, l domain.PendingLogin) error {
@@ -77,4 +79,31 @@ func (s *Sessions) TakeHomeConnection(_ context.Context, state string) (domain.P
 	}
 	delete(s.homes, state)
 	return p, nil
+}
+
+func (s *Sessions) SaveGuestPass(_ context.Context, token string, p domain.GuestPass) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.guests[token] = p
+	return nil
+}
+
+func (s *Sessions) GuestPass(_ context.Context, token string) (domain.GuestPass, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p, ok := s.guests[token]
+	if !ok {
+		return p, domain.ErrNotFound
+	}
+	return p, nil
+}
+
+func (s *Sessions) ClaimGuestPass(_ context.Context, token, device string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if owner, ok := s.claims[token]; ok && owner != device {
+		return domain.ErrConflict
+	}
+	s.claims[token] = device
+	return nil
 }

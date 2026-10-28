@@ -39,7 +39,11 @@ export default defineConfig({
     }),
   ],
   server: {
-    proxy: Object.fromEntries(apiPaths.map((p) => [p, "http://localhost:8080"])),
+    proxy: {
+      ...Object.fromEntries(apiPaths.map((p) => [p, "http://localhost:8080"])),
+      // Call signalling, to homeloom-livekit from docker-compose.dev.yml.
+      "/rtc": { target: "http://localhost:7880", ws: true },
+    },
   },
   test: {
     environment: "jsdom",

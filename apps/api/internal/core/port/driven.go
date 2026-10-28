@@ -40,6 +40,13 @@ type SessionStore interface {
 	SaveHomeConnection(ctx context.Context, state string, p domain.PendingHomeConnection) error
 	// TakeHomeConnection works once per state, like TakeLogin.
 	TakeHomeConnection(ctx context.Context, state string) (domain.PendingHomeConnection, error)
+	// SaveGuestPass keeps a guest link for domain.GuestPassTTL.
+	SaveGuestPass(ctx context.Context, token string, p domain.GuestPass) error
+	// GuestPass returns domain.ErrNotFound for an unknown or expired link; it works until it expires.
+	GuestPass(ctx context.Context, token string) (domain.GuestPass, error)
+	// ClaimGuestPass binds a guest link to the first device that uses it, atomically. It returns
+	// domain.ErrConflict when another device already has.
+	ClaimGuestPass(ctx context.Context, token, device string) error
 }
 
 type UserRepository interface {
@@ -172,6 +179,18 @@ type Pusher interface {
 	// Send returns domain.ErrNotFound when the push service says the subscription is gone, and
 	// domain.ErrUnavailable when it can't be reached.
 	Send(ctx context.Context, sub domain.PushSubscription, n domain.Notification) error
+}
+
+// CallServer is LiveKit, which carries the household's voice and video calls.
+type CallServer interface {
+	// URL is where clients connect.
+	URL() string
+	// Token lets someone into the room to talk, listen and share video, under the given identity
+	// and display name.
+	Token(identity, name, room string) (string, error)
+	// Participants returns the ids of the users in the room; none when it doesn't exist. It returns
+	// domain.ErrUnavailable when LiveKit can't be reached.
+	Participants(ctx context.Context, room string) ([]string, error)
 }
 
 // Assistant is the LLM as a chat partner that can use tools.

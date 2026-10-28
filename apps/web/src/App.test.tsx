@@ -1,10 +1,50 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { App } from "./App";
 import i18n from "./i18n";
 import { SessionProvider } from "./session";
+
+// A stand-in for LiveKit's Room: connects at once and lets a test play the other side.
+const rooms = vi.hoisted(() => [] as InstanceType<typeof import("node:events").EventEmitter>[]);
+vi.mock("livekit-client", async () => {
+  const { EventEmitter } = await import("node:events");
+  class Room extends EventEmitter {
+    remoteParticipants = new Map<string, { identity: string; name: string; getTrackPublication: () => undefined }>();
+    canPlaybackAudio = true;
+    localParticipant = {
+      isMicrophoneEnabled: false,
+      isCameraEnabled: false,
+      getTrackPublication: () => undefined,
+      setMicrophoneEnabled: vi.fn(async (on: boolean) => {
+        this.localParticipant.isMicrophoneEnabled = on;
+      }),
+      setCameraEnabled: vi.fn(),
+    };
+    connect = vi.fn(async () => undefined);
+    disconnect = vi.fn(async () => undefined);
+    startAudio = vi.fn(async () => undefined);
+    constructor() {
+      super();
+      rooms.push(this);
+    }
+    join(identity: string, name: string) {
+      this.remoteParticipants.set(identity, { identity, name, getTrackPublication: () => undefined });
+      this.emit("participantConnected");
+    }
+  }
+  return {
+    Room,
+    RoomEvent: Object.fromEntries(
+      ["ParticipantConnected", "ParticipantDisconnected", "Reconnecting", "Reconnected", "Disconnected", "TrackSubscribed", "TrackUnsubscribed", "TrackMuted", "TrackUnmuted", "LocalTrackPublished", "LocalTrackUnpublished", "AudioPlaybackStatusChanged"].map((e) => [
+        e,
+        e.charAt(0).toLowerCase() + e.slice(1),
+      ]),
+    ),
+    Track: { Source: { Camera: "camera", Microphone: "microphone" }, Kind: { Video: "video", Audio: "audio" } },
+  };
+});
 
 type Route = (req: Request) => Response | undefined;
 
@@ -457,6 +497,120 @@ test("settings makes a calendar subscription link", async () => {
   await userEvent.click(await screen.findByRole("button", { name: "Add to Calendar" }));
   expect(await screen.findByRole("link", { name: "Open in Calendar" })).toHaveAttribute("href", `webcal://${window.location.host}/v1/calendar-feeds/secret`);
   expect(screen.getByRole("button", { name: "Turn off" })).toBeInTheDocument();
+});
+
+const household = () =>
+  json({ ...home, members: [{ user: marius, role: "owner" }, { user: jo, role: "member" }] });
+const callId = "55555555-5555-4555-8555-555555555555";
+const callJoin = () => json({ id: callId, url: "wss://home.example", token: "t", room: `call-${home.id}-${callId}` });
+type FakeRoom = { connect: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn>; join: (id: string, name: string) => void };
+
+test("calling from Us rings and shows the call until hung up", async () => {
+  rooms.length = 0;
+  serve(
+    at("GET", "/v1/me", () => json(marius)),
+    at("GET", "/v1/households", () => json([home])),
+    at("GET", `/v1/households/${home.id}`, household),
+    at("GET", `/v1/households/${home.id}/questions`, () => json([])),
+    at("POST", `/v1/households/${home.id}/calls`, callJoin),
+    at("POST", `/v1/households/${home.id}/calls/${callId}/guest-links`, () => json({ token: "guesttoken", expiresAt: "2030-01-01T00:00:00Z" }, 201)),
+  );
+  renderApp("/us");
+  await userEvent.click(await screen.findByRole("button", { name: "Call Jo" }));
+  expect(await screen.findByText("Calling…")).toBeInTheDocument();
+  const room = rooms[0] as unknown as FakeRoom;
+  expect(room.connect).toHaveBeenCalledWith("wss://home.example", "t");
+
+  act(() => room.join(jo.id, "Jo"));
+  expect(await screen.findByText("0:00")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Mute" })).toHaveAttribute("aria-pressed", "false");
+
+  // A guest link is made on one tap and shared on the next.
+  await userEvent.click(screen.getByRole("button", { name: "Add people" }));
+  const sheet = screen.getByRole("dialog", { name: "Add people" });
+  await userEvent.click(within(sheet).getByRole("button", { name: "Create a guest link" }));
+  expect(await within(sheet).findByText(`${window.location.origin}/guest/guesttoken`)).toBeInTheDocument();
+  await userEvent.click(within(sheet).getByRole("button", { name: "Done" }));
+
+  await userEvent.click(screen.getByRole("button", { name: "Hang up" }));
+  expect(room.disconnect).toHaveBeenCalled();
+  expect(screen.queryByText("0:00")).not.toBeInTheDocument();
+});
+
+test("a call notification asks before answering", async () => {
+  rooms.length = 0;
+  const calls = serve(
+    at("GET", "/v1/me", () => json(marius)),
+    at("GET", "/v1/households", () => json([home])),
+    at("GET", `/v1/households/${home.id}`, household),
+    at("GET", `/v1/households/${home.id}/questions`, () => json([])),
+    at("POST", `/v1/households/${home.id}/calls/${callId}/join`, callJoin),
+  );
+  renderApp(`/call/${callId}?from=${jo.id}`);
+  expect(await screen.findByRole("heading", { name: "Jo is calling" })).toBeInTheDocument();
+  expect(rooms).toHaveLength(0);
+  await userEvent.click(screen.getByRole("button", { name: "Answer" }));
+  await waitFor(() => expect(rooms).toHaveLength(1));
+  expect(calls.some((c) => c.url.endsWith(`/calls/${callId}/join`))).toBe(true);
+});
+
+test("with more than one other person, you pick who to call", async () => {
+  rooms.length = 0;
+  const sam = { id: "44444444-4444-4444-8444-444444444444", name: "Sam" };
+  const calls = serve(
+    at("GET", "/v1/me", () => json(marius)),
+    at("GET", "/v1/households", () => json([home])),
+    at("GET", `/v1/households/${home.id}`, () =>
+      json({ ...home, members: [{ user: marius, role: "owner" }, { user: jo, role: "member" }, { user: sam, role: "member" }] }),
+    ),
+    at("GET", `/v1/households/${home.id}/questions`, () => json([])),
+    at("POST", `/v1/households/${home.id}/calls`, callJoin),
+  );
+  renderApp("/us");
+  await userEvent.click(await screen.findByRole("button", { name: "Who to call" }));
+  const sheet = screen.getByRole("dialog", { name: "Who to call" });
+  await userEvent.click(within(sheet).getByRole("checkbox", { name: /Sam/ }));
+  await userEvent.click(within(sheet).getByRole("checkbox", { name: /Jo/ }));
+  await userEvent.click(within(sheet).getByRole("button", { name: "Call" }));
+  await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/calls"))).toBe(true));
+  expect(await calls.find((c) => c.method === "POST" && c.url.endsWith("/calls"))?.json()).toEqual({ invite: [sam.id, jo.id] });
+});
+
+test("a guest joins with a name, without signing in", async () => {
+  rooms.length = 0;
+  const calls = serve(
+    at("GET", "/v1/me", () => json({ code: "unauthenticated", message: "" }, 401)),
+    at("GET", "/v1/guest-calls/guesttoken", () => json({ invitedBy: "Marius" })),
+    at("POST", "/v1/guest-calls/guesttoken", callJoin),
+  );
+  renderApp("/guest/guesttoken");
+  expect(await screen.findByRole("heading", { name: "Marius invites you to a call" })).toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText("Your name"), "Grandma");
+  await userEvent.click(screen.getByRole("button", { name: "Join" }));
+  await waitFor(() => expect(rooms).toHaveLength(1));
+  const body = await calls.find((c) => c.method === "POST")?.json();
+  expect(body.name).toBe("Grandma");
+  expect(body.device).toBe(localStorage.getItem("homeloom.guest.guesttoken"));
+  expect(screen.queryByRole("button", { name: "Add people" })).not.toBeInTheDocument();
+});
+
+test("a guest link used on another device says so", async () => {
+  rooms.length = 0;
+  serve(
+    at("GET", "/v1/me", () => json({}, 401)),
+    at("GET", "/v1/guest-calls/usedtoken", () => json({ invitedBy: "Marius" })),
+    at("POST", "/v1/guest-calls/usedtoken", () => json({ code: "guest_link_used", message: "" }, 409)),
+  );
+  renderApp("/guest/usedtoken");
+  await userEvent.type(await screen.findByLabelText("Your name"), "Mallory");
+  await userEvent.click(screen.getByRole("button", { name: "Join" }));
+  expect(await screen.findByText("This link is already in use on another device.")).toBeInTheDocument();
+});
+
+test("an expired guest link says so", async () => {
+  serve(at("GET", "/v1/me", () => json({}, 401)));
+  renderApp("/guest/oldtoken");
+  expect(await screen.findByRole("alert")).toHaveTextContent("This link has expired");
 });
 
 const sse = (...events: [string, unknown][]) =>

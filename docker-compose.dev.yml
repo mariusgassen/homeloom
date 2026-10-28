@@ -7,6 +7,12 @@ services:
   homeloom-api:
     ports:
       - "127.0.0.1:8080:8080"
+  homeloom-livekit:
+    # Media on this machine only; /rtc goes through homeloom-web, or Vite in npm run dev.
+    environment:
+      NODE_IP: 127.0.0.1
+    ports:
+      - "127.0.0.1:7880:7880"
   homeloom-postgres:
     ports:
       - "127.0.0.1:5432:5432"

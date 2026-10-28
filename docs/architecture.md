@@ -130,18 +130,28 @@ apps/web/
 - The core decides who hears what. Notifications are sent in the background, bounded to 10 s per push service and 30 s per round, and never fail the request that caused them; on shutdown the API waits for those under way.
 - When the last member answers a question, everyone else hears that the answers are open. Reminders and event alerts notify when they come due (see above).
 
+## Calls
+
+- **LiveKit** (`homeloom-livekit`, self-hosted) carries voice and video calls. The API (`adapter/livekit`, port `CallServer`) signs LiveKit access tokens with `LIVEKIT_API_KEY`/`LIVEKIT_API_SECRET` and asks LiveKit's room service who is in a room. Without the key pair calls are off and the call endpoints answer `503 calls_unavailable`; so they do when LiveKit is down (bounded to 5 s).
+- **A call** is a room named after its household and a new id, `call-<household>-<call>`, so a call id can't open another household's room; LiveKit creates it when the first person joins and closes it a minute after the last one leaves. Nothing about calls is stored in Postgres.
+- **Members:** `POST /v1/households/{id}/calls` starts a call and rings the members in `invite`; `…/calls/{callId}/join` joins or answers it; `…/calls/{callId}/invites` rings more members, skipping those already in it. `core/service` checks that caller and invitees are members. A token is good for 10 minutes to connect; LiveKit refreshes it for a connected client. The push opens `/call/<callId>?from=<id>`, where answering is a tap, because iOS only plays a call's audio when it starts in a gesture.
+- **Guests:** a member makes a guest link for a call (`…/calls/{callId}/guest-links`), shared as `PUBLIC_URL/guest/<token>`. Only the token's SHA-256 is stored, in Redis, for 12 hours. The link only reaches that one call and only one guest: the first device that joins with it claims it (a random id the browser keeps for the link; Redis keeps its hash), so a forwarded link answers `409 guest_link_used`, while the guest can come back if their connection drops. The guest page (`GET`/`POST /v1/guest-calls/{token}`, no sign-in) shows who invited them and joins under the name they type, with a fresh `guest-<uuid>` identity each time, so a guest can never pass for a member. The token never appears in the request log.
+- **Network:** clients connect to `wss://PUBLIC_URL/rtc`; `homeloom-web`'s Caddy forwards `/rtc` to LiveKit, so there is no second domain or certificate. Audio and video go straight to LiveKit on UDP 7882 (TCP 7881 where UDP is blocked) on the server's public IP, which LiveKit finds by STUN. Both ports are published by the compose file and must be open in the firewall. There is no TURN server yet, so a network that blocks both won't connect.
+- **In the PWA**, the phone button on the Us tab calls the other member, or asks who to call when there are more. The call shows over every tab as a grid of people, with mute, camera, add people (ring members or make a guest link) and hang up. It ends for you when you hang up, when everyone else has left, or when nobody joins within 45 s.
+
 ## Failure handling
 
 - `/healthz` reports the process is up; `/readyz` checks Postgres and Redis and returns `503` when one is down.
 - Redis outages degrade to direct database access; each Redis call is bounded to 250 ms.
-- Mealie, Home Assistant, the LLM and Web Push follow the same rule: their outage disables a feature, never the app.
+- Mealie, Home Assistant, the LLM, Web Push and LiveKit follow the same rule: their outage disables a feature, never the app.
 
 ## Deployment on Coolify
 
 - Create a Docker Compose resource from this repository (`docker-compose.yml`).
-- Set `POSTGRES_PASSWORD`, `PUBLIC_URL`, `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET`.
+- Set `POSTGRES_PASSWORD`, `PUBLIC_URL`, `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` and `LIVEKIT_API_SECRET` (at least 32 characters).
 - In authentik, register `PUBLIC_URL/auth/callback` as the redirect URI and `PUBLIC_URL/` as the post-logout redirect.
-- Assign the public domain to `homeloom-web` (port 8080). Its Caddy serves the PWA and forwards `/auth/*`, `/v1/*`, `/healthz` and `/readyz` to `homeloom-api`, so app and API share one origin and the session cookie stays first-party. The API, Postgres and Redis stay internal.
+- Assign the public domain to `homeloom-web` (port 8080). Its Caddy serves the PWA and forwards `/auth/*`, `/v1/*`, `/healthz` and `/readyz` to `homeloom-api`, so app and API share one origin and the session cookie stays first-party, and `/rtc` to `homeloom-livekit`. The API, Postgres and Redis stay internal.
+- Open UDP 7882 and TCP 7881 in the server's firewall for call audio and video.
 
 ## Planned components
 
@@ -149,5 +159,5 @@ apps/web/
 |---|---|
 | MCP server | Second driving adapter on the same services and the assistant's tools, served at `/mcp`, with its own authentik client |
 | Home Assistant media | Media players join scenes and lights in the whitelist |
-| LiveKit calls with a Homeloom agent | Self-hosted LiveKit on Coolify; the API issues room tokens; the agent is a separate service (LiveKit Agents) that calls the API |
+| Homeloom voice agent | `homeloom-agent` (LiveKit Agents for Node) joins a call with Homeloom: OpenAI speech to text and text to speech, Claude as the LLM, and the assistant's tools through `/mcp`, acting as the caller |
 | Third-party apps | Per-app authentik clients or tokens, outgoing webhooks |

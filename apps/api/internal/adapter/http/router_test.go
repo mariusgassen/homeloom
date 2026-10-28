@@ -73,6 +73,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Shopping:      shopping,
 		Home:          home,
 		Push:          push,
+		Calls:         service.NewCall(store, sessions, memory.NewCallServer(), push),
 		Assistant:     service.NewAssistant(store, store, &memory.Assistant{}, entries, cook, shopping, home, time.UTC),
 		HealthChecks:  checks,
 		SecureCookies: true,
@@ -534,6 +535,60 @@ func TestPushFlow(t *testing.T) {
 	}
 	if code, _ := do(t, h, "POST", "/v1/push/subscriptions", "", sub("https://web.push.apple.com/abc")); code != 401 {
 		t.Fatalf("needs auth: %d", code)
+	}
+}
+
+func TestCallFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	id := created["id"].(string)
+	_, inv := do(t, h, "POST", "/v1/households/"+id+"/invites", "token-alice", "")
+	do(t, h, "POST", "/v1/invites/"+inv["code"].(string), "token-bob", "")
+	_, bob := do(t, h, "GET", "/v1/me", "token-bob", "")
+	_, alice := do(t, h, "GET", "/v1/me", "token-alice", "")
+	invite := func(u map[string]any) string { return `{"invite":["` + u["id"].(string) + `"]}` }
+	calls := "/v1/households/" + id + "/calls"
+
+	code, c := do(t, h, "POST", calls, "token-alice", invite(bob))
+	if code != 201 || c["url"] != "wss://calls.example" || c["token"] == "" || c["id"] == "" {
+		t.Fatalf("start: %d %v", code, c)
+	}
+	call := calls + "/" + c["id"].(string)
+	if code, answer := do(t, h, "POST", call+"/join", "token-bob", ""); code != 200 || answer["room"] != c["room"] {
+		t.Fatalf("answer: %d %v", code, answer)
+	}
+	if code, _ := do(t, h, "POST", call+"/invites", "token-bob", invite(alice)); code != 204 {
+		t.Fatalf("invite: %d", code)
+	}
+	if code, body := do(t, h, "POST", calls, "token-alice", invite(alice)); code != 400 || body["code"] != "invalid" {
+		t.Fatalf("yourself: %d %v", code, body)
+	}
+	if code, body := do(t, h, "POST", call+"/join", "token-eve", ""); code != 404 || body["code"] != "not_found" {
+		t.Fatalf("outsider: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "POST", call+"/join", "", ""); code != 401 {
+		t.Fatalf("needs auth: %d", code)
+	}
+
+	code, link := do(t, h, "POST", call+"/guest-links", "token-alice", "")
+	if code != 201 || link["token"] == "" || link["expiresAt"] == "" {
+		t.Fatalf("guest link: %d %v", code, link)
+	}
+	guest := "/v1/guest-calls/" + link["token"].(string)
+	if code, body := do(t, h, "GET", guest, "", ""); code != 200 || body["invitedBy"] != "alice" {
+		t.Fatalf("guest call: %d %v", code, body)
+	}
+	if code, body := do(t, h, "POST", guest, "", `{"name":"Grandma","device":"phone-0123456789abcdef"}`); code != 200 || body["room"] != c["room"] {
+		t.Fatalf("guest join: %d %v", code, body)
+	}
+	if code, body := do(t, h, "POST", guest, "", `{"name":"Mallory","device":"laptop-0123456789abcdef"}`, "Accept-Language", "de"); code != 409 || body["code"] != "guest_link_used" || body["message"] == "" {
+		t.Fatalf("forwarded link: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "POST", guest, "", `{"name":"","device":"phone-0123456789abcdef"}`); code != 400 {
+		t.Fatalf("guest without a name: %d", code)
+	}
+	if code, _ := do(t, h, "GET", "/v1/guest-calls/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "", ""); code != 404 {
+		t.Fatalf("unknown guest link: %d", code)
 	}
 }
 

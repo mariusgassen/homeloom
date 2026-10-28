@@ -12,13 +12,19 @@
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
 		X-Frame-Options DENY
-		Permissions-Policy "camera=(), microphone=(), geolocation=()"
-		Content-Security-Policy "default-src 'self'; img-src 'self' data: https:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		Permissions-Policy "camera=(self), microphone=(self), geolocation=()"
+		Content-Security-Policy "default-src 'self'; img-src 'self' data: https:; connect-src 'self' wss://{host}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 	}
 
 	@api path /auth/* /v1/* /healthz /readyz
 	handle @api {
 		reverse_proxy {$API_UPSTREAM:homeloom-api:8080}
+	}
+
+	# Call signalling (a WebSocket) to LiveKit; audio and video go to it directly.
+	@livekit path /rtc /rtc/*
+	handle @livekit {
+		reverse_proxy {$LIVEKIT_UPSTREAM:homeloom-livekit:7880}
 	}
 
 	handle {
