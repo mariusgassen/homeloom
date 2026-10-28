@@ -878,6 +878,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/calendar-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make a calendar password and an iPhone profile that adds it as a CalDAV account
+         * @description Makes a password like `createMcpToken` with `access: calendar` and returns it inside an
+         *     Apple configuration profile for the server, so installing the profile sets up Calendar and
+         *     Reminders. Sent as a form so the browser navigates to it and iOS offers to install it. The
+         *     password is in the response only; remove it like any other.
+         */
+        post: operations["createCalendarProfile"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/mcp-tokens/{tokenId}": {
         parameters: {
             query?: never;
@@ -2805,6 +2830,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["McpTokenCreated"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createCalendarProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": {
+                    /** @description Which device it is for. */
+                    name: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The configuration profile. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/x-apple-aspen-config": string;
                 };
             };
             400: components["responses"]["BadRequest"];

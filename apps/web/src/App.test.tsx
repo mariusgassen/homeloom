@@ -645,6 +645,8 @@ test("settings makes a password for the iPhone's calendar", async () => {
   );
   renderApp("/settings");
   await userEvent.type(await screen.findByRole("textbox", { name: "App" }), "iPhone");
+  // "Add to iPhone" posts the form itself and gets a profile back.
+  expect(screen.getByRole("button", { name: "Add to iPhone" }).closest("form")).toHaveAttribute("action", `/v1/households/${home.id}/calendar-profile`);
   await userEvent.click(screen.getByRole("button", { name: "Make password" }));
   expect(await screen.findByText("hlc_secret")).toBeInTheDocument();
   expect(screen.getByText(window.location.host)).toBeInTheDocument();

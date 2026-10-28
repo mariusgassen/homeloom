@@ -25,6 +25,7 @@ import (
 
 type Deps struct {
 	Version        string
+	PublicURL      string // where the app is served; calendar profiles point there
 	Identity       port.IdentityService
 	Login          port.LoginService
 	Households     port.HouseholdService
@@ -88,6 +89,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 
 	h := &handlers{
 		version:    d.Version,
+		publicURL:  d.PublicURL,
 		households: d.Households,
 		questions:  d.Questions,
 		entries:    d.Entries,

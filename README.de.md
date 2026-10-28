@@ -29,7 +29,7 @@ open http://localhost:3000
 
 ## Kalender und Erinnerungen auf dem iPhone
 
-Termine und Erinnerungen aus Homeloom gleichen sich über CalDAV in beide Richtungen mit den iPhone-Apps Kalender und Erinnerungen ab. Erstelle in Homeloom unter Einstellungen › Andere Apps › Kalender ein Passwort. Gehe auf dem iPhone zu Einstellungen › Apps › Kalender › Kalenderaccounts › Account hinzufügen › Andere › CalDAV-Account hinzufügen. Trag deine Homeloom-Adresse als Server ein, einen beliebigen Benutzernamen und das Passwort. Jede App zeigt eine gemeinsame Liste und eine nur für dich. Das Passwort öffnet nur deinen Kalender und deine Erinnerungen und gilt nicht mehr, sobald du es entfernst.
+Termine und Erinnerungen aus Homeloom gleichen sich über CalDAV in beide Richtungen mit den iPhone-Apps Kalender und Erinnerungen ab. Öffne Homeloom auf dem iPhone, geh zu Einstellungen › Andere Apps › Kalender und tipp auf „Zum iPhone hinzufügen“. Installiere dann das geladene Profil in den Einstellungen (iOS nennt es „Nicht überprüft“, weil es nicht signiert ist). Oder erstelle stattdessen ein Passwort und trag es unter Einstellungen › Apps › Kalender › Kalenderaccounts › Account hinzufügen › Andere › CalDAV-Account hinzufügen ein, mit deiner Homeloom-Adresse als Server und einem beliebigen Benutzernamen. Jede App zeigt eine gemeinsame Liste und eine nur für dich. Das Passwort öffnet nur deinen Kalender und deine Erinnerungen und gilt nicht mehr, sobald du es entfernst.
 
 ## An der API entwickeln
 

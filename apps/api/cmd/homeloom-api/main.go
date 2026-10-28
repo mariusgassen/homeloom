@@ -170,6 +170,7 @@ func run() error {
 
 	handler, err := httpadapter.NewRouter(httpadapter.Deps{
 		Version:        version,
+		PublicURL:      cfg.PublicURL,
 		Identity:       identity,
 		Login:          login,
 		Households:     households,

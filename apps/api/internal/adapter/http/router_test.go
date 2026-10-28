@@ -64,6 +64,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 	home := service.NewHome(store, store, sessions, smart)
 	h, err := httpadapter.NewRouter(httpadapter.Deps{
 		Version:       "1.2.3",
+		PublicURL:     "https://homeloom.example.com",
 		Identity:      service.NewIdentity(fakeVerifier{}, sessions, store),
 		Login:         service.NewLogin(memory.NewLoginProvider(), sessions),
 		Households:    service.NewHousehold(store),
@@ -141,6 +142,47 @@ func TestMcpTokensFlow(t *testing.T) {
 	}
 	if code, _ := do(t, h, "DELETE", "/v1/mcp-tokens/"+tok["id"].(string), "token-alice", ""); code != 204 {
 		t.Fatalf("delete: %d", code)
+	}
+}
+
+func TestCalendarProfile(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	id := created["id"].(string)
+	post := func(token, form string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("POST", "/v1/households/"+id+"/calendar-profile", strings.NewReader(form))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+
+	rec := post("token-alice", "name=My+iPhone")
+	body := rec.Body.String()
+	if rec.Code != 200 || rec.Header().Get("Content-Type") != "application/x-apple-aspen-config" {
+		t.Fatalf("profile: %d %q %s", rec.Code, rec.Header().Get("Content-Type"), body)
+	}
+	for _, want := range []string{
+		"<key>CalDAVHostName</key><string>homeloom.example.com</string>",
+		"<key>CalDAVPort</key><integer>443</integer>", "<key>CalDAVUseSSL</key><true/>",
+		"<key>CalDAVPrincipalURL</key><string>/dav/" + id + "/</string>",
+		"<key>CalDAVPassword</key><string>" + domain.CalendarPasswordPrefix,
+		"<key>PayloadType</key><string>com.apple.caldav.account</string>",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("profile lacks %q:\n%s", want, body)
+		}
+	}
+	code, list := doList(t, h, "/v1/households/"+id+"/mcp-tokens", "token-alice")
+	if code != 200 || len(list) != 1 || list[0]["name"] != "My iPhone" || list[0]["access"] != "calendar" {
+		t.Fatalf("list: %d %v", code, list)
+	}
+	if rec := post("token-bob", "name=x"); rec.Code != 404 {
+		t.Fatalf("bob made a profile for alice's household: %d", rec.Code)
+	}
+	if rec := post("token-alice", "name="); rec.Code != 400 {
+		t.Fatalf("blank name: %d", rec.Code)
 	}
 }
 

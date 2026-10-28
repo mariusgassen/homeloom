@@ -204,6 +204,7 @@ function OtherApps({ householdId }: { householdId: string }) {
   const [copied, setCopied] = useState<"address" | "key" | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [round, setRound] = useState(0);
   const path = { params: { path: { householdId } } };
   const calendar = made?.access === "calendar";
   // A calendar app takes the server's name and finds the rest itself.
@@ -218,9 +219,9 @@ function OtherApps({ householdId }: { householdId: string }) {
     return () => {
       live = false;
     };
-  }, [householdId]);
+  }, [householdId, round]);
 
-  async function create(e: React.FormEvent) {
+  async function create(e: React.SyntheticEvent) {
     e.preventDefault();
     setBusy(true);
     setFailed(false);
@@ -232,6 +233,15 @@ function OtherApps({ householdId }: { householdId: string }) {
     setMade({ secret, access: token.access });
     setCopied(null);
     setName("");
+  }
+
+  // The profile download leaves the page as it is, so the new password is listed once it's made.
+  function profileSent() {
+    // Later, so the form is sent with the name before it is cleared.
+    setTimeout(() => {
+      setName("");
+      setRound((r) => r + 1);
+    }, 2000);
   }
 
   async function remove(id: string) {
@@ -297,7 +307,8 @@ function OtherApps({ householdId }: { householdId: string }) {
             </div>
           </>
         ) : (
-          <form onSubmit={create}>
+          // For a calendar the form posts itself: the API answers with a profile, which iOS offers to install.
+          <form method="post" action={`/v1/households/${householdId}/calendar-profile`} onSubmit={access === "calendar" ? profileSent : create}>
             <div className="segmented" role="tablist" aria-label={t("apps.kind")}>
               {(["calendar", "tools"] as const).map((a) => (
                 <button key={a} type="button" role="tab" aria-selected={access === a} onClick={() => setAccess(a)}>
@@ -308,12 +319,23 @@ function OtherApps({ householdId }: { householdId: string }) {
             <p className="hl-card-body">{t(access === "calendar" ? "apps.calendarBody" : "apps.body")}</p>
             <label className="field">
               <span className="label">{t("apps.name")}</span>
-              <input className="input" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder={t(access === "calendar" ? "apps.calendarPlaceholder" : "apps.namePlaceholder")} required />
+              <input className="input" name="name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder={t(access === "calendar" ? "apps.calendarPlaceholder" : "apps.namePlaceholder")} required />
             </label>
             <div className="hl-card-footer">
-              <Button type="submit" size="sm" disabled={busy || !name.trim()}>
-                {t(access === "calendar" ? "apps.createPassword" : "apps.create")}
-              </Button>
+              {access === "calendar" ? (
+                <>
+                  <Button type="submit" size="sm" disabled={busy || !name.trim()}>
+                    {t("apps.addToIPhone")}
+                  </Button>
+                  <Button type="button" size="sm" variant="secondary" disabled={busy || !name.trim()} onClick={create}>
+                    {t("apps.createPassword")}
+                  </Button>
+                </>
+              ) : (
+                <Button type="submit" size="sm" disabled={busy || !name.trim()}>
+                  {t("apps.create")}
+                </Button>
+              )}
             </div>
           </form>
         )}

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.13.0
+  version: 0.14.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -1067,6 +1067,37 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/McpTokenCreated" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/calendar-profile:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [assistant]
+      operationId: createCalendarProfile
+      summary: Make a calendar password and an iPhone profile that adds it as a CalDAV account
+      description: |
+        Makes a password like `createMcpToken` with `access: calendar` and returns it inside an
+        Apple configuration profile for the server, so installing the profile sets up Calendar and
+        Reminders. Sent as a form so the browser navigates to it and iOS offers to install it. The
+        password is in the response only; remove it like any other.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 60, description: Which device it is for. }
+      responses:
+        "200":
+          description: The configuration profile.
+          content:
+            application/x-apple-aspen-config:
+              schema: { type: string, format: binary }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
