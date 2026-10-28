@@ -17,7 +17,7 @@ import (
 
 const soup = `{
   "id": "c9fde254-ea2b-43ab-b693-d2860e13b24e", "slug": "soup", "name": "Pilzsuppe", "description": "Cremig",
-  "totalTime": null, "recipeYield": "", "recipeServings": 2,
+  "totalTime": null, "totalTimeSeconds": null, "prepTimeSeconds": 600, "performTimeSeconds": 4500, "recipeYield": "", "recipeServings": 2,
   "recipeCategory": [{"name": "Suppe"}], "tags": [{"name": "Pilze"}],
   "recipeIngredient": [
     {"referenceId": "a", "display": "450 Gramm Champignon", "quantity": 450, "food": {"name": "Champignon"}},
@@ -101,7 +101,7 @@ func TestRecipes(t *testing.T) {
 	ctx := context.Background()
 
 	all, err := c.Recipes(ctx)
-	if err != nil || len(all) != 1 || all[0].Slug != "soup" || len(all[0].Tags) != 2 || all[0].Tags[0] != "Suppe" {
+	if err != nil || len(all) != 1 || all[0].Slug != "soup" || len(all[0].Tags) != 2 || all[0].Tags[0] != "Suppe" || all[0].TotalTime != "1 h 25 min" {
 		t.Fatalf("recipes: %+v, %v", all, err)
 	}
 	r, err := c.Recipe(ctx, "soup")

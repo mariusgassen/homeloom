@@ -1,7 +1,7 @@
 {
   "error.already_revealed": "Die Antworten sind schon offen und lassen sich nicht mehr ändern.",
   "error.auth_unavailable": "Die Anmeldung ist gerade nicht erreichbar. Versuch es in einer Minute noch einmal.",
-  "error.cooking_unavailable": "Kochen geht gerade nicht. Ist Mealie eingerichtet und erreichbar?",
+  "error.cooking_unavailable": "Kochen geht gerade nicht.",
   "error.home_unavailable": "Dein Zuhause ist gerade nicht erreichbar. Ist Home Assistant eingerichtet und läuft?",
   "error.internal": "Bei uns ist etwas schiefgelaufen.",
   "error.invalid": "Die Anfrage ist ungültig.",

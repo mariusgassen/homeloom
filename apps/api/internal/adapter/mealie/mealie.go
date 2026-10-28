@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -82,8 +83,33 @@ type summary struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	TotalTime   string `json:"totalTime"`
-	Categories  []tag  `json:"recipeCategory"`
-	Tags        []tag  `json:"tags"`
+	// Newer Mealie versions leave totalTime empty and keep the times in seconds.
+	TotalSeconds   float64 `json:"totalTimeSeconds"`
+	PrepSeconds    float64 `json:"prepTimeSeconds"`
+	PerformSeconds float64 `json:"performTimeSeconds"`
+	Categories     []tag   `json:"recipeCategory"`
+	Tags           []tag   `json:"tags"`
+}
+
+func (s summary) totalTime() string {
+	if s.TotalTime != "" {
+		return s.TotalTime
+	}
+	seconds := s.TotalSeconds
+	if seconds <= 0 {
+		seconds = s.PrepSeconds + s.PerformSeconds
+	}
+	minutes := int(math.Round(seconds / 60))
+	switch {
+	case minutes <= 0:
+		return ""
+	case minutes < 60:
+		return fmt.Sprintf("%d min", minutes)
+	case minutes%60 == 0:
+		return fmt.Sprintf("%d h", minutes/60)
+	default:
+		return fmt.Sprintf("%d h %d min", minutes/60, minutes%60)
+	}
 }
 
 func (s summary) domain() domain.RecipeSummary {
@@ -94,7 +120,7 @@ func (s summary) domain() domain.RecipeSummary {
 	for _, t := range s.Tags {
 		tags = append(tags, t.Name)
 	}
-	return domain.RecipeSummary{Slug: s.Slug, Name: s.Name, Description: s.Description, TotalTime: s.TotalTime, Tags: tags}
+	return domain.RecipeSummary{Slug: s.Slug, Name: s.Name, Description: s.Description, TotalTime: s.totalTime(), Tags: tags}
 }
 
 func (c *Client) Recipes(ctx context.Context) ([]domain.RecipeSummary, error) {
