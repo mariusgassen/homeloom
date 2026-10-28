@@ -7,7 +7,6 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -18,20 +17,18 @@ import (
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/port"
 )
 
-// MinKeyLength is the shortest HOMELOOM_SECRET_KEY accepted.
-const MinKeyLength = 32
-
-// Box seals with AES-256-GCM under a key derived from a secret string.
+// Box seals with AES-256-GCM.
 type Box struct {
 	aead cipher.AEAD
 }
 
-func New(secret string) (*Box, error) {
-	if len(secret) < MinKeyLength {
-		return nil, fmt.Errorf("HOMELOOM_SECRET_KEY must be at least %d characters", MinKeyLength)
+// New takes the key as base64 of 32 random bytes (openssl rand -base64 32).
+func New(key string) (*Box, error) {
+	raw, err := base64.StdEncoding.DecodeString(key)
+	if err != nil || len(raw) != 32 {
+		return nil, errors.New("HOMELOOM_SECRET_KEY must be 32 random bytes, base64-encoded (openssl rand -base64 32)")
 	}
-	key := sha256.Sum256([]byte(secret))
-	block, err := aes.NewCipher(key[:])
+	block, err := aes.NewCipher(raw)
 	if err != nil {
 		return nil, err
 	}

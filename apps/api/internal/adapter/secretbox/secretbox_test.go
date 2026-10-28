@@ -12,7 +12,10 @@ import (
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/domain"
 )
 
-const key = "0123456789abcdef0123456789abcdef"
+const (
+	key      = "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=" // 32 bytes
+	otherKey = "ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA="
+)
 
 func TestHomeConnectionsAreStoredSealed(t *testing.T) {
 	ctx := context.Background()
@@ -36,7 +39,10 @@ func TestHomeConnectionsAreStoredSealed(t *testing.T) {
 	}
 
 	// Another key, or a token moved to another person, can't be opened.
-	other, _ := secretbox.New(key + "x")
+	other, err := secretbox.New(otherKey)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := secretbox.NewHomeConnections(inner, other).HomeConnection(ctx, hid); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("other key: %v", err)
 	}
@@ -46,7 +52,9 @@ func TestHomeConnectionsAreStoredSealed(t *testing.T) {
 		t.Fatalf("moved: %v", err)
 	}
 
-	if _, err := secretbox.New("short"); err == nil {
-		t.Fatal("accepted a short key")
+	for _, bad := range []string{"short", "not base64!", "MDEyMzQ1Njc4OWFiY2RlZg=="} {
+		if _, err := secretbox.New(bad); err == nil {
+			t.Fatalf("accepted %q", bad)
+		}
 	}
 }
