@@ -187,3 +187,65 @@ func TestListsAndObjects(t *testing.T) {
 		t.Fatalf("proppatch: %d", res.StatusCode)
 	}
 }
+
+// TestDiscovery follows the requests iOS makes to add an account and sync it.
+func TestDiscovery(t *testing.T) {
+	f := newFixture(t)
+	principal := "/dav/" + f.household.ID.String() + "/"
+	xml := []string{"Content-Type", "text/xml", "Depth", "0"}
+
+	// The root answers for itself, and points at the principal.
+	res, body := f.do(t, "PROPFIND", "/dav/", f.password, `<?xml version="1.0"?><A:propfind xmlns:A="DAV:"><A:prop><A:current-user-principal/><A:principal-URL/><A:resourcetype/></A:prop></A:propfind>`, xml...)
+	if res.StatusCode != http.StatusMultiStatus || !strings.Contains(body, "<href xmlns=\"DAV:\">/dav/</href><propstat>") ||
+		!strings.Contains(body, "<current-user-principal xmlns=\"DAV:\"><href xmlns=\"DAV:\">"+principal+"</href>") {
+		t.Fatalf("root: %d %s", res.StatusCode, body)
+	}
+
+	// The principal is found with or without its trailing slash, and with no body at all.
+	for _, p := range []string{principal, strings.TrimSuffix(principal, "/")} {
+		res, body := f.do(t, "PROPFIND", p, f.password, "", xml...)
+		if res.StatusCode != http.StatusMultiStatus || !strings.Contains(body, "<calendar-home-set xmlns=\"urn:ietf:params:xml:ns:caldav\"><href xmlns=\"DAV:\">"+f.home+"</href>") ||
+			!strings.Contains(body, "<principal-URL") || !strings.Contains(body, "<href xmlns=\"DAV:\">"+principal+"</href><propstat>") {
+			t.Fatalf("principal %q: %d %s", p, res.StatusCode, body)
+		}
+	}
+	if res, body := f.do(t, "PROPFIND", "/dav/00000000-0000-0000-0000-000000000000/", f.password, "", xml...); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("another principal: %d %s", res.StatusCode, body)
+	}
+
+	// The lists carry a ctag that changes when an object in them does.
+	homeProps := `<?xml version="1.0"?><A:propfind xmlns:A="DAV:" xmlns:B="urn:ietf:params:xml:ns:caldav" xmlns:C="http://calendarserver.org/ns/"><A:prop><C:getctag/><A:current-user-privilege-set/><A:displayname/><A:resourcetype/><B:supported-calendar-component-set/><A:supported-report-set/></A:prop></A:propfind>`
+	ctag := func() string {
+		t.Helper()
+		res, body := f.do(t, "PROPFIND", strings.TrimSuffix(f.home, "/"), f.password, homeProps, "Content-Type", "text/xml", "Depth", "1")
+		if res.StatusCode != http.StatusMultiStatus || strings.Count(body, "<response>") != 5 ||
+			!strings.Contains(body, "<write-content/>") || !strings.Contains(body, "<calendar-multiget") {
+			t.Fatalf("home: %d %s", res.StatusCode, body)
+		}
+		_, rest, _ := strings.Cut(body, "<href xmlns=\"DAV:\">"+f.home+"events/</href>")
+		_, rest, _ = strings.Cut(rest, `<getctag xmlns="http://calendarserver.org/ns/">`)
+		tag, _, _ := strings.Cut(rest, "<")
+		if tag == "" {
+			t.Fatalf("no ctag: %s", body)
+		}
+		return tag
+	}
+	before := ctag()
+	event := "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:x\r\nBEGIN:VEVENT\r\nUID:E2\r\nDTSTAMP:20261028T100000Z\r\n" +
+		"DTSTART:20261105T180000Z\r\nDTEND:20261105T200000Z\r\nSUMMARY:Cinema\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+	res, _ = f.do(t, "PUT", f.home+"events/E2.ics", f.password, event, "Content-Type", "text/calendar")
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("put: %d", res.StatusCode)
+	}
+	if ctag() == before {
+		t.Fatal("ctag unchanged after a change")
+	}
+
+	// A list's members come with the ETag a GET gives.
+	res, body = f.do(t, "PROPFIND", f.home+"events", f.password, `<?xml version="1.0"?><A:propfind xmlns:A="DAV:"><A:prop><A:getetag/><A:getcontenttype/></A:prop></A:propfind>`, "Content-Type", "text/xml", "Depth", "1")
+	get, _ := f.do(t, "GET", f.home+"events/E2.ics", f.password, "")
+	if res.StatusCode != http.StatusMultiStatus || !strings.Contains(body, f.home+"events/E2.ics</href>") ||
+		!strings.Contains(body, "<getetag xmlns=\"DAV:\">"+strings.ReplaceAll(get.Header.Get("ETag"), `"`, "&#34;")+"</getetag>") {
+		t.Fatalf("list: %d %s (etag %s)", res.StatusCode, body, get.Header.Get("ETag"))
+	}
+}
