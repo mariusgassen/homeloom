@@ -39,7 +39,8 @@ services:
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-homeloom}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET}
       # Calls with Homeloom need speech (OpenAI) and Claude; without either key they're off.
-      VOICE_AGENT: ${OPENAI_API_KEY:+homeloom}
+      # The API only checks that the OpenAI key is set.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       TIME_ZONE: ${TIME_ZONE:-Europe/Berlin}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     expose:
