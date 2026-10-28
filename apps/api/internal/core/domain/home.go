@@ -16,6 +16,4 @@ type Light struct {
 type Home struct {
 	Scenes []Scene
 	Lights []Light
-	// DinnerScene is the dinner scene's name; empty when dinner mode isn't set up.
-	DinnerScene string
 }

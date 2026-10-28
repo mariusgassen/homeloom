@@ -24,13 +24,13 @@ func TestHomeOnlySwitchesWhatTheSmartHomeLists(t *testing.T) {
 	alice, eve := newUser(t, store, "alice"), newUser(t, store, "eve")
 	m, _ := service.NewHousehold(store).Create(ctx, alice, "Home")
 	smart := smartHome()
-	home := service.NewHome(store, smart, "scene.dinner")
+	home := service.NewHome(store, smart)
 
 	h, err := home.Get(ctx, alice, m.Household.ID)
-	if err != nil || h.DinnerScene != "Dinner" || len(h.Scenes) != 2 || len(h.Lights) != 1 {
+	if err != nil || len(h.Scenes) != 2 || len(h.Lights) != 1 {
 		t.Fatalf("get: %+v, %v", h, err)
 	}
-	if err := home.StartDinner(ctx, alice, m.Household.ID); err != nil {
+	if err := home.ActivateScene(ctx, alice, m.Household.ID, "scene.dinner"); err != nil {
 		t.Fatal(err)
 	}
 	if err := home.ActivateScene(ctx, alice, m.Household.ID, "scene.movie"); err != nil {
@@ -47,7 +47,7 @@ func TestHomeOnlySwitchesWhatTheSmartHomeLists(t *testing.T) {
 		"unknown scene": home.ActivateScene(ctx, alice, m.Household.ID, "scene.party"),
 		"lock":          home.ActivateScene(ctx, alice, m.Household.ID, "lock.front_door"),
 		"unknown light": func() error { _, err := home.ToggleLight(ctx, alice, m.Household.ID, "light.garage"); return err }(),
-		"non-member":    home.StartDinner(ctx, eve, m.Household.ID),
+		"non-member":    home.ActivateScene(ctx, eve, m.Household.ID, "scene.dinner"),
 	} {
 		if !errors.Is(err, domain.ErrNotFound) {
 			t.Fatalf("%s: %v", name, err)
@@ -58,7 +58,7 @@ func TestHomeOnlySwitchesWhatTheSmartHomeLists(t *testing.T) {
 	}
 }
 
-func TestHomeIsUnavailableWithoutHomeAssistantOrDinnerScene(t *testing.T) {
+func TestHomeIsUnavailableWithoutHomeAssistant(t *testing.T) {
 	ctx := context.Background()
 	store := memory.NewStore()
 	alice := newUser(t, store, "alice")
@@ -66,18 +66,9 @@ func TestHomeIsUnavailableWithoutHomeAssistantOrDinnerScene(t *testing.T) {
 	down := smartHome()
 	down.Down = true
 
-	for name, err := range map[string]error{
-		"not configured": func() error { _, err := service.NewHome(store, nil, "").Get(ctx, alice, m.Household.ID); return err }(),
-		"down":           func() error { _, err := service.NewHome(store, down, "").Get(ctx, alice, m.Household.ID); return err }(),
-		"no dinner":      service.NewHome(store, smartHome(), "").StartDinner(ctx, alice, m.Household.ID),
-		"missing dinner": service.NewHome(store, smartHome(), "scene.gone").StartDinner(ctx, alice, m.Household.ID),
-	} {
-		if !errors.Is(err, domain.ErrUnavailable) {
+	for name, home := range map[string]*service.Home{"not configured": service.NewHome(store, nil), "down": service.NewHome(store, down)} {
+		if _, err := home.Get(ctx, alice, m.Household.ID); !errors.Is(err, domain.ErrUnavailable) {
 			t.Fatalf("%s: %v", name, err)
 		}
-	}
-	h, err := service.NewHome(store, smartHome(), "").Get(ctx, alice, m.Household.ID)
-	if err != nil || h.DinnerScene != "" {
-		t.Fatalf("no dinner scene: %+v, %v", h, err)
 	}
 }

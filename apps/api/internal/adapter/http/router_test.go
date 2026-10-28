@@ -63,7 +63,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Households:    service.NewHousehold(store),
 		Questions:     service.NewQuestion(store, store),
 		Cook:          service.NewCook(store, recipes, memory.Chef{}),
-		Home:          service.NewHome(store, smart, "scene.dinner"),
+		Home:          service.NewHome(store, smart),
 		HealthChecks:  checks,
 		SecureCookies: true,
 		SessionTTL:    time.Hour,
@@ -382,14 +382,11 @@ func TestHomeFlow(t *testing.T) {
 	base := "/v1/households/" + created["id"].(string)
 
 	code, home := do(t, h, "GET", base+"/home", "token-alice", "")
-	if code != 200 || home["dinnerScene"] != "Dinner" || len(home["scenes"].([]any)) != 1 || len(home["lights"].([]any)) != 1 {
+	if code != 200 || len(home["scenes"].([]any)) != 1 || len(home["lights"].([]any)) != 1 {
 		t.Fatalf("home: %d %v", code, home)
 	}
 	if code, body := do(t, h, "GET", base+"/home", "token-eve", ""); code != 404 {
 		t.Fatalf("non-member: %d %v", code, body)
-	}
-	if code, body := do(t, h, "POST", base+"/dinner-mode", "token-alice", ""); code != 204 {
-		t.Fatalf("dinner: %d %v", code, body)
 	}
 	if code, body := do(t, h, "POST", base+"/home/scenes/scene.dinner", "token-alice", ""); code != 204 {
 		t.Fatalf("scene: %d %v", code, body)

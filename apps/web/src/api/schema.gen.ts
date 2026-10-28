@@ -356,28 +356,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/households/{householdId}/dinner-mode": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                householdId: components["parameters"]["HouseholdId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Turn on the dinner scene
-         * @description Activates the scene set as `DINNER_SCENE`. Unavailable (503) when none is set.
-         */
-        post: operations["startDinnerMode"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -505,8 +483,6 @@ export interface components {
         Home: {
             scenes: components["schemas"]["Scene"][];
             lights: components["schemas"]["Light"][];
-            /** @description Name of the dinner scene; absent when dinner mode isn't set up. */
-            dinnerScene?: string;
         };
         Scene: {
             /** @description Home Assistant entity id, e.g. scene.dinner. */
@@ -1111,29 +1087,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Light"];
                 };
-            };
-            401: components["responses"]["Unauthorized"];
-            404: components["responses"]["NotFound"];
-            503: components["responses"]["Unavailable"];
-        };
-    };
-    startDinnerMode: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                householdId: components["parameters"]["HouseholdId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Dinner mode is on. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];

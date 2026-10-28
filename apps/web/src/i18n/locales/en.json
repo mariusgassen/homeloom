@@ -59,7 +59,6 @@
   "home": {
     "connected": "Home Assistant connected",
     "scenes": "Scenes",
-    "dinner": "Dinner",
     "on": "On",
     "lights": "Lights",
     "whitelist": "Only scenes and lights show here. Locks, alarm and garage stay in Home Assistant.",

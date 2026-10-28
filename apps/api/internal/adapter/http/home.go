@@ -25,7 +25,6 @@ func (h *handlers) GetHome(ctx context.Context, req oapi.GetHomeRequestObject) (
 	}
 	out := oapi.GetHome200JSONResponse{
 		Scenes: make([]oapi.Scene, len(home.Scenes)), Lights: make([]oapi.Light, len(home.Lights)),
-		DinnerScene: optional(home.DinnerScene),
 	}
 	for i, s := range home.Scenes {
 		out.Scenes[i] = oapi.Scene{Id: s.ID, Name: s.Name}
@@ -68,23 +67,6 @@ func (h *handlers) ToggleLight(ctx context.Context, req oapi.ToggleLightRequestO
 		return nil, err
 	}
 	return oapi.ToggleLight200JSONResponse(toLight(l)), nil
-}
-
-func (h *handlers) StartDinnerMode(ctx context.Context, req oapi.StartDinnerModeRequestObject) (oapi.StartDinnerModeResponseObject, error) {
-	u, err := actor(ctx)
-	if err != nil {
-		return nil, err
-	}
-	err = h.home.StartDinner(ctx, u, req.HouseholdId)
-	switch {
-	case errors.Is(err, domain.ErrNotFound):
-		return oapi.StartDinnerMode404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
-	case errors.Is(err, domain.ErrUnavailable):
-		return oapi.StartDinnerMode503JSONResponse{UnavailableJSONResponse: homeUnavailable(ctx, err)}, nil
-	case err != nil:
-		return nil, err
-	}
-	return oapi.StartDinnerMode204Response{}, nil
 }
 
 func toLight(l domain.Light) oapi.Light {

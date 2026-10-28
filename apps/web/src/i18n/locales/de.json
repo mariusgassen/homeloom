@@ -59,7 +59,6 @@
   "home": {
     "connected": "Home Assistant verbunden",
     "scenes": "Szenen",
-    "dinner": "Abendessen",
     "on": "An",
     "lights": "Licht",
     "whitelist": "Hier gibt's nur Szenen und Licht. Schlösser, Alarm und Garage bleiben in Home Assistant.",

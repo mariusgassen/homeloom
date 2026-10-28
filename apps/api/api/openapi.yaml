@@ -409,20 +409,6 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
-  /v1/households/{householdId}/dinner-mode:
-    parameters:
-      - $ref: "#/components/parameters/HouseholdId"
-    post:
-      tags: [home]
-      operationId: startDinnerMode
-      summary: Turn on the dinner scene
-      description: Activates the scene set as `DINNER_SCENE`. Unavailable (503) when none is set.
-      responses:
-        "204": { description: Dinner mode is on. }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "503": { $ref: "#/components/responses/Unavailable" }
-
 components:
   parameters:
     HouseholdId:
@@ -626,7 +612,6 @@ components:
         lights:
           type: array
           items: { $ref: "#/components/schemas/Light" }
-        dinnerScene: { type: string, description: Name of the dinner scene; absent when dinner mode isn't set up. }
 
     Scene:
       type: object

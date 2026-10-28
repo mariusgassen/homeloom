@@ -32,10 +32,8 @@ type Config struct {
 	AnthropicAPIKey string
 	LLMModel        string
 	// Home Assistant is optional: without HomeAssistantURL the Home tab is switched off.
-	// DinnerScene is the scene entity dinner mode turns on, e.g. scene.dinner.
 	HomeAssistantURL   string
 	HomeAssistantToken string
-	DinnerScene        string
 }
 
 // RedirectURL is the login callback to register in authentik.
@@ -66,7 +64,6 @@ func Load() (Config, error) {
 		LLMModel:             env("LLM_MODEL", "claude-opus-5-5"),
 		HomeAssistantURL:     os.Getenv("HOME_ASSISTANT_URL"),
 		HomeAssistantToken:   os.Getenv("HOME_ASSISTANT_TOKEN"),
-		DinnerScene:          os.Getenv("DINNER_SCENE"),
 	}
 	ttl, err := time.ParseDuration(env("USER_CACHE_TTL", "5m"))
 	if err != nil {

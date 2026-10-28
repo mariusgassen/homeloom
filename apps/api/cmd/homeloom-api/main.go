@@ -122,7 +122,7 @@ func run() error {
 		Households:     service.NewHousehold(store),
 		Questions:      service.NewQuestion(store, store),
 		Cook:           service.NewCook(store, book, chef),
-		Home:           service.NewHome(store, home, cfg.DinnerScene),
+		Home:           service.NewHome(store, home),
 		HealthChecks:   []port.HealthCheck{postgres.HealthCheck{Pool: pool}, redis.HealthCheck{Client: rdb}},
 		AllowedOrigins: cfg.AllowedOrigins,
 		SecureCookies:  cfg.SecureCookies(),

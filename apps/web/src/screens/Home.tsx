@@ -12,8 +12,7 @@ function useHouseholdId() {
   return session.household.id;
 }
 
-// Home shows what Home Assistant lets Homeloom touch: scenes and lights. The dinner scene, if
-// set up, comes first.
+// Home shows what Home Assistant lets Homeloom touch, live: scenes and lights.
 export function Home() {
   const { t } = useTranslation();
   const householdId = useHouseholdId();
@@ -22,7 +21,6 @@ export function Home() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [active, setActive] = useState<string | null>(null);
-  const path = { params: { path: { householdId } } };
 
   useEffect(() => {
     let current = true;
@@ -52,8 +50,6 @@ export function Home() {
     return true;
   }
 
-  const dinner = () =>
-    run("dinner", () => api.POST("/v1/households/{householdId}/dinner-mode", path)).then((ok) => ok && setActive("dinner"));
   const scene = (sceneId: string) =>
     run(sceneId, () => api.POST("/v1/households/{householdId}/home/scenes/{sceneId}", { params: { path: { householdId, sceneId } } })).then(
       (ok) => ok && setActive(sceneId),
@@ -79,7 +75,7 @@ export function Home() {
     );
   }
 
-  const scenes = home?.scenes.filter((s) => s.name !== home.dinnerScene) ?? [];
+  const scenes = home?.scenes ?? [];
   return (
     <Screen title={t("tabs.home")} overline={home ? t("home.connected") : undefined}>
       {error && (
@@ -87,19 +83,10 @@ export function Home() {
           {error}
         </p>
       )}
-      {home && (home.dinnerScene || scenes.length > 0) && (
+      {scenes.length > 0 && (
         <section className="group" aria-label={t("home.scenes")}>
           <h2 className="label group-title">{t("home.scenes")}</h2>
           <div className="scene-grid">
-            {home.dinnerScene && (
-              <button type="button" className="scene scene-dinner" disabled={busy !== null} onClick={dinner} aria-pressed={active === "dinner"}>
-                <Icon name="cook" />
-                <span className="headline">{t("home.dinner")}</span>
-                {(active === "dinner" || home.dinnerScene !== t("home.dinner")) && (
-                  <span className="caption">{active === "dinner" ? t("home.on") : home.dinnerScene}</span>
-                )}
-              </button>
-            )}
             {scenes.map((s) => (
               <button key={s.id} type="button" className="scene" disabled={busy !== null} onClick={() => scene(s.id)} aria-pressed={active === s.id}>
                 <Icon name="sparkle" />
@@ -125,7 +112,7 @@ export function Home() {
           </div>
         </section>
       )}
-      {home && !home.dinnerScene && scenes.length === 0 && home.lights.length === 0 && (
+      {home && scenes.length === 0 && home.lights.length === 0 && (
         <Card tone="sunken" title={t("home.emptyTitle")}>
           {t("home.emptyBody")}
         </Card>
