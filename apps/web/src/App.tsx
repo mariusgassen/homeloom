@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useEffect } from "react";
 import { matchPath, Navigate, Route, Routes, useLocation } from "react-router";
 import { CallProvider } from "./call";
-import { CallView, IncomingCall } from "./screens/Call";
+import { CallView, GuestCall, IncomingCall } from "./screens/Call";
 import { Join, pendingInvite } from "./screens/Join";
 import { Onboarding } from "./screens/Onboarding";
 import { Settings } from "./screens/Settings";
@@ -17,12 +17,23 @@ import { TabBar } from "./ui/TabBar";
 export function App() {
   const { t } = useTranslation();
   const { session, reload } = useSession();
-  const linked = matchPath("/join/:code", useLocation().pathname)?.params.code;
+  const { pathname } = useLocation();
+  const linked = matchPath("/join/:code", pathname)?.params.code;
+  const guest = matchPath("/guest/:token", pathname)?.params.token;
   const invite = linked ?? pendingInvite.get();
 
   useEffect(() => {
     if (linked) pendingInvite.set(linked);
   }, [linked]);
+
+  // A guest link works for anyone, signed in or not.
+  if (guest) {
+    return (
+      <CallProvider>
+        <GuestCall token={guest} />
+      </CallProvider>
+    );
+  }
 
   switch (session.state) {
     case "loading":
@@ -46,7 +57,7 @@ export function App() {
           <Route path="/lists" element={<Lists />} />
           <Route path="/home" element={<Home />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/call" element={<IncomingCall />} />
+          <Route path="/call/:callId" element={<IncomingCall />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <TabBar

@@ -669,32 +669,129 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
-  /v1/households/{householdId}/call:
+  /v1/households/{householdId}/calls:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
     post:
       tags: [calls]
-      operationId: joinCall
-      summary: Call another member of the household, or answer their call (members only)
+      operationId: startCall
+      summary: Start a voice and video call with other members (members only)
       description: |
-        Returns a LiveKit access token for the room the caller shares with the member in `with`,
-        valid for ten minutes to connect. When that member isn't in the call yet, they get a push
-        notification that opens `/call?from=<caller's id>`; answering is the same request with the
-        caller in `with`. Answers `503 calls_unavailable` when LiveKit isn't set up or can't be
-        reached.
+        Opens a new call, returns a LiveKit access token for it (valid for ten minutes to connect)
+        and rings the members in `invite` with a push notification that opens
+        `/call/<callId>?from=<caller's id>`. Answers `503 calls_unavailable` when LiveKit isn't set
+        up or can't be reached.
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/CallWith" }
+            schema: { $ref: "#/components/schemas/CallInvite" }
       responses:
-        "200":
-          description: Where to connect, and the token to connect with.
+        "201":
+          description: The call, and the token to connect with.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Call" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/calls/{callId}/join:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/CallId"
+    post:
+      tags: [calls]
+      operationId: joinCall
+      summary: Join or answer one of the household's calls (members only)
+      responses:
+        "200":
+          description: The token to connect with.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Call" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/calls/{callId}/invites:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/CallId"
+    post:
+      tags: [calls]
+      operationId: inviteToCall
+      summary: Ring more members into a call (members only)
+      description: Members already in the call aren't rung.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CallInvite" }
+      responses:
+        "204": { description: Rung. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/calls/{callId}/guest-links:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/CallId"
+    post:
+      tags: [calls]
+      operationId: createGuestLink
+      summary: Make a link that lets someone without an account into the call (members only)
+      description: |
+        Share it as `PUBLIC_URL/guest/<token>`. It works for 12 hours, for anyone who has it, and
+        only for this call. Only its hash is stored.
+      responses:
+        "201":
+          description: The new link's token.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GuestLink" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/guest-calls/{token}:
+    parameters:
+      - name: token
+        in: path
+        required: true
+        schema: { type: string, pattern: "^[A-Za-z0-9_-]{20,100}$" }
+    get:
+      tags: [calls]
+      operationId: getGuestCall
+      summary: Who invited the holder of a guest link (no sign-in)
+      security: []
+      responses:
+        "200":
+          description: The link works.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GuestCall" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [calls]
+      operationId: joinGuestCall
+      summary: Join a call through a guest link (no sign-in)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GuestJoin" }
+      responses:
+        "200":
+          description: The token to connect with.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Call" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
@@ -756,6 +853,11 @@ components:
       schema: { type: string, format: uuid }
     EntryId:
       name: entryId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    CallId:
+      name: callId
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -1067,19 +1169,44 @@ components:
         room: { type: string, description: The room's id; absent when it has none. }
         on: { type: boolean }
 
-    CallWith:
+    CallInvite:
       type: object
-      required: [with]
+      required: [invite]
       properties:
-        with: { type: string, format: uuid, description: "The member to call, or whose call to answer." }
+        invite:
+          type: array
+          minItems: 1
+          maxItems: 20
+          items: { type: string, format: uuid }
+          description: The members to ring.
 
     Call:
       type: object
-      required: [url, token, room]
+      required: [id, url, token, room]
       properties:
+        id: { type: string, format: uuid }
         url: { type: string, description: "The LiveKit server to connect to (wss://)." }
         token: { type: string, description: "LiveKit access token for this person and room." }
         room: { type: string }
+
+    GuestLink:
+      type: object
+      required: [token, expiresAt]
+      properties:
+        token: { type: string }
+        expiresAt: { type: string, format: date-time }
+
+    GuestCall:
+      type: object
+      required: [invitedBy]
+      properties:
+        invitedBy: { type: string, description: "The name of the member who made the link." }
+
+    GuestJoin:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 50 }
 
     PushConfig:
       type: object

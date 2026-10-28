@@ -116,13 +116,19 @@ h1, h2, h3, p { margin: 0; }
 .call-who { position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--space-3); padding-top: var(--space-8); text-align: center; }
 .call-who h1 { margin: 0; }
 .call-status { margin: 0; opacity: 0.8; font-variant-numeric: tabular-nums; }
-.call-video .call-who { text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5); color: #ffffff; }
-.call-remote { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000000; }
 .call-self { position: absolute; z-index: 1; top: max(var(--space-4), env(safe-area-inset-top, 0px)); right: var(--space-4); width: 96px; height: 128px; object-fit: cover; border-radius: var(--radius-md); transform: scaleX(-1); box-shadow: var(--shadow-sheet); }
-.call-controls { position: relative; display: flex; gap: var(--space-6); align-items: center; }
+.call-controls { position: relative; display: flex; gap: var(--space-4); align-items: center; }
 .call-control { width: 64px; height: 64px; display: grid; place-items: center; border: 0; border-radius: 50%; background: color-mix(in srgb, var(--on-spruce) 18%, transparent); color: var(--on-spruce); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .call-control[aria-pressed="true"] { background: var(--on-spruce); color: var(--spruce); }
 .call-control:disabled { opacity: 0.4; }
 .call-hangup { background: var(--danger); color: var(--on-spruce); }
 .call-hangup .hl-icon { transform: rotate(135deg); }
-.call-video .call-control:not(.call-hangup, [aria-pressed="true"]) { background: rgba(0, 0, 0, 0.35); color: #ffffff; }
+.call-grid { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); grid-auto-rows: 1fr; gap: 2px; background: #000000; }
+.call-tile { position: relative; display: grid; place-items: center; overflow: hidden; background: color-mix(in srgb, var(--spruce) 70%, #000000); }
+.call-tile-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.call-tile-name { position: absolute; left: var(--space-2); bottom: var(--space-2); display: flex; align-items: center; gap: var(--space-1); padding: 2px var(--space-2); border-radius: var(--radius-pill); background: rgba(0, 0, 0, 0.45); color: #ffffff; }
+.call-grid-one .call-tile-name { display: none; }
+.call-live .call-who { color: #ffffff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5); }
+.call-live .call-control:not(.call-hangup, [aria-pressed="true"]) { background: rgba(0, 0, 0, 0.35); color: #ffffff; }
+.call-guest { display: flex; flex-direction: column; gap: var(--space-4); }
+.call-link { margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-sunken); overflow-wrap: anywhere; }

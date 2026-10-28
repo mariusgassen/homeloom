@@ -86,9 +86,18 @@ type PushService interface {
 }
 
 type CallService interface {
-	// Join lets the actor into their call with another member of the household, ringing that
-	// member when they aren't in it yet. It returns domain.ErrNotFound when with isn't a member,
-	// domain.ErrInvalid for the actor themselves, and domain.ErrUnavailable when calls aren't set
-	// up or LiveKit is down.
-	Join(ctx context.Context, actor domain.User, householdID, with uuid.UUID) (domain.Call, error)
+	// Start opens a new call in the household and rings the members in invite. It returns
+	// domain.ErrNotFound when one of them isn't a member, domain.ErrInvalid for the actor
+	// themselves, and domain.ErrUnavailable when calls aren't set up or LiveKit is down.
+	Start(ctx context.Context, actor domain.User, householdID uuid.UUID, invite []uuid.UUID) (domain.Call, error)
+	// Join lets the actor into one of the household's calls, e.g. to answer it.
+	Join(ctx context.Context, actor domain.User, householdID, callID uuid.UUID) (domain.Call, error)
+	// Invite rings more members into a call; those already in it aren't rung.
+	Invite(ctx context.Context, actor domain.User, householdID, callID uuid.UUID, userIDs []uuid.UUID) error
+	// GuestLink makes a link that lets someone without an account into the call.
+	GuestLink(ctx context.Context, actor domain.User, householdID, callID uuid.UUID) (domain.GuestLink, error)
+	// GuestPass returns domain.ErrNotFound for an unknown or expired guest link.
+	GuestPass(ctx context.Context, token string) (domain.GuestPass, error)
+	// JoinAsGuest lets the link's holder into its call under the name they give.
+	JoinAsGuest(ctx context.Context, token, name string) (domain.Call, error)
 }

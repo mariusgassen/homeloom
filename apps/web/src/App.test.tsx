@@ -473,27 +473,36 @@ test("settings makes a calendar subscription link", async () => {
 
 const household = () =>
   json({ ...home, members: [{ user: marius, role: "owner" }, { user: jo, role: "member" }] });
-const callJoin = () => json({ url: "wss://home.example", token: "t", room: `household-${home.id}` });
+const callId = "55555555-5555-4555-8555-555555555555";
+const callJoin = () => json({ id: callId, url: "wss://home.example", token: "t", room: `call-${home.id}-${callId}` });
+type FakeRoom = { connect: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn>; join: (id: string, name: string) => void };
 
 test("calling from Us rings and shows the call until hung up", async () => {
   rooms.length = 0;
-  const calls = serve(
+  serve(
     at("GET", "/v1/me", () => json(marius)),
     at("GET", "/v1/households", () => json([home])),
     at("GET", `/v1/households/${home.id}`, household),
     at("GET", `/v1/households/${home.id}/questions`, () => json([])),
-    at("POST", `/v1/households/${home.id}/call`, callJoin),
+    at("POST", `/v1/households/${home.id}/calls`, callJoin),
+    at("POST", `/v1/households/${home.id}/calls/${callId}/guest-links`, () => json({ token: "guesttoken", expiresAt: "2030-01-01T00:00:00Z" }, 201)),
   );
   renderApp("/us");
   await userEvent.click(await screen.findByRole("button", { name: "Call Jo" }));
   expect(await screen.findByText("Calling…")).toBeInTheDocument();
-  expect(await calls.find((c) => c.method === "POST" && c.url.endsWith("/call"))?.json()).toEqual({ with: jo.id });
-  const room = rooms[0] as unknown as { connect: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn>; join: (id: string, name: string) => void };
+  const room = rooms[0] as unknown as FakeRoom;
   expect(room.connect).toHaveBeenCalledWith("wss://home.example", "t");
 
   act(() => room.join(jo.id, "Jo"));
   expect(await screen.findByText("0:00")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Mute" })).toHaveAttribute("aria-pressed", "false");
+
+  // A guest link is made on one tap and shared on the next.
+  await userEvent.click(screen.getByRole("button", { name: "Add people" }));
+  const sheet = screen.getByRole("dialog", { name: "Add people" });
+  await userEvent.click(within(sheet).getByRole("button", { name: "Create a guest link" }));
+  expect(await within(sheet).findByText(`${window.location.origin}/guest/guesttoken`)).toBeInTheDocument();
+  await userEvent.click(within(sheet).getByRole("button", { name: "Done" }));
 
   await userEvent.click(screen.getByRole("button", { name: "Hang up" }));
   expect(room.disconnect).toHaveBeenCalled();
@@ -502,19 +511,19 @@ test("calling from Us rings and shows the call until hung up", async () => {
 
 test("a call notification asks before answering", async () => {
   rooms.length = 0;
-  serve(
+  const calls = serve(
     at("GET", "/v1/me", () => json(marius)),
     at("GET", "/v1/households", () => json([home])),
     at("GET", `/v1/households/${home.id}`, household),
     at("GET", `/v1/households/${home.id}/questions`, () => json([])),
-    at("POST", `/v1/households/${home.id}/call`, callJoin),
+    at("POST", `/v1/households/${home.id}/calls/${callId}/join`, callJoin),
   );
-  renderApp(`/call?from=${jo.id}`);
+  renderApp(`/call/${callId}?from=${jo.id}`);
   expect(await screen.findByRole("heading", { name: "Jo is calling" })).toBeInTheDocument();
   expect(rooms).toHaveLength(0);
   await userEvent.click(screen.getByRole("button", { name: "Answer" }));
   await waitFor(() => expect(rooms).toHaveLength(1));
-  expect(await screen.findByText("Calling…")).toBeInTheDocument();
+  expect(calls.some((c) => c.url.endsWith(`/calls/${callId}/join`))).toBe(true);
 });
 
 test("with more than one other person, you pick who to call", async () => {
@@ -527,13 +536,36 @@ test("with more than one other person, you pick who to call", async () => {
       json({ ...home, members: [{ user: marius, role: "owner" }, { user: jo, role: "member" }, { user: sam, role: "member" }] }),
     ),
     at("GET", `/v1/households/${home.id}/questions`, () => json([])),
-    at("POST", `/v1/households/${home.id}/call`, callJoin),
+    at("POST", `/v1/households/${home.id}/calls`, callJoin),
   );
   renderApp("/us");
   await userEvent.click(await screen.findByRole("button", { name: "Who to call" }));
   const sheet = screen.getByRole("dialog", { name: "Who to call" });
-  await userEvent.click(within(sheet).getByRole("button", { name: /Sam/ }));
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/call"))).toBe(true));
-  expect(await calls.find((c) => c.method === "POST" && c.url.endsWith("/call"))?.json()).toEqual({ with: sam.id });
+  await userEvent.click(within(sheet).getByRole("checkbox", { name: /Sam/ }));
+  await userEvent.click(within(sheet).getByRole("checkbox", { name: /Jo/ }));
+  await userEvent.click(within(sheet).getByRole("button", { name: "Call" }));
+  await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/calls"))).toBe(true));
+  expect(await calls.find((c) => c.method === "POST" && c.url.endsWith("/calls"))?.json()).toEqual({ invite: [sam.id, jo.id] });
+});
+
+test("a guest joins with a name, without signing in", async () => {
+  rooms.length = 0;
+  const calls = serve(
+    at("GET", "/v1/me", () => json({ code: "unauthenticated", message: "" }, 401)),
+    at("GET", "/v1/guest-calls/guesttoken", () => json({ invitedBy: "Marius" })),
+    at("POST", "/v1/guest-calls/guesttoken", callJoin),
+  );
+  renderApp("/guest/guesttoken");
+  expect(await screen.findByRole("heading", { name: "Marius invites you to a call" })).toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText("Your name"), "Grandma");
+  await userEvent.click(screen.getByRole("button", { name: "Join" }));
+  await waitFor(() => expect(rooms).toHaveLength(1));
+  expect(await calls.find((c) => c.method === "POST")?.json()).toEqual({ name: "Grandma" });
+  expect(screen.queryByRole("button", { name: "Add people" })).not.toBeInTheDocument();
+});
+
+test("an expired guest link says so", async () => {
+  serve(at("GET", "/v1/me", () => json({}, 401)));
+  renderApp("/guest/oldtoken");
+  expect(await screen.findByRole("alert")).toHaveTextContent("This link has expired");
 });

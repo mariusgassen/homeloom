@@ -24,6 +24,7 @@ const paths = {
   micOff: ["M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z", "M5.5 11a6.5 6.5 0 0 0 13 0", "M12 17.5V21", "M4 4l16 16"],
   video: ["M3.5 7h11v10h-11z", "M14.5 10.5 20.5 7v10l-6-3.5"],
   videoOff: ["M3.5 7h11v10h-11z", "M14.5 10.5 20.5 7v10l-6-3.5", "M3 3l18 18"],
+  addPerson: ["M10 4a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Z", "M3.5 20c.8-3.5 3.3-5.5 6.5-5.5s5.7 2 6.5 5.5", "M18.5 8v6", "M15.5 11h6"],
 } as const;
 
 export type IconName = keyof typeof paths;

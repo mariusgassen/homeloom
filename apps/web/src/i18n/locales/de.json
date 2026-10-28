@@ -51,6 +51,24 @@
     "openRecipe": "Ganzes Rezept öffnen"
   },
   "call": {
+    "call": "Anrufen",
+    "add": "Leute hinzufügen",
+    "ringing": "Klingelt …",
+    "muted": "Stumm",
+    "incomingSomeone": "Jemand ruft an",
+    "guest": {
+      "title": "{{name}} lädt dich zu einem Anruf ein",
+      "name": "Dein Name",
+      "join": "Beitreten",
+      "expired": "Dieser Link ist abgelaufen. Frag nach einem neuen.",
+      "someone": "Gast",
+      "heading": "Jemand ohne die App",
+      "create": "Gast-Link erstellen",
+      "share": "Link teilen",
+      "shareTitle": "Komm in unseren Anruf",
+      "copied": "Link kopiert",
+      "hint": "Mit dem Link kann jede:r 12 Stunden lang ohne Konto in diesen Anruf."
+    },
     "pick": "Wen anrufen?",
     "start": "{{name}} anrufen",
     "incoming": "{{name}} ruft an",

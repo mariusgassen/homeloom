@@ -70,9 +70,9 @@ type claims struct {
 	Video grant  `json:"video"`
 }
 
-func (s *Server) Token(user domain.User, room string) (string, error) {
+func (s *Server) Token(identity, name, room string) (string, error) {
 	yes := true
-	return s.sign(user.ID.String(), user.Name, grant{Room: room, RoomJoin: true, CanPublish: &yes, CanSubscribe: &yes, CanPublishData: &yes})
+	return s.sign(identity, name, grant{Room: room, RoomJoin: true, CanPublish: &yes, CanSubscribe: &yes, CanPublishData: &yes})
 }
 
 func (s *Server) sign(identity, name string, g grant) (string, error) {

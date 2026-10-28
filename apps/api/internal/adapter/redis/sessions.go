@@ -54,6 +54,17 @@ func (s *Sessions) TakeHomeConnection(ctx context.Context, state string) (domain
 	return p, decode(s.client.GetDel(ctx, hashedKey("home-connect", state)), &p)
 }
 
+func (s *Sessions) SaveGuestPass(ctx context.Context, token string, p domain.GuestPass) error {
+	return s.set(ctx, hashedKey("guest-pass", token), p, domain.GuestPassTTL)
+}
+
+func (s *Sessions) GuestPass(ctx context.Context, token string) (domain.GuestPass, error) {
+	var p domain.GuestPass
+	ctx, cancel := context.WithTimeout(ctx, sessionTimeout)
+	defer cancel()
+	return p, decode(s.client.Get(ctx, hashedKey("guest-pass", token)), &p)
+}
+
 func (s *Sessions) Save(ctx context.Context, id string, sess domain.Session) error {
 	return s.set(ctx, hashedKey("session", id), sess, s.ttl)
 }

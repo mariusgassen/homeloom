@@ -1,19 +1,23 @@
 import { Room, RoomEvent } from "livekit-client";
 import { createContext, use, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { api } from "./api/client";
+import { api, type Call } from "./api/client";
 
-// How a call is going. ringing: you're in and waiting for the other one; the last three end it.
+// How a call is going. ringing: you're in and waiting for someone else; the last four end it.
 export type CallState = "connecting" | "ringing" | "live" | "reconnecting" | "ended" | "noAnswer" | "failed" | "micBlocked";
 
 type Value = {
   room: Room | null;
-  // Who the call is with.
-  peer?: string;
+  // The call's household and id, for adding people; a guest has neither.
+  call?: { householdId: string; id: string };
+  // Who was called, shown until someone joins.
+  invited: string[];
   state: CallState;
-  // When the other one joined, for the call's timer.
+  // When someone else joined, for the call's timer.
   since?: number;
-  // start must run from a tap: iOS only lets a call be heard when its audio starts in a gesture.
-  start: (householdId: string, peer: string) => void;
+  // These must run from a tap: iOS only lets a call be heard when its audio starts in a gesture.
+  start: (householdId: string, invite: string[]) => void;
+  answer: (householdId: string, callId: string) => void;
+  joinAsGuest: (token: string, name: string) => void;
   hangUp: () => void;
 };
 
@@ -26,7 +30,8 @@ const lingerFor = 1_500;
 
 export function CallProvider({ children }: { children: ReactNode }) {
   const [room, setRoom] = useState<Room | null>(null);
-  const [peer, setPeer] = useState<string>();
+  const [call, setCall] = useState<Value["call"]>();
+  const [invited, setInvited] = useState<string[]>([]);
   const [state, setState] = useState<CallState>("connecting");
   const [since, setSince] = useState<number>();
   const [, rerender] = useState(0);
@@ -36,6 +41,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     if (current.current !== r) return;
     current.current = null;
     setRoom(null);
+    setCall(undefined);
     setSince(undefined);
   }, []);
 
@@ -54,13 +60,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
     [close],
   );
 
-  const start = useCallback(
-    (householdId: string, peer: string) => {
+  // enter connects to the call that ask returns, once per tap.
+  const enter = useCallback(
+    (ask: () => Promise<Call | undefined>, householdId: string | undefined, invite: string[]) => {
       if (current.current) return;
       const r = new Room({ adaptiveStream: true, dynacast: true });
       current.current = r;
       setRoom(r);
-      setPeer(peer);
+      setInvited(invite);
       setState("connecting");
       void r.startAudio();
 
@@ -93,8 +100,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
       void (async () => {
         try {
-          const { data } = await api.POST("/v1/households/{householdId}/call", { params: { path: { householdId } }, body: { with: peer } });
+          const data = await ask();
           if (!data) return finish(r, "failed");
+          if (householdId) setCall({ householdId, id: data.id });
           await r.connect(data.url, data.token);
         } catch {
           return finish(r, "failed");
@@ -111,6 +119,30 @@ export function CallProvider({ children }: { children: ReactNode }) {
     [finish],
   );
 
+  const start = useCallback(
+    (householdId: string, invite: string[]) =>
+      enter(
+        async () => (await api.POST("/v1/households/{householdId}/calls", { params: { path: { householdId } }, body: { invite } })).data,
+        householdId,
+        invite,
+      ),
+    [enter],
+  );
+  const answer = useCallback(
+    (householdId: string, callId: string) =>
+      enter(
+        async () => (await api.POST("/v1/households/{householdId}/calls/{callId}/join", { params: { path: { householdId, callId } } })).data,
+        householdId,
+        [],
+      ),
+    [enter],
+  );
+  const joinAsGuest = useCallback(
+    (token: string, name: string) =>
+      enter(async () => (await api.POST("/v1/guest-calls/{token}", { params: { path: { token } }, body: { name } })).data, undefined, []),
+    [enter],
+  );
+
   const hangUp = useCallback(() => {
     if (current.current) finish(current.current, "ended", false);
   }, [finish]);
@@ -122,7 +154,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("pagehide", leave);
   }, []);
 
-  return <CallContext value={{ room, peer, state, since, start, hangUp }}>{children}</CallContext>;
+  return <CallContext value={{ room, call, invited, state, since, start, answer, joinAsGuest, hangUp }}>{children}</CallContext>;
 }
 
 export function useCall() {

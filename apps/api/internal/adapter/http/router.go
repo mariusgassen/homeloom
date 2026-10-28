@@ -141,10 +141,12 @@ func requestLogger(next http.Handler) http.Handler {
 	})
 }
 
-// logPath keeps calendar feed tokens, which work like passwords, out of the logs.
+// logPath keeps calendar feed tokens and guest links, which work like passwords, out of the logs.
 func logPath(path string) string {
-	if strings.HasPrefix(path, calendarFeedPath) {
-		return calendarFeedPath + "…"
+	for _, secret := range []string{calendarFeedPath, guestCallPath} {
+		if strings.HasPrefix(path, secret) {
+			return secret + "…"
+		}
 	}
 	return path
 }

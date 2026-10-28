@@ -51,6 +51,24 @@
     "openRecipe": "Open full recipe"
   },
   "call": {
+    "call": "Call",
+    "add": "Add people",
+    "ringing": "Ringing…",
+    "muted": "Muted",
+    "incomingSomeone": "Someone is calling",
+    "guest": {
+      "title": "{{name}} invites you to a call",
+      "name": "Your name",
+      "join": "Join",
+      "expired": "This link has expired. Ask for a new one.",
+      "someone": "Guest",
+      "heading": "Someone without the app",
+      "create": "Create a guest link",
+      "share": "Share link",
+      "shareTitle": "Join our call",
+      "copied": "Link copied",
+      "hint": "Anyone with the link can join this call for 12 hours, without an account."
+    },
     "pick": "Who to call",
     "start": "Call {{name}}",
     "incoming": "{{name}} is calling",

@@ -40,6 +40,10 @@ type SessionStore interface {
 	SaveHomeConnection(ctx context.Context, state string, p domain.PendingHomeConnection) error
 	// TakeHomeConnection works once per state, like TakeLogin.
 	TakeHomeConnection(ctx context.Context, state string) (domain.PendingHomeConnection, error)
+	// SaveGuestPass keeps a guest link for domain.GuestPassTTL.
+	SaveGuestPass(ctx context.Context, token string, p domain.GuestPass) error
+	// GuestPass returns domain.ErrNotFound for an unknown or expired link; it works until it expires.
+	GuestPass(ctx context.Context, token string) (domain.GuestPass, error)
 }
 
 type UserRepository interface {
@@ -169,8 +173,9 @@ type Pusher interface {
 type CallServer interface {
 	// URL is where clients connect.
 	URL() string
-	// Token lets the user into the room to talk, listen and share video.
-	Token(user domain.User, room string) (string, error)
+	// Token lets someone into the room to talk, listen and share video, under the given identity
+	// and display name.
+	Token(identity, name, room string) (string, error)
 	// Participants returns the ids of the users in the room; none when it doesn't exist. It returns
 	// domain.ErrUnavailable when LiveKit can't be reached.
 	Participants(ctx context.Context, room string) ([]string, error)

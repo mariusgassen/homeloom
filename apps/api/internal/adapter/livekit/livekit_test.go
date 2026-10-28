@@ -44,7 +44,7 @@ func TestTokenJoinsOneRoom(t *testing.T) {
 		t.Fatal(err)
 	}
 	u := domain.User{ID: uuid.New(), Name: "Alice"}
-	token, err := s.Token(u, "household-1")
+	token, err := s.Token(u.ID.String(), u.Name, "household-1")
 	if err != nil {
 		t.Fatal(err)
 	}

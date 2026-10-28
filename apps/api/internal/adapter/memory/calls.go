@@ -7,7 +7,7 @@ import (
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/domain"
 )
 
-// CallServer is a stand-in for LiveKit in tests: tokens are "<user id>@<room>", and InRoom says
+// CallServer is a stand-in for LiveKit in tests: tokens are "<identity>/<name>@<room>", and InRoom says
 // who is in each room. Set Down to make it unreachable.
 type CallServer struct {
 	mu     sync.Mutex
@@ -19,8 +19,8 @@ func NewCallServer() *CallServer { return &CallServer{InRoom: map[string][]strin
 
 func (s *CallServer) URL() string { return "wss://calls.example" }
 
-func (s *CallServer) Token(user domain.User, room string) (string, error) {
-	return user.ID.String() + "@" + room, nil
+func (s *CallServer) Token(identity, name, room string) (string, error) {
+	return identity + "/" + name + "@" + room, nil
 }
 
 func (s *CallServer) Participants(_ context.Context, room string) ([]string, error) {

@@ -27,3 +27,4 @@ export type EntryKind = components["schemas"]["EntryKind"];
 export type EntryFields = components["schemas"]["EntryFields"];
 export type Visibility = components["schemas"]["Visibility"];
 export type Repeat = components["schemas"]["Repeat"];
+export type Call = components["schemas"]["Call"];

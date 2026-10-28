@@ -168,7 +168,7 @@ func run() error {
 		Cook:           service.NewCook(store, book, chef),
 		Home:           service.NewHome(store, homeConnections, sessions, home),
 		Push:           push,
-		Calls:          service.NewCall(store, calls, push),
+		Calls:          service.NewCall(store, sessions, calls, push),
 		HealthChecks:   []port.HealthCheck{postgres.HealthCheck{Pool: pool}, redis.HealthCheck{Client: rdb}},
 		AllowedOrigins: cfg.AllowedOrigins,
 		SecureCookies:  cfg.SecureCookies(),
