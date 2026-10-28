@@ -8,11 +8,12 @@ import { Assistant } from "./screens/Assistant";
 import { Join, pendingInvite } from "./screens/Join";
 import { Onboarding } from "./screens/Onboarding";
 import { Settings } from "./screens/Settings";
+import { RefreshProvider } from "./refresh";
 import { Cook, RecipeScreen } from "./screens/Cook";
 import { Home } from "./screens/Home";
 import { Lists } from "./screens/Lists";
 import { Today, Us } from "./screens/Tabs";
-import { Unavailable, Welcome } from "./screens/Welcome";
+import { Loading, Unavailable, Welcome } from "./screens/Welcome";
 import { useSession } from "./session";
 import { TabBar } from "./ui/TabBar";
 
@@ -43,7 +44,7 @@ export function App() {
 
   switch (session.state) {
     case "loading":
-      return null;
+      return <Loading />;
     case "signedOut":
       return <Welcome invited={!!invite} />;
     case "unavailable":
@@ -56,17 +57,19 @@ export function App() {
     <AssistantContext.Provider value={assistant}>
       <CallProvider>
         <div className="app">
-          <Routes key={generation}>
-            <Route path="/" element={<Today />} />
-            <Route path="/cook" element={<Cook />} />
-            <Route path="/cook/:slug" element={<RecipeScreen />} />
-            <Route path="/us" element={<Us />} />
-            <Route path="/lists" element={<Lists />} />
-            <Route path="/home" element={<Home />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/call/:callId" element={<IncomingCall />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <RefreshProvider>
+            <Routes key={generation}>
+              <Route path="/" element={<Today />} />
+              <Route path="/cook" element={<Cook />} />
+              <Route path="/cook/:slug" element={<RecipeScreen />} />
+              <Route path="/us" element={<Us />} />
+              <Route path="/lists" element={<Lists />} />
+              <Route path="/home" element={<Home />} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="/call/:callId" element={<IncomingCall />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </RefreshProvider>
           <TabBar
             label={t("tabs.label")}
             items={[

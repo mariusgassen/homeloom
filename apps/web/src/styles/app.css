@@ -154,3 +154,36 @@ h1, h2, h3, p { margin: 0; }
 .assistant-input .input { flex: 1; min-width: 0; border: 0; border-radius: var(--radius-pill); background: var(--surface-sunken); padding: 0 var(--space-4); }
 .assistant-send { flex: none; width: var(--hit-min); height: var(--hit-min); display: grid; place-items: center; border: 0; border-radius: var(--radius-pill); background: var(--spruce); color: var(--on-spruce); cursor: pointer; }
 .assistant-send:disabled { opacity: .45; cursor: default; }
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Pull to refresh: a gap under the solid toolbar that grows with the pull, the mark drawn into it. */
+.ptr { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.ptr-settle { transition: height .28s cubic-bezier(.2, .8, .2, 1); }
+.offline { margin: var(--space-2) 0 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--saffron) 14%, transparent); color: var(--ink); }
+
+.center-state { align-items: center; text-align: center; }
+.loading-inline { display: grid; place-items: center; padding: var(--space-8) 0; }
+
+/* Motion: content rises in as it arrives, sheets slide up, ticks pop. Nothing moves for reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .screen-main > *, .center > * { animation: hl-rise .36s cubic-bezier(.2, .8, .2, 1) both; }
+  .screen-main > :nth-child(2), .center > :nth-child(2) { animation-delay: 40ms; }
+  .screen-main > :nth-child(3), .center > :nth-child(3) { animation-delay: 80ms; }
+  .screen-main > :nth-child(4), .center > :nth-child(4) { animation-delay: 120ms; }
+  .screen-main > :nth-child(n + 5), .center > :nth-child(n + 5) { animation-delay: 160ms; }
+  .loading { animation: hl-fade .3s ease .4s both; }
+  .loading > * { animation: none; }
+  .sheet-backdrop { animation: hl-fade .2s ease both; }
+  .sheet { animation: hl-slide-up .32s cubic-bezier(.2, .8, .2, 1) both; }
+  .bubble { animation: hl-rise .24s cubic-bezier(.2, .8, .2, 1) both; }
+  .tick-done { animation: hl-pop .28s cubic-bezier(.3, 1.6, .5, 1); }
+  .card-link:active .hl-card, button.hl-card:active { transform: scale(.98); }
+  .card-link .hl-card, button.hl-card { transition: transform .12s ease; }
+  .hl-tab-mark { transition: background-color .2s ease; }
+  .hl-tab[aria-current="page"] .hl-icon { animation: hl-pop .3s cubic-bezier(.3, 1.6, .5, 1); }
+}
+@keyframes hl-rise { from { opacity: 0; transform: translateY(8px); } }
+@keyframes hl-fade { from { opacity: 0; } }
+@keyframes hl-slide-up { from { transform: translateY(100%); } }
+@keyframes hl-pop { 40% { transform: scale(1.15); } }

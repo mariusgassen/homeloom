@@ -9,7 +9,12 @@
       "auth_unavailable": "Die Anmeldung geht gerade nicht. Versuch es gleich noch mal."
     }
   },
-  "unavailable": { "title": "Homeloom ist nicht erreichbar", "body": "Prüf deine Verbindung oder versuch es gleich noch mal.", "retry": "Noch mal versuchen" },
+  "unavailable": {
+    "title": "Homeloom ist nicht erreichbar", "body": "Prüf deine Verbindung oder versuch es gleich noch mal.", "retry": "Noch mal versuchen",
+    "offline": { "title": "Du bist offline", "body": "Homeloom ist wieder da, sobald du es bist." }
+  },
+  "refresh": { "loading": "Lädt …", "offline": "Du bist offline. Du siehst den letzten Stand." },
+  "crashed": { "title": "Da ist was schiefgelaufen", "body": "Das sollte nicht passieren. Neu laden hilft meistens.", "reload": "Neu laden" },
   "onboarding": {
     "title": "Richte euer Zuhause ein",
     "body": "Gib eurem Haushalt einen Namen.",

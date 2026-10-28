@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type Entry, type EntryKind } from "./api/client";
+import { useRefresh } from "./refresh";
 
 // The household's entries of one kind, or all of them, with helpers to keep the list current.
 // kind null loads nothing, for a tab that shows something else.
@@ -7,22 +8,24 @@ export function useEntries(householdId: string, kind?: EntryKind | null) {
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [generation, setGeneration] = useState(0);
+  const { generation: refreshed, track } = useRefresh();
 
   useEffect(() => {
     if (kind === null) return;
     let current = true;
-    api
+    const request = api
       .GET("/v1/households/{householdId}/entries", { params: { path: { householdId }, query: kind ? { kind } : {} } })
       .then((res) => {
         if (!current) return;
         if (res.data) setEntries(res.data);
-        else setFailed(true);
+        setFailed(!res.data);
       })
       .catch(() => current && setFailed(true));
+    track(request);
     return () => {
       current = false;
     };
-  }, [householdId, kind, generation]);
+  }, [householdId, kind, generation, refreshed, track]);
 
   const reload = useCallback(() => setGeneration((g) => g + 1), []);
   return { entries, failed, reload };
