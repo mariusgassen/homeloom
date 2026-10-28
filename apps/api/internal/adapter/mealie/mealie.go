@@ -87,8 +87,11 @@ type summary struct {
 }
 
 func (s summary) domain() domain.RecipeSummary {
-	tags := make([]string, 0, len(s.Categories)+len(s.Tags))
-	for _, t := range append(s.Categories, s.Tags...) {
+	var tags []string
+	for _, t := range s.Categories {
+		tags = append(tags, t.Name)
+	}
+	for _, t := range s.Tags {
 		tags = append(tags, t.Name)
 	}
 	return domain.RecipeSummary{Slug: s.Slug, Name: s.Name, Description: s.Description, TotalTime: s.TotalTime, Tags: tags}
