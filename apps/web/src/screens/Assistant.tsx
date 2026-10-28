@@ -7,6 +7,7 @@ import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Icon } from "../ui/Icon";
 import { ListRow } from "../ui/ListRow";
+import { MarkdownText } from "../ui/Markdown";
 
 type Bubble = Pick<ChatMessage, "role" | "text"> & { id: string };
 
@@ -140,11 +141,17 @@ export function Assistant({ householdId, onClose }: { householdId: string; onClo
             )}
           </>
         )}
-        {bubbles.filter((b) => b.text).map((b) => (
-          <p key={b.id} className={b.role === "user" ? "bubble bubble-me" : "bubble"}>
-            {b.text}
-          </p>
-        ))}
+        {bubbles.filter((b) => b.text).map((b) =>
+          b.role === "user" ? (
+            <p key={b.id} className="bubble bubble-me">
+              {b.text}
+            </p>
+          ) : (
+            <div key={b.id} className="bubble bubble-md">
+              <MarkdownText text={b.text} />
+            </div>
+          ),
+        )}
         {step && <p className="caption assistant-step">{step}</p>}
         {error && (
           <p className="callout error" role="alert">
