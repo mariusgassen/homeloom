@@ -1,5 +1,6 @@
 -- name: CreateMCPToken :one
-INSERT INTO mcp_tokens (token_hash, user_id, household_id, name, access) VALUES ($1, $2, $3, $4, $5)
+INSERT INTO mcp_tokens (id, token_hash, user_id, household_id, name, access)
+VALUES (coalesce(sqlc.narg(id)::uuid, gen_random_uuid()), @token_hash, @user_id, @household_id, @name, @access)
 RETURNING id, user_id, household_id, name, access, created_at;
 
 -- name: ListMCPTokens :many
@@ -14,3 +15,8 @@ DELETE FROM mcp_tokens WHERE id = $1 AND user_id = $2;
 SELECT t.id, t.user_id, t.household_id, t.name, t.access, t.created_at, u.name AS user_name, u.email, u.avatar_url
 FROM mcp_tokens t JOIN users u ON u.id = t.user_id
 WHERE t.token_hash = $1;
+
+-- name: GetMCPTokenByID :one
+SELECT t.id, t.user_id, t.household_id, t.name, t.access, t.created_at, t.token_hash, u.name AS user_name, u.email, u.avatar_url
+FROM mcp_tokens t JOIN users u ON u.id = t.user_id
+WHERE t.id = $1;

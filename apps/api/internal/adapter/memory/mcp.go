@@ -18,7 +18,10 @@ type mcpToken struct {
 func (s *Store) CreateMCPToken(_ context.Context, tokenHash []byte, t domain.MCPToken) (domain.MCPToken, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	t.ID, t.CreatedAt = uuid.New(), time.Now()
+	if t.ID == uuid.Nil {
+		t.ID = uuid.New()
+	}
+	t.CreatedAt = time.Now()
 	s.mcpTokens = append(s.mcpTokens, mcpToken{hash: string(tokenHash), MCPToken: t})
 	return t, nil
 }
@@ -55,4 +58,15 @@ func (s *Store) MCPTokenByHash(_ context.Context, tokenHash []byte) (domain.MCPT
 		}
 	}
 	return domain.MCPToken{}, domain.User{}, domain.ErrNotFound
+}
+
+func (s *Store) MCPTokenByID(_ context.Context, id uuid.UUID) (domain.MCPToken, domain.User, []byte, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, t := range s.mcpTokens {
+		if t.ID == id {
+			return t.MCPToken, s.users[t.UserID], []byte(t.hash), nil
+		}
+	}
+	return domain.MCPToken{}, domain.User{}, nil, domain.ErrNotFound
 }

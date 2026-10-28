@@ -13,11 +13,13 @@ import (
 )
 
 const createMCPToken = `-- name: CreateMCPToken :one
-INSERT INTO mcp_tokens (token_hash, user_id, household_id, name, access) VALUES ($1, $2, $3, $4, $5)
+INSERT INTO mcp_tokens (id, token_hash, user_id, household_id, name, access)
+VALUES (coalesce($1::uuid, gen_random_uuid()), $2, $3, $4, $5, $6)
 RETURNING id, user_id, household_id, name, access, created_at
 `
 
 type CreateMCPTokenParams struct {
+	ID          *uuid.UUID
 	TokenHash   []byte
 	UserID      uuid.UUID
 	HouseholdID uuid.UUID
@@ -36,6 +38,7 @@ type CreateMCPTokenRow struct {
 
 func (q *Queries) CreateMCPToken(ctx context.Context, arg CreateMCPTokenParams) (CreateMCPTokenRow, error) {
 	row := q.db.QueryRow(ctx, createMCPToken,
+		arg.ID,
 		arg.TokenHash,
 		arg.UserID,
 		arg.HouseholdID,
@@ -99,6 +102,43 @@ func (q *Queries) GetMCPTokenByHash(ctx context.Context, tokenHash []byte) (GetM
 		&i.Name,
 		&i.Access,
 		&i.CreatedAt,
+		&i.UserName,
+		&i.Email,
+		&i.AvatarUrl,
+	)
+	return i, err
+}
+
+const getMCPTokenByID = `-- name: GetMCPTokenByID :one
+SELECT t.id, t.user_id, t.household_id, t.name, t.access, t.created_at, t.token_hash, u.name AS user_name, u.email, u.avatar_url
+FROM mcp_tokens t JOIN users u ON u.id = t.user_id
+WHERE t.id = $1
+`
+
+type GetMCPTokenByIDRow struct {
+	ID          uuid.UUID
+	UserID      uuid.UUID
+	HouseholdID uuid.UUID
+	Name        string
+	Access      string
+	CreatedAt   time.Time
+	TokenHash   []byte
+	UserName    string
+	Email       *string
+	AvatarUrl   *string
+}
+
+func (q *Queries) GetMCPTokenByID(ctx context.Context, id uuid.UUID) (GetMCPTokenByIDRow, error) {
+	row := q.db.QueryRow(ctx, getMCPTokenByID, id)
+	var i GetMCPTokenByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.HouseholdID,
+		&i.Name,
+		&i.Access,
+		&i.CreatedAt,
+		&i.TokenHash,
 		&i.UserName,
 		&i.Email,
 		&i.AvatarUrl,

@@ -134,4 +134,19 @@ func TestCalendarPasswords(t *testing.T) {
 	if _, err := agents.AuthenticateCalendar(ctx, domain.CalendarPasswordPrefix+key[len(domain.MCPTokenPrefix):]); !errors.Is(err, domain.ErrUnauthenticated) {
 		t.Fatalf("a re-prefixed tools key opened the calendar: %v", err)
 	}
+	// The right token with a wrong secret fails, also once the right one has been checked.
+	last := "A"
+	if strings.HasSuffix(password, last) {
+		last = "B"
+	}
+	wrong := password[:len(password)-1] + last
+	if _, err := agents.AuthenticateCalendar(ctx, wrong); !errors.Is(err, domain.ErrUnauthenticated) {
+		t.Fatalf("wrong secret: %v", err)
+	}
+	if err := agents.DeleteToken(ctx, f.alice, tok.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := agents.AuthenticateCalendar(ctx, password); !errors.Is(err, domain.ErrUnauthenticated) {
+		t.Fatalf("removed password: %v", err)
+	}
 }

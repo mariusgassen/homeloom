@@ -12,7 +12,11 @@ import (
 )
 
 func (s *Store) CreateMCPToken(ctx context.Context, tokenHash []byte, t domain.MCPToken) (domain.MCPToken, error) {
-	row, err := s.q.CreateMCPToken(ctx, sqlcgen.CreateMCPTokenParams{TokenHash: tokenHash, UserID: t.UserID, HouseholdID: t.HouseholdID, Name: t.Name, Access: string(t.Access)})
+	var id *uuid.UUID
+	if t.ID != uuid.Nil {
+		id = &t.ID
+	}
+	row, err := s.q.CreateMCPToken(ctx, sqlcgen.CreateMCPTokenParams{ID: id, TokenHash: tokenHash, UserID: t.UserID, HouseholdID: t.HouseholdID, Name: t.Name, Access: string(t.Access)})
 	if err != nil {
 		return domain.MCPToken{}, err
 	}
@@ -52,4 +56,16 @@ func (s *Store) MCPTokenByHash(ctx context.Context, tokenHash []byte) (domain.MC
 	}
 	t := domain.MCPToken{ID: r.ID, UserID: r.UserID, HouseholdID: r.HouseholdID, Name: r.Name, Access: domain.TokenAccess(r.Access), CreatedAt: r.CreatedAt}
 	return t, domain.User{ID: r.UserID, Name: r.UserName, Email: deref(r.Email), AvatarURL: deref(r.AvatarUrl)}, nil
+}
+
+func (s *Store) MCPTokenByID(ctx context.Context, id uuid.UUID) (domain.MCPToken, domain.User, []byte, error) {
+	r, err := s.q.GetMCPTokenByID(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.MCPToken{}, domain.User{}, nil, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.MCPToken{}, domain.User{}, nil, err
+	}
+	t := domain.MCPToken{ID: r.ID, UserID: r.UserID, HouseholdID: r.HouseholdID, Name: r.Name, Access: domain.TokenAccess(r.Access), CreatedAt: r.CreatedAt}
+	return t, domain.User{ID: r.UserID, Name: r.UserName, Email: deref(r.Email), AvatarURL: deref(r.AvatarUrl)}, r.TokenHash, nil
 }

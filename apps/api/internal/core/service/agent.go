@@ -3,14 +3,17 @@ package service
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/domain"
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/port"
@@ -18,12 +21,15 @@ import (
 
 // AgentAccess hands out the tokens with which another app or a helper uses the tools as one
 // member of one household: short-lived ones minted for a helper such as the voice agent, and
-// personal ones a member makes for an app. Only a hash of each token is stored.
+// personal ones a member makes for an app. Only a hash of each token is stored: SHA-256 for the
+// keys, which are looked up by it, and bcrypt for calendar passwords.
 type AgentAccess struct {
 	households port.HouseholdRepository
 	sessions   port.SessionStore
 	tokens     port.MCPTokenRepository
-	now        func() time.Time
+	// checked remembers the calendar password last checked for each token id.
+	checked sync.Map
+	now     func() time.Time
 }
 
 func NewAgentAccess(households port.HouseholdRepository, sessions port.SessionStore, tokens port.MCPTokenRepository) *AgentAccess {
@@ -50,7 +56,7 @@ func (s *AgentAccess) Mint(ctx context.Context, actor domain.User, householdID u
 
 func (s *AgentAccess) Authenticate(ctx context.Context, token string) (domain.AgentGrant, error) {
 	if strings.HasPrefix(token, domain.MCPTokenPrefix) {
-		return s.personal(ctx, token, domain.AccessTools)
+		return s.personal(ctx, token)
 	}
 	if !strings.HasPrefix(token, domain.AgentTokenPrefix) {
 		return domain.AgentGrant{}, fmt.Errorf("%w: not an agent token", domain.ErrUnauthenticated)
@@ -68,17 +74,52 @@ func (s *AgentAccess) Authenticate(ctx context.Context, token string) (domain.Ag
 	return g, nil
 }
 
-// AuthenticateCalendar takes the token a calendar app sends as its password. Like every personal
-// token it is 256 random bits, so a fast hash is enough to look it up.
-func (s *AgentAccess) AuthenticateCalendar(ctx context.Context, token string) (domain.AgentGrant, error) {
-	if !strings.HasPrefix(token, domain.CalendarPasswordPrefix) {
+// AuthenticateCalendar takes the password a calendar app sends: the prefix, the token's id and a
+// secret kept only as a bcrypt hash. A password that has checked out is remembered in memory, so a
+// syncing phone doesn't pay for bcrypt on every request; the token is still looked up each time,
+// so a removed one stops working at once.
+func (s *AgentAccess) AuthenticateCalendar(ctx context.Context, password string) (domain.AgentGrant, error) {
+	id, secret, ok := splitCalendarPassword(password)
+	if !ok {
 		return domain.AgentGrant{}, fmt.Errorf("%w: not a calendar password", domain.ErrUnauthenticated)
 	}
-	return s.personal(ctx, token, domain.AccessCalendar)
+	t, owner, hash, err := s.tokens.MCPTokenByID(ctx, id)
+	if errors.Is(err, domain.ErrNotFound) {
+		return domain.AgentGrant{}, fmt.Errorf("%w: unknown token", domain.ErrUnauthenticated)
+	}
+	if err != nil {
+		return domain.AgentGrant{}, err
+	}
+	if t.Access != domain.AccessCalendar {
+		return domain.AgentGrant{}, fmt.Errorf("%w: token made for %s", domain.ErrUnauthenticated, t.Access)
+	}
+	if known, _ := s.checked.Load(id); known == nil || subtle.ConstantTimeCompare([]byte(known.(string)), []byte(password)) != 1 {
+		if bcrypt.CompareHashAndPassword(hash, []byte(secret)) != nil {
+			return domain.AgentGrant{}, fmt.Errorf("%w: wrong password", domain.ErrUnauthenticated)
+		}
+		s.checked.Store(id, password)
+	}
+	return domain.AgentGrant{User: owner, HouseholdID: t.HouseholdID}, nil
 }
 
-// personal looks up a personal token, which only opens what it was made for.
-func (s *AgentAccess) personal(ctx context.Context, token string, access domain.TokenAccess) (domain.AgentGrant, error) {
+// calendarIDLen is the length of a token id in a calendar password.
+var calendarIDLen = base64.RawURLEncoding.EncodedLen(len(uuid.UUID{}))
+
+func splitCalendarPassword(password string) (uuid.UUID, string, bool) {
+	rest, ok := strings.CutPrefix(password, domain.CalendarPasswordPrefix)
+	if !ok || len(rest) <= calendarIDLen {
+		return uuid.Nil, "", false
+	}
+	b, err := base64.RawURLEncoding.DecodeString(rest[:calendarIDLen])
+	if err != nil {
+		return uuid.Nil, "", false
+	}
+	id, err := uuid.FromBytes(b)
+	return id, rest[calendarIDLen:], err == nil
+}
+
+// personal looks up a personal key for the tools.
+func (s *AgentAccess) personal(ctx context.Context, token string) (domain.AgentGrant, error) {
 	t, owner, err := s.tokens.MCPTokenByHash(ctx, hashCode(token))
 	if errors.Is(err, domain.ErrNotFound) {
 		return domain.AgentGrant{}, fmt.Errorf("%w: unknown token", domain.ErrUnauthenticated)
@@ -86,7 +127,7 @@ func (s *AgentAccess) personal(ctx context.Context, token string, access domain.
 	if err != nil {
 		return domain.AgentGrant{}, err
 	}
-	if t.Access != access {
+	if t.Access != domain.AccessTools {
 		return domain.AgentGrant{}, fmt.Errorf("%w: token made for %s", domain.ErrUnauthenticated, t.Access)
 	}
 	return domain.AgentGrant{User: owner, HouseholdID: t.HouseholdID}, nil
@@ -111,20 +152,31 @@ func (s *AgentAccess) CreateToken(ctx context.Context, actor domain.User, househ
 	if name == "" || utf8.RuneCountInString(name) > domain.MaxMCPTokenName {
 		return domain.MCPToken{}, "", domain.TextError{Max: domain.MaxMCPTokenName}
 	}
-	prefix := domain.MCPTokenPrefix
+	t := domain.MCPToken{UserID: actor.ID, HouseholdID: householdID, Name: name, Access: access}
+	var secret string
+	var hash []byte
+	var err error
 	switch access {
 	case domain.AccessTools:
+		if secret, err = newSecret(domain.MCPTokenPrefix); err != nil {
+			return domain.MCPToken{}, "", err
+		}
+		hash = hashCode(secret)
 	case domain.AccessCalendar:
-		prefix = domain.CalendarPasswordPrefix
+		// A calendar password names its token, so it is checked against that token's bcrypt hash.
+		t.ID = uuid.New()
+		random, err := newSecret("")
+		if err != nil {
+			return domain.MCPToken{}, "", err
+		}
+		if hash, err = bcrypt.GenerateFromPassword([]byte(random), bcrypt.DefaultCost); err != nil {
+			return domain.MCPToken{}, "", err
+		}
+		secret = domain.CalendarPasswordPrefix + base64.RawURLEncoding.EncodeToString(t.ID[:]) + random
 	default:
 		return domain.MCPToken{}, "", fmt.Errorf("%w: unknown access %q", domain.ErrInvalid, access)
 	}
-	secret, err := newSecret(prefix)
-	if err != nil {
-		return domain.MCPToken{}, "", err
-	}
-	t, err := s.tokens.CreateMCPToken(ctx, hashCode(secret), domain.MCPToken{UserID: actor.ID, HouseholdID: householdID, Name: name, Access: access})
-	if err != nil {
+	if t, err = s.tokens.CreateMCPToken(ctx, hash, t); err != nil {
 		return domain.MCPToken{}, "", err
 	}
 	return t, secret, nil

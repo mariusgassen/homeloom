@@ -217,6 +217,7 @@ type Assistant interface {
 type ToolRunner func(ctx context.Context, call domain.ToolCall) (string, error)
 
 type MCPTokenRepository interface {
+	// CreateMCPToken stores the token under t.ID, or a new id when it is uuid.Nil.
 	CreateMCPToken(ctx context.Context, tokenHash []byte, t domain.MCPToken) (domain.MCPToken, error)
 	// ListMCPTokens returns the user's tokens in the household, newest first.
 	ListMCPTokens(ctx context.Context, householdID, userID uuid.UUID) ([]domain.MCPToken, error)
@@ -224,6 +225,8 @@ type MCPTokenRepository interface {
 	DeleteMCPToken(ctx context.Context, id, userID uuid.UUID) error
 	// MCPTokenByHash returns the token and its owner, or domain.ErrNotFound.
 	MCPTokenByHash(ctx context.Context, tokenHash []byte) (domain.MCPToken, domain.User, error)
+	// MCPTokenByID returns the token, its owner and its stored hash, or domain.ErrNotFound.
+	MCPTokenByID(ctx context.Context, id uuid.UUID) (domain.MCPToken, domain.User, []byte, error)
 }
 
 type ConversationRepository interface {
