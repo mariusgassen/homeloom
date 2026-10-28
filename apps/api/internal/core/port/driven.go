@@ -120,6 +120,24 @@ type HomeConnectionRepository interface {
 	DeleteHomeConnection(ctx context.Context, userID uuid.UUID) error
 }
 
+type PushSubscriptionRepository interface {
+	// SavePushSubscription stores the subscription, replacing any with the same endpoint.
+	SavePushSubscription(ctx context.Context, sub domain.PushSubscription) error
+	PushSubscriptions(ctx context.Context, userIDs []uuid.UUID) ([]domain.PushSubscription, error)
+	// DeletePushSubscription removes the user's subscription; a missing one is fine.
+	DeletePushSubscription(ctx context.Context, userID uuid.UUID, endpoint string) error
+	// DeletePushEndpoint removes a subscription the push service no longer knows, whoever owns it.
+	DeletePushEndpoint(ctx context.Context, endpoint string) error
+}
+
+// Pusher delivers Web Push notifications (VAPID).
+type Pusher interface {
+	PublicKey() string
+	// Send returns domain.ErrNotFound when the push service says the subscription is gone, and
+	// domain.ErrUnavailable when it can't be reached.
+	Send(ctx context.Context, sub domain.PushSubscription, n domain.Notification) error
+}
+
 type HealthCheck interface {
 	Name() string
 	Check(ctx context.Context) error

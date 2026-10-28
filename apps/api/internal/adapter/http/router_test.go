@@ -56,15 +56,17 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 	if book != nil {
 		recipes = book
 	}
+	push := service.NewPush(store, &memory.Pusher{})
 	smart := memory.NewSmartHome([]domain.Scene{{ID: "scene.dinner", Name: "Dinner"}}, []domain.Light{{ID: "light.kitchen", Name: "Kitchen"}})
 	h, err := httpadapter.NewRouter(httpadapter.Deps{
 		Version:       "1.2.3",
 		Identity:      service.NewIdentity(fakeVerifier{}, sessions, store),
 		Login:         service.NewLogin(memory.NewLoginProvider(), sessions),
 		Households:    service.NewHousehold(store),
-		Questions:     service.NewQuestion(store, store),
+		Questions:     service.NewQuestion(store, store, push),
 		Cook:          service.NewCook(store, recipes, memory.Chef{}),
 		Home:          service.NewHome(store, store, sessions, smart),
+		Push:          push,
 		HealthChecks:  checks,
 		SecureCookies: true,
 		SessionTTL:    time.Hour,
@@ -437,4 +439,29 @@ func redirect(t *testing.T, h http.Handler, path, token string) (int, string) {
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	return rec.Code, rec.Header().Get("Location")
+}
+
+func TestPushFlow(t *testing.T) {
+	h := newServer(t)
+	if code, body := do(t, h, "GET", "/v1/push", "token-alice", ""); code != 200 || body["publicKey"] != "test-public-key" {
+		t.Fatalf("config: %d %v", code, body)
+	}
+	sub := func(endpoint string) string {
+		return `{"endpoint":"` + endpoint + `","keys":{"p256dh":"p","auth":"a"}}`
+	}
+	if code, body := do(t, h, "POST", "/v1/push/subscriptions", "token-alice", sub("https://web.push.apple.com/abc")); code != 204 {
+		t.Fatalf("subscribe: %d %v", code, body)
+	}
+	if code, body := do(t, h, "POST", "/v1/push/subscriptions", "token-alice", sub("https://example.com/hook")); code != 400 || body["code"] != "invalid" {
+		t.Fatalf("foreign endpoint: %d %v", code, body)
+	}
+	if code, body := do(t, h, "POST", "/v1/push/subscriptions", "token-alice", `{"endpoint":"https://web.push.apple.com/abc"}`); code != 400 {
+		t.Fatalf("missing keys: %d %v", code, body)
+	}
+	if code, body := do(t, h, "DELETE", "/v1/push/subscriptions?endpoint=https%3A%2F%2Fweb.push.apple.com%2Fabc", "token-alice", ""); code != 204 {
+		t.Fatalf("unsubscribe: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "POST", "/v1/push/subscriptions", "", sub("https://web.push.apple.com/abc")); code != 401 {
+		t.Fatalf("needs auth: %d", code)
+	}
 }

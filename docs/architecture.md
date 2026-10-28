@@ -99,13 +99,21 @@ apps/web/
 
 - The app never sees a token: it starts sign-in with a full navigation to `/auth/login` and then calls the API with the session cookie.
 - The service worker precaches the app shell and never handles `/auth`, `/v1` or the health checks.
-- Installable on iOS from Safari's "Add to Home Screen"; Web Push for reminders comes with reminders and needs that install.
+- Installable on iOS from Safari's "Add to Home Screen". Web Push needs that install on iOS; in Safari itself Settings explains how to add the app.
+
+## Notifications
+
+- **Web Push with VAPID** (`adapter/webpush`, port `Pusher`) is optional: without `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`, `GET /v1/push` answers `503 push_unavailable` and the PWA hides the switch. `homeloom-api vapid-keys` prints a new pair. `VAPID_SUBJECT` defaults to `PUBLIC_URL`.
+- Subscriptions are per person and device (`push_subscriptions`, keyed by endpoint), each with the language it was made in, so every device gets its notification in its own language from the server's catalog. Only the push services of Apple, Google, Mozilla and Microsoft are accepted as endpoints, because the API posts to them. One that the push service reports gone (404/410) is deleted.
+- Turning it on is a tap in Settings: the permission prompt comes first (iOS only shows it for a user gesture), then `PushManager.subscribe` with the server's key. The service worker (`public/push-sw.js`, imported into the generated one) shows the notification and opens its page when tapped.
+- The core decides who hears what. Notifications are sent in the background, bounded to 10 s per push service and 30 s per round, and never fail the request that caused them; on shutdown the API waits for those under way.
+- So far: when the last member answers a question, everyone else hears that the answers are open.
 
 ## Failure handling
 
 - `/healthz` reports the process is up; `/readyz` checks Postgres and Redis and returns `503` when one is down.
 - Redis outages degrade to direct database access; each Redis call is bounded to 250 ms.
-- Mealie, Home Assistant and the LLM follow the same rule: their outage disables a feature, never the app.
+- Mealie, Home Assistant, the LLM and Web Push follow the same rule: their outage disables a feature, never the app.
 
 ## Deployment on Coolify
 
@@ -119,7 +127,7 @@ apps/web/
 | Component | Shape |
 |---|---|
 | MCP server | Second driving adapter on the same services, served at `/mcp`, with its own authentik client |
-| Reminders & notes | Core entries with `private / shared / reveal_after` visibility; jobs and push delivery via Redis |
+| Reminders & notes | Core entries with `private / shared / reveal_after` visibility; jobs via Redis, delivered through the existing Web Push |
 | Home Assistant media | Media players join scenes and lights in the whitelist |
 | LiveKit calls with a Homeloom agent | Self-hosted LiveKit on Coolify; the API issues room tokens; the agent is a separate service (LiveKit Agents) that calls the API |
 | Third-party apps | Per-app authentik clients or tokens, outgoing webhooks, iCal feed for reminders |

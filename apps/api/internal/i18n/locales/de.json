@@ -10,5 +10,8 @@
   "error.invalid_text": "Schreib bitte zwischen 1 und {max} Zeichen.",
   "error.invite_invalid": "Dieser Einladungslink gilt nicht mehr. Lass dir einen neuen schicken.",
   "error.not_found": "Das gibt es nicht, oder du kannst es nicht sehen.",
-  "error.unauthenticated": "Bitte melde dich erneut an."
+  "error.push_unavailable": "Mitteilungen sind auf diesem Server nicht eingerichtet.",
+  "error.unauthenticated": "Bitte melde dich erneut an.",
+  "push.revealed.body": "Eure Antworten auf „{question}“ sind jetzt offen.",
+  "push.revealed.title": "{name} hat auch geantwortet"
 }

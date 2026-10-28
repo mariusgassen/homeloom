@@ -57,3 +57,11 @@ type HomeService interface {
 	ActivateScene(ctx context.Context, actor domain.User, householdID uuid.UUID, sceneID string) error
 	ToggleLight(ctx context.Context, actor domain.User, householdID uuid.UUID, lightID string) (domain.Light, error)
 }
+
+type PushService interface {
+	// PublicKey returns domain.ErrUnavailable when push isn't set up.
+	PublicKey(ctx context.Context) (string, error)
+	// Subscribe stores the actor's device; lang is the language its notifications are written in.
+	Subscribe(ctx context.Context, actor domain.User, sub domain.PushSubscription) error
+	Unsubscribe(ctx context.Context, actor domain.User, endpoint string) error
+}

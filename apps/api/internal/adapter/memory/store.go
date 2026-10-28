@@ -31,7 +31,8 @@ type Store struct {
 	invites     map[string]*invite
 	questions   []*domain.Question
 
-	homeConnections map[uuid.UUID]domain.HomeConnection
+	homeConnections   map[uuid.UUID]domain.HomeConnection
+	pushSubscriptions []domain.PushSubscription
 }
 
 func NewStore() *Store {

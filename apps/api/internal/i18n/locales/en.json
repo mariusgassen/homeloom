@@ -10,5 +10,8 @@
   "error.invalid_text": "Please write between 1 and {max} characters.",
   "error.invite_invalid": "This invite link is no longer valid. Ask for a new one.",
   "error.not_found": "This doesn't exist or you can't see it.",
-  "error.unauthenticated": "Please sign in again."
+  "error.push_unavailable": "Notifications aren't set up on this server.",
+  "error.unauthenticated": "Please sign in again.",
+  "push.revealed.body": "Your answers to “{question}” are open now.",
+  "push.revealed.title": "{name} answered too"
 }
