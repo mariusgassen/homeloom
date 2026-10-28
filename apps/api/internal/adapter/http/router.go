@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -28,6 +29,7 @@ type Deps struct {
 	Login          port.LoginService
 	Households     port.HouseholdService
 	Questions      port.QuestionService
+	Entries        port.EntryService
 	Cook           port.CookService
 	Home           port.HomeService
 	Push           port.PushService
@@ -68,6 +70,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 		version:    d.Version,
 		households: d.Households,
 		questions:  d.Questions,
+		entries:    d.Entries,
 		cook:       d.Cook,
 		home:       d.Home,
 		push:       d.Push,
@@ -84,7 +87,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 				writeError(r.Context(), w, http.StatusUnauthorized, "unauthenticated", "")
 				return
 			}
-			slog.ErrorContext(r.Context(), "request failed", "err", err, "path", r.URL.Path)
+			slog.ErrorContext(r.Context(), "request failed", "err", err, "path", logPath(r.URL.Path))
 			writeError(r.Context(), w, http.StatusInternalServerError, "internal", "")
 		},
 	})
@@ -131,7 +134,15 @@ func requestLogger(next http.Handler) http.Handler {
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		next.ServeHTTP(ww, r)
 		slog.InfoContext(r.Context(), "http",
-			"method", r.Method, "path", r.URL.Path, "status", ww.Status(),
+			"method", r.Method, "path", logPath(r.URL.Path), "status", ww.Status(),
 			"duration_ms", time.Since(start).Milliseconds(), "request_id", middleware.GetReqID(r.Context()))
 	})
+}
+
+// logPath keeps calendar feed tokens, which work like passwords, out of the logs.
+func logPath(path string) string {
+	if strings.HasPrefix(path, calendarFeedPath) {
+		return calendarFeedPath + "…"
+	}
+	return path
 }

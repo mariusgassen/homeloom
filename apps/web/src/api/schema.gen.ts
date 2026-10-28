@@ -253,6 +253,130 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Calendar events, notes and reminders you can see (members only)
+         * @description Your own entries plus everyone's shared and "later" ones; others' private entries never
+         *     appear. A "later" entry by someone else carries no text until `revealAt` (`sealed` is true).
+         *     Grouped by kind: events by start, from today on (a repeating event appears once, at its
+         *     next time); notes newest first; open reminders by due time, then those done in the last
+         *     7 days. At most 200.
+         */
+        get: operations["listEntries"];
+        put?: never;
+        /** Write a note, set a reminder or add a calendar event */
+        post: operations["createEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/calendar-feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /** Whether you have a calendar subscription link */
+        get: operations["getCalendarFeed"];
+        put?: never;
+        /**
+         * Make a calendar subscription link; an earlier one stops working
+         * @description Subscribe to `webcal://<host><path>` in a calendar app (on iPhone: open the link, or
+         *     Settings › Calendar › Accounts › Add Subscribed Calendar). The feed holds the events and
+         *     dated open reminders you can see in Homeloom. Only a hash of the token is stored.
+         */
+        post: operations["createCalendarFeed"];
+        /** Turn your calendar subscription link off */
+        delete: operations["deleteCalendarFeed"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/calendar-feeds/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * The iCalendar feed behind a subscription link
+         * @description The token is the credential, so calendar apps can fetch it without signing in.
+         */
+        get: operations["getCalendar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/entries/{entryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryId: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        /** One entry */
+        get: operations["getEntry"];
+        /**
+         * Change an entry
+         * @description Shared entries can be changed by every member; private and "later" ones only by their
+         *     author. Only the author can change who sees an entry.
+         */
+        put: operations["updateEntry"];
+        post?: never;
+        /** Delete an entry (same rules as changing it) */
+        delete: operations["deleteEntry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/entries/{entryId}/done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryId: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Tick off a reminder
+         * @description Anyone who can see the reminder can tick it off. A repeating reminder moves on to its next
+         *     due time instead of staying done.
+         */
+        put: operations["completeEntry"];
+        post?: never;
+        /** Untick a reminder */
+        delete: operations["reopenEntry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/cook/suggestions": {
         parameters: {
             query?: never;
@@ -525,6 +649,96 @@ export interface components {
             /** Format: date-time */
             answeredAt: string;
         };
+        /** @enum {string} */
+        EntryKind: "event" | "note" | "reminder";
+        /**
+         * @description `private`: only the author. `shared`: every member. `reveal`: every member sees that it
+         *     exists, but its text opens only at `revealAt` (notes only).
+         * @enum {string}
+         */
+        Visibility: "private" | "shared" | "reveal";
+        /** @enum {string} */
+        Repeat: "never" | "daily" | "weekly" | "monthly" | "yearly";
+        EntryFields: {
+            /** @description A note's text, or a reminder's or event's title (at most 200 characters). */
+            text: string;
+            visibility: components["schemas"]["Visibility"];
+            /**
+             * Format: date-time
+             * @description When a `reveal` note opens; required for it.
+             */
+            revealAt?: string;
+            /**
+             * Format: date-time
+             * @description Reminders only: when it is due; a notification goes out then. Ignored for events, which say when their alert goes out.
+             */
+            dueAt?: string;
+            /**
+             * Format: date-time
+             * @description Events only
+             */
+            startsAt?: string;
+            /**
+             * Format: date-time
+             * @description Events only: not before `startsAt`. For an all-day event any time on its last day; absent for one day.
+             */
+            endsAt?: string;
+            /** @description Events only. */
+            allDay?: boolean;
+            /** @description Events only: a notification goes out this many minutes before the start (for all-day events, before midnight). */
+            alertMinutes?: number;
+            repeat?: components["schemas"]["Repeat"];
+            /**
+             * Format: uuid
+             * @description Shared reminders only: the member it is for. Absent means everyone.
+             */
+            assigneeId?: string;
+        };
+        CreateEntry: components["schemas"]["EntryFields"] & {
+            kind: components["schemas"]["EntryKind"];
+        };
+        Entry: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["EntryKind"];
+            /** Format: uuid */
+            authorId: string;
+            visibility: components["schemas"]["Visibility"];
+            /** Format: date-time */
+            revealAt?: string;
+            /** @description True while you may not read the text yet; `text` is then absent. */
+            sealed: boolean;
+            text?: string;
+            /**
+             * Format: date-time
+             * @description A reminder's due time, or when an event's next alert goes out.
+             */
+            dueAt?: string;
+            /** Format: date-time */
+            startsAt?: string;
+            /** Format: date-time */
+            endsAt?: string;
+            allDay: boolean;
+            alertMinutes?: number;
+            repeat: components["schemas"]["Repeat"];
+            /** Format: uuid */
+            assigneeId?: string;
+            /** Format: date-time */
+            doneAt?: string;
+            /** Format: uuid */
+            doneBy?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        CalendarFeedState: {
+            active: boolean;
+        };
+        CalendarFeedLink: {
+            /** @description The feed's path, e.g. /v1/calendar-feeds/<token>. Shown once. */
+            path: string;
+        };
         CookMood: {
             /** @description In your own words, e.g. "cozy, something with mushrooms". */
             mood: string;
@@ -708,6 +922,7 @@ export interface components {
     };
     parameters: {
         HouseholdId: string;
+        EntryId: string;
         RecipeSlug: string;
     };
     requestBodies: never;
@@ -1090,6 +1305,313 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             /** @description The question is already revealed; answers can no longer change (code `already_revealed`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listEntries: {
+        parameters: {
+            query?: {
+                kind?: components["schemas"]["EntryKind"];
+            };
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Entry"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEntry"];
+            };
+        };
+        responses: {
+            /** @description The new entry. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Entry"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getCalendarFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The link's state; the link itself is only shown when it is made. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarFeedState"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createCalendarFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new link. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarFeedLink"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteCalendarFeed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The link no longer works. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getCalendar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description An iCalendar (RFC 5545) document. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/calendar": string;
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryId: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entry. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Entry"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryId: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntryFields"];
+            };
+        };
+        responses: {
+            /** @description The entry after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Entry"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description You can see this entry but not change it (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryId: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description You can see this entry but not delete it (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    completeEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryId: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The reminder after ticking it off. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Entry"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description Only reminders can be ticked off (code `not_a_reminder`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    reopenEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryId: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The reminder, open again. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Entry"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description Only reminders can be ticked off (code `not_a_reminder`). */
             409: {
                 headers: {
                     [name: string]: unknown;

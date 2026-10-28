@@ -340,3 +340,93 @@ test("home says so when Home Assistant isn't set up", async () => {
   expect(await screen.findByText("The smart home isn't reachable right now.")).toBeInTheDocument();
   expect(screen.getByText("Smart home isn't available")).toBeInTheDocument();
 });
+
+const entry = (fields: Record<string, unknown>) => ({
+  id: "55555555-5555-4555-8555-555555555555",
+  kind: "reminder",
+  authorId: marius.id,
+  visibility: "shared",
+  sealed: false,
+  allDay: false,
+  repeat: "never",
+  createdAt: "2026-10-27T18:00:00Z",
+  updatedAt: "2026-10-27T18:00:00Z",
+  ...fields,
+});
+
+test("reminders are ticked off in Lists", async () => {
+  const bins = entry({ text: "Bins out", assigneeId: jo.id });
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([bins])),
+    at("PUT", `/v1/entries/${bins.id}/done`, () => json({ ...bins, doneAt: "2026-10-28T08:00:00Z", doneBy: marius.id })),
+  );
+  renderApp("/lists");
+  expect(await screen.findByRole("tab", { name: "Reminders" })).toHaveAttribute("aria-selected", "true");
+  expect(await screen.findByText("Jo")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("checkbox", { name: "Bins out" }));
+  await waitFor(() => expect(calls.some((c) => c.method === "PUT" && c.url.endsWith("/done"))).toBe(true));
+  expect(calls.filter((c) => c.method === "GET" && new URL(c.url).pathname.endsWith("/entries"))).toHaveLength(2);
+  expect(calls.find((c) => c.url.includes("/entries"))?.url).toContain("kind=reminder");
+});
+
+test("the quick-add sheet sets a shared reminder for both", async () => {
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([])),
+    at("POST", `/v1/households/${home.id}/entries`, () => json(entry({ text: "Call the landlord" }), 201)),
+  );
+  renderApp("/lists");
+  expect(await screen.findByText("Nothing to remember")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  const sheet = screen.getByRole("dialog", { name: "New reminder" });
+  await userEvent.type(within(sheet).getByLabelText("Remind about"), "Call the landlord");
+  expect(within(sheet).getByRole("radio", { name: /Both of us/ })).toBeChecked();
+  expect(within(sheet).getByText("Jo sees it right away.")).toBeInTheDocument();
+  await userEvent.click(within(sheet).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(await calls.find((c) => c.method === "POST")?.json()).toEqual({ kind: "reminder", text: "Call the landlord", visibility: "shared", repeat: "never" });
+});
+
+test("a note for later stays sealed", async () => {
+  serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () =>
+      json([entry({ kind: "note", authorId: jo.id, visibility: "reveal", sealed: true, revealAt: "2030-02-14T00:00:00Z" })]),
+    ),
+  );
+  renderApp("/lists?show=note");
+  expect(await screen.findByText(/Jo wrote you something\. It opens on/)).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: "Notes" })).toHaveAttribute("aria-selected", "true");
+});
+
+test("today lists what's due and today's events", async () => {
+  const now = new Date();
+  const soon = new Date(now.getTime() + 60_000).toISOString();
+  serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () =>
+      json([
+        entry({ id: "66666666-6666-4666-8666-666666666666", kind: "event", text: "Dinner with Jo", startsAt: soon }),
+        entry({ text: "Water the plants", dueAt: soon }),
+        entry({ id: "77777777-7777-4777-8777-777777777777", text: "Next year", dueAt: "2099-01-01T08:00:00Z" }),
+      ]),
+    ),
+  );
+  renderApp("/");
+  expect(await screen.findByText("Water the plants")).toBeInTheDocument();
+  expect(screen.getByText("Dinner with Jo")).toBeInTheDocument();
+  expect(screen.queryByText("Next year")).not.toBeInTheDocument();
+});
+
+test("settings makes a calendar subscription link", async () => {
+  serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/calendar-feed`, () => json({ active: false })),
+    at("POST", `/v1/households/${home.id}/calendar-feed`, () => json({ path: "/v1/calendar-feeds/secret" }, 201)),
+  );
+  renderApp("/settings");
+  await userEvent.click(await screen.findByRole("button", { name: "Add to Calendar" }));
+  expect(await screen.findByRole("link", { name: "Open in Calendar" })).toHaveAttribute("href", `webcal://${window.location.host}/v1/calendar-feeds/secret`);
+  expect(screen.getByRole("button", { name: "Turn off" })).toBeInTheDocument();
+});

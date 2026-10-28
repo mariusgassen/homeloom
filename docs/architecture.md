@@ -101,13 +101,22 @@ apps/web/
 - The service worker precaches the app shell and never handles `/auth`, `/v1` or the health checks.
 - Installable on iOS from Safari's "Add to Home Screen". Web Push needs that install on iOS; in Safari itself Settings explains how to add the app.
 
+## Calendar, reminders and notes
+
+- One `entries` table holds calendar events, reminders and notes (`kind`), so they share one visibility model: `private` (the author only), `shared` (every member) and `reveal` (notes only: every member sees that it exists, its text opens at `revealAt`). Others' private entries never leave the database; sealing happens in `core/service`. Shared entries can be changed by every member, private and "later" ones only by their author, and only the author decides who sees an entry (`403 not_yours` otherwise).
+- **Reminders** have an optional due time, can repeat daily, weekly, monthly or yearly, and can be for one member or everyone. Ticking off a repeating reminder moves it to its next time. Done reminders stay listed for 7 days.
+- **Events** have a start, an optional end, can be all day (stored as local midnight of the first and last day), repeat, and have an optional alert minutes before the start. A repeating event is listed once, at its next time.
+- **Notifications:** `due_at` is a reminder's due time or an event's next alert. Every API instance runs a loop every 15 s that claims what has come due since `notified_at` (`FOR UPDATE SKIP LOCKED`, so each due time is sent once) and hands it to the Push service: the author for private entries, else the assignee or every member. A time already past when it is set doesn't ring.
+- **Time zone:** repeats and all-day events keep their wall-clock time in `TIME_ZONE` (an IANA name, `Europe/Berlin` in the compose file), across daylight saving time.
+- **Calendar subscription:** each member can make a private link (`POST /v1/households/{id}/calendar-feed`); only its SHA-256 is stored, a new one replaces the old. `GET /v1/calendar-feeds/{token}` serves an iCalendar feed of the events and dated open reminders that member can see, without a session, for Apple Calendar and others (`webcal://`). Repeats become `RRULE`s in the household's time zone; alerts are left out because Homeloom sends its own. The token never appears in the request log.
+
 ## Notifications
 
 - **Web Push with VAPID** (`adapter/webpush`, port `Pusher`) is optional: without `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`, `GET /v1/push` answers `503 push_unavailable` and the PWA hides the switch. `homeloom-api vapid-keys` prints a new pair. `VAPID_SUBJECT` defaults to `PUBLIC_URL`.
 - Subscriptions are per person and device (`push_subscriptions`, keyed by endpoint), each with the language it was made in, so every device gets its notification in its own language from the server's catalog. Only the push services of Apple, Google, Mozilla and Microsoft are accepted as endpoints, because the API posts to them. One that the push service reports gone (404/410) is deleted.
 - Turning it on is a tap in Settings: the permission prompt comes first (iOS only shows it for a user gesture), then `PushManager.subscribe` with the server's key. The service worker (`public/push-sw.js`, imported into the generated one) shows the notification and opens its page when tapped.
 - The core decides who hears what. Notifications are sent in the background, bounded to 10 s per push service and 30 s per round, and never fail the request that caused them; on shutdown the API waits for those under way.
-- So far: when the last member answers a question, everyone else hears that the answers are open.
+- When the last member answers a question, everyone else hears that the answers are open. Reminders and event alerts notify when they come due (see above).
 
 ## Failure handling
 
@@ -127,7 +136,6 @@ apps/web/
 | Component | Shape |
 |---|---|
 | MCP server | Second driving adapter on the same services, served at `/mcp`, with its own authentik client |
-| Reminders & notes | Core entries with `private / shared / reveal_after` visibility; jobs via Redis, delivered through the existing Web Push |
 | Home Assistant media | Media players join scenes and lights in the whitelist |
 | LiveKit calls with a Homeloom agent | Self-hosted LiveKit on Coolify; the API issues room tokens; the agent is a separate service (LiveKit Agents) that calls the API |
-| Third-party apps | Per-app authentik clients or tokens, outgoing webhooks, iCal feed for reminders |
+| Third-party apps | Per-app authentik clients or tokens, outgoing webhooks |

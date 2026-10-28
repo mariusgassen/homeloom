@@ -17,6 +17,7 @@ type handlers struct {
 	version    string
 	households port.HouseholdService
 	questions  port.QuestionService
+	entries    port.EntryService
 	cook       port.CookService
 	home       port.HomeService
 	push       port.PushService

@@ -20,6 +20,7 @@ cp .env.example .env   # POSTGRES_PASSWORD, PUBLIC_URL=http://localhost:3000 und
                        # optional: MEALIE_MCP_URL + MEALIE_MCP_TOKEN zum Kochen, ANTHROPIC_API_KEY für Claude
                        # optional: HOME_ASSISTANT_URL + HOMELOOM_SECRET_KEY für Szenen und Licht
                        # optional: VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY für Mitteilungen (siehe .env.example)
+                       # optional: TIME_ZONE für Erinnerungen und Kalender (Standard: Europe/Berlin)
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 open http://localhost:3000
 ```

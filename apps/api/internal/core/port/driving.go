@@ -2,6 +2,7 @@ package port
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -37,6 +38,24 @@ type QuestionService interface {
 	List(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.Question, error)
 	Ask(ctx context.Context, actor domain.User, householdID uuid.UUID, text string) (domain.Question, error)
 	Answer(ctx context.Context, actor domain.User, questionID uuid.UUID, text string) (domain.Question, error)
+}
+
+type EntryService interface {
+	List(ctx context.Context, actor domain.User, householdID uuid.UUID, kind domain.EntryKind) ([]domain.Entry, error)
+	Create(ctx context.Context, actor domain.User, householdID uuid.UUID, kind domain.EntryKind, f domain.EntryFields) (domain.Entry, error)
+	Get(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Entry, error)
+	Update(ctx context.Context, actor domain.User, id uuid.UUID, f domain.EntryFields) (domain.Entry, error)
+	Delete(ctx context.Context, actor domain.User, id uuid.UUID) error
+	// SetDone ticks a reminder off (done true) or opens it again.
+	SetDone(ctx context.Context, actor domain.User, id uuid.UUID, done bool) (domain.Entry, error)
+	// HasCalendarFeed says whether the actor has a calendar subscription link for the household.
+	HasCalendarFeed(ctx context.Context, actor domain.User, householdID uuid.UUID) (bool, error)
+	// CreateCalendarFeed returns a new subscription link token; an earlier link stops working.
+	CreateCalendarFeed(ctx context.Context, actor domain.User, householdID uuid.UUID) (string, error)
+	DeleteCalendarFeed(ctx context.Context, actor domain.User, householdID uuid.UUID) error
+	// CalendarFeed returns the events and dated open reminders the token's owner can see, and the
+	// household's time zone. It returns domain.ErrNotFound for an unknown token or a member who left.
+	CalendarFeed(ctx context.Context, token string) ([]domain.Entry, *time.Location, error)
 }
 
 type CookService interface {

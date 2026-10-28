@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.7.0
+  version: 0.8.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -25,6 +25,7 @@ tags:
   - name: me
   - name: households
   - name: questions
+  - name: entries
   - name: cook
   - name: home
   - name: push
@@ -306,6 +307,208 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
 
+  /v1/households/{householdId}/entries:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [entries]
+      operationId: listEntries
+      summary: Calendar events, notes and reminders you can see (members only)
+      description: |
+        Your own entries plus everyone's shared and "later" ones; others' private entries never
+        appear. A "later" entry by someone else carries no text until `revealAt` (`sealed` is true).
+        Grouped by kind: events by start, from today on (a repeating event appears once, at its
+        next time); notes newest first; open reminders by due time, then those done in the last
+        7 days. At most 200.
+      parameters:
+        - name: kind
+          in: query
+          schema: { $ref: "#/components/schemas/EntryKind" }
+      responses:
+        "200":
+          description: The entries.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Entry" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [entries]
+      operationId: createEntry
+      summary: Write a note, set a reminder or add a calendar event
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateEntry" }
+      responses:
+        "201":
+          description: The new entry.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Entry" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/calendar-feed:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [entries]
+      operationId: getCalendarFeed
+      summary: Whether you have a calendar subscription link
+      responses:
+        "200":
+          description: The link's state; the link itself is only shown when it is made.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CalendarFeedState" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [entries]
+      operationId: createCalendarFeed
+      summary: Make a calendar subscription link; an earlier one stops working
+      description: |
+        Subscribe to `webcal://<host><path>` in a calendar app (on iPhone: open the link, or
+        Settings › Calendar › Accounts › Add Subscribed Calendar). The feed holds the events and
+        dated open reminders you can see in Homeloom. Only a hash of the token is stored.
+      responses:
+        "201":
+          description: The new link.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CalendarFeedLink" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [entries]
+      operationId: deleteCalendarFeed
+      summary: Turn your calendar subscription link off
+      responses:
+        "204": { description: The link no longer works. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/calendar-feeds/{token}:
+    parameters:
+      - name: token
+        in: path
+        required: true
+        schema: { type: string, minLength: 1, maxLength: 100 }
+    get:
+      tags: [entries]
+      operationId: getCalendar
+      summary: The iCalendar feed behind a subscription link
+      description: The token is the credential, so calendar apps can fetch it without signing in.
+      security: []
+      responses:
+        "200":
+          description: An iCalendar (RFC 5545) document.
+          content:
+            text/calendar:
+              schema: { type: string }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/entries/{entryId}:
+    parameters:
+      - $ref: "#/components/parameters/EntryId"
+    get:
+      tags: [entries]
+      operationId: getEntry
+      summary: One entry
+      responses:
+        "200":
+          description: The entry.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Entry" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [entries]
+      operationId: updateEntry
+      summary: Change an entry
+      description: |
+        Shared entries can be changed by every member; private and "later" ones only by their
+        author. Only the author can change who sees an entry.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EntryFields" }
+      responses:
+        "200":
+          description: The entry after the change.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Entry" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: You can see this entry but not change it (code `not_yours`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [entries]
+      operationId: deleteEntry
+      summary: Delete an entry (same rules as changing it)
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: You can see this entry but not delete it (code `not_yours`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/entries/{entryId}/done:
+    parameters:
+      - $ref: "#/components/parameters/EntryId"
+    put:
+      tags: [entries]
+      operationId: completeEntry
+      summary: Tick off a reminder
+      description: |
+        Anyone who can see the reminder can tick it off. A repeating reminder moves on to its next
+        due time instead of staying done.
+      responses:
+        "200":
+          description: The reminder after ticking it off.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Entry" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Only reminders can be ticked off (code `not_a_reminder`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+    delete:
+      tags: [entries]
+      operationId: reopenEntry
+      summary: Untick a reminder
+      responses:
+        "200":
+          description: The reminder, open again.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Entry" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Only reminders can be ticked off (code `not_a_reminder`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
   /v1/households/{householdId}/cook/suggestions:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -521,6 +724,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    EntryId:
+      name: entryId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     RecipeSlug:
       name: slug
       in: path
@@ -627,6 +835,79 @@ components:
         userId: { type: string, format: uuid }
         text: { type: string, description: Present for your own answer, and for everyone's once the question is revealed. }
         answeredAt: { type: string, format: date-time }
+
+    EntryKind:
+      type: string
+      enum: [event, note, reminder]
+
+    Visibility:
+      type: string
+      enum: [private, shared, reveal]
+      description: |
+        `private`: only the author. `shared`: every member. `reveal`: every member sees that it
+        exists, but its text opens only at `revealAt` (notes only).
+
+    Repeat:
+      type: string
+      enum: [never, daily, weekly, monthly, yearly]
+
+    EntryFields:
+      type: object
+      required: [text, visibility]
+      properties:
+        text: { type: string, minLength: 1, maxLength: 5000, description: "A note's text, or a reminder's or event's title (at most 200 characters)." }
+        visibility: { $ref: "#/components/schemas/Visibility" }
+        revealAt: { type: string, format: date-time, description: "When a `reveal` note opens; required for it." }
+        dueAt: { type: string, format: date-time, description: "Reminders only: when it is due; a notification goes out then. Ignored for events, which say when their alert goes out." }
+        startsAt: { type: string, format: date-time, description: Events only, required for them. For an all-day event any time on its first day. }
+        endsAt: { type: string, format: date-time, description: "Events only: not before `startsAt`. For an all-day event any time on its last day; absent for one day." }
+        allDay: { type: boolean, description: Events only. }
+        alertMinutes: { type: integer, minimum: 0, maximum: 10080, description: "Events only: a notification goes out this many minutes before the start (for all-day events, before midnight)." }
+        repeat: { $ref: "#/components/schemas/Repeat" }
+        assigneeId: { type: string, format: uuid, description: "Shared reminders only: the member it is for. Absent means everyone." }
+
+    CreateEntry:
+      allOf:
+        - $ref: "#/components/schemas/EntryFields"
+        - type: object
+          required: [kind]
+          properties:
+            kind: { $ref: "#/components/schemas/EntryKind" }
+
+    Entry:
+      type: object
+      required: [id, kind, authorId, visibility, sealed, allDay, repeat, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: "#/components/schemas/EntryKind" }
+        authorId: { type: string, format: uuid }
+        visibility: { $ref: "#/components/schemas/Visibility" }
+        revealAt: { type: string, format: date-time }
+        sealed: { type: boolean, description: True while you may not read the text yet; `text` is then absent. }
+        text: { type: string }
+        dueAt: { type: string, format: date-time, description: "A reminder's due time, or when an event's next alert goes out." }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        allDay: { type: boolean }
+        alertMinutes: { type: integer }
+        repeat: { $ref: "#/components/schemas/Repeat" }
+        assigneeId: { type: string, format: uuid }
+        doneAt: { type: string, format: date-time }
+        doneBy: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    CalendarFeedState:
+      type: object
+      required: [active]
+      properties:
+        active: { type: boolean }
+
+    CalendarFeedLink:
+      type: object
+      required: [path]
+      properties:
+        path: { type: string, description: "The feed's path, e.g. /v1/calendar-feeds/<token>. Shown once." }
 
     CookMood:
       type: object
