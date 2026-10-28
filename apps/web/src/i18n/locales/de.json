@@ -82,6 +82,10 @@
     "decline": "Jetzt nicht",
     "mute": "Stumm",
     "camera": "Kamera",
+    "flip": "Kamera wechseln",
+    "react": "Reagieren",
+    "swap": "Ansicht tauschen",
+    "spotlight": "{{name}} groß zeigen",
     "hangUp": "Auflegen",
     "tapToHear": "Tippen zum Hören",
     "state": { "connecting": "Verbinde …", "ringing": "Klingelt …", "reconnecting": "Verbinde neu …", "ended": "Anruf beendet", "noAnswer": "Keine Antwort", "failed": "Der Anruf hat nicht geklappt.", "micBlocked": "Für Anrufe braucht es dein Mikrofon. Erlaub es in den Einstellungen deines Handys.", "linkUsed": "Dieser Link wird schon auf einem anderen Gerät benutzt." }
