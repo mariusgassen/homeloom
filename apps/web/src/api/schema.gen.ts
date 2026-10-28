@@ -860,13 +860,16 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Your tokens for other apps that use Homeloom's tools at /mcp */
+        /** Your keys and passwords for other apps */
         get: operations["listMcpTokens"];
         put?: never;
         /**
-         * Make a token for an app that uses Homeloom's tools
-         * @description The app sends it as `Authorization: Bearer <secret>` to `/mcp` and acts as you in this
-         *     household until you delete the token. Only a hash of it is stored.
+         * Make a key or password for another app
+         * @description With `access: tools` (the default) the secret is a key: an assistant sends it as
+         *     `Authorization: Bearer <secret>` to `/mcp`. With `access: calendar` it is a password for a
+         *     calendar app, which syncs your events and reminders over CalDAV at `/dav` (any user name).
+         *     Either acts as you in this household, opens only what it was made for, and works until you
+         *     delete it. Only a hash of it is stored.
          */
         post: operations["createMcpToken"];
         delete?: never;
@@ -1268,16 +1271,25 @@ export interface components {
         McpTokenRequest: {
             /** @description Which app it is for. */
             name: string;
+            access?: components["schemas"]["TokenAccess"];
         };
+        /**
+         * @description What it opens: `tools` is the assistant's tools at /mcp (a bearer key), `calendar` is your
+         *     events and reminders over CalDAV at /dav (a password).
+         * @default tools
+         * @enum {string}
+         */
+        TokenAccess: "tools" | "calendar";
         McpToken: {
             /** Format: uuid */
             id: string;
             name: string;
+            access: components["schemas"]["TokenAccess"];
             /** Format: date-time */
             createdAt: string;
         };
         McpTokenCreated: components["schemas"]["McpToken"] & {
-            /** @description The bearer token. */
+            /** @description The bearer key or the calendar password. */
             secret: string;
         };
         ConversationDetail: components["schemas"]["Conversation"] & {
@@ -2758,7 +2770,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Your tokens in this household, newest first; the secrets are only shown when made. */
+            /** @description Your keys and passwords in this household, newest first; the secrets are only shown when made. */
             200: {
                 headers: {
                     [name: string]: unknown;

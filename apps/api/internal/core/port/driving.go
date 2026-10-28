@@ -58,6 +58,20 @@ type EntryService interface {
 	CalendarFeed(ctx context.Context, token string) ([]domain.Entry, *time.Location, error)
 }
 
+// EntrySyncService lets a calendar app (over CalDAV) read and change the events and reminders
+// its owner can see, one list at a time. Entries are named as the app names them: by the name the
+// app gave one it made, else by "<id>.ics".
+type EntrySyncService interface {
+	// SyncEntries returns the entries in the list: shared ones, or the actor's private ones.
+	SyncEntries(ctx context.Context, actor domain.User, householdID uuid.UUID, l domain.SyncList) ([]domain.Entry, error)
+	// SyncEntry returns domain.ErrNotFound unless the named entry is in the list.
+	SyncEntry(ctx context.Context, actor domain.User, householdID uuid.UUID, l domain.SyncList, name string) (domain.Entry, error)
+	// SyncPut makes or changes the named entry, putting it in the list, and says whether it is new.
+	SyncPut(ctx context.Context, actor domain.User, householdID uuid.UUID, l domain.SyncList, name string, in domain.SyncEntry) (domain.Entry, bool, error)
+	// SyncDelete deletes the named entry. One that has moved to another list is left alone.
+	SyncDelete(ctx context.Context, actor domain.User, householdID uuid.UUID, l domain.SyncList, name string) error
+}
+
 type CookService interface {
 	// Suggest picks recipes for a mood; lang is the language the reasons are written in.
 	Suggest(ctx context.Context, actor domain.User, householdID uuid.UUID, mood, lang string) (domain.Suggestions, error)
@@ -146,13 +160,17 @@ type AgentAccessService interface {
 	// Mint returns a token for actor in the household that lasts ttl (at most
 	// domain.MaxAgentTokenTTL).
 	Mint(ctx context.Context, actor domain.User, householdID uuid.UUID, ttl time.Duration) (string, error)
-	// Authenticate takes a minted or a personal token. It returns domain.ErrUnauthenticated for
-	// an unknown, revoked or expired one.
+	// Authenticate takes a minted or a personal token for the tools. It returns
+	// domain.ErrUnauthenticated for an unknown, revoked or expired one.
 	Authenticate(ctx context.Context, token string) (domain.AgentGrant, error)
+	// AuthenticateCalendar takes a personal password for calendar apps. It returns
+	// domain.ErrUnauthenticated for anything else.
+	AuthenticateCalendar(ctx context.Context, password string) (domain.AgentGrant, error)
 	Revoke(ctx context.Context, token string) error
 	// Tokens are the actor's personal tokens in the household.
 	Tokens(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.MCPToken, error)
-	// CreateToken makes a personal token that lasts until it is deleted, and returns its secret.
-	CreateToken(ctx context.Context, actor domain.User, householdID uuid.UUID, name string) (domain.MCPToken, string, error)
+	// CreateToken makes a personal token for the access that lasts until it is deleted, and
+	// returns its secret.
+	CreateToken(ctx context.Context, actor domain.User, householdID uuid.UUID, name string, access domain.TokenAccess) (domain.MCPToken, string, error)
 	DeleteToken(ctx context.Context, actor domain.User, id uuid.UUID) error
 }

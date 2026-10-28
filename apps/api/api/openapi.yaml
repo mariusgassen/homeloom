@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.12.0
+  version: 0.13.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -1035,10 +1035,10 @@ paths:
     get:
       tags: [assistant]
       operationId: listMcpTokens
-      summary: Your tokens for other apps that use Homeloom's tools at /mcp
+      summary: Your keys and passwords for other apps
       responses:
         "200":
-          description: Your tokens in this household, newest first; the secrets are only shown when made.
+          description: Your keys and passwords in this household, newest first; the secrets are only shown when made.
           content:
             application/json:
               schema:
@@ -1049,10 +1049,13 @@ paths:
     post:
       tags: [assistant]
       operationId: createMcpToken
-      summary: Make a token for an app that uses Homeloom's tools
+      summary: Make a key or password for another app
       description: |
-        The app sends it as `Authorization: Bearer <secret>` to `/mcp` and acts as you in this
-        household until you delete the token. Only a hash of it is stored.
+        With `access: tools` (the default) the secret is a key: an assistant sends it as
+        `Authorization: Bearer <secret>` to `/mcp`. With `access: calendar` it is a password for a
+        calendar app, which syncs your events and reminders over CalDAV at `/dav` (any user name).
+        Either acts as you in this household, opens only what it was made for, and works until you
+        delete it. Only a hash of it is stored.
       requestBody:
         required: true
         content:
@@ -1583,13 +1586,23 @@ components:
       required: [name]
       properties:
         name: { type: string, minLength: 1, maxLength: 60, description: Which app it is for. }
+        access: { $ref: "#/components/schemas/TokenAccess" }
+
+    TokenAccess:
+      type: string
+      enum: [tools, calendar]
+      default: tools
+      description: |
+        What it opens: `tools` is the assistant's tools at /mcp (a bearer key), `calendar` is your
+        events and reminders over CalDAV at /dav (a password).
 
     McpToken:
       type: object
-      required: [id, name, createdAt]
+      required: [id, name, access, createdAt]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
+        access: { $ref: "#/components/schemas/TokenAccess" }
         createdAt: { type: string, format: date-time }
 
     McpTokenCreated:
@@ -1598,7 +1611,7 @@ components:
         - type: object
           required: [secret]
           properties:
-            secret: { type: string, description: The bearer token. }
+            secret: { type: string, description: The bearer key or the calendar password. }
 
     ConversationDetail:
       allOf:

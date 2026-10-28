@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, type McpToken } from "../api/client";
+import { api, type McpToken, type TokenAccess } from "../api/client";
 import { currentSubscription, pushKey, pushSupport, subscribe, unsubscribe } from "../push";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
@@ -192,18 +192,22 @@ function CalendarLink({ householdId }: { householdId: string }) {
   );
 }
 
-// Keys with which another assistant uses Homeloom's tools at /mcp as this person. The API keeps
-// only a hash, so a new key is shown once.
+// Keys with which another assistant uses Homeloom's tools at /mcp, and passwords with which a
+// calendar app syncs events and reminders over CalDAV, each as this person. The API keeps only a
+// hash, so a new one is shown once.
 function OtherApps({ householdId }: { householdId: string }) {
   const { t, i18n } = useTranslation();
   const [tokens, setTokens] = useState<McpToken[] | null>(null);
   const [name, setName] = useState("");
-  const [secret, setSecret] = useState<string | null>(null);
+  const [access, setAccess] = useState<TokenAccess>("calendar");
+  const [made, setMade] = useState<{ secret: string; access: TokenAccess } | null>(null);
   const [copied, setCopied] = useState<"address" | "key" | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const path = { params: { path: { householdId } } };
-  const address = `${window.location.origin}/mcp`;
+  const calendar = made?.access === "calendar";
+  // A calendar app takes the server's name and finds the rest itself.
+  const address = calendar ? window.location.host : `${window.location.origin}/mcp`;
 
   useEffect(() => {
     let live = true;
@@ -220,12 +224,12 @@ function OtherApps({ householdId }: { householdId: string }) {
     e.preventDefault();
     setBusy(true);
     setFailed(false);
-    const res = await api.POST("/v1/households/{householdId}/mcp-tokens", { ...path, body: { name: name.trim() } }).catch(() => undefined);
+    const res = await api.POST("/v1/households/{householdId}/mcp-tokens", { ...path, body: { name: name.trim(), access } }).catch(() => undefined);
     setBusy(false);
     if (!res?.data) return setFailed(true);
     const { secret, ...token } = res.data;
     setTokens((ts) => [token, ...(ts ?? [])]);
-    setSecret(secret);
+    setMade({ secret, access: token.access });
     setCopied(null);
     setName("");
   }
@@ -245,6 +249,8 @@ function OtherApps({ householdId }: { householdId: string }) {
 
   if (tokens === null) return null;
   const date = new Intl.DateTimeFormat(i18n.language, { day: "numeric", month: "long", year: "numeric" });
+  const addressLabel = t(calendar ? "apps.server" : "apps.address");
+  const secretLabel = t(calendar ? "apps.password" : "apps.key");
   return (
     <section className="group">
       <h2 className="label group-title">{t("apps.title")}</h2>
@@ -254,7 +260,7 @@ function OtherApps({ householdId }: { householdId: string }) {
             <ListRow
               key={x.id}
               title={x.name}
-              subtitle={t("apps.made", { date: date.format(new Date(x.createdAt)) })}
+              subtitle={`${t(`apps.for.${x.access}`)} · ${t("apps.made", { date: date.format(new Date(x.createdAt)) })}`}
               trailing={
                 <Button size="sm" variant="secondary" disabled={busy} onClick={() => remove(x.id)}>
                   {t("apps.remove")}
@@ -265,35 +271,48 @@ function OtherApps({ householdId }: { householdId: string }) {
         </div>
       )}
       <div className="hl-card">
-        {secret ? (
+        {made ? (
           <>
-            <p className="hl-card-body">{t("apps.once")}</p>
-            <p className="label">{t("apps.address")}</p>
+            <p className="hl-card-body">{t(calendar ? "apps.calendarOnce" : "apps.once")}</p>
+            <p className="label">{addressLabel}</p>
             <p className="invite-link caption">{address}</p>
-            <p className="label">{t("apps.key")}</p>
-            <p className="invite-link caption">{secret}</p>
+            {calendar && (
+              <>
+                <p className="label">{t("apps.user")}</p>
+                <p className="caption">{t("apps.anyUser")}</p>
+              </>
+            )}
+            <p className="label">{secretLabel}</p>
+            <p className="invite-link caption">{made.secret}</p>
             <div className="hl-card-footer">
               <Button size="sm" variant="secondary" onClick={() => copy("address", address)}>
-                {copied === "address" ? t("apps.copied") : `${t("apps.copy")} · ${t("apps.address")}`}
+                {copied === "address" ? t("apps.copied") : `${t("apps.copy")} · ${addressLabel}`}
               </Button>
-              <Button size="sm" onClick={() => copy("key", secret)}>
-                {copied === "key" ? t("apps.copied") : `${t("apps.copy")} · ${t("apps.key")}`}
+              <Button size="sm" onClick={() => copy("key", made.secret)}>
+                {copied === "key" ? t("apps.copied") : `${t("apps.copy")} · ${secretLabel}`}
               </Button>
-              <Button size="sm" variant="secondary" onClick={() => setSecret(null)}>
+              <Button size="sm" variant="secondary" onClick={() => setMade(null)}>
                 {t("apps.done")}
               </Button>
             </div>
           </>
         ) : (
           <form onSubmit={create}>
-            <p className="hl-card-body">{t("apps.body")}</p>
+            <div className="segmented" role="tablist" aria-label={t("apps.kind")}>
+              {(["calendar", "tools"] as const).map((a) => (
+                <button key={a} type="button" role="tab" aria-selected={access === a} onClick={() => setAccess(a)}>
+                  {t(`apps.for.${a}`)}
+                </button>
+              ))}
+            </div>
+            <p className="hl-card-body">{t(access === "calendar" ? "apps.calendarBody" : "apps.body")}</p>
             <label className="field">
               <span className="label">{t("apps.name")}</span>
-              <input className="input" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder={t("apps.namePlaceholder")} required />
+              <input className="input" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder={t(access === "calendar" ? "apps.calendarPlaceholder" : "apps.namePlaceholder")} required />
             </label>
             <div className="hl-card-footer">
               <Button type="submit" size="sm" disabled={busy || !name.trim()}>
-                {t("apps.create")}
+                {t(access === "calendar" ? "apps.createPassword" : "apps.create")}
               </Button>
             </div>
           </form>

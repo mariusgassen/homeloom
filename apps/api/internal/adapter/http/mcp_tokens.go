@@ -32,7 +32,11 @@ func (h *handlers) CreateMcpToken(ctx context.Context, req oapi.CreateMcpTokenRe
 	if err != nil {
 		return nil, err
 	}
-	t, secret, err := h.agents.CreateToken(ctx, u, req.HouseholdId, req.Body.Name)
+	access := domain.AccessTools
+	if req.Body.Access != nil {
+		access = domain.TokenAccess(*req.Body.Access)
+	}
+	t, secret, err := h.agents.CreateToken(ctx, u, req.HouseholdId, req.Body.Name, access)
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
 		return oapi.CreateMcpToken404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
@@ -42,7 +46,7 @@ func (h *handlers) CreateMcpToken(ctx context.Context, req oapi.CreateMcpTokenRe
 		return nil, err
 	}
 	sum := toMcpToken(t)
-	return oapi.CreateMcpToken201JSONResponse{Id: sum.Id, Name: sum.Name, CreatedAt: sum.CreatedAt, Secret: secret}, nil
+	return oapi.CreateMcpToken201JSONResponse{Id: sum.Id, Name: sum.Name, Access: sum.Access, CreatedAt: sum.CreatedAt, Secret: secret}, nil
 }
 
 func (h *handlers) DeleteMcpToken(ctx context.Context, req oapi.DeleteMcpTokenRequestObject) (oapi.DeleteMcpTokenResponseObject, error) {
@@ -61,5 +65,5 @@ func (h *handlers) DeleteMcpToken(ctx context.Context, req oapi.DeleteMcpTokenRe
 }
 
 func toMcpToken(t domain.MCPToken) oapi.McpToken {
-	return oapi.McpToken{Id: t.ID, Name: t.Name, CreatedAt: t.CreatedAt}
+	return oapi.McpToken{Id: t.ID, Name: t.Name, Access: oapi.TokenAccess(t.Access), CreatedAt: t.CreatedAt}
 }

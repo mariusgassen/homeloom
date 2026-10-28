@@ -17,7 +17,19 @@ func (s *Store) CreateEntry(ctx context.Context, e domain.Entry) (domain.Entry, 
 		HouseholdID: e.HouseholdID, AuthorID: e.AuthorID, Kind: string(e.Kind), Visibility: string(e.Visibility),
 		RevealAt: e.RevealAt, Text: e.Text, DueAt: e.DueAt, StartsAt: e.StartsAt, EndsAt: e.EndsAt, AllDay: e.AllDay,
 		AlertMinutes: alertMinutes(e.AlertMinutes), Repeat: string(e.Repeat), AssigneeID: e.AssigneeID, NotifiedAt: e.NotifiedAt,
+		IcalUid: nullable(e.ICalUID), IcalName: nullable(e.ICalName),
 	})
+	if err != nil {
+		return domain.Entry{}, err
+	}
+	return toEntry(row), nil
+}
+
+func (s *Store) EntryByICalName(ctx context.Context, householdID uuid.UUID, name string) (domain.Entry, error) {
+	row, err := s.q.GetEntryByICalName(ctx, sqlcgen.GetEntryByICalNameParams{HouseholdID: householdID, IcalName: &name})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Entry{}, domain.ErrNotFound
+	}
 	if err != nil {
 		return domain.Entry{}, err
 	}
@@ -92,6 +104,7 @@ func toEntry(r sqlcgen.Entry) domain.Entry {
 			StartsAt: r.StartsAt, EndsAt: r.EndsAt, AllDay: r.AllDay, Repeat: domain.Repeat(r.Repeat), AssigneeID: r.AssigneeID,
 		},
 		DoneAt: r.DoneAt, DoneBy: r.DoneBy, NotifiedAt: r.NotifiedAt, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+		ICalUID: deref(r.IcalUid), ICalName: deref(r.IcalName),
 	}
 	if r.AlertMinutes != nil {
 		m := int(*r.AlertMinutes)

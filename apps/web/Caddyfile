@@ -16,7 +16,8 @@
 		Content-Security-Policy "default-src 'self'; img-src 'self' data: https:; connect-src 'self' wss://{host}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 	}
 
-	@api path /auth/* /v1/* /mcp /healthz /readyz
+	# /dav and /.well-known/caldav are CalDAV for the iPhone's Calendar and Reminders.
+	@api path /auth/* /v1/* /mcp /dav /dav/* /.well-known/caldav /healthz /readyz
 	handle @api {
 		reverse_proxy {$API_UPSTREAM:homeloom-api:8080}
 	}

@@ -1,11 +1,14 @@
 -- name: CreateEntry :one
 INSERT INTO entries (household_id, author_id, kind, visibility, reveal_at, text, due_at, starts_at, ends_at,
-                     all_day, alert_minutes, repeat, assignee_id, notified_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                     all_day, alert_minutes, repeat, assignee_id, notified_at, ical_uid, ical_name)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 RETURNING *;
 
 -- name: GetEntry :one
 SELECT * FROM entries WHERE id = $1;
+
+-- name: GetEntryByICalName :one
+SELECT * FROM entries WHERE household_id = $1 AND ical_name = $2;
 
 -- name: ListEntries :many
 -- Others' private entries never leave the database. Done reminders stay listed for 7 days, and

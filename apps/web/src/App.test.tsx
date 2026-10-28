@@ -614,7 +614,7 @@ test("an expired guest link says so", async () => {
 });
 
 test("settings makes and removes a key for another app", async () => {
-  const token = { id: "66666666-6666-4666-8666-666666666666", name: "Claude", createdAt: "2026-10-28T12:00:00Z" };
+  const token = { id: "66666666-6666-4666-8666-666666666666", name: "Claude", access: "tools", createdAt: "2026-10-28T12:00:00Z" };
   const calls = serve(
     ...signedIn(),
     at("GET", `/v1/households/${home.id}/mcp-tokens`, () => json([])),
@@ -622,17 +622,35 @@ test("settings makes and removes a key for another app", async () => {
     at("DELETE", `/v1/mcp-tokens/${token.id}`, () => new Response(null, { status: 204 })),
   );
   renderApp("/settings");
-  await userEvent.type(await screen.findByRole("textbox", { name: "App" }), "Claude");
+  await userEvent.click(await screen.findByRole("tab", { name: "Assistant" }));
+  await userEvent.type(screen.getByRole("textbox", { name: "App" }), "Claude");
   await userEvent.click(screen.getByRole("button", { name: "Make key" }));
   expect(await screen.findByText("hlp_secret")).toBeInTheDocument();
   expect(screen.getByText(`${window.location.origin}/mcp`)).toBeInTheDocument();
   const post = calls.find((c) => c.method === "POST" && c.url.endsWith("/mcp-tokens"));
-  expect(await post?.json()).toEqual({ name: "Claude" });
+  expect(await post?.json()).toEqual({ name: "Claude", access: "tools" });
 
   await userEvent.click(screen.getByRole("button", { name: "Done" }));
   expect(screen.queryByText("hlp_secret")).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Remove" }));
   await waitFor(() => expect(screen.queryByText("Claude")).not.toBeInTheDocument());
+});
+
+test("settings makes a password for the iPhone's calendar", async () => {
+  const token = { id: "77777777-7777-4777-8777-777777777777", name: "iPhone", access: "calendar", createdAt: "2026-10-28T12:00:00Z" };
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/mcp-tokens`, () => json([])),
+    at("POST", `/v1/households/${home.id}/mcp-tokens`, () => json({ ...token, secret: "hlc_secret" }, 201)),
+  );
+  renderApp("/settings");
+  await userEvent.type(await screen.findByRole("textbox", { name: "App" }), "iPhone");
+  await userEvent.click(screen.getByRole("button", { name: "Make password" }));
+  expect(await screen.findByText("hlc_secret")).toBeInTheDocument();
+  expect(screen.getByText(window.location.host)).toBeInTheDocument();
+  expect(screen.getByText(/^Calendar · Made/)).toBeInTheDocument();
+  const post = calls.find((c) => c.method === "POST" && c.url.endsWith("/mcp-tokens"));
+  expect(await post?.json()).toEqual({ name: "iPhone", access: "calendar" });
 });
 
 const sse = (...events: [string, unknown][]) =>

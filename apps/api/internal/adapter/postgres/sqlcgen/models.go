@@ -105,6 +105,8 @@ type Entry struct {
 	NotifiedAt   *time.Time
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
+	IcalUid      *string
+	IcalName     *string
 }
 
 type HomeConnection struct {
@@ -136,6 +138,7 @@ type McpToken struct {
 	HouseholdID uuid.UUID
 	Name        string
 	CreatedAt   time.Time
+	Access      string
 }
 
 type Membership struct {

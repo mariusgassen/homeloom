@@ -22,7 +22,7 @@ WHERE id IN (
     LIMIT $2
     FOR UPDATE SKIP LOCKED
 )
-RETURNING id, household_id, author_id, kind, visibility, reveal_at, text, due_at, starts_at, ends_at, all_day, alert_minutes, repeat, assignee_id, done_at, done_by, notified_at, created_at, updated_at
+RETURNING id, household_id, author_id, kind, visibility, reveal_at, text, due_at, starts_at, ends_at, all_day, alert_minutes, repeat, assignee_id, done_at, done_by, notified_at, created_at, updated_at, ical_uid, ical_name
 `
 
 type ClaimDueParams struct {
@@ -61,6 +61,8 @@ func (q *Queries) ClaimDue(ctx context.Context, arg ClaimDueParams) ([]Entry, er
 			&i.NotifiedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IcalUid,
+			&i.IcalName,
 		); err != nil {
 			return nil, err
 		}
@@ -74,9 +76,9 @@ func (q *Queries) ClaimDue(ctx context.Context, arg ClaimDueParams) ([]Entry, er
 
 const createEntry = `-- name: CreateEntry :one
 INSERT INTO entries (household_id, author_id, kind, visibility, reveal_at, text, due_at, starts_at, ends_at,
-                     all_day, alert_minutes, repeat, assignee_id, notified_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-RETURNING id, household_id, author_id, kind, visibility, reveal_at, text, due_at, starts_at, ends_at, all_day, alert_minutes, repeat, assignee_id, done_at, done_by, notified_at, created_at, updated_at
+                     all_day, alert_minutes, repeat, assignee_id, notified_at, ical_uid, ical_name)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+RETURNING id, household_id, author_id, kind, visibility, reveal_at, text, due_at, starts_at, ends_at, all_day, alert_minutes, repeat, assignee_id, done_at, done_by, notified_at, created_at, updated_at, ical_uid, ical_name
 `
 
 type CreateEntryParams struct {
@@ -94,6 +96,8 @@ type CreateEntryParams struct {
 	Repeat       string
 	AssigneeID   *uuid.UUID
 	NotifiedAt   *time.Time
+	IcalUid      *string
+	IcalName     *string
 }
 
 func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) (Entry, error) {
@@ -112,6 +116,8 @@ func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) (Entry
 		arg.Repeat,
 		arg.AssigneeID,
 		arg.NotifiedAt,
+		arg.IcalUid,
+		arg.IcalName,
 	)
 	var i Entry
 	err := row.Scan(
@@ -134,6 +140,8 @@ func (q *Queries) CreateEntry(ctx context.Context, arg CreateEntryParams) (Entry
 		&i.NotifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IcalUid,
+		&i.IcalName,
 	)
 	return i, err
 }
@@ -178,7 +186,7 @@ func (q *Queries) GetCalendarFeed(ctx context.Context, tokenHash []byte) (Calend
 }
 
 const getEntry = `-- name: GetEntry :one
-SELECT id, household_id, author_id, kind, visibility, reveal_at, text, due_at, starts_at, ends_at, all_day, alert_minutes, repeat, assignee_id, done_at, done_by, notified_at, created_at, updated_at FROM entries WHERE id = $1
+SELECT id, household_id, author_id, kind, visibility, reveal_at, text, due_at, starts_at, ends_at, all_day, alert_minutes, repeat, assignee_id, done_at, done_by, notified_at, created_at, updated_at, ical_uid, ical_name FROM entries WHERE id = $1
 `
 
 func (q *Queries) GetEntry(ctx context.Context, id uuid.UUID) (Entry, error) {
@@ -204,6 +212,46 @@ func (q *Queries) GetEntry(ctx context.Context, id uuid.UUID) (Entry, error) {
 		&i.NotifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IcalUid,
+		&i.IcalName,
+	)
+	return i, err
+}
+
+const getEntryByICalName = `-- name: GetEntryByICalName :one
+SELECT id, household_id, author_id, kind, visibility, reveal_at, text, due_at, starts_at, ends_at, all_day, alert_minutes, repeat, assignee_id, done_at, done_by, notified_at, created_at, updated_at, ical_uid, ical_name FROM entries WHERE household_id = $1 AND ical_name = $2
+`
+
+type GetEntryByICalNameParams struct {
+	HouseholdID uuid.UUID
+	IcalName    *string
+}
+
+func (q *Queries) GetEntryByICalName(ctx context.Context, arg GetEntryByICalNameParams) (Entry, error) {
+	row := q.db.QueryRow(ctx, getEntryByICalName, arg.HouseholdID, arg.IcalName)
+	var i Entry
+	err := row.Scan(
+		&i.ID,
+		&i.HouseholdID,
+		&i.AuthorID,
+		&i.Kind,
+		&i.Visibility,
+		&i.RevealAt,
+		&i.Text,
+		&i.DueAt,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.AllDay,
+		&i.AlertMinutes,
+		&i.Repeat,
+		&i.AssigneeID,
+		&i.DoneAt,
+		&i.DoneBy,
+		&i.NotifiedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IcalUid,
+		&i.IcalName,
 	)
 	return i, err
 }
@@ -225,7 +273,7 @@ func (q *Queries) HasCalendarFeed(ctx context.Context, arg HasCalendarFeedParams
 }
 
 const listEntries = `-- name: ListEntries :many
-SELECT id, household_id, author_id, kind, visibility, reveal_at, text, due_at, starts_at, ends_at, all_day, alert_minutes, repeat, assignee_id, done_at, done_by, notified_at, created_at, updated_at FROM entries
+SELECT id, household_id, author_id, kind, visibility, reveal_at, text, due_at, starts_at, ends_at, all_day, alert_minutes, repeat, assignee_id, done_at, done_by, notified_at, created_at, updated_at, ical_uid, ical_name FROM entries
 WHERE household_id = $1
   AND (author_id = $2 OR visibility <> 'private')
   AND ($3::text IS NULL OR kind = $3)
@@ -280,6 +328,8 @@ func (q *Queries) ListEntries(ctx context.Context, arg ListEntriesParams) ([]Ent
 			&i.NotifiedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IcalUid,
+			&i.IcalName,
 		); err != nil {
 			return nil, err
 		}
@@ -313,7 +363,7 @@ SET visibility = $2, reveal_at = $3, text = $4, due_at = $5, starts_at = $6, end
     alert_minutes = $9, repeat = $10, assignee_id = $11, done_at = $12, done_by = $13, notified_at = $14,
     updated_at = now()
 WHERE id = $1
-RETURNING id, household_id, author_id, kind, visibility, reveal_at, text, due_at, starts_at, ends_at, all_day, alert_minutes, repeat, assignee_id, done_at, done_by, notified_at, created_at, updated_at
+RETURNING id, household_id, author_id, kind, visibility, reveal_at, text, due_at, starts_at, ends_at, all_day, alert_minutes, repeat, assignee_id, done_at, done_by, notified_at, created_at, updated_at, ical_uid, ical_name
 `
 
 type UpdateEntryParams struct {
@@ -371,6 +421,8 @@ func (q *Queries) UpdateEntry(ctx context.Context, arg UpdateEntryParams) (Entry
 		&i.NotifiedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.IcalUid,
+		&i.IcalName,
 	)
 	return i, err
 }

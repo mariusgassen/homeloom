@@ -27,6 +27,10 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 open http://localhost:3000
 ```
 
+## Kalender und Erinnerungen auf dem iPhone
+
+Termine und Erinnerungen aus Homeloom gleichen sich über CalDAV in beide Richtungen mit den iPhone-Apps Kalender und Erinnerungen ab. Erstelle in Homeloom unter Einstellungen › Andere Apps › Kalender ein Passwort. Gehe auf dem iPhone zu Einstellungen › Apps › Kalender › Kalenderaccounts › Account hinzufügen › Andere › CalDAV-Account hinzufügen. Trag deine Homeloom-Adresse als Server ein, einen beliebigen Benutzernamen und das Passwort. Jede App zeigt eine gemeinsame Liste und eine nur für dich. Das Passwort öffnet nur deinen Kalender und deine Erinnerungen und gilt nicht mehr, sobald du es entfernst.
+
 ## An der API entwickeln
 
 ```sh
