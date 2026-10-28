@@ -43,7 +43,7 @@ export function Lists() {
   }, [linked, setParams]);
 
   const add = (
-    <button type="button" className="screen-action" aria-label={t("entries.add")} onClick={() => kind && setSheet({ kind })}>
+    <button type="button" className="screen-action screen-add" aria-label={t("entries.add")} onClick={() => kind && setSheet({ kind })}>
       <Icon name="plus" />
     </button>
   );

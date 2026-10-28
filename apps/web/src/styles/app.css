@@ -82,6 +82,8 @@ h1, h2, h3, p { margin: 0; }
 .switch-on::after { transform: translateX(20px); }
 
 .screen-action { min-width: var(--hit-min); min-height: var(--hit-min); display: grid; place-items: center; border: 0; border-radius: var(--radius-pill); background: none; color: var(--spruce); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+/* Add is the one filled button in the bar, so it never reads like the assistant's sparkle next to it. */
+.screen-add .hl-icon { width: 32px; height: 32px; padding: 5px; border-radius: var(--radius-pill); background: var(--spruce); color: var(--on-spruce); stroke-width: 2.25; }
 /* Segments share the width by label length, so a long German label still fits on a 375pt phone; ellipsis is the last resort. */
 .segmented { display: flex; gap: 2px; padding: var(--space-1); background: var(--surface-sunken); border-radius: var(--radius-md); }
 .segmented button { flex: 1 1 auto; min-width: 0; min-height: 36px; padding: 0 var(--space-2); border: 0; border-radius: 10px; background: none; color: var(--ink-muted); font: 600 13px/18px var(--font-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
