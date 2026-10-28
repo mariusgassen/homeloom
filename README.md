@@ -37,6 +37,66 @@ Homeloom's events and reminders sync both ways with the iPhone's Calendar and Re
 
 Homeloom's notes are also Markdown files over WebDAV, so a notes app or file manager that syncs a WebDAV folder can read and change them (Apple Notes can't). Make a password under Settings › Other apps › Notes and add a WebDAV account in the app with the shown address, any user name and the password. You get a Shared folder and a Private one just for you; "later" notes stay out. Moving a file to the other folder shares it or makes it private.
 
+## Roadmap
+
+Homeloom grows around how you live together. Features are grouped by what you do, not by tech.
+
+### Coming next
+
+**Around the home**
+- **Almost home:** a gentle nudge when one of you is on the way ("start the oven? tonight's plan: ...").
+- **Weekly Sunday digest:** one page that sums up the week.
+
+**Around the table**
+- **Taste profiles:** rate meals, get dinner ideas that suit both of you.
+- **Meal memories:** keep photos and notes with the dishes you cook, plus a yearly recap.
+
+**Around the two of you**
+- **Time-capsule letters:** write to each other, sealed until a date or milestone.
+- **Gratitude wall:** one line a day, resurfaced at random.
+- **"Us" timeline:** a shared stream of moments, with a monthly digest and "on this day".
+
+**Going out and staying in**
+- **Date-night generator:** ideas based on weather, local events, budget and mood.
+- **Movie and game night picker:** you each swipe, the overlap wins, the room sets itself.
+
+### Later
+
+- **Dream board:** shared goals, broken into steps, with a quarterly check-in.
+- **Perspective helper:** each of you writes your side privately and gets a neutral summary with compromise ideas. Never shows either raw text to the other. Opt-in per entry.
+- **Ambient display:** the daily gratitude line on an e-ink screen or smart light.
+- **Household assistant:** ask your home a question in plain language.
+
+### Ideas
+
+Not sorted or promised yet.
+
+**Around the home**
+- **Chores rotation:** shared chores that take turns fairly.
+- **Arrival scenes:** the lights and music you like when you get home, together with Almost home.
+- **Plant and house care:** watering, filters, maintenance, reminded at the right time.
+- **Energy and home insights:** a calm look at what the home used this week.
+- **House wishlist:** things you want for the home, saved and ranked together.
+- **Quiet hours:** do-not-disturb for both of you, and the home stays quiet too.
+- **Guest and sitter view:** a small, time-limited view for guests or a house sitter.
+
+**Around the table**
+- **What's left for dinner:** ideas from what's in the pantry, using up what expires first.
+
+**Around the two of you**
+- **Weekly check-in:** a short ritual of a few questions you answer together.
+- **Anniversaries and milestones:** the dates that matter, never missed.
+- **Gift ideas:** jot down private ideas for the other one, surfaced before birthdays.
+- **Voice notes:** leave a short message for each other.
+- **Shared location moments:** save the places you've been together.
+
+**Everyday life**
+- **Today briefing:** one morning push with the weather, plans and what's due.
+- **Budget glance:** a simple view of shared spending.
+- **Trips and packing lists:** plan trips and pack from shared lists.
+- **Documents vault:** important papers in one private place.
+- **Watch, read and visit list:** everything you want to see, read or go to together.
+
 ## Develop the API
 
 ```sh
