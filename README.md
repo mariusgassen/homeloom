@@ -22,6 +22,7 @@ cp .env.example .env   # set POSTGRES_PASSWORD, PUBLIC_URL=http://localhost:3000
                        # optional: HOME_ASSISTANT_URL + HOMELOOM_SECRET_KEY for scenes and lights
                        # optional: VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY for notifications (see .env.example)
                        # optional: TIME_ZONE for reminders and the calendar (Europe/Berlin by default)
+                       # optional: OIDC_CLIENT_IDS to let an MCP client such as Claude use PUBLIC_URL/mcp
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 open http://localhost:3000
 ```

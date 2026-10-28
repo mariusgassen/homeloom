@@ -16,7 +16,7 @@
 		Content-Security-Policy "default-src 'self'; img-src 'self' data: https:; connect-src 'self' wss://{host}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
 	}
 
-	@api path /auth/* /v1/* /healthz /readyz
+	@api path /auth/* /v1/* /mcp /healthz /readyz
 	handle @api {
 		reverse_proxy {$API_UPSTREAM:homeloom-api:8080}
 	}

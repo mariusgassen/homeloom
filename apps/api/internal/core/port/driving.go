@@ -131,3 +131,22 @@ type AssistantService interface {
 	// emit, and stores the reply.
 	Answer(ctx context.Context, actor domain.User, conversationID uuid.UUID, lang string, emit func(domain.ChatEvent)) (domain.ChatMessage, error)
 }
+
+// ToolService offers the assistant's tools to other clients, such as the MCP server.
+type ToolService interface {
+	Tools() []domain.Tool
+	// RunTool runs a tool as actor in the household, with the same rules as the assistant. Its
+	// error is text meant for the model that called it.
+	RunTool(ctx context.Context, actor domain.User, householdID uuid.UUID, call domain.ToolCall) (string, error)
+}
+
+// AgentAccessService hands out tokens with which a helper, such as the voice agent, uses the
+// tools as one member of one household.
+type AgentAccessService interface {
+	// Mint returns a token for actor in the household that lasts ttl (at most
+	// domain.MaxAgentTokenTTL).
+	Mint(ctx context.Context, actor domain.User, householdID uuid.UUID, ttl time.Duration) (string, error)
+	// Authenticate returns domain.ErrUnauthenticated for an unknown, revoked or expired token.
+	Authenticate(ctx context.Context, token string) (domain.AgentGrant, error)
+	Revoke(ctx context.Context, token string) error
+}

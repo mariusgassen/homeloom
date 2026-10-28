@@ -116,6 +116,13 @@ func doList(t *testing.T, h http.Handler, path, token string) (int, []map[string
 	return rec.Code, out
 }
 
+func TestUnknownPath(t *testing.T) {
+	code, body := do(t, newServer(t), "GET", "/v1/nope", "token-alice", "")
+	if code != http.StatusNotFound || body["code"] != "not_found" {
+		t.Fatalf("got %d %v", code, body)
+	}
+}
+
 func TestShoppingListFlow(t *testing.T) {
 	h := newServer(t)
 	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)

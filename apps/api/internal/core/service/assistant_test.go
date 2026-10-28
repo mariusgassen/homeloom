@@ -237,3 +237,27 @@ func TestAssistantCooksAndSwitchesTheHome(t *testing.T) {
 		t.Fatalf("only scenes: %s", answer)
 	}
 }
+
+func TestAssistantToolsWithoutTheChat(t *testing.T) {
+	ctx := context.Background()
+	f := newAssistantFixture(t)
+	// Other clients bring their own model, so the tools work without one.
+	assistant := service.NewAssistant(f.store, f.store, nil, f.entries, nil, nil, f.home, time.UTC)
+
+	if len(assistant.Tools()) == 0 {
+		t.Fatal("no tools")
+	}
+	if _, err := assistant.RunTool(ctx, f.alice, f.household, domain.ToolCall{Name: "add_reminder", Input: json.RawMessage(`{"text":"Bins out","visibility":"shared"}`)}); err != nil {
+		t.Fatal(err)
+	}
+	out, err := assistant.RunTool(ctx, f.bob, f.household, domain.ToolCall{Name: "list_entries", Input: json.RawMessage(`{"kind":"reminder"}`)})
+	if err != nil || !strings.Contains(out, "Bins out") {
+		t.Fatalf("bob's list: %s, %v", out, err)
+	}
+	if _, err := assistant.RunTool(ctx, f.eve, f.household, domain.ToolCall{Name: "list_entries", Input: json.RawMessage(`{"kind":"reminder"}`)}); err == nil || err.Error() != "not found" {
+		t.Fatalf("eve, who isn't a member: %v", err)
+	}
+	if _, err := assistant.RunTool(ctx, f.alice, f.household, domain.ToolCall{Name: "list_entries", Input: json.RawMessage(`{"nope":1}`)}); !errors.Is(err, domain.ErrInvalid) {
+		t.Fatalf("unknown field: %v", err)
+	}
+}

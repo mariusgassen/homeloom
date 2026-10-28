@@ -15,10 +15,14 @@ type Sessions struct {
 	homes    map[string]domain.PendingHomeConnection
 	guests   map[string]domain.GuestPass
 	claims   map[string]string
+	agents   map[string]domain.AgentGrant
 }
 
 func NewSessions() *Sessions {
-	return &Sessions{logins: map[string]domain.PendingLogin{}, sessions: map[string]domain.Session{}, homes: map[string]domain.PendingHomeConnection{}, guests: map[string]domain.GuestPass{}, claims: map[string]string{}}
+	return &Sessions{
+		logins: map[string]domain.PendingLogin{}, sessions: map[string]domain.Session{}, homes: map[string]domain.PendingHomeConnection{},
+		guests: map[string]domain.GuestPass{}, claims: map[string]string{}, agents: map[string]domain.AgentGrant{},
+	}
 }
 
 func (s *Sessions) SaveLogin(_ context.Context, state string, l domain.PendingLogin) error {
@@ -105,5 +109,29 @@ func (s *Sessions) ClaimGuestPass(_ context.Context, token, device string) error
 		return domain.ErrConflict
 	}
 	s.claims[token] = device
+	return nil
+}
+
+func (s *Sessions) SaveAgentGrant(_ context.Context, token string, g domain.AgentGrant) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.agents[token] = g
+	return nil
+}
+
+func (s *Sessions) AgentGrant(_ context.Context, token string) (domain.AgentGrant, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	g, ok := s.agents[token]
+	if !ok {
+		return g, domain.ErrNotFound
+	}
+	return g, nil
+}
+
+func (s *Sessions) DeleteAgentGrant(_ context.Context, token string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.agents, token)
 	return nil
 }

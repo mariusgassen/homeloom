@@ -47,6 +47,11 @@ type SessionStore interface {
 	// ClaimGuestPass binds a guest link to the first device that uses it, atomically. It returns
 	// domain.ErrConflict when another device already has.
 	ClaimGuestPass(ctx context.Context, token, device string) error
+	// SaveAgentGrant keeps the grant until it expires; AgentGrant returns domain.ErrNotFound for
+	// an unknown or expired token.
+	SaveAgentGrant(ctx context.Context, token string, g domain.AgentGrant) error
+	AgentGrant(ctx context.Context, token string) (domain.AgentGrant, error)
+	DeleteAgentGrant(ctx context.Context, token string) error
 }
 
 type UserRepository interface {

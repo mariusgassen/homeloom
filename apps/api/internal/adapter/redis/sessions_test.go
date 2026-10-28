@@ -78,4 +78,22 @@ func TestSessions(t *testing.T) {
 	if _, err := s.Get(ctx, id); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("after delete: want ErrNotFound, got %v", err)
 	}
+
+	agentToken := "hla_" + uuid.NewString()
+	grant := domain.AgentGrant{User: domain.User{ID: uuid.New(), Name: "Alice"}, HouseholdID: uuid.New(), ExpiresAt: time.Now().Add(time.Minute).UTC().Round(0)}
+	if err := s.SaveAgentGrant(ctx, agentToken, grant); err != nil {
+		t.Fatal(err)
+	}
+	if keys, _ := client.Keys(ctx, "*"+agentToken+"*").Result(); len(keys) != 0 {
+		t.Errorf("agent token must not appear in keys: %v", keys)
+	}
+	if got, err := s.AgentGrant(ctx, agentToken); err != nil || got.User != grant.User || got.HouseholdID != grant.HouseholdID || !got.ExpiresAt.Equal(grant.ExpiresAt) {
+		t.Fatalf("agent grant: %+v, %v", got, err)
+	}
+	if err := s.DeleteAgentGrant(ctx, agentToken); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AgentGrant(ctx, agentToken); !errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("after delete: want ErrNotFound, got %v", err)
+	}
 }

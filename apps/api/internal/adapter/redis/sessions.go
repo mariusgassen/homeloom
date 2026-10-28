@@ -108,6 +108,26 @@ func (s *Sessions) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
+func (s *Sessions) SaveAgentGrant(ctx context.Context, token string, g domain.AgentGrant) error {
+	return s.set(ctx, hashedKey("agent", token), g, time.Until(g.ExpiresAt))
+}
+
+func (s *Sessions) AgentGrant(ctx context.Context, token string) (domain.AgentGrant, error) {
+	var g domain.AgentGrant
+	ctx, cancel := context.WithTimeout(ctx, sessionTimeout)
+	defer cancel()
+	return g, decode(s.client.Get(ctx, hashedKey("agent", token)), &g)
+}
+
+func (s *Sessions) DeleteAgentGrant(ctx context.Context, token string) error {
+	ctx, cancel := context.WithTimeout(ctx, sessionTimeout)
+	defer cancel()
+	if err := s.client.Del(ctx, hashedKey("agent", token)).Err(); err != nil {
+		return fmt.Errorf("redis: delete agent grant: %w", err)
+	}
+	return nil
+}
+
 func (s *Sessions) set(ctx context.Context, key string, v any, ttl time.Duration) error {
 	raw, err := json.Marshal(v)
 	if err != nil {
