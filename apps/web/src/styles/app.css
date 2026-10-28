@@ -7,14 +7,15 @@ h1, h2, h3, p { margin: 0; }
 .error { color: var(--danger); }
 
 .app { min-height: 100dvh; }
-/* A strip in the page colour behind the clock: content scrolls under it, so iOS's edge fade has nothing to show. */
+/* A strip in the page colour behind the clock, full width beyond the screen's max width. */
 .app::before { content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: 20; height: env(safe-area-inset-top, 0px); background: var(--surface); }
 .hl-tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; }
 .hl-tab { text-decoration: none; }
 
-.screen { padding: env(safe-area-inset-top, 0px) max(var(--space-4), env(safe-area-inset-right, 0px)) 0 max(var(--space-4), env(safe-area-inset-left, 0px)); max-width: 640px; margin: 0 auto; }
-.screen-header { padding: var(--space-2) 0; display: flex; flex-direction: column; gap: var(--space-1); }
-.screen-toolbar { display: flex; align-items: center; gap: var(--space-2); min-height: var(--hit-min); }
+.screen { --screen-pad-left: max(var(--space-4), env(safe-area-inset-left, 0px)); --screen-pad-right: max(var(--space-4), env(safe-area-inset-right, 0px)); padding: 0 var(--screen-pad-right) 0 var(--screen-pad-left); max-width: 640px; margin: 0 auto; }
+/* A solid bar over the clock and the toolbar: iOS 26 blurs a band deeper than the safe area, so that band must be opaque page colour, not scrolling content. */
+.screen-toolbar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: var(--space-2); min-height: calc(var(--hit-min) + env(safe-area-inset-top, 0px) + var(--space-2)); margin: 0 calc(-1 * var(--screen-pad-right)) 0 calc(-1 * var(--screen-pad-left)); padding: calc(env(safe-area-inset-top, 0px) + var(--space-2)) var(--screen-pad-right) 0 var(--screen-pad-left); background: var(--surface); }
+.screen-header { padding: var(--space-1) 0 var(--space-2); }
 .screen-overline { flex-grow: 1; color: var(--ink-muted); }
 .screen-household { color: inherit; text-decoration: none; min-width: var(--hit-min); min-height: var(--hit-min); display: grid; place-items: center; border-radius: var(--radius-pill); }
 .screen-main { display: flex; flex-direction: column; gap: var(--space-6); padding: var(--space-2) 0 calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px) + var(--space-8)); }
@@ -81,8 +82,11 @@ h1, h2, h3, p { margin: 0; }
 .switch-on::after { transform: translateX(20px); }
 
 .screen-action { min-width: var(--hit-min); min-height: var(--hit-min); display: grid; place-items: center; border: 0; border-radius: var(--radius-pill); background: none; color: var(--spruce); cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.segmented { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: var(--space-1); padding: var(--space-1); background: var(--surface-sunken); border-radius: var(--radius-md); }
-.segmented button { min-height: 36px; border: 0; border-radius: 10px; background: none; color: var(--ink-muted); font: 600 15px/20px var(--font-text); cursor: pointer; }
+/* Add is the one filled button in the bar, so it never reads like the assistant's sparkle next to it. */
+.screen-add .hl-icon { width: 32px; height: 32px; padding: 5px; border-radius: var(--radius-pill); background: var(--spruce); color: var(--on-spruce); stroke-width: 2.25; }
+/* Segments share the width by label length, so a long German label still fits on a 375pt phone; ellipsis is the last resort. */
+.segmented { display: flex; gap: 2px; padding: var(--space-1); background: var(--surface-sunken); border-radius: var(--radius-md); }
+.segmented button { flex: 1 1 auto; min-width: 0; min-height: 36px; padding: 0 var(--space-2); border: 0; border-radius: 10px; background: none; color: var(--ink-muted); font: 600 13px/18px var(--font-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
 .segmented button[aria-selected="true"] { background: var(--surface-raised); color: var(--ink); }
 
 .entry-row { display: flex; align-items: center; padding-left: var(--space-4); }
@@ -95,8 +99,8 @@ h1, h2, h3, p { margin: 0; }
 .note { border: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
 .note-text { margin: 0; font: 400 17px/24px var(--font-text); white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 8; -webkit-box-orient: vertical; overflow: hidden; }
 
-.sheet-backdrop { position: fixed; inset: 0; z-index: 30; background: color-mix(in srgb, var(--ink) 35%, transparent); display: flex; align-items: flex-end; justify-content: center; }
-.sheet { width: 100%; max-width: 640px; max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--space-4)); overflow-y: auto; overscroll-behavior: contain; background: var(--surface-raised); border-radius: 24px 24px 0 0; box-shadow: var(--shadow-sheet); padding: var(--space-2) var(--space-4) max(var(--space-8), env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: var(--space-4); }
+.sheet-backdrop { position: fixed; inset: 0; z-index: 30; background: var(--scrim); display: flex; align-items: flex-end; justify-content: center; }
+.sheet { width: 100%; max-width: 640px; max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--space-4)); overflow-y: auto; overscroll-behavior: contain; background: var(--surface-raised); color: var(--ink); border-radius: 24px 24px 0 0; box-shadow: var(--shadow-sheet); padding: var(--space-2) var(--space-4) max(var(--space-8), env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: var(--space-4); }
 .sheet-grabber { width: 36px; height: 5px; border-radius: var(--radius-pill); background: var(--line); align-self: center; }
 .sheet-bar { display: flex; align-items: center; gap: var(--space-2); }
 .sheet-bar .hl-btn-plain { padding: 0; }
@@ -146,7 +150,62 @@ h1, h2, h3, p { margin: 0; }
 .assistant-step { color: var(--ink-muted); }
 .bubble { align-self: flex-start; max-width: 85%; background: var(--surface-raised); color: var(--ink); padding: 10px 14px; border-radius: 18px 18px 18px 4px; font: 400 17px/24px var(--font-text); white-space: pre-wrap; overflow-wrap: anywhere; }
 .bubble-me { align-self: flex-end; max-width: 80%; background: var(--spruce); color: var(--on-spruce); border-radius: 18px 18px 4px 18px; }
+/* Assistant answers are Markdown: compact, bubble-sized type; wide tables and code scroll inside the bubble. */
+.bubble-md { white-space: normal; min-width: 0; }
+.bubble-md > :first-child { margin-top: 0; }
+.bubble-md > :last-child { margin-bottom: 0; }
+.bubble-md :is(p, ul, ol, pre, blockquote, .md-table) { margin: 0 0 var(--space-2); }
+.bubble-md :is(h1, h2, h3, h4, h5, h6) { margin: var(--space-3) 0 var(--space-1); font: 600 17px/22px var(--font-text); }
+.bubble-md :is(h1, h2) { font: 650 20px/26px var(--font-display); letter-spacing: -.2px; }
+.bubble-md :is(ul, ol) { padding-left: 1.3em; }
+.bubble-md li + li, .bubble-md li > :is(ul, ol) { margin-top: 2px; }
+.bubble-md li > p { margin: 0; }
+.bubble-md li:has(> input[type="checkbox"]) { list-style: none; margin-left: -1.3em; }
+.bubble-md a { color: var(--spruce); text-decoration: underline; text-underline-offset: 2px; }
+.bubble-md hr { border: 0; border-top: 1px solid var(--line); margin: var(--space-3) 0; }
+.bubble-md blockquote { padding-left: var(--space-3); border-left: 3px solid var(--line); color: var(--ink-muted); }
+.bubble-md code { font: 400 .88em/1.4 ui-monospace, "SF Mono", Menlo, monospace; background: var(--surface-sunken); padding: 1px 5px; border-radius: 5px; }
+.bubble-md pre { overflow-x: auto; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: var(--surface-sunken); }
+.bubble-md pre code { padding: 0; background: none; white-space: pre; }
+.md-table { overflow-x: auto; }
+.bubble-md table { border-collapse: collapse; font: 400 15px/20px var(--font-text); }
+.bubble-md :is(th, td) { padding: 4px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.bubble-md th { font-weight: 600; }
+.bubble-md :is(th, td):first-child { padding-left: 0; }
 .assistant-input { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) max(var(--space-4), env(safe-area-inset-right, 0px)) max(var(--space-4), env(safe-area-inset-bottom, 0px)) max(var(--space-4), env(safe-area-inset-left, 0px)); background: var(--surface-raised); box-shadow: inset 0 1px 0 var(--line); }
 .assistant-input .input { flex: 1; min-width: 0; border: 0; border-radius: var(--radius-pill); background: var(--surface-sunken); padding: 0 var(--space-4); }
 .assistant-send { flex: none; width: var(--hit-min); height: var(--hit-min); display: grid; place-items: center; border: 0; border-radius: var(--radius-pill); background: var(--spruce); color: var(--on-spruce); cursor: pointer; }
 .assistant-send:disabled { opacity: .45; cursor: default; }
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Pull to refresh: a gap under the solid toolbar that grows with the pull, the mark drawn into it. */
+.ptr { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.ptr-settle { transition: height .28s cubic-bezier(.2, .8, .2, 1); }
+.offline { margin: var(--space-2) 0 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--saffron) 14%, transparent); color: var(--ink); }
+
+.center-state { align-items: center; text-align: center; }
+.loading-inline { display: grid; place-items: center; padding: var(--space-8) 0; }
+
+/* Motion: content rises in as it arrives, sheets slide up, ticks pop. Nothing moves for reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .screen-main > *, .center > * { animation: hl-rise .36s cubic-bezier(.2, .8, .2, 1) both; }
+  .screen-main > :nth-child(2), .center > :nth-child(2) { animation-delay: 40ms; }
+  .screen-main > :nth-child(3), .center > :nth-child(3) { animation-delay: 80ms; }
+  .screen-main > :nth-child(4), .center > :nth-child(4) { animation-delay: 120ms; }
+  .screen-main > :nth-child(n + 5), .center > :nth-child(n + 5) { animation-delay: 160ms; }
+  .loading { animation: hl-fade .3s ease .4s both; }
+  .loading > * { animation: none; }
+  .sheet-backdrop { animation: hl-fade .2s ease both; }
+  .sheet { animation: hl-slide-up .32s cubic-bezier(.2, .8, .2, 1) both; }
+  .bubble { animation: hl-rise .24s cubic-bezier(.2, .8, .2, 1) both; }
+  .tick-done { animation: hl-pop .28s cubic-bezier(.3, 1.6, .5, 1); }
+  .card-link:active .hl-card, button.hl-card:active { transform: scale(.98); }
+  .card-link .hl-card, button.hl-card { transition: transform .12s ease; }
+  .hl-tab-mark { transition: background-color .2s ease; }
+  .hl-tab[aria-current="page"] .hl-icon { animation: hl-pop .3s cubic-bezier(.3, 1.6, .5, 1); }
+}
+@keyframes hl-rise { from { opacity: 0; transform: translateY(8px); } }
+@keyframes hl-fade { from { opacity: 0; } }
+@keyframes hl-slide-up { from { transform: translateY(100%); } }
+@keyframes hl-pop { 40% { transform: scale(1.15); } }

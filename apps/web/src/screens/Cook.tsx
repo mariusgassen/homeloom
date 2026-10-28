@@ -2,9 +2,11 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import { api, type Recipe, type Suggestions } from "../api/client";
+import { useRefresh } from "../refresh";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
+import { Empty } from "../ui/Empty";
 import { cx, Icon } from "../ui/Icon";
 import { Screen } from "./Screen";
 
@@ -73,7 +75,7 @@ export function Cook() {
   const toggle = (m: string) => setPicked((p) => (p.includes(m) ? p.filter((x) => x !== m) : [...p, m]));
 
   return (
-    <Screen title={t("tabs.cook")}>
+    <Screen title={t("tabs.cook")} refreshable={false}>
       <form className="cook-form" onSubmit={submit}>
         <h2 className="title">{t("cook.question")}</h2>
         <div className="cook-group" role="group" aria-label={t("cook.moodLabel")}>
@@ -115,9 +117,7 @@ export function Cook() {
           <h2 className="label group-title">{t("cook.suggestions")}</h2>
           {!result.chef && result.suggestions.length > 0 && <p className="caption muted">{t("cook.random")}</p>}
           {result.suggestions.length === 0 && (
-            <Card tone="sunken" title={t("cook.emptyTitle")}>
-              {t("cook.emptyBody")}
-            </Card>
+            <Empty title={t("cook.emptyTitle")}>{t("cook.emptyBody")}</Empty>
           )}
           {result.suggestions.map(({ recipe, reason }) => (
             <Link key={recipe.slug} to={`/cook/${recipe.slug}`} className="card-link">
@@ -145,21 +145,23 @@ export function RecipeScreen() {
   const [have, setHave] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [added, setAdded] = useState<string | null>(null);
+  const { generation: refreshed, track } = useRefresh();
 
   useEffect(() => {
     let current = true;
-    api
+    const request = api
       .GET("/v1/households/{householdId}/recipes/{slug}", { params: { path: { householdId, slug } } })
       .catch(() => undefined)
       .then((res) => {
         if (!current) return;
         if (res?.data) setRecipe(res.data);
-        else setError(res?.error?.message ?? t("cook.failed"));
+        setError(res?.data ? null : (res?.error?.message ?? t("cook.failed")));
       });
+    track(request);
     return () => {
       current = false;
     };
-  }, [householdId, slug, t]);
+  }, [householdId, slug, t, refreshed, track]);
 
   const missing = recipe?.ingredients.filter((i) => !have.includes(i.id)) ?? [];
 

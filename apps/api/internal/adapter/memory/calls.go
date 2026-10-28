@@ -12,10 +12,14 @@ import (
 type CallServer struct {
 	mu     sync.Mutex
 	InRoom map[string][]string
-	Down   bool
+	// Dispatched holds the agent dispatches, as "<agent>@<room>" -> metadata.
+	Dispatched map[string]string
+	Down       bool
 }
 
-func NewCallServer() *CallServer { return &CallServer{InRoom: map[string][]string{}} }
+func NewCallServer() *CallServer {
+	return &CallServer{InRoom: map[string][]string{}, Dispatched: map[string]string{}}
+}
 
 func (s *CallServer) URL() string { return "wss://calls.example" }
 
@@ -37,4 +41,14 @@ func (s *CallServer) Enter(room, userID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.InRoom[room] = append(s.InRoom[room], userID)
+}
+
+func (s *CallServer) Dispatch(_ context.Context, room, agent, metadata string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.Down {
+		return domain.ErrUnavailable
+	}
+	s.Dispatched[agent+"@"+room] = metadata
+	return nil
 }

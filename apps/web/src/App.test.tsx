@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -11,7 +11,7 @@ const rooms = vi.hoisted(() => [] as InstanceType<typeof import("node:events").E
 vi.mock("livekit-client", async () => {
   const { EventEmitter } = await import("node:events");
   class Room extends EventEmitter {
-    remoteParticipants = new Map<string, { identity: string; name: string; getTrackPublication: () => undefined }>();
+    remoteParticipants = new Map<string, { identity: string; name: string; isAgent: boolean; getTrackPublication: () => undefined }>();
     canPlaybackAudio = true;
     localParticipant = {
       isMicrophoneEnabled: false,
@@ -29,8 +29,8 @@ vi.mock("livekit-client", async () => {
       super();
       rooms.push(this);
     }
-    join(identity: string, name: string) {
-      this.remoteParticipants.set(identity, { identity, name, getTrackPublication: () => undefined });
+    join(identity: string, name: string, isAgent = false) {
+      this.remoteParticipants.set(identity, { identity, name, isAgent, getTrackPublication: () => undefined });
       this.emit("participantConnected");
     }
   }
@@ -101,6 +101,15 @@ test("API down shows a retry, not the sign-in", async () => {
   renderApp();
   expect(await screen.findByRole("button", { name: "Try again" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Sign in" })).not.toBeInTheDocument();
+});
+
+test("offline says so instead of blaming the server", async () => {
+  vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+  serve();
+  vi.mocked(fetch).mockRejectedValue(new TypeError("Load failed"));
+  renderApp();
+  expect(await screen.findByRole("heading", { name: "You're offline" })).toBeInTheDocument();
+  vi.restoreAllMocks();
 });
 
 test("signed in with a household shows the tabs and both people", async () => {
@@ -410,6 +419,28 @@ test("reminders are ticked off in Lists", async () => {
   expect(calls.find((c) => c.url.includes("/entries"))?.url).toContain("kind=reminder");
 });
 
+test("pulling down from the top loads the list again", async () => {
+  const bins = entry({ text: "Bins out" });
+  const calls = serve(...signedIn(), at("GET", `/v1/households/${home.id}/entries`, () => json([bins])));
+  renderApp("/lists");
+  const title = await screen.findByText("Bins out");
+  const loads = () => calls.filter((c) => c.method === "GET" && new URL(c.url).pathname.endsWith("/entries")).length;
+  expect(loads()).toBe(1);
+  fireEvent.touchStart(title, { touches: [{ clientX: 100, clientY: 100 }] });
+  fireEvent.touchMove(title, { touches: [{ clientX: 100, clientY: 140 }] });
+  fireEvent.touchEnd(title);
+  // A short pull isn't enough.
+  await new Promise((r) => setTimeout(r, 100));
+  expect(loads()).toBe(1);
+  fireEvent.touchStart(title, { touches: [{ clientX: 100, clientY: 100 }] });
+  fireEvent.touchMove(title, { touches: [{ clientX: 100, clientY: 260 }] });
+  fireEvent.touchEnd(title);
+  expect(await screen.findByRole("status")).toHaveTextContent("Loading…");
+  await waitFor(() => expect(loads()).toBe(2));
+  await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+  expect(screen.getByText("Bins out")).toBeInTheDocument();
+});
+
 test("the shopping list adds, ticks and clears items", async () => {
   const list = `/v1/households/${home.id}/shopping-list`;
   const milk = { id: "44444444-4444-4444-8444-444444444444", text: "Milk", done: false, createdAt: "2026-10-28T08:00:00Z" };
@@ -503,7 +534,7 @@ const household = () =>
   json({ ...home, members: [{ user: marius, role: "owner" }, { user: jo, role: "member" }] });
 const callId = "55555555-5555-4555-8555-555555555555";
 const callJoin = () => json({ id: callId, url: "wss://home.example", token: "t", room: `call-${home.id}-${callId}` });
-type FakeRoom = { connect: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn>; join: (id: string, name: string) => void };
+type FakeRoom = { connect: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn>; join: (id: string, name: string, isAgent?: boolean) => void };
 
 test("calling from Us rings and shows the call until hung up", async () => {
   rooms.length = 0;
@@ -715,10 +746,34 @@ test("the assistant continues a recent chat and says when it isn't set up", asyn
   expect(await calls.find((c) => c.method === "POST")?.json()).toEqual({ text: "Und morgen?", conversationId: conv.id });
 });
 
+test("the phone in the assistant starts a call with Homeloom", async () => {
+  rooms.length = 0;
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/conversations`, () => json([])),
+    at("POST", `/v1/households/${home.id}/calls/homeloom`, () => json({ id: callId, url: "wss://home.example", token: "t", room: "homeloom-x" }, 201)),
+  );
+  renderApp();
+  await userEvent.click(await screen.findByRole("button", { name: "Ask Homeloom" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Talk to Homeloom" }));
+  expect(await screen.findByRole("heading", { name: "Homeloom" })).toBeInTheDocument();
+  await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/calls/homeloom"))).toBe(true));
+
+  const room = rooms[0] as unknown as FakeRoom;
+  act(() => room.join("agent-1", "", true));
+  expect(await screen.findByText("0:00")).toBeInTheDocument();
+  expect(screen.getAllByText("Homeloom").length).toBeGreaterThan(0);
+  // Nobody else can join a call with Homeloom.
+  expect(screen.queryByRole("button", { name: "Add people" })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Hang up" }));
+  expect(room.disconnect).toHaveBeenCalled();
+});
+
 test("without the assistant the chat says so", async () => {
   serve(...signedIn(), at("GET", `/v1/households/${home.id}/conversations`, () => json({ code: "assistant_unavailable", message: "" }, 503)));
   renderApp();
   await userEvent.click(await screen.findByRole("button", { name: "Ask Homeloom" }));
   expect(await screen.findByText("Not available")).toBeInTheDocument();
   expect(screen.getByLabelText("Message")).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "Talk to Homeloom" })).not.toBeInTheDocument();
 });

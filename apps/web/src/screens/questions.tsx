@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type HouseholdDetail, type Question, type User } from "../api/client";
+import { useRefresh } from "../refresh";
 import { Button } from "../ui/Button";
 import { RevealCard, type Person } from "../ui/RevealCard";
 import { threadFor } from "../ui/ThreadAvatar";
@@ -9,21 +10,23 @@ export function useQuestions(householdId: string) {
   const [questions, setQuestions] = useState<Question[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [generation, setGeneration] = useState(0);
+  const { generation: refreshed, track } = useRefresh();
 
   useEffect(() => {
     let current = true;
-    api
+    const request = api
       .GET("/v1/households/{householdId}/questions", { params: { path: { householdId } } })
       .then((res) => {
         if (!current) return;
         if (res.data) setQuestions(res.data);
-        else setFailed(true);
+        setFailed(!res.data);
       })
       .catch(() => current && setFailed(true));
+    track(request);
     return () => {
       current = false;
     };
-  }, [householdId, generation]);
+  }, [householdId, generation, refreshed, track]);
 
   const reload = useCallback(() => setGeneration((g) => g + 1), []);
   const replace = useCallback((q: Question) => setQuestions((qs) => qs?.map((x) => (x.id === q.id ? q : x)) ?? [q]), []);

@@ -199,6 +199,9 @@ type CallServer interface {
 	// Participants returns the ids of the users in the room; none when it doesn't exist. It returns
 	// domain.ErrUnavailable when LiveKit can't be reached.
 	Participants(ctx context.Context, room string) ([]string, error)
+	// Dispatch sends the named agent into the room with the given metadata. It returns
+	// domain.ErrUnavailable when LiveKit can't be reached.
+	Dispatch(ctx context.Context, room, agent, metadata string) error
 }
 
 // Assistant is the LLM as a chat partner that can use tools.

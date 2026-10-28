@@ -8,8 +8,9 @@ A shared home for two. Homeloom weaves your meals, moments and smart home into o
 
 - `apps/api`: the Go API (hexagonal, API first). Contract in `apps/api/api/openapi.yaml`.
 - `apps/web`: the PWA (Vite, React, TypeScript), installable on iPhone from Safari.
+- `apps/agent`: Homeloom's voice in calls (LiveKit Agents for Node).
 - `docs/architecture.md`: decisions, layout and deployment.
-- `docker-compose.yml`: the stack Coolify deploys (`homeloom-web`, `homeloom-api`, `homeloom-livekit` for calls, `homeloom-postgres`, `homeloom-redis`).
+- `docker-compose.yml`: the stack Coolify deploys (`homeloom-web`, `homeloom-api`, `homeloom-livekit` for calls, `homeloom-agent`, `homeloom-postgres`, `homeloom-redis`).
 
 The app speaks German and English. The API answers in the language of the `Accept-Language` header.
 
@@ -19,6 +20,7 @@ The app speaks German and English. The API answers in the language of the `Accep
 cp .env.example .env   # set POSTGRES_PASSWORD, PUBLIC_URL=http://localhost:3000, the authentik values
                        # and LIVEKIT_API_SECRET (32+ characters) for calls
                        # optional: MEALIE_MCP_URL + MEALIE_MCP_TOKEN for cooking, ANTHROPIC_API_KEY for Claude and the assistant
+                       # optional: OPENAI_API_KEY (with ANTHROPIC_API_KEY) to talk to Homeloom in a call
                        # optional: HOME_ASSISTANT_URL + HOMELOOM_SECRET_KEY for scenes and lights
                        # optional: VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY for notifications (see .env.example)
                        # optional: TIME_ZONE for reminders and the calendar (Europe/Berlin by default)
@@ -50,4 +52,4 @@ npm test
 
 ## Releases
 
-Versions follow SemVer and are released automatically from Conventional Commit PR titles (`feat: …`, `fix: …`). See `CHANGELOG.md` and the images at `ghcr.io/mariusgassen/homeloom-api` and `ghcr.io/mariusgassen/homeloom-web`.
+Versions follow SemVer and are released automatically from Conventional Commit PR titles (`feat: …`, `fix: …`). See `CHANGELOG.md` and the images at `ghcr.io/mariusgassen/homeloom-api`, `ghcr.io/mariusgassen/homeloom-web` and `ghcr.io/mariusgassen/homeloom-agent`.

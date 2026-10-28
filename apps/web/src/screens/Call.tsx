@@ -1,5 +1,6 @@
 import { Track, type Participant, type Room } from "livekit-client";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../api/client";
@@ -184,7 +185,7 @@ export function GuestCall({ token }: { token: string }) {
 // The call itself, over everything else while it lasts.
 export function CallView() {
   const { t } = useTranslation();
-  const { room, call, invited, state, since, hangUp } = useCall();
+  const { room, call, invited, homeloom, state, since, hangUp } = useCall();
   const { partners } = usePartners();
   const [adding, setAdding] = useState(false);
   if (!room) return null;
@@ -192,8 +193,10 @@ export function CallView() {
   const localVideo = room.localParticipant.getTrackPublication(Track.Source.Camera);
   const showLocal = localVideo?.videoTrack && !localVideo.isMuted;
   const names = others.length
-    ? others.map((p) => p.name || t("call.guest.someone"))
-    : invited.map((id) => partners.find((p) => p.id === id)?.name).filter((n) => n !== undefined);
+    ? others.map((p) => nameOf(p, t))
+    : homeloom
+      ? [t("call.homeloom")]
+      : invited.map((id) => partners.find((p) => p.id === id)?.name).filter((n) => n !== undefined);
   const waitingFor = others.length === 0 && invited.length === 1 ? partners.find((p) => p.id === invited[0]) : undefined;
   return (
     <div className={cx("call", others.length > 0 && "call-live")}>
@@ -217,12 +220,16 @@ export function CallView() {
   );
 }
 
+function nameOf(p: Participant, t: TFunction): string {
+  return p.isAgent ? t("call.homeloom") : p.name || t("call.guest.someone");
+}
+
 // One person in the call: their video, or their avatar while the camera is off.
 function Tile({ participant, person }: { participant: Participant; person?: Person }) {
   const { t } = useTranslation();
   const video = participant.getTrackPublication(Track.Source.Camera);
   const audio = participant.getTrackPublication(Track.Source.Microphone);
-  const name = participant.name || t("call.guest.someone");
+  const name = nameOf(participant, t);
   return (
     <div className="call-tile">
       {video?.videoTrack && !video.isMuted ? (

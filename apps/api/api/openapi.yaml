@@ -790,6 +790,27 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  /v1/households/{householdId}/calls/homeloom:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [calls]
+      operationId: talkToHomeloom
+      summary: Start a voice call with Homeloom (members only)
+      description: |
+        Starts a private call with the Homeloom voice agent, which can use the assistant's tools as
+        the caller and speaks the request's language. Nobody else can join it. Answers `503
+        calls_unavailable` when calls or the voice agent aren't set up.
+      responses:
+        "201":
+          description: The call, and the token to connect with.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Call" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
   /v1/households/{householdId}/calls/{callId}/join:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"

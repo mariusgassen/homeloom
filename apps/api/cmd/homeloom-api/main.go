@@ -180,7 +180,7 @@ func run() error {
 		Shopping:       shopping,
 		Home:           homeService,
 		Push:           push,
-		Calls:          service.NewCall(store, sessions, calls, push),
+		Calls:          service.NewCall(store, sessions, calls, push).WithVoiceAgent(cfg.VoiceAgent, agents),
 		Assistant:      assistant,
 		Agents:         agents,
 		HealthChecks:   []port.HealthCheck{postgres.HealthCheck{Pool: pool}, redis.HealthCheck{Client: rdb}},

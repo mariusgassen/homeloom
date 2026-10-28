@@ -38,6 +38,9 @@ services:
       LIVEKIT_URL: http://homeloom-livekit:7880
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-homeloom}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET}
+      # Calls with Homeloom need speech (OpenAI) and Claude; without either key they're off.
+      # The API only checks that the OpenAI key is set.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       TIME_ZONE: ${TIME_ZONE:-Europe/Berlin}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     expose:
@@ -70,6 +73,31 @@ services:
     ports:
       - "7881:7881/tcp"
       - "7882:7882/udp"
+    # LiveKit answers OK on / once it's up; without a check Coolify shows the stack's health as unknown.
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:7880/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Homeloom's voice: joins a call when someone taps the phone in the assistant, hears with
+  # OpenAI, thinks with Claude and acts as the caller through the API's MCP server. Without
+  # OPENAI_API_KEY or ANTHROPIC_API_KEY it idles. The image has its own health check.
+  homeloom-agent:
+    build: ./apps/agent
+    restart: unless-stopped
+    environment:
+      LIVEKIT_URL: ws://homeloom-livekit:7880
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-homeloom}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      VOICE_LLM_MODEL: ${VOICE_LLM_MODEL:-claude-sonnet-5-5}
+      HOMELOOM_MCP_URL: http://homeloom-api:8080/mcp
+      TIME_ZONE: ${TIME_ZONE:-Europe/Berlin}
+    depends_on:
+      - homeloom-livekit
+      - homeloom-api
 
   homeloom-postgres:
     image: postgres:18-alpine

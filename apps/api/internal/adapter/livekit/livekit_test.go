@@ -64,12 +64,15 @@ func TestShortSecretIsRefused(t *testing.T) {
 }
 
 func TestParticipants(t *testing.T) {
-	var auth string
+	var auth, dispatched string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth = r.Header.Get("Authorization")
 		var body struct{ Room string }
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		switch {
+		case r.URL.Path == "/twirp/livekit.AgentDispatchService/CreateDispatch":
+			dispatched = body.Room
+			_, _ = w.Write([]byte(`{"id":"AD_1"}`))
 		case r.URL.Path != "/twirp/livekit.RoomService/ListParticipants":
 			http.NotFound(w, r)
 		case body.Room == "empty":
@@ -98,6 +101,9 @@ func TestParticipants(t *testing.T) {
 	}
 	if ids, err := s.Participants(ctx, "empty"); err != nil || len(ids) != 0 {
 		t.Fatalf("a room nobody joined: %v %v", ids, err)
+	}
+	if err := s.Dispatch(ctx, "homeloom-1", "homeloom", `{"lang":"de"}`); err != nil || dispatched != "homeloom-1" {
+		t.Fatalf("dispatch: %v %q", err, dispatched)
 	}
 	if _, err := s.Participants(ctx, "broken"); !errors.Is(err, domain.ErrUnavailable) {
 		t.Fatalf("server error: %v", err)

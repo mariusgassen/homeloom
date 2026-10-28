@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -19,11 +20,64 @@ type Call struct {
 	passes     port.SessionStore
 	server     port.CallServer
 	notify     notifier
+	agent      string
+	keys       agentKeys
 }
+
+// agentKeys mints the keys the voice agent reaches Homeloom's tools with; *AgentAccess is the real one.
+type agentKeys interface {
+	Mint(ctx context.Context, actor domain.User, householdID uuid.UUID, ttl time.Duration) (string, error)
+}
+
+// voiceCallTTL is how long the voice agent's key works, and so the longest call with Homeloom.
+const voiceCallTTL = 2 * time.Hour
 
 // NewCall works with a nil server: calls are then switched off.
 func NewCall(households port.HouseholdRepository, passes port.SessionStore, server port.CallServer, notify notifier) *Call {
 	return &Call{households: households, passes: passes, server: server, notify: notify}
+}
+
+// WithVoiceAgent lets members talk to the voice agent registered as agent, which reaches
+// Homeloom's tools with a key from keys.
+func (s *Call) WithVoiceAgent(agent string, keys agentKeys) *Call {
+	s.agent, s.keys = agent, keys
+	return s
+}
+
+// VoiceCall is the metadata the voice agent gets with each call: the key it acts as the caller
+// with, and how to talk to them.
+type VoiceCall struct {
+	Key  string `json:"key"`
+	Lang string `json:"lang"`
+	Name string `json:"name"`
+}
+
+func (s *Call) TalkToHomeloom(ctx context.Context, actor domain.User, householdID uuid.UUID, lang string) (domain.Call, error) {
+	if err := s.members(ctx, householdID, actor.ID, nil); err != nil {
+		return domain.Call{}, err
+	}
+	if s.server == nil || s.agent == "" {
+		return domain.Call{}, fmt.Errorf("%w: talking to Homeloom is not set up", domain.ErrUnavailable)
+	}
+	// The room is the actor's alone: no one else can join it, so the agent's answers stay theirs.
+	id := uuid.New()
+	room := "homeloom-" + householdID.String() + "-" + actor.ID.String() + "-" + id.String()
+	key, err := s.keys.Mint(ctx, actor, householdID, voiceCallTTL)
+	if err != nil {
+		return domain.Call{}, err
+	}
+	meta, err := json.Marshal(VoiceCall{Key: key, Lang: lang, Name: actor.Name})
+	if err != nil {
+		return domain.Call{}, err
+	}
+	if err := s.server.Dispatch(ctx, room, s.agent, string(meta)); err != nil {
+		return domain.Call{}, err
+	}
+	token, err := s.server.Token(actor.ID.String(), actor.Name, room)
+	if err != nil {
+		return domain.Call{}, err
+	}
+	return domain.Call{ID: id, URL: s.server.URL(), Token: token, Room: room}, nil
 }
 
 func (s *Call) Start(ctx context.Context, actor domain.User, householdID uuid.UUID, invite []uuid.UUID) (domain.Call, error) {

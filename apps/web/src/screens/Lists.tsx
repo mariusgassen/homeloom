@@ -4,7 +4,7 @@ import { useSearchParams } from "react-router";
 import { api, type Entry, type EntryKind, type HouseholdDetail, type User } from "../api/client";
 import { sameDay, setDone, startOfDay, useEntries } from "../entries";
 import { useSession } from "../session";
-import { Card } from "../ui/Card";
+import { Empty } from "../ui/Empty";
 import { Icon } from "../ui/Icon";
 import { ListRow } from "../ui/ListRow";
 import { ThreadAvatar, threadFor } from "../ui/ThreadAvatar";
@@ -43,7 +43,7 @@ export function Lists() {
   }, [linked, setParams]);
 
   const add = (
-    <button type="button" className="screen-action" aria-label={t("entries.add")} onClick={() => kind && setSheet({ kind })}>
+    <button type="button" className="screen-action screen-add" aria-label={t("entries.add")} onClick={() => kind && setSheet({ kind })}>
       <Icon name="plus" />
     </button>
   );
@@ -63,9 +63,7 @@ export function Lists() {
         </p>
       )}
       {kind && entries?.length === 0 && (
-        <Card tone="sunken" title={t(`entries.empty.${kind}.title`)}>
-          {t(`entries.empty.${kind}.body`)}
-        </Card>
+        <Empty title={t(`entries.empty.${kind}.title`)}>{t(`entries.empty.${kind}.body`)}</Empty>
       )}
       {entries && entries.length > 0 && tab === "reminder" && <Reminders entries={entries} household={household} me={me} onOpen={(entry) => setSheet({ entry, kind: entry.kind })} onChange={reload} />}
       {entries && entries.length > 0 && tab === "event" && <Agenda entries={entries} onOpen={(entry) => setSheet({ entry, kind: entry.kind })} />}

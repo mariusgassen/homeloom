@@ -7,6 +7,7 @@ import (
 
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/http/oapi"
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/domain"
+	"github.com/mariusgassen/homeloom/apps/api/internal/i18n"
 )
 
 // guestCallPath is where guest links are redeemed; the token follows it.
@@ -29,6 +30,23 @@ func (h *handlers) StartCall(ctx context.Context, req oapi.StartCallRequestObjec
 		return nil, err
 	}
 	return oapi.StartCall201JSONResponse(toCall(c)), nil
+}
+
+func (h *handlers) TalkToHomeloom(ctx context.Context, req oapi.TalkToHomeloomRequestObject) (oapi.TalkToHomeloomResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	c, err := h.calls.TalkToHomeloom(ctx, u, req.HouseholdId, i18n.FromContext(ctx).String())
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.TalkToHomeloom404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.Is(err, domain.ErrUnavailable):
+		return oapi.TalkToHomeloom503JSONResponse{UnavailableJSONResponse: callsUnavailable(ctx, err)}, nil
+	case err != nil:
+		return nil, err
+	}
+	return oapi.TalkToHomeloom201JSONResponse(toCall(c)), nil
 }
 
 func (h *handlers) JoinCall(ctx context.Context, req oapi.JoinCallRequestObject) (oapi.JoinCallResponseObject, error) {

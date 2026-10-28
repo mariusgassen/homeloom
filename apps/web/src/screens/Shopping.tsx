@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type ShoppingItem } from "../api/client";
+import { useRefresh } from "../refresh";
 import { Button } from "../ui/Button";
-import { Card } from "../ui/Card";
+import { Empty } from "../ui/Empty";
 import { Icon } from "../ui/Icon";
 import { ListRow } from "../ui/ListRow";
 
@@ -14,18 +15,20 @@ export function Shopping({ householdId }: { householdId: string }) {
   const [text, setText] = useState("");
   const [generation, setGeneration] = useState(0);
   const reload = useCallback(() => setGeneration((g) => g + 1), []);
+  const { generation: refreshed, track } = useRefresh();
   const path = { params: { path: { householdId } } };
 
   useEffect(() => {
     let current = true;
-    api
+    const request = api
       .GET("/v1/households/{householdId}/shopping-list", { params: { path: { householdId } } })
       .then((res) => current && (res.data ? setItems(res.data) : setFailed(true)))
       .catch(() => current && setFailed(true));
+    track(request);
     return () => {
       current = false;
     };
-  }, [householdId, generation]);
+  }, [householdId, generation, refreshed, track]);
 
   // Every change reloads the list, so what the other person did shows up too.
   async function run(call: Promise<{ error?: unknown }>) {
@@ -76,9 +79,7 @@ export function Shopping({ householdId }: { householdId: string }) {
         </p>
       )}
       {items?.length === 0 && (
-        <Card tone="sunken" title={t("shopping.emptyTitle")}>
-          {t("shopping.emptyBody")}
-        </Card>
+        <Empty title={t("shopping.emptyTitle")}>{t("shopping.emptyBody")}</Empty>
       )}
       {open.length > 0 && <div className="hl-list">{open.map(row)}</div>}
       {done.length > 0 && (

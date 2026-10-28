@@ -62,6 +62,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 	entries := service.NewEntry(store, store, store, push, time.UTC)
 	cook := service.NewCook(store, recipes, memory.Chef{}, shopping)
 	home := service.NewHome(store, store, sessions, smart)
+	agents := service.NewAgentAccess(store, sessions, store)
 	h, err := httpadapter.NewRouter(httpadapter.Deps{
 		Version:       "1.2.3",
 		PublicURL:     "https://homeloom.example.com",
@@ -74,9 +75,9 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Shopping:      shopping,
 		Home:          home,
 		Push:          push,
-		Calls:         service.NewCall(store, sessions, memory.NewCallServer(), push),
+		Calls:         service.NewCall(store, sessions, memory.NewCallServer(), push).WithVoiceAgent("homeloom", agents),
 		Assistant:     service.NewAssistant(store, store, &memory.Assistant{}, entries, cook, shopping, home, time.UTC),
-		Agents:        service.NewAgentAccess(store, sessions, store),
+		Agents:        agents,
 		HealthChecks:  checks,
 		SecureCookies: true,
 		SessionTTL:    time.Hour,
@@ -645,6 +646,13 @@ func TestCallFlow(t *testing.T) {
 	}
 	if code, _ := do(t, h, "POST", call+"/join", "", ""); code != 401 {
 		t.Fatalf("needs auth: %d", code)
+	}
+
+	if code, body := do(t, h, "POST", calls+"/homeloom", "token-alice", "", "Accept-Language", "de"); code != 201 || !strings.HasPrefix(body["room"].(string), "homeloom-") {
+		t.Fatalf("talk to homeloom: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "POST", calls+"/homeloom", "token-eve", ""); code != 404 {
+		t.Fatalf("outsider talking to homeloom: %d", code)
 	}
 
 	code, link := do(t, h, "POST", call+"/guest-links", "token-alice", "")

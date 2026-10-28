@@ -8,8 +8,9 @@ Ein gemeinsames Zuhause für zwei. Homeloom verwebt eure Mahlzeiten, Momente und
 
 - `apps/api`: die Go-API (hexagonal, API first). Der Vertrag liegt in `apps/api/api/openapi.yaml`.
 - `apps/web`: die PWA (Vite, React, TypeScript), auf dem iPhone über Safari installierbar.
+- `apps/agent`: Homeloom als Stimme in Anrufen (LiveKit Agents für Node).
 - `docs/architecture.md`: Entscheidungen, Aufbau und Deployment (auf Englisch).
-- `docker-compose.yml`: der Stack, den Coolify ausrollt (`homeloom-web`, `homeloom-api`, `homeloom-livekit` für Anrufe, `homeloom-postgres`, `homeloom-redis`).
+- `docker-compose.yml`: der Stack, den Coolify ausrollt (`homeloom-web`, `homeloom-api`, `homeloom-livekit` für Anrufe, `homeloom-agent`, `homeloom-postgres`, `homeloom-redis`).
 
 Die App spricht Deutsch und Englisch. Die API antwortet in der Sprache aus dem `Accept-Language`-Header.
 
@@ -19,6 +20,7 @@ Die App spricht Deutsch und Englisch. Die API antwortet in der Sprache aus dem `
 cp .env.example .env   # POSTGRES_PASSWORD, PUBLIC_URL=http://localhost:3000, die authentik-Werte
                        # und LIVEKIT_API_SECRET (32+ Zeichen) für Anrufe setzen
                        # optional: MEALIE_MCP_URL + MEALIE_MCP_TOKEN zum Kochen, ANTHROPIC_API_KEY für Claude und den Assistenten
+                       # optional: OPENAI_API_KEY (mit ANTHROPIC_API_KEY), um im Anruf mit Homeloom zu sprechen
                        # optional: HOME_ASSISTANT_URL + HOMELOOM_SECRET_KEY für Szenen und Licht
                        # optional: VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY für Mitteilungen (siehe .env.example)
                        # optional: TIME_ZONE für Erinnerungen und Kalender (Standard: Europe/Berlin)
@@ -50,4 +52,4 @@ npm test
 
 ## Releases
 
-Versionen folgen SemVer und werden automatisch aus PR-Titeln im Conventional-Commits-Format veröffentlicht (`feat: …`, `fix: …`). Siehe `CHANGELOG.md` und die Images unter `ghcr.io/mariusgassen/homeloom-api` und `ghcr.io/mariusgassen/homeloom-web`.
+Versionen folgen SemVer und werden automatisch aus PR-Titeln im Conventional-Commits-Format veröffentlicht (`feat: …`, `fix: …`). Siehe `CHANGELOG.md` und die Images unter `ghcr.io/mariusgassen/homeloom-api`, `ghcr.io/mariusgassen/homeloom-web` und `ghcr.io/mariusgassen/homeloom-agent`.
