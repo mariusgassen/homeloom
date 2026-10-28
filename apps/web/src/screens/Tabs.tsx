@@ -6,6 +6,7 @@ import { dueToday, useEntries } from "../entries";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
+import { Empty } from "../ui/Empty";
 import { Icon } from "../ui/Icon";
 import { ListRow } from "../ui/ListRow";
 import { CallButton } from "./Call";
@@ -142,9 +143,7 @@ export function Us() {
         </p>
       )}
       {questions?.length === 0 && (
-        <Card tone="sunken" title={t("us.title")}>
-          {t("us.body")}
-        </Card>
+        <Empty title={t("us.title")}>{t("us.body")}</Empty>
       )}
       {questions?.map((q) => (
         <QuestionCard key={q.id} question={q} household={household} me={me} eyebrow={asked(q)} onChange={replace} />

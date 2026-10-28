@@ -74,3 +74,27 @@ button.hl-listrow:active { background: var(--surface-sunken); }
 .hl-tab[aria-current="page"] .hl-tab-mark { background: var(--spruce-tint); }
 .hl-tab-dot { position: relative; }
 .hl-tab-dot::after { content: ""; position: absolute; top: 4px; right: 10px; width: 8px; height: 8px; border-radius: var(--radius-pill); background: var(--berry); box-shadow: 0 0 0 2px var(--surface-raised); }
+
+/* Mark: the Homeloom gable, two threads crossing. Drawn follows a pull; weaving loops while something loads. */
+.hl-mark { flex: none; overflow: visible; }
+.hl-mark path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.hl-mark-a, .hl-mark-b { stroke-width: 44px; stroke-dasharray: 1; }
+.hl-mark-a { stroke: var(--saffron); }
+.hl-mark-b { stroke: var(--berry); }
+.hl-mark-drawn path { transition: stroke-dashoffset .1s linear; }
+@media (prefers-reduced-motion: no-preference) {
+  .hl-mark-weaving .hl-mark-a, .hl-mark-weaving .hl-mark-b { animation: hl-weave 1.8s cubic-bezier(.65, 0, .35, 1) infinite both; }
+  .hl-mark-weaving .hl-mark-b { animation-delay: .25s; }
+}
+/* Without motion the mark just breathes, so loading still reads as loading. */
+@media (prefers-reduced-motion: reduce) {
+  .hl-mark-weaving path { stroke-dashoffset: 0 !important; }
+  .hl-mark-weaving { animation: hl-breathe 2.4s ease-in-out infinite; }
+}
+@keyframes hl-weave { 0% { stroke-dashoffset: 1; } 45%, 65% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -1; } }
+@keyframes hl-breathe { 50% { opacity: .5; } }
+
+/* Empty */
+.hl-empty { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); padding: var(--space-8) var(--space-4); text-align: center; }
+.hl-empty .hl-mark { margin-bottom: var(--space-2); opacity: .9; }
+.hl-empty p { max-width: 28ch; }

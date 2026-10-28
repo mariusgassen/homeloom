@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -101,6 +101,15 @@ test("API down shows a retry, not the sign-in", async () => {
   renderApp();
   expect(await screen.findByRole("button", { name: "Try again" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Sign in" })).not.toBeInTheDocument();
+});
+
+test("offline says so instead of blaming the server", async () => {
+  vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+  serve();
+  vi.mocked(fetch).mockRejectedValue(new TypeError("Load failed"));
+  renderApp();
+  expect(await screen.findByRole("heading", { name: "You're offline" })).toBeInTheDocument();
+  vi.restoreAllMocks();
 });
 
 test("signed in with a household shows the tabs and both people", async () => {
@@ -408,6 +417,28 @@ test("reminders are ticked off in Lists", async () => {
   await waitFor(() => expect(calls.some((c) => c.method === "PUT" && c.url.endsWith("/done"))).toBe(true));
   expect(calls.filter((c) => c.method === "GET" && new URL(c.url).pathname.endsWith("/entries"))).toHaveLength(2);
   expect(calls.find((c) => c.url.includes("/entries"))?.url).toContain("kind=reminder");
+});
+
+test("pulling down from the top loads the list again", async () => {
+  const bins = entry({ text: "Bins out" });
+  const calls = serve(...signedIn(), at("GET", `/v1/households/${home.id}/entries`, () => json([bins])));
+  renderApp("/lists");
+  const title = await screen.findByText("Bins out");
+  const loads = () => calls.filter((c) => c.method === "GET" && new URL(c.url).pathname.endsWith("/entries")).length;
+  expect(loads()).toBe(1);
+  fireEvent.touchStart(title, { touches: [{ clientX: 100, clientY: 100 }] });
+  fireEvent.touchMove(title, { touches: [{ clientX: 100, clientY: 140 }] });
+  fireEvent.touchEnd(title);
+  // A short pull isn't enough.
+  await new Promise((r) => setTimeout(r, 100));
+  expect(loads()).toBe(1);
+  fireEvent.touchStart(title, { touches: [{ clientX: 100, clientY: 100 }] });
+  fireEvent.touchMove(title, { touches: [{ clientX: 100, clientY: 260 }] });
+  fireEvent.touchEnd(title);
+  expect(await screen.findByRole("status")).toHaveTextContent("Loading…");
+  await waitFor(() => expect(loads()).toBe(2));
+  await waitFor(() => expect(screen.queryByRole("status")).not.toBeInTheDocument());
+  expect(screen.getByText("Bins out")).toBeInTheDocument();
 });
 
 test("the shopping list adds, ticks and clears items", async () => {

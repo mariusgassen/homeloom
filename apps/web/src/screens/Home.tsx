@@ -2,10 +2,13 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import { api, type Home as HomeState, type Light, type Reading, type Room, type Scene } from "../api/client";
+import { useRefresh } from "../refresh";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
+import { Empty } from "../ui/Empty";
 import { cx, Icon } from "../ui/Icon";
+import { Mark } from "../ui/Mark";
 import { Screen } from "./Screen";
 
 function useHouseholdId() {
@@ -29,21 +32,23 @@ export function Home() {
   const [error, setError] = useState<string | null>(connectError && t(`home.error.${connectError}`, { defaultValue: t("home.failed") }));
   const [busy, setBusy] = useState<string | null>(null);
   const [active, setActive] = useState<string | null>(null);
+  const { generation: refreshed, track } = useRefresh();
 
   useEffect(() => {
     let current = true;
-    api
+    const request = api
       .GET("/v1/households/{householdId}/home", { params: { path: { householdId } } })
       .catch(() => undefined)
       .then((res) => {
         if (!current) return;
         if (res?.data) setHome(res.data);
-        else setUnavailable(res?.error?.message ?? t("home.failed"));
+        setUnavailable(res?.data ? null : (res?.error?.message ?? t("home.failed")));
       });
+    track(request);
     return () => {
       current = false;
     };
-  }, [householdId, t]);
+  }, [householdId, t, refreshed, track]);
 
   // run sends one switch; id marks which tile is busy and, on success, which scene is on.
   async function run(id: string, send: () => Promise<{ error?: { message: string } } | undefined>) {
@@ -87,9 +92,7 @@ export function Home() {
   if (unavailable) {
     return (
       <Screen title={t("tabs.home")}>
-        <Card tone="sunken" title={t("home.offTitle")}>
-          {unavailable}
-        </Card>
+        <Empty title={t("home.offTitle")}>{unavailable}</Empty>
       </Screen>
     );
   }
@@ -136,6 +139,11 @@ export function Home() {
           {error}
         </p>
       )}
+      {!home && (
+        <div className="loading-inline">
+          <Mark size={40} weaving label={t("refresh.loading")} />
+        </div>
+      )}
       {loose.length > 0 && (
         <section className="group" aria-label={t("home.scenes")}>
           <h2 className="label group-title">{t("home.scenes")}</h2>
@@ -165,7 +173,7 @@ export function Home() {
           {t("home.connectBody")}
         </Card>
       )}
-      {empty && <Card tone="sunken" title={t("home.emptyTitle")} />}
+      {empty && <Empty title={t("home.emptyTitle")} />}
       {home?.connected && (
         <Button variant="plain" size="sm" className="home-disconnect" disabled={disabled} onClick={disconnect}>
           {t("home.disconnect")}
