@@ -1,13 +1,17 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import type { HouseholdDetail, Question, User } from "../api/client";
+import { dueToday, useEntries } from "../entries";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
+import { Icon } from "../ui/Icon";
+import { ListRow } from "../ui/ListRow";
+import { EntrySheet } from "./EntrySheet";
+import { useWhen } from "./Lists";
 import { AskForm, QuestionCard, useQuestions } from "./questions";
 import { Screen } from "./Screen";
-
-// The tabs hold empty states until their features land; each says what will live there.
 
 function useHome() {
   const { session } = useSession();
@@ -44,27 +48,67 @@ function TodayQuestion({ household, me }: { household: HouseholdDetail; me: User
 export function Today() {
   const { t, i18n } = useTranslation();
   const { household, me } = useHome();
+  const [adding, setAdding] = useState(false);
+  const [generation, setGeneration] = useState(0);
   const date = new Intl.DateTimeFormat(i18n.language, { weekday: "long", day: "numeric", month: "long" }).format(new Date());
+  const add = (
+    <button type="button" className="screen-action" aria-label={t("entries.add")} onClick={() => setAdding(true)}>
+      <Icon name="plus" />
+    </button>
+  );
   return (
-    <Screen title={t("tabs.today")} overline={date}>
+    <Screen title={t("tabs.today")} overline={date} action={add}>
       <TodayQuestion household={household} me={me} />
-      {(["dinner", "due"] as const).map((k) => (
-        <Card key={k} eyebrow={<span>{t(`today.${k}.eyebrow`)}</span>} title={t(`today.${k}.title`)}>
-          {t(`today.${k}.body`)}
-        </Card>
-      ))}
+      <Card eyebrow={<span>{t("today.dinner.eyebrow")}</span>} title={t("today.dinner.title")}>
+        {t("today.dinner.body")}
+      </Card>
+      <DueToday key={generation} household={household} />
+      {adding && (
+        <EntrySheet
+          household={household}
+          me={me}
+          onClose={() => setAdding(false)}
+          onSaved={() => {
+            setAdding(false);
+            setGeneration((g) => g + 1);
+          }}
+        />
+      )}
     </Screen>
   );
 }
 
-function Placeholder({ tab }: { tab: "lists" }) {
+// Open reminders due by tonight (overdue ones too) and today's events; each opens in Lists.
+function DueToday({ household }: { household: HouseholdDetail }) {
   const { t } = useTranslation();
-  return (
-    <Screen title={t(`tabs.${tab}`)}>
-      <Card tone="sunken" title={t(`${tab}.title`)}>
-        {t(`${tab}.body`)}
+  const navigate = useNavigate();
+  const { entries } = useEntries(household.id);
+  const { span, moment } = useWhen();
+  if (!entries) return null;
+  const now = new Date();
+  const due = entries.filter((e) => dueToday(e, now));
+  if (due.length === 0) {
+    return (
+      <Card eyebrow={<span>{t("today.due.eyebrow")}</span>} title={t("today.due.title")}>
+        {t("today.due.body")}
       </Card>
-    </Screen>
+    );
+  }
+  return (
+    <section className="group">
+      <h2 className="label group-title">{t("today.due.eyebrow")}</h2>
+      <div className="hl-list">
+        {due.map((e) => (
+          <ListRow
+            key={e.id}
+            leading={<Icon name={e.kind === "event" ? "calendar" : "bell"} />}
+            title={e.text}
+            subtitle={e.kind === "event" ? span(e) : e.dueAt && moment(e.dueAt)}
+            onClick={() => navigate(`/lists?entry=${e.id}`)}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -107,4 +151,3 @@ export function Us() {
     </Screen>
   );
 }
-export const Lists = () => <Placeholder tab="lists" />;

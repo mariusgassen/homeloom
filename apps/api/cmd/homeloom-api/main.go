@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	_ "time/tzdata" // TIME_ZONE works in the distroless image
 
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/claude"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/homeassistant"
@@ -147,12 +148,16 @@ func run() error {
 	// Notifications still under way get to finish after the server has stopped taking requests.
 	defer push.Wait()
 
+	entries := service.NewEntry(store, store, store, push, cfg.TimeZone)
+	go notifyDue(ctx, entries)
+
 	handler, err := httpadapter.NewRouter(httpadapter.Deps{
 		Version:        version,
 		Identity:       identity,
 		Login:          login,
 		Households:     service.NewHousehold(store),
 		Questions:      service.NewQuestion(store, store, push),
+		Entries:        entries,
 		Cook:           service.NewCook(store, book, chef),
 		Home:           service.NewHome(store, homeConnections, sessions, home),
 		Push:           push,
@@ -182,4 +187,28 @@ func run() error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	return srv.Shutdown(shutdownCtx)
+}
+
+// notifyDue sends due reminders and event alerts until ctx ends. Several API instances may run
+// it: each due time is claimed by one.
+func notifyDue(ctx context.Context, entries *service.Entry) {
+	tick := time.NewTicker(15 * time.Second)
+	defer tick.Stop()
+	for {
+		for {
+			// A full batch means more may be waiting.
+			n, err := entries.NotifyDue(ctx)
+			if err != nil {
+				slog.WarnContext(ctx, "notify due entries", "err", err)
+			}
+			if n < service.DueBatch {
+				break
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-tick.C:
+		}
+	}
 }

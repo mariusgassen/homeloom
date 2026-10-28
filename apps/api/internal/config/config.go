@@ -42,6 +42,8 @@ type Config struct {
 	VAPIDPublicKey  string
 	VAPIDPrivateKey string
 	VAPIDSubject    string
+	// TimeZone is where the household lives; repeating reminders keep their time of day in it.
+	TimeZone *time.Location
 }
 
 // RedirectURL is the login callback to register in authentik.
@@ -77,6 +79,11 @@ func Load() (Config, error) {
 		VAPIDPrivateKey:      os.Getenv("VAPID_PRIVATE_KEY"),
 		VAPIDSubject:         env("VAPID_SUBJECT", os.Getenv("PUBLIC_URL")),
 	}
+	loc, err := time.LoadLocation(env("TIME_ZONE", "UTC"))
+	if err != nil {
+		return c, fmt.Errorf("TIME_ZONE: %w", err)
+	}
+	c.TimeZone = loc
 	ttl, err := time.ParseDuration(env("USER_CACHE_TTL", "5m"))
 	if err != nil {
 		return c, fmt.Errorf("USER_CACHE_TTL: %w", err)

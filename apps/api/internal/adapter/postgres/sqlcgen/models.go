@@ -61,6 +61,35 @@ type Answer struct {
 	AnsweredAt time.Time
 }
 
+type CalendarFeed struct {
+	TokenHash   []byte
+	UserID      uuid.UUID
+	HouseholdID uuid.UUID
+	CreatedAt   time.Time
+}
+
+type Entry struct {
+	ID           uuid.UUID
+	HouseholdID  uuid.UUID
+	AuthorID     uuid.UUID
+	Kind         string
+	Visibility   string
+	RevealAt     *time.Time
+	Text         string
+	DueAt        *time.Time
+	StartsAt     *time.Time
+	EndsAt       *time.Time
+	AllDay       bool
+	AlertMinutes *int32
+	Repeat       string
+	AssigneeID   *uuid.UUID
+	DoneAt       *time.Time
+	DoneBy       *uuid.UUID
+	NotifiedAt   *time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
 type HomeConnection struct {
 	UserID       uuid.UUID
 	RefreshToken string

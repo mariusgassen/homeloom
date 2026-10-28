@@ -73,6 +73,33 @@ type QuestionRepository interface {
 	Answer(ctx context.Context, questionID, userID uuid.UUID, text string) (domain.Question, error)
 }
 
+type EntryRepository interface {
+	CreateEntry(ctx context.Context, e domain.Entry) (domain.Entry, error)
+	// GetEntry returns domain.ErrNotFound for an unknown id.
+	GetEntry(ctx context.Context, id uuid.UUID) (domain.Entry, error)
+	// ListEntries returns the household's entries of the kind ("" for all) that are the viewer's
+	// own or not private, grouped by kind: events by start, those ending before since left out
+	// unless they repeat; notes newest first; open reminders by due time, then those done in the
+	// last domain.DoneReminderDays days.
+	ListEntries(ctx context.Context, householdID, viewer uuid.UUID, kind domain.EntryKind, since time.Time, limit int) ([]domain.Entry, error)
+	// UpdateEntry stores the entry's fields, done state and notification time.
+	UpdateEntry(ctx context.Context, e domain.Entry) (domain.Entry, error)
+	DeleteEntry(ctx context.Context, id uuid.UUID) error
+	// ClaimDue sets NotifiedAt to now on up to limit open entries whose DueAt (a reminder's due
+	// time, an event's alert) has passed since their last notification, and returns them. Each due
+	// time is claimed once, also by several API instances at the same time.
+	ClaimDue(ctx context.Context, now time.Time, limit int) ([]domain.Entry, error)
+}
+
+type CalendarFeedRepository interface {
+	// SaveCalendarFeed replaces the member's feed for the household.
+	SaveCalendarFeed(ctx context.Context, tokenHash []byte, f domain.CalendarFeed) error
+	// CalendarFeed returns domain.ErrNotFound for an unknown token.
+	CalendarFeed(ctx context.Context, tokenHash []byte) (domain.CalendarFeed, error)
+	HasCalendarFeed(ctx context.Context, f domain.CalendarFeed) (bool, error)
+	DeleteCalendarFeed(ctx context.Context, f domain.CalendarFeed) error
+}
+
 // RecipeBook is the household's recipe collection and shopping list (Mealie). Every method
 // returns domain.ErrUnavailable when the service can't be reached.
 type RecipeBook interface {

@@ -30,6 +30,9 @@ type Store struct {
 	memberships []membership
 	invites     map[string]*invite
 	questions   []*domain.Question
+	entries     []domain.Entry
+
+	calendarFeeds map[string]domain.CalendarFeed
 
 	homeConnections   map[uuid.UUID]domain.HomeConnection
 	pushSubscriptions []domain.PushSubscription
@@ -41,6 +44,8 @@ func NewStore() *Store {
 		users:      map[uuid.UUID]domain.User{},
 		households: map[uuid.UUID]domain.Household{},
 		invites:    map[string]*invite{},
+
+		calendarFeeds: map[string]domain.CalendarFeed{},
 	}
 }
 

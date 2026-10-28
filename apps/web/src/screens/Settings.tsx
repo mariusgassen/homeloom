@@ -39,6 +39,7 @@ export function Settings() {
           <Invite householdId={household.id} />
         </section>
       )}
+      {household && <CalendarLink householdId={household.id} />}
       <Notifications />
       <Button variant="danger" block onClick={signOut}>
         {t("auth.signOut")}
@@ -111,6 +112,79 @@ function Notifications() {
       {error && (
         <p className="callout error" role="alert">
           {t(`push.${error}`)}
+        </p>
+      )}
+    </section>
+  );
+}
+
+// A private webcal:// link that puts events and dated reminders into the phone's calendar. The API
+// keeps only a hash, so the link is shown once; a new one replaces the old.
+function CalendarLink({ householdId }: { householdId: string }) {
+  const { t } = useTranslation();
+  const [active, setActive] = useState<boolean | null>(null);
+  const [url, setUrl] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const path = { params: { path: { householdId } } };
+
+  useEffect(() => {
+    let live = true;
+    api.GET("/v1/households/{householdId}/calendar-feed", { params: { path: { householdId } } }).then(
+      (res) => live && setActive(res.data?.active ?? null),
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [householdId]);
+
+  async function create() {
+    setBusy(true);
+    setFailed(false);
+    const res = await api.POST("/v1/households/{householdId}/calendar-feed", path).catch(() => undefined);
+    setBusy(false);
+    if (!res?.data) return setFailed(true);
+    setActive(true);
+    setUrl(`webcal://${window.location.host}${res.data.path}`);
+  }
+
+  async function turnOff() {
+    setBusy(true);
+    const res = await api.DELETE("/v1/households/{householdId}/calendar-feed", path).catch(() => undefined);
+    setBusy(false);
+    if (!res?.response.ok) return setFailed(true);
+    setActive(false);
+    setUrl(null);
+  }
+
+  if (active === null) return null;
+  return (
+    <section className="group">
+      <h2 className="label group-title">{t("calendar.title")}</h2>
+      <div className="hl-card">
+        <p className="hl-card-body">{t(url ? "calendar.ready" : active ? "calendar.on" : "calendar.body")}</p>
+        {url && <p className="invite-link caption">{url}</p>}
+        <div className="hl-card-footer">
+          {url ? (
+            <a className="hl-btn hl-btn-primary hl-btn-sm" href={url}>
+              {t("calendar.open")}
+            </a>
+          ) : (
+            <Button size="sm" disabled={busy} onClick={create}>
+              {t(active ? "calendar.renew" : "calendar.add")}
+            </Button>
+          )}
+          {active && (
+            <Button size="sm" variant="secondary" disabled={busy} onClick={turnOff}>
+              {t("calendar.off")}
+            </Button>
+          )}
+        </div>
+      </div>
+      {failed && (
+        <p className="callout error" role="alert">
+          {t("calendar.failed")}
         </p>
       )}
     </section>

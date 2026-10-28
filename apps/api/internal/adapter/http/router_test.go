@@ -64,6 +64,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Login:         service.NewLogin(memory.NewLoginProvider(), sessions),
 		Households:    service.NewHousehold(store),
 		Questions:     service.NewQuestion(store, store, push),
+		Entries:       service.NewEntry(store, store, store, push, time.UTC),
 		Cook:          service.NewCook(store, recipes, memory.Chef{}),
 		Home:          service.NewHome(store, store, sessions, smart),
 		Push:          push,
@@ -463,5 +464,126 @@ func TestPushFlow(t *testing.T) {
 	}
 	if code, _ := do(t, h, "POST", "/v1/push/subscriptions", "", sub("https://web.push.apple.com/abc")); code != 401 {
 		t.Fatalf("needs auth: %d", code)
+	}
+}
+
+func TestEntriesFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	id := created["id"].(string)
+	_, inv := do(t, h, "POST", "/v1/households/"+id+"/invites", "token-alice", "")
+	do(t, h, "POST", "/v1/invites/"+inv["code"].(string), "token-bob", "")
+	entries := "/v1/households/" + id + "/entries"
+
+	if code, body := do(t, h, "POST", entries, "token-alice", `{"kind":"reminder","text":"Bins","visibility":"reveal","revealAt":"2030-01-01T00:00:00Z"}`, "Accept-Language", "de"); code != 400 || body["code"] != "invalid_reveal" || !strings.Contains(body["message"].(string), "Notizen") {
+		t.Fatalf("reminder revealed later: %d %v", code, body)
+	}
+	if code, body := do(t, h, "POST", entries, "token-alice", `{"kind":"reminder","text":"`+strings.Repeat("x", 201)+`","visibility":"shared"}`); code != 400 || body["code"] != "invalid_text" || !strings.Contains(body["message"].(string), "200") {
+		t.Fatalf("long reminder: %d %v", code, body)
+	}
+	if code, body := do(t, h, "POST", entries, "token-alice", `{"kind":"task","text":"x","visibility":"shared"}`); code != 400 {
+		t.Fatalf("unknown kind: %d %v", code, body)
+	}
+	code, r := do(t, h, "POST", entries, "token-alice", `{"kind":"reminder","text":"Bins","visibility":"shared","dueAt":"2030-01-01T07:00:00Z","repeat":"weekly"}`)
+	if code != 201 || r["text"] != "Bins" || r["sealed"] != false || r["repeat"] != "weekly" {
+		t.Fatalf("create reminder: %d %v", code, r)
+	}
+	code, letter := do(t, h, "POST", entries, "token-alice", `{"kind":"note","text":"Love you","visibility":"reveal","revealAt":"2030-01-01T00:00:00Z"}`)
+	if code != 201 {
+		t.Fatalf("create letter: %d %v", code, letter)
+	}
+	_, secret := do(t, h, "POST", entries, "token-alice", `{"kind":"note","text":"Gift ideas","visibility":"private"}`)
+
+	if code, body := do(t, h, "GET", "/v1/entries/"+letter["id"].(string), "token-bob", ""); code != 200 || body["sealed"] != true || body["text"] != nil {
+		t.Fatalf("bob sees a sealed letter: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "GET", "/v1/entries/"+secret["id"].(string), "token-bob", ""); code != 404 {
+		t.Fatalf("private note to bob: want 404, got %d", code)
+	}
+	if code, body := do(t, h, "PUT", "/v1/entries/"+letter["id"].(string), "token-bob", `{"text":"x","visibility":"reveal","revealAt":"2030-01-01T00:00:00Z"}`); code != 403 || body["code"] != "not_yours" {
+		t.Fatalf("bob edits the letter: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "GET", entries, "token-eve", ""); code != 404 {
+		t.Fatalf("non-member list: want 404, got %d", code)
+	}
+
+	req := httptest.NewRequest("GET", entries+"?kind=note", nil)
+	req.Header.Set("Authorization", "Bearer token-bob")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	var notes []map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &notes); err != nil || len(notes) != 1 || notes[0]["id"] != letter["id"] {
+		t.Fatalf("bob's notes: %v %s", err, rec.Body)
+	}
+
+	done := "/v1/entries/" + r["id"].(string) + "/done"
+	if code, body := do(t, h, "PUT", done, "token-bob", ""); code != 200 || body["dueAt"] != "2030-01-08T07:00:00Z" || body["doneAt"] != nil {
+		t.Fatalf("ticking off a weekly reminder moves it on: %d %v", code, body)
+	}
+	if code, body := do(t, h, "PUT", "/v1/entries/"+letter["id"].(string)+"/done", "token-alice", ""); code != 409 || body["code"] != "not_a_reminder" {
+		t.Fatalf("tick off a note: %d %v", code, body)
+	}
+	if code, body := do(t, h, "PUT", "/v1/entries/"+r["id"].(string), "token-bob", `{"text":"Bins out","visibility":"shared","dueAt":"2030-01-08T07:00:00Z"}`); code != 200 || body["text"] != "Bins out" || body["repeat"] != "never" {
+		t.Fatalf("bob edits the shared reminder: %d %v", code, body)
+	}
+	if code, body := do(t, h, "PUT", done, "token-bob", ""); code != 200 || body["doneAt"] == nil || body["doneBy"] == nil {
+		t.Fatalf("tick off: %d %v", code, body)
+	}
+	if code, body := do(t, h, "DELETE", done, "token-alice", ""); code != 200 || body["doneAt"] != nil {
+		t.Fatalf("reopen: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "DELETE", "/v1/entries/"+r["id"].(string), "token-bob", ""); code != 204 {
+		t.Fatalf("delete: want 204, got %d", code)
+	}
+	if code, _ := do(t, h, "GET", "/v1/entries/"+r["id"].(string), "token-alice", ""); code != 404 {
+		t.Fatalf("after delete: want 404, got %d", code)
+	}
+}
+
+func TestCalendarFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	id := created["id"].(string)
+	entries := "/v1/households/" + id + "/entries"
+
+	if code, body := do(t, h, "POST", entries, "token-alice", `{"kind":"event","text":"Dinner","visibility":"shared"}`); code != 400 || body["code"] != "invalid_event_time" {
+		t.Fatalf("event without a start: %d %v", code, body)
+	}
+	code, ev := do(t, h, "POST", entries, "token-alice", `{"kind":"event","text":"Dinner, with Jo","visibility":"shared","startsAt":"2030-01-01T18:00:00Z","endsAt":"2030-01-01T21:00:00Z","alertMinutes":60}`)
+	if code != 201 || ev["dueAt"] != "2030-01-01T17:00:00Z" || ev["allDay"] != false {
+		t.Fatalf("create event: %d %v", code, ev)
+	}
+	do(t, h, "POST", entries, "token-alice", `{"kind":"event","text":"Ghent","visibility":"private","allDay":true,"startsAt":"2030-02-01T12:00:00Z","endsAt":"2030-02-02T12:00:00Z"}`)
+
+	feed := "/v1/households/" + id + "/calendar-feed"
+	if code, body := do(t, h, "GET", feed, "token-alice", ""); code != 200 || body["active"] != false {
+		t.Fatalf("no link yet: %d %v", code, body)
+	}
+	code, link := do(t, h, "POST", feed, "token-alice", "")
+	path, _ := link["path"].(string)
+	if code != 201 || !strings.HasPrefix(path, "/v1/calendar-feeds/") {
+		t.Fatalf("create link: %d %v", code, link)
+	}
+	if code, _ := do(t, h, "POST", feed, "token-eve", ""); code != 404 {
+		t.Fatalf("non-member link: want 404, got %d", code)
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("GET", path, nil))
+	ics := rec.Body.String()
+	if rec.Code != 200 || !strings.HasPrefix(rec.Header().Get("Content-Type"), "text/calendar") {
+		t.Fatalf("feed: %d %s", rec.Code, rec.Header())
+	}
+	for _, want := range []string{"BEGIN:VCALENDAR\r\n", "SUMMARY:Dinner\\, with Jo\r\n", "DTSTART:20300101T180000Z\r\n", "DTEND:20300101T210000Z\r\n", "DTSTART;VALUE=DATE:20300201\r\n", "DTEND;VALUE=DATE:20300203\r\n", "CLASS:PRIVATE\r\n"} {
+		if !strings.Contains(ics, want) {
+			t.Fatalf("feed lacks %q:\n%s", want, ics)
+		}
+	}
+
+	if code, _ := do(t, h, "DELETE", feed, "token-alice", ""); code != 204 {
+		t.Fatalf("turn off: want 204, got %d", code)
+	}
+	if code, _ := do(t, h, "GET", path, "", ""); code != 404 {
+		t.Fatalf("after turning off: want 404, got %d", code)
 	}
 }
