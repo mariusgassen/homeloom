@@ -1,9 +1,11 @@
 {
   "error.already_revealed": "The answers are already open, so they can't change any more.",
   "error.auth_unavailable": "Sign-in is temporarily unavailable. Try again in a minute.",
+  "error.cooking_unavailable": "Cooking isn't available right now. Is Mealie set up and running?",
   "error.internal": "Something went wrong on our side.",
   "error.invalid": "The request is not valid.",
   "error.invalid_household_name": "Give the household a name of 1 to {max} characters.",
+  "error.invalid_ingredients": "Pick at least one ingredient from this recipe.",
   "error.invalid_text": "Please write between 1 and {max} characters.",
   "error.invite_invalid": "This invite link is no longer valid. Ask for a new one.",
   "error.not_found": "This doesn't exist or you can't see it.",

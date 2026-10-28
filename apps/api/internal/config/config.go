@@ -24,6 +24,13 @@ type Config struct {
 	UserCacheTTL   time.Duration
 	SessionTTL     time.Duration
 	LogLevel       string
+	// Mealie is optional: without MealieURL cooking is switched off.
+	MealieURL            string
+	MealieToken          string
+	MealieShoppingListID string
+	// AnthropicAPIKey is optional: without it recipes are suggested at random.
+	AnthropicAPIKey string
+	LLMModel        string
 }
 
 // RedirectURL is the login callback to register in authentik.
@@ -37,16 +44,21 @@ func (c Config) SecureCookies() bool { return strings.HasPrefix(c.PublicURL, "ht
 
 func Load() (Config, error) {
 	c := Config{
-		HTTPAddr:         env("HTTP_ADDR", ":8080"),
-		DatabaseURL:      os.Getenv("DATABASE_URL"),
-		RedisURL:         os.Getenv("REDIS_URL"),
-		PublicURL:        os.Getenv("PUBLIC_URL"),
-		OIDCIssuerURL:    os.Getenv("OIDC_ISSUER_URL"),
-		OIDCClientID:     os.Getenv("OIDC_CLIENT_ID"),
-		OIDCClientSecret: os.Getenv("OIDC_CLIENT_SECRET"),
-		OIDCClientIDs:    list(os.Getenv("OIDC_CLIENT_IDS")),
-		AllowedOrigins:   list(os.Getenv("CORS_ALLOWED_ORIGINS")),
-		LogLevel:         env("LOG_LEVEL", "info"),
+		HTTPAddr:             env("HTTP_ADDR", ":8080"),
+		DatabaseURL:          os.Getenv("DATABASE_URL"),
+		RedisURL:             os.Getenv("REDIS_URL"),
+		PublicURL:            os.Getenv("PUBLIC_URL"),
+		OIDCIssuerURL:        os.Getenv("OIDC_ISSUER_URL"),
+		OIDCClientID:         os.Getenv("OIDC_CLIENT_ID"),
+		OIDCClientSecret:     os.Getenv("OIDC_CLIENT_SECRET"),
+		OIDCClientIDs:        list(os.Getenv("OIDC_CLIENT_IDS")),
+		AllowedOrigins:       list(os.Getenv("CORS_ALLOWED_ORIGINS")),
+		LogLevel:             env("LOG_LEVEL", "info"),
+		MealieURL:            os.Getenv("MEALIE_URL"),
+		MealieToken:          os.Getenv("MEALIE_API_TOKEN"),
+		MealieShoppingListID: os.Getenv("MEALIE_SHOPPING_LIST_ID"),
+		AnthropicAPIKey:      os.Getenv("ANTHROPIC_API_KEY"),
+		LLMModel:             env("LLM_MODEL", "claude-opus-5-5"),
 	}
 	ttl, err := time.ParseDuration(env("USER_CACHE_TTL", "5m"))
 	if err != nil {
@@ -69,6 +81,9 @@ func Load() (Config, error) {
 		if req.value == "" {
 			missing = append(missing, req.name)
 		}
+	}
+	if c.MealieURL != "" && c.MealieToken == "" {
+		missing = append(missing, "MEALIE_API_TOKEN")
 	}
 	if len(missing) > 0 {
 		return c, errors.New("missing required env: " + strings.Join(missing, ", "))

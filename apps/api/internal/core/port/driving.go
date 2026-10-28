@@ -38,3 +38,10 @@ type QuestionService interface {
 	Ask(ctx context.Context, actor domain.User, householdID uuid.UUID, text string) (domain.Question, error)
 	Answer(ctx context.Context, actor domain.User, questionID uuid.UUID, text string) (domain.Question, error)
 }
+
+type CookService interface {
+	// Suggest picks recipes for a mood; lang is the language the reasons are written in.
+	Suggest(ctx context.Context, actor domain.User, householdID uuid.UUID, mood, lang string) (domain.Suggestions, error)
+	Recipe(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string) (domain.Recipe, error)
+	AddToShoppingList(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string, ingredientIDs []string) (domain.ShoppingListAdded, error)
+}

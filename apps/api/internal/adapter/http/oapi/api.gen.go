@@ -59,6 +59,14 @@ func (e Role) Valid() bool {
 	}
 }
 
+// AddToShoppingList defines model for AddToShoppingList.
+type AddToShoppingList struct {
+	IngredientIds []string `json:"ingredientIds"`
+
+	// Recipe The recipe's slug.
+	Recipe string `json:"recipe"`
+}
+
 // Answer defines model for Answer.
 type Answer struct {
 	AnsweredAt time.Time `json:"answeredAt"`
@@ -76,6 +84,12 @@ type AnswerQuestion struct {
 // AskQuestion defines model for AskQuestion.
 type AskQuestion struct {
 	Text string `json:"text"`
+}
+
+// CookMood defines model for CookMood.
+type CookMood struct {
+	// Mood In your own words, e.g. "cozy, something with mushrooms".
+	Mood string `json:"mood"`
 }
 
 // CreateHousehold defines model for CreateHousehold.
@@ -123,6 +137,13 @@ type HouseholdDetail struct {
 	Role    Role               `json:"role"`
 }
 
+// Ingredient defines model for Ingredient.
+type Ingredient struct {
+	// Id Mealie's reference id; pass it to addToShoppingList.
+	Id   string `json:"id"`
+	Text string `json:"text"`
+}
+
 // Invite defines model for Invite.
 type Invite struct {
 	// Code Share as `<PUBLIC_URL>/join/<code>`.
@@ -167,8 +188,57 @@ type Readiness struct {
 // ReadinessStatus defines model for Readiness.Status.
 type ReadinessStatus string
 
+// Recipe defines model for Recipe.
+type Recipe struct {
+	Description *string      `json:"description,omitempty"`
+	Ingredients []Ingredient `json:"ingredients"`
+
+	// MealieUrl The recipe in Mealie.
+	MealieUrl *string  `json:"mealieUrl,omitempty"`
+	Name      string   `json:"name"`
+	Servings  *string  `json:"servings,omitempty"`
+	Slug      string   `json:"slug"`
+	Steps     []string `json:"steps"`
+	Tags      []string `json:"tags"`
+	TotalTime *string  `json:"totalTime,omitempty"`
+}
+
+// RecipeSummary defines model for RecipeSummary.
+type RecipeSummary struct {
+	Description *string  `json:"description,omitempty"`
+	Name        string   `json:"name"`
+	Slug        string   `json:"slug"`
+	Tags        []string `json:"tags"`
+
+	// TotalTime As written in Mealie
+	TotalTime *string `json:"totalTime,omitempty"`
+}
+
 // Role defines model for Role.
 type Role string
+
+// ShoppingListAdded defines model for ShoppingListAdded.
+type ShoppingListAdded struct {
+	// Added How many ingredients were put on the list.
+	Added int `json:"added"`
+
+	// List The Mealie shopping list's name.
+	List string `json:"list"`
+}
+
+// Suggestion defines model for Suggestion.
+type Suggestion struct {
+	// Reason Why it fits the mood
+	Reason *string       `json:"reason,omitempty"`
+	Recipe RecipeSummary `json:"recipe"`
+}
+
+// Suggestions defines model for Suggestions.
+type Suggestions struct {
+	// Chef True when Claude picked; false for the random fallback.
+	Chef        bool         `json:"chef"`
+	Suggestions []Suggestion `json:"suggestions"`
+}
 
 // User defines model for User.
 type User struct {
@@ -180,6 +250,9 @@ type User struct {
 
 // HouseholdId defines model for HouseholdId.
 type HouseholdId = openapi_types.UUID
+
+// RecipeSlug defines model for RecipeSlug.
+type RecipeSlug = string
 
 // BadRequest defines model for BadRequest.
 type BadRequest = Error
@@ -211,8 +284,14 @@ type LogoutParams struct {
 // CreateHouseholdJSONRequestBody defines body for CreateHousehold for application/json ContentType.
 type CreateHouseholdJSONRequestBody = CreateHousehold
 
+// SuggestRecipesJSONRequestBody defines body for SuggestRecipes for application/json ContentType.
+type SuggestRecipesJSONRequestBody = CookMood
+
 // AskQuestionJSONRequestBody defines body for AskQuestion for application/json ContentType.
 type AskQuestionJSONRequestBody = AskQuestion
+
+// AddToShoppingListJSONRequestBody defines body for AddToShoppingList for application/json ContentType.
+type AddToShoppingListJSONRequestBody = AddToShoppingList
 
 // AnswerQuestionJSONRequestBody defines body for AnswerQuestion for application/json ContentType.
 type AnswerQuestionJSONRequestBody = AnswerQuestion
@@ -243,6 +322,9 @@ type ServerInterface interface {
 	// GetHousehold One household with its members (members only)
 	// (GET /v1/households/{householdId})
 	GetHousehold(w http.ResponseWriter, r *http.Request, householdId openapi_types.UUID)
+	// SuggestRecipes Pick recipes from Mealie that fit a mood (members only)
+	// (POST /v1/households/{householdId}/cook/suggestions)
+	SuggestRecipes(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
 	// CreateInvite Create a one-time invite link code (members only)
 	// (POST /v1/households/{householdId}/invites)
 	CreateInvite(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
@@ -252,6 +334,12 @@ type ServerInterface interface {
 	// AskQuestion Ask the household a question
 	// (POST /v1/households/{householdId}/questions)
 	AskQuestion(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
+	// GetRecipe A recipe from Mealie with its ingredients and steps (members only)
+	// (GET /v1/households/{householdId}/recipes/{slug})
+	GetRecipe(w http.ResponseWriter, r *http.Request, householdId HouseholdId, slug RecipeSlug)
+	// AddToShoppingList Put a recipe's missing ingredients on the Mealie shopping list (members only)
+	// (POST /v1/households/{householdId}/shopping-list)
+	AddToShoppingList(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
 	// AcceptInvite Join the household an invite belongs to
 	// (POST /v1/invites/{code})
 	AcceptInvite(w http.ResponseWriter, r *http.Request, code string)
@@ -315,6 +403,12 @@ func (_ Unimplemented) GetHousehold(w http.ResponseWriter, r *http.Request, hous
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// SuggestRecipes Pick recipes from Mealie that fit a mood (members only)
+// (POST /v1/households/{householdId}/cook/suggestions)
+func (_ Unimplemented) SuggestRecipes(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // CreateInvite Create a one-time invite link code (members only)
 // (POST /v1/households/{householdId}/invites)
 func (_ Unimplemented) CreateInvite(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
@@ -330,6 +424,18 @@ func (_ Unimplemented) ListQuestions(w http.ResponseWriter, r *http.Request, hou
 // AskQuestion Ask the household a question
 // (POST /v1/households/{householdId}/questions)
 func (_ Unimplemented) AskQuestion(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetRecipe A recipe from Mealie with its ingredients and steps (members only)
+// (GET /v1/households/{householdId}/recipes/{slug})
+func (_ Unimplemented) GetRecipe(w http.ResponseWriter, r *http.Request, householdId HouseholdId, slug RecipeSlug) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// AddToShoppingList Put a recipe's missing ingredients on the Mealie shopping list (members only)
+// (POST /v1/households/{householdId}/shopping-list)
+func (_ Unimplemented) AddToShoppingList(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -565,6 +671,32 @@ func (siw *ServerInterfaceWrapper) GetHousehold(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// SuggestRecipes operation middleware
+func (siw *ServerInterfaceWrapper) SuggestRecipes(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SuggestRecipes(w, r, householdId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CreateInvite operation middleware
 func (siw *ServerInterfaceWrapper) CreateInvite(w http.ResponseWriter, r *http.Request) {
 
@@ -634,6 +766,67 @@ func (siw *ServerInterfaceWrapper) AskQuestion(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AskQuestion(w, r, householdId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRecipe operation middleware
+func (siw *ServerInterfaceWrapper) GetRecipe(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "slug" -------------
+	var slug RecipeSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", chi.URLParam(r, "slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRecipe(w, r, householdId, slug)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AddToShoppingList operation middleware
+func (siw *ServerInterfaceWrapper) AddToShoppingList(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AddToShoppingList(w, r, householdId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -863,6 +1056,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/v1/questions/{questionId}/answer", wrapper.AnswerQuestion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/households/{householdId}/cook/suggestions", wrapper.SuggestRecipes)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/households/{householdId}/recipes/{slug}", wrapper.GetRecipe)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/households/{householdId}/shopping-list", wrapper.AddToShoppingList)
 	})
 
 	return r
@@ -1160,6 +1362,85 @@ func (response GetHousehold404JSONResponse) VisitGetHouseholdResponse(w http.Res
 	return err
 }
 
+type SuggestRecipesRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+	Body        *SuggestRecipesJSONRequestBody
+}
+
+type SuggestRecipesResponseObject interface {
+	VisitSuggestRecipesResponse(w http.ResponseWriter) error
+}
+
+type SuggestRecipes200JSONResponse Suggestions
+
+func (response SuggestRecipes200JSONResponse) VisitSuggestRecipesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SuggestRecipes400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response SuggestRecipes400JSONResponse) VisitSuggestRecipesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SuggestRecipes401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response SuggestRecipes401JSONResponse) VisitSuggestRecipesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SuggestRecipes404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response SuggestRecipes404JSONResponse) VisitSuggestRecipesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SuggestRecipes503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response SuggestRecipes503JSONResponse) VisitSuggestRecipesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type CreateInviteRequestObject struct {
 	HouseholdId HouseholdId `json:"householdId"`
 }
@@ -1321,6 +1602,150 @@ func (response AskQuestion404JSONResponse) VisitAskQuestionResponse(w http.Respo
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRecipeRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+	Slug        RecipeSlug  `json:"slug"`
+}
+
+type GetRecipeResponseObject interface {
+	VisitGetRecipeResponse(w http.ResponseWriter) error
+}
+
+type GetRecipe200JSONResponse Recipe
+
+func (response GetRecipe200JSONResponse) VisitGetRecipeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRecipe401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetRecipe401JSONResponse) VisitGetRecipeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRecipe404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetRecipe404JSONResponse) VisitGetRecipeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRecipe503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response GetRecipe503JSONResponse) VisitGetRecipeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddToShoppingListRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+	Body        *AddToShoppingListJSONRequestBody
+}
+
+type AddToShoppingListResponseObject interface {
+	VisitAddToShoppingListResponse(w http.ResponseWriter) error
+}
+
+type AddToShoppingList200JSONResponse ShoppingListAdded
+
+func (response AddToShoppingList200JSONResponse) VisitAddToShoppingListResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddToShoppingList400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response AddToShoppingList400JSONResponse) VisitAddToShoppingListResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddToShoppingList401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response AddToShoppingList401JSONResponse) VisitAddToShoppingListResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddToShoppingList404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response AddToShoppingList404JSONResponse) VisitAddToShoppingListResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AddToShoppingList503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response AddToShoppingList503JSONResponse) VisitAddToShoppingListResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -1515,6 +1940,9 @@ type StrictServerInterface interface {
 	// GetHousehold One household with its members (members only)
 	// (GET /v1/households/{householdId})
 	GetHousehold(ctx context.Context, request GetHouseholdRequestObject) (GetHouseholdResponseObject, error)
+	// SuggestRecipes Pick recipes from Mealie that fit a mood (members only)
+	// (POST /v1/households/{householdId}/cook/suggestions)
+	SuggestRecipes(ctx context.Context, request SuggestRecipesRequestObject) (SuggestRecipesResponseObject, error)
 	// CreateInvite Create a one-time invite link code (members only)
 	// (POST /v1/households/{householdId}/invites)
 	CreateInvite(ctx context.Context, request CreateInviteRequestObject) (CreateInviteResponseObject, error)
@@ -1524,6 +1952,12 @@ type StrictServerInterface interface {
 	// AskQuestion Ask the household a question
 	// (POST /v1/households/{householdId}/questions)
 	AskQuestion(ctx context.Context, request AskQuestionRequestObject) (AskQuestionResponseObject, error)
+	// GetRecipe A recipe from Mealie with its ingredients and steps (members only)
+	// (GET /v1/households/{householdId}/recipes/{slug})
+	GetRecipe(ctx context.Context, request GetRecipeRequestObject) (GetRecipeResponseObject, error)
+	// AddToShoppingList Put a recipe's missing ingredients on the Mealie shopping list (members only)
+	// (POST /v1/households/{householdId}/shopping-list)
+	AddToShoppingList(ctx context.Context, request AddToShoppingListRequestObject) (AddToShoppingListResponseObject, error)
 	// AcceptInvite Join the household an invite belongs to
 	// (POST /v1/invites/{code})
 	AcceptInvite(ctx context.Context, request AcceptInviteRequestObject) (AcceptInviteResponseObject, error)
@@ -1779,6 +2213,39 @@ func (sh *strictHandler) GetHousehold(w http.ResponseWriter, r *http.Request, ho
 	}
 }
 
+// SuggestRecipes operation middleware
+func (sh *strictHandler) SuggestRecipes(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	var request SuggestRecipesRequestObject
+
+	request.HouseholdId = householdId
+
+	var body SuggestRecipesJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SuggestRecipes(ctx, request.(SuggestRecipesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SuggestRecipes")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SuggestRecipesResponseObject); ok {
+		if err := validResponse.VisitSuggestRecipesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // CreateInvite operation middleware
 func (sh *strictHandler) CreateInvite(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
 	var request CreateInviteRequestObject
@@ -1857,6 +2324,66 @@ func (sh *strictHandler) AskQuestion(w http.ResponseWriter, r *http.Request, hou
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(AskQuestionResponseObject); ok {
 		if err := validResponse.VisitAskQuestionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetRecipe operation middleware
+func (sh *strictHandler) GetRecipe(w http.ResponseWriter, r *http.Request, householdId HouseholdId, slug RecipeSlug) {
+	var request GetRecipeRequestObject
+
+	request.HouseholdId = householdId
+	request.Slug = slug
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRecipe(ctx, request.(GetRecipeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRecipe")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetRecipeResponseObject); ok {
+		if err := validResponse.VisitGetRecipeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AddToShoppingList operation middleware
+func (sh *strictHandler) AddToShoppingList(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	var request AddToShoppingListRequestObject
+
+	request.HouseholdId = householdId
+
+	var body AddToShoppingListJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AddToShoppingList(ctx, request.(AddToShoppingListRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AddToShoppingList")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AddToShoppingListResponseObject); ok {
+		if err := validResponse.VisitAddToShoppingListResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -1952,58 +2479,72 @@ func (sh *strictHandler) AnswerQuestion(w http.ResponseWriter, r *http.Request, 
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"FoTV4GvD7up29Z8BAA==",
+	"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",
+	"rvcQkcLc+X8GAA==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

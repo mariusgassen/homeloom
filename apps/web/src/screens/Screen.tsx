@@ -4,8 +4,9 @@ import { Link } from "react-router";
 import { useSession } from "../session";
 import { ThreadAvatar, threadFor } from "../ui/ThreadAvatar";
 
-// A tab's page: the household button top right, a large title, then content.
-export function Screen({ title, overline, children }: { title: string; overline?: string; children: ReactNode }) {
+// A tab's page: the household button top right, a large title, then content. back replaces the
+// overline on pages below a tab.
+export function Screen({ title, overline, back, children }: { title: string; overline?: string; back?: ReactNode; children: ReactNode }) {
   const { t } = useTranslation();
   const { session } = useSession();
   const members = session.state === "signedIn" ? (session.household?.members ?? []) : [];
@@ -13,7 +14,7 @@ export function Screen({ title, overline, children }: { title: string; overline?
     <div className="screen">
       <header className="screen-header">
         <div className="screen-toolbar">
-          <span className="caption screen-overline">{overline}</span>
+          {back ?? <span className="caption screen-overline">{overline}</span>}
           <Link to="/settings" className="screen-household" aria-label={t("settings.open")}>
             <span className="hl-pair">
               {members.map((m, i) => (

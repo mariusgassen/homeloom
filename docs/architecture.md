@@ -73,6 +73,12 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 - **Reveal together:** any member asks a question. Answers stay sealed, and the API leaves others' text out, until every current member (at least two) has answered. The last answer reveals the question in the same transaction, under a lock on the question row, so two simultaneous answers cannot both miss the reveal. You can change your answer until then; afterwards it is fixed (`409 already_revealed`).
 - Sealing happens in `core/service`, so later adapters (MCP, notifications) cannot leak an answer early.
 
+## Cooking
+
+- **Mealie** (`adapter/mealie`, port `RecipeBook`) holds the recipes and the shopping list. It is optional: without `MEALIE_URL` the cook endpoints answer `503 cooking_unavailable`, and so do they when Mealie is down or rejects the token. Each call is bounded to 8 s.
+- **Claude** (`adapter/claude`, port `Chef`) picks up to three recipes for a mood from the whole collection (one short line per recipe, cached as a prompt prefix) and writes why, in the request's language. The answer is constrained to a JSON schema, and the service drops any slug that isn't in the collection. Without `ANTHROPIC_API_KEY`, or when Claude is down, refuses or finds nothing, three recipes are picked at random (`chef: false`). One pick is bounded to 30 s.
+- Missing ingredients go to `MEALIE_SHOPPING_LIST_ID`, or to the list that changed last, through Mealie's "add recipe to list" so they stay linked to the recipe. The PWA asks what you already have and sends the rest.
+
 ## PWA
 
 ```
@@ -107,6 +113,6 @@ apps/web/
 |---|---|
 | MCP server | Second driving adapter on the same services, served at `/mcp`, with its own authentik client |
 | Reminders & notes | Core entries with `private / shared / reveal_after` visibility; jobs and push delivery via Redis |
-| Mealie, Home Assistant, Claude | Driven adapters behind ports; HA actions limited to a whitelist |
+| Home Assistant | Driven adapter behind a port; actions limited to a whitelist |
 | LiveKit calls with a Homeloom agent | Self-hosted LiveKit on Coolify; the API issues room tokens; the agent is a separate service (LiveKit Agents) that calls the API |
 | Third-party apps | Per-app authentik clients or tokens, outgoing webhooks, iCal feed for reminders |

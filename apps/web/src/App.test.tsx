@@ -174,3 +174,42 @@ test("a used invite says so and lets you go on", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Continue" }));
   expect(await screen.findByRole("heading", { level: 1, name: "Today" })).toBeInTheDocument();
 });
+
+test("cook by mood suggests recipes and puts what's missing on the list", async () => {
+  sessionStorage.clear();
+  const curry = { slug: "green-curry", name: "Green curry", tags: ["Thai"], totalTime: "30 min" };
+  const calls = serve(
+    ...signedIn(),
+    at("POST", `/v1/households/${home.id}/cook/suggestions`, () =>
+      json({ chef: true, suggestions: [{ recipe: curry, reason: "Warm and a little spicy." }] }),
+    ),
+    at("GET", `/v1/households/${home.id}/recipes/green-curry`, () =>
+      json({ ...curry, steps: ["Simmer."], ingredients: [{ id: "i1", text: "Coconut milk" }, { id: "i2", text: "Rice" }, { id: "i3", text: "Lime" }] }),
+    ),
+    at("POST", `/v1/households/${home.id}/shopping-list`, () => json({ added: 2, list: "Woche" })),
+  );
+  renderApp("/cook");
+  await userEvent.click(await screen.findByRole("button", { name: "Cozy" }));
+  await userEvent.click(screen.getByRole("button", { name: "20 min" }));
+  await userEvent.type(screen.getByLabelText("Use up"), "lime");
+  await userEvent.click(screen.getByRole("button", { name: "Suggest dinner" }));
+  expect(await calls.find((c) => c.url.endsWith("/cook/suggestions"))?.json()).toEqual({ mood: "Cozy; Time: 20 min; Use up: lime" });
+
+  await userEvent.click(await screen.findByText("Warm and a little spicy."));
+  await userEvent.click(await screen.findByLabelText("Rice"));
+  await userEvent.click(screen.getByRole("button", { name: "Put 2 missing items on the list" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("2 items are on “Woche” now.");
+  expect(await calls.find((c) => c.url.endsWith("/shopping-list"))?.json()).toEqual({ recipe: "green-curry", ingredientIds: ["i1", "i3"] });
+});
+
+test("cooking says so when Mealie is down", async () => {
+  sessionStorage.clear();
+  serve(
+    ...signedIn(),
+    at("POST", `/v1/households/${home.id}/cook/suggestions`, () => json({ code: "cooking_unavailable", message: "Cooking isn't available right now." }, 503)),
+  );
+  renderApp("/cook");
+  await userEvent.click(await screen.findByRole("button", { name: "Light" }));
+  await userEvent.click(screen.getByRole("button", { name: "Suggest dinner" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Cooking isn't available");
+});
