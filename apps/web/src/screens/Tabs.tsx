@@ -53,7 +53,7 @@ export function Today() {
   const [generation, setGeneration] = useState(0);
   const date = new Intl.DateTimeFormat(i18n.language, { weekday: "long", day: "numeric", month: "long" }).format(new Date());
   const add = (
-    <button type="button" className="screen-action" aria-label={t("entries.add")} onClick={() => setAdding(true)}>
+    <button type="button" className="screen-action screen-add" aria-label={t("entries.add")} onClick={() => setAdding(true)}>
       <Icon name="plus" />
     </button>
   );
