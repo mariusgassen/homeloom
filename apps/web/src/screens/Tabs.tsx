@@ -57,7 +57,7 @@ export function Today() {
   );
 }
 
-function Placeholder({ tab }: { tab: "lists" | "home" }) {
+function Placeholder({ tab }: { tab: "lists" }) {
   const { t } = useTranslation();
   return (
     <Screen title={t(`tabs.${tab}`)}>
@@ -108,4 +108,3 @@ export function Us() {
   );
 }
 export const Lists = () => <Placeholder tab="lists" />;
-export const Home = () => <Placeholder tab="home" />;

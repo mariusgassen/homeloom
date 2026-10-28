@@ -89,6 +89,16 @@ type Chef interface {
 	Pick(ctx context.Context, mood, lang string, candidates []domain.RecipeSummary, n int) ([]domain.Pick, error)
 }
 
+// SmartHome is Home Assistant, narrowed to what Homeloom may do: read scenes and lights, turn a
+// scene on, switch a light. Locks, alarms, covers and other domains are deliberately not here.
+// Every method returns domain.ErrUnavailable when Home Assistant can't be reached.
+type SmartHome interface {
+	Devices(ctx context.Context) ([]domain.Scene, []domain.Light, error)
+	// ActivateScene and ToggleLight take an id that Devices returned.
+	ActivateScene(ctx context.Context, id string) error
+	ToggleLight(ctx context.Context, id string) (domain.Light, error)
+}
+
 type HealthCheck interface {
 	Name() string
 	Check(ctx context.Context) error

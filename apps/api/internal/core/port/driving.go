@@ -45,3 +45,11 @@ type CookService interface {
 	Recipe(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string) (domain.Recipe, error)
 	AddToShoppingList(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string, ingredientIDs []string) (domain.ShoppingListAdded, error)
 }
+
+type HomeService interface {
+	Get(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Home, error)
+	ActivateScene(ctx context.Context, actor domain.User, householdID uuid.UUID, sceneID string) error
+	ToggleLight(ctx context.Context, actor domain.User, householdID uuid.UUID, lightID string) (domain.Light, error)
+	// StartDinner turns on the configured dinner scene.
+	StartDinner(ctx context.Context, actor domain.User, householdID uuid.UUID) error
+}

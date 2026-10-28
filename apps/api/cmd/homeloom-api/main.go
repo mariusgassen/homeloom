@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/claude"
+	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/homeassistant"
 	httpadapter "github.com/mariusgassen/homeloom/apps/api/internal/adapter/http"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/mealie"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/oidc"
@@ -96,7 +97,7 @@ func run() error {
 		sessions,
 	)
 
-	// Mealie and Claude are optional; a nil port switches the feature off or to its fallback.
+	// Mealie, Claude and Home Assistant are optional; a nil port switches the feature off or to its fallback.
 	var book port.RecipeBook
 	if cfg.MealieURL != "" {
 		if book, err = mealie.New(cfg.MealieURL, cfg.MealieToken, cfg.MealieShoppingListID); err != nil {
@@ -107,6 +108,12 @@ func run() error {
 	if cfg.AnthropicAPIKey != "" {
 		chef = claude.NewChef(cfg.AnthropicAPIKey, cfg.LLMModel)
 	}
+	var home port.SmartHome
+	if cfg.HomeAssistantURL != "" {
+		if home, err = homeassistant.New(cfg.HomeAssistantURL, cfg.HomeAssistantToken); err != nil {
+			return err
+		}
+	}
 
 	handler, err := httpadapter.NewRouter(httpadapter.Deps{
 		Version:        version,
@@ -115,6 +122,7 @@ func run() error {
 		Households:     service.NewHousehold(store),
 		Questions:      service.NewQuestion(store, store),
 		Cook:           service.NewCook(store, book, chef),
+		Home:           service.NewHome(store, home, cfg.DinnerScene),
 		HealthChecks:   []port.HealthCheck{postgres.HealthCheck{Pool: pool}, redis.HealthCheck{Client: rdb}},
 		AllowedOrigins: cfg.AllowedOrigins,
 		SecureCookies:  cfg.SecureCookies(),

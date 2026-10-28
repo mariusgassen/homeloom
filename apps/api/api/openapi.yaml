@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.4.0
+  version: 0.5.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -26,6 +26,7 @@ tags:
   - name: households
   - name: questions
   - name: cook
+  - name: home
 
 paths:
   /healthz:
@@ -352,6 +353,76 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  /v1/households/{householdId}/home:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [home]
+      operationId: getHome
+      summary: Scenes and lights from Home Assistant (members only)
+      description: Only scenes and lights are exposed. Locks, alarms, covers and everything else never are.
+      responses:
+        "200":
+          description: The home.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Home" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/home/scenes/{sceneId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - name: sceneId
+        in: path
+        required: true
+        schema: { type: string, pattern: "^scene\\.[a-z0-9_]{1,100}$" }
+    post:
+      tags: [home]
+      operationId: activateScene
+      summary: Turn a scene on
+      responses:
+        "204": { description: The scene is on. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/home/lights/{lightId}/toggle:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - name: lightId
+        in: path
+        required: true
+        schema: { type: string, pattern: "^light\\.[a-z0-9_]{1,100}$" }
+    post:
+      tags: [home]
+      operationId: toggleLight
+      summary: Switch a light on or off
+      responses:
+        "200":
+          description: The light after switching.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Light" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/dinner-mode:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [home]
+      operationId: startDinnerMode
+      summary: Turn on the dinner scene
+      description: Activates the scene set as `DINNER_SCENE`. Unavailable (503) when none is set.
+      responses:
+        "204": { description: Dinner mode is on. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
 components:
   parameters:
     HouseholdId:
@@ -394,7 +465,7 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
     Unavailable:
-      description: A dependency (authentik, Redis, Mealie) cannot be reached or isn't set up.
+      description: A dependency (authentik, Redis, Mealie, Home Assistant) cannot be reached or isn't set up.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -544,6 +615,33 @@ components:
       properties:
         added: { type: integer, description: How many ingredients were put on the list. }
         list: { type: string, description: The Mealie shopping list's name. }
+
+    Home:
+      type: object
+      required: [scenes, lights]
+      properties:
+        scenes:
+          type: array
+          items: { $ref: "#/components/schemas/Scene" }
+        lights:
+          type: array
+          items: { $ref: "#/components/schemas/Light" }
+        dinnerScene: { type: string, description: Name of the dinner scene; absent when dinner mode isn't set up. }
+
+    Scene:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, description: "Home Assistant entity id, e.g. scene.dinner." }
+        name: { type: string }
+
+    Light:
+      type: object
+      required: [id, name, on]
+      properties:
+        id: { type: string, description: "Home Assistant entity id, e.g. light.kitchen." }
+        name: { type: string }
+        on: { type: boolean }
 
     Logout:
       type: object

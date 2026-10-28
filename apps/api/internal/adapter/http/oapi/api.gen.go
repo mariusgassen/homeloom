@@ -122,6 +122,14 @@ type Health struct {
 	Version string `json:"version"`
 }
 
+// Home defines model for Home.
+type Home struct {
+	// DinnerScene Name of the dinner scene; absent when dinner mode isn't set up.
+	DinnerScene *string `json:"dinnerScene,omitempty"`
+	Lights      []Light `json:"lights"`
+	Scenes      []Scene `json:"scenes"`
+}
+
 // Household defines model for Household.
 type Household struct {
 	Id   openapi_types.UUID `json:"id"`
@@ -149,6 +157,14 @@ type Invite struct {
 	// Code Share as `<PUBLIC_URL>/join/<code>`.
 	Code      string    `json:"code"`
 	ExpiresAt time.Time `json:"expiresAt"`
+}
+
+// Light defines model for Light.
+type Light struct {
+	// Id Home Assistant entity id, e.g. light.kitchen.
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	On   bool   `json:"on"`
 }
 
 // Logout defines model for Logout.
@@ -216,6 +232,13 @@ type RecipeSummary struct {
 
 // Role defines model for Role.
 type Role string
+
+// Scene defines model for Scene.
+type Scene struct {
+	// Id Home Assistant entity id, e.g. scene.dinner.
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
 
 // ShoppingListAdded defines model for ShoppingListAdded.
 type ShoppingListAdded struct {
@@ -325,6 +348,18 @@ type ServerInterface interface {
 	// SuggestRecipes Pick recipes from Mealie that fit a mood (members only)
 	// (POST /v1/households/{householdId}/cook/suggestions)
 	SuggestRecipes(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
+	// StartDinnerMode Turn on the dinner scene
+	// (POST /v1/households/{householdId}/dinner-mode)
+	StartDinnerMode(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
+	// GetHome Scenes and lights from Home Assistant (members only)
+	// (GET /v1/households/{householdId}/home)
+	GetHome(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
+	// ToggleLight Switch a light on or off
+	// (POST /v1/households/{householdId}/home/lights/{lightId}/toggle)
+	ToggleLight(w http.ResponseWriter, r *http.Request, householdId HouseholdId, lightId string)
+	// ActivateScene Turn a scene on
+	// (POST /v1/households/{householdId}/home/scenes/{sceneId})
+	ActivateScene(w http.ResponseWriter, r *http.Request, householdId HouseholdId, sceneId string)
 	// CreateInvite Create a one-time invite link code (members only)
 	// (POST /v1/households/{householdId}/invites)
 	CreateInvite(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
@@ -406,6 +441,30 @@ func (_ Unimplemented) GetHousehold(w http.ResponseWriter, r *http.Request, hous
 // SuggestRecipes Pick recipes from Mealie that fit a mood (members only)
 // (POST /v1/households/{householdId}/cook/suggestions)
 func (_ Unimplemented) SuggestRecipes(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// StartDinnerMode Turn on the dinner scene
+// (POST /v1/households/{householdId}/dinner-mode)
+func (_ Unimplemented) StartDinnerMode(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetHome Scenes and lights from Home Assistant (members only)
+// (GET /v1/households/{householdId}/home)
+func (_ Unimplemented) GetHome(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ToggleLight Switch a light on or off
+// (POST /v1/households/{householdId}/home/lights/{lightId}/toggle)
+func (_ Unimplemented) ToggleLight(w http.ResponseWriter, r *http.Request, householdId HouseholdId, lightId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ActivateScene Turn a scene on
+// (POST /v1/households/{householdId}/home/scenes/{sceneId})
+func (_ Unimplemented) ActivateScene(w http.ResponseWriter, r *http.Request, householdId HouseholdId, sceneId string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -688,6 +747,128 @@ func (siw *ServerInterfaceWrapper) SuggestRecipes(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SuggestRecipes(w, r, householdId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartDinnerMode operation middleware
+func (siw *ServerInterfaceWrapper) StartDinnerMode(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartDinnerMode(w, r, householdId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetHome operation middleware
+func (siw *ServerInterfaceWrapper) GetHome(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetHome(w, r, householdId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ToggleLight operation middleware
+func (siw *ServerInterfaceWrapper) ToggleLight(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "lightId" -------------
+	var lightId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "lightId", chi.URLParam(r, "lightId"), &lightId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "lightId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ToggleLight(w, r, householdId, lightId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ActivateScene operation middleware
+func (siw *ServerInterfaceWrapper) ActivateScene(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "sceneId" -------------
+	var sceneId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sceneId", chi.URLParam(r, "sceneId"), &sceneId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sceneId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ActivateScene(w, r, householdId, sceneId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1066,6 +1247,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/households/{householdId}/shopping-list", wrapper.AddToShoppingList)
 	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/households/{householdId}/home", wrapper.GetHome)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/households/{householdId}/home/scenes/{sceneId}", wrapper.ActivateScene)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/households/{householdId}/home/lights/{lightId}/toggle", wrapper.ToggleLight)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/households/{householdId}/dinner-mode", wrapper.StartDinnerMode)
+	})
 
 	return r
 }
@@ -1430,6 +1623,252 @@ func (response SuggestRecipes404JSONResponse) VisitSuggestRecipesResponse(w http
 type SuggestRecipes503JSONResponse struct{ UnavailableJSONResponse }
 
 func (response SuggestRecipes503JSONResponse) VisitSuggestRecipesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartDinnerModeRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+}
+
+type StartDinnerModeResponseObject interface {
+	VisitStartDinnerModeResponse(w http.ResponseWriter) error
+}
+
+type StartDinnerMode204Response struct {
+}
+
+func (response StartDinnerMode204Response) VisitStartDinnerModeResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type StartDinnerMode401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response StartDinnerMode401JSONResponse) VisitStartDinnerModeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartDinnerMode404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response StartDinnerMode404JSONResponse) VisitStartDinnerModeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartDinnerMode503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response StartDinnerMode503JSONResponse) VisitStartDinnerModeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetHomeRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+}
+
+type GetHomeResponseObject interface {
+	VisitGetHomeResponse(w http.ResponseWriter) error
+}
+
+type GetHome200JSONResponse Home
+
+func (response GetHome200JSONResponse) VisitGetHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetHome401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetHome401JSONResponse) VisitGetHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetHome404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetHome404JSONResponse) VisitGetHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetHome503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response GetHome503JSONResponse) VisitGetHomeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ToggleLightRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+	LightId     string      `json:"lightId"`
+}
+
+type ToggleLightResponseObject interface {
+	VisitToggleLightResponse(w http.ResponseWriter) error
+}
+
+type ToggleLight200JSONResponse Light
+
+func (response ToggleLight200JSONResponse) VisitToggleLightResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ToggleLight401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ToggleLight401JSONResponse) VisitToggleLightResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ToggleLight404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ToggleLight404JSONResponse) VisitToggleLightResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ToggleLight503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response ToggleLight503JSONResponse) VisitToggleLightResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ActivateSceneRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+	SceneId     string      `json:"sceneId"`
+}
+
+type ActivateSceneResponseObject interface {
+	VisitActivateSceneResponse(w http.ResponseWriter) error
+}
+
+type ActivateScene204Response struct {
+}
+
+func (response ActivateScene204Response) VisitActivateSceneResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type ActivateScene401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ActivateScene401JSONResponse) VisitActivateSceneResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ActivateScene404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ActivateScene404JSONResponse) VisitActivateSceneResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ActivateScene503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response ActivateScene503JSONResponse) VisitActivateSceneResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -1943,6 +2382,18 @@ type StrictServerInterface interface {
 	// SuggestRecipes Pick recipes from Mealie that fit a mood (members only)
 	// (POST /v1/households/{householdId}/cook/suggestions)
 	SuggestRecipes(ctx context.Context, request SuggestRecipesRequestObject) (SuggestRecipesResponseObject, error)
+	// StartDinnerMode Turn on the dinner scene
+	// (POST /v1/households/{householdId}/dinner-mode)
+	StartDinnerMode(ctx context.Context, request StartDinnerModeRequestObject) (StartDinnerModeResponseObject, error)
+	// GetHome Scenes and lights from Home Assistant (members only)
+	// (GET /v1/households/{householdId}/home)
+	GetHome(ctx context.Context, request GetHomeRequestObject) (GetHomeResponseObject, error)
+	// ToggleLight Switch a light on or off
+	// (POST /v1/households/{householdId}/home/lights/{lightId}/toggle)
+	ToggleLight(ctx context.Context, request ToggleLightRequestObject) (ToggleLightResponseObject, error)
+	// ActivateScene Turn a scene on
+	// (POST /v1/households/{householdId}/home/scenes/{sceneId})
+	ActivateScene(ctx context.Context, request ActivateSceneRequestObject) (ActivateSceneResponseObject, error)
 	// CreateInvite Create a one-time invite link code (members only)
 	// (POST /v1/households/{householdId}/invites)
 	CreateInvite(ctx context.Context, request CreateInviteRequestObject) (CreateInviteResponseObject, error)
@@ -2246,6 +2697,112 @@ func (sh *strictHandler) SuggestRecipes(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
+// StartDinnerMode operation middleware
+func (sh *strictHandler) StartDinnerMode(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	var request StartDinnerModeRequestObject
+
+	request.HouseholdId = householdId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartDinnerMode(ctx, request.(StartDinnerModeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartDinnerMode")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartDinnerModeResponseObject); ok {
+		if err := validResponse.VisitStartDinnerModeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetHome operation middleware
+func (sh *strictHandler) GetHome(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	var request GetHomeRequestObject
+
+	request.HouseholdId = householdId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetHome(ctx, request.(GetHomeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetHome")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetHomeResponseObject); ok {
+		if err := validResponse.VisitGetHomeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ToggleLight operation middleware
+func (sh *strictHandler) ToggleLight(w http.ResponseWriter, r *http.Request, householdId HouseholdId, lightId string) {
+	var request ToggleLightRequestObject
+
+	request.HouseholdId = householdId
+	request.LightId = lightId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ToggleLight(ctx, request.(ToggleLightRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ToggleLight")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ToggleLightResponseObject); ok {
+		if err := validResponse.VisitToggleLightResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ActivateScene operation middleware
+func (sh *strictHandler) ActivateScene(w http.ResponseWriter, r *http.Request, householdId HouseholdId, sceneId string) {
+	var request ActivateSceneRequestObject
+
+	request.HouseholdId = householdId
+	request.SceneId = sceneId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ActivateScene(ctx, request.(ActivateSceneRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ActivateScene")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ActivateSceneResponseObject); ok {
+		if err := validResponse.VisitActivateSceneResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // CreateInvite operation middleware
 func (sh *strictHandler) CreateInvite(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
 	var request CreateInviteRequestObject
@@ -2479,72 +3036,79 @@ func (sh *strictHandler) AnswerQuestion(w http.ResponseWriter, r *http.Request, 
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"rvcQkcLc+X8GAA==",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

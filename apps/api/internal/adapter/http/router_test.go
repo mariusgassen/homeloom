@@ -55,6 +55,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 	if book != nil {
 		recipes = book
 	}
+	smart := memory.NewSmartHome([]domain.Scene{{ID: "scene.dinner", Name: "Dinner"}}, []domain.Light{{ID: "light.kitchen", Name: "Kitchen"}})
 	h, err := httpadapter.NewRouter(httpadapter.Deps{
 		Version:       "1.2.3",
 		Identity:      service.NewIdentity(fakeVerifier{}, sessions, store),
@@ -62,6 +63,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Households:    service.NewHousehold(store),
 		Questions:     service.NewQuestion(store, store),
 		Cook:          service.NewCook(store, recipes, memory.Chef{}),
+		Home:          service.NewHome(store, smart, "scene.dinner"),
 		HealthChecks:  checks,
 		SecureCookies: true,
 		SessionTTL:    time.Hour,
@@ -371,5 +373,37 @@ func TestBrowserLoginFailuresRedirectBackToTheApp(t *testing.T) {
 
 	if res := browser(t, h, "GET", "/v1/me", &http.Cookie{Name: "homeloom_session", Value: "forged", HttpOnly: true, Secure: true, SameSite: http.SameSiteLaxMode}); res.StatusCode != http.StatusUnauthorized {
 		t.Errorf("forged session: %d", res.StatusCode)
+	}
+}
+
+func TestHomeFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	base := "/v1/households/" + created["id"].(string)
+
+	code, home := do(t, h, "GET", base+"/home", "token-alice", "")
+	if code != 200 || home["dinnerScene"] != "Dinner" || len(home["scenes"].([]any)) != 1 || len(home["lights"].([]any)) != 1 {
+		t.Fatalf("home: %d %v", code, home)
+	}
+	if code, body := do(t, h, "GET", base+"/home", "token-eve", ""); code != 404 {
+		t.Fatalf("non-member: %d %v", code, body)
+	}
+	if code, body := do(t, h, "POST", base+"/dinner-mode", "token-alice", ""); code != 204 {
+		t.Fatalf("dinner: %d %v", code, body)
+	}
+	if code, body := do(t, h, "POST", base+"/home/scenes/scene.dinner", "token-alice", ""); code != 204 {
+		t.Fatalf("scene: %d %v", code, body)
+	}
+	if code, body := do(t, h, "POST", base+"/home/scenes/scene.party", "token-alice", ""); code != 404 {
+		t.Fatalf("unknown scene: %d %v", code, body)
+	}
+	if code, l := do(t, h, "POST", base+"/home/lights/light.kitchen/toggle", "token-alice", ""); code != 200 || l["on"] != true {
+		t.Fatalf("toggle: %d %v", code, l)
+	}
+	// Anything but a scene or light is refused before it reaches the core.
+	for _, path := range []string{"/home/scenes/lock.front_door", "/home/lights/alarm_control_panel.home/toggle"} {
+		if code, body := do(t, h, "POST", base+path, "token-alice", ""); code != 400 {
+			t.Fatalf("%s: %d %v", path, code, body)
+		}
 	}
 }

@@ -31,6 +31,11 @@ type Config struct {
 	// AnthropicAPIKey is optional: without it recipes are suggested at random.
 	AnthropicAPIKey string
 	LLMModel        string
+	// Home Assistant is optional: without HomeAssistantURL the Home tab is switched off.
+	// DinnerScene is the scene entity dinner mode turns on, e.g. scene.dinner.
+	HomeAssistantURL   string
+	HomeAssistantToken string
+	DinnerScene        string
 }
 
 // RedirectURL is the login callback to register in authentik.
@@ -59,6 +64,9 @@ func Load() (Config, error) {
 		MealieShoppingListID: os.Getenv("MEALIE_SHOPPING_LIST_ID"),
 		AnthropicAPIKey:      os.Getenv("ANTHROPIC_API_KEY"),
 		LLMModel:             env("LLM_MODEL", "claude-opus-5-5"),
+		HomeAssistantURL:     os.Getenv("HOME_ASSISTANT_URL"),
+		HomeAssistantToken:   os.Getenv("HOME_ASSISTANT_TOKEN"),
+		DinnerScene:          os.Getenv("DINNER_SCENE"),
 	}
 	ttl, err := time.ParseDuration(env("USER_CACHE_TTL", "5m"))
 	if err != nil {
@@ -84,6 +92,9 @@ func Load() (Config, error) {
 	}
 	if c.MealieURL != "" && c.MealieToken == "" {
 		missing = append(missing, "MEALIE_API_TOKEN")
+	}
+	if c.HomeAssistantURL != "" && c.HomeAssistantToken == "" {
+		missing = append(missing, "HOME_ASSISTANT_TOKEN")
 	}
 	if len(missing) > 0 {
 		return c, errors.New("missing required env: " + strings.Join(missing, ", "))

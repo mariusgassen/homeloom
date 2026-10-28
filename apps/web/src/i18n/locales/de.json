@@ -56,7 +56,18 @@
     "alone": { "title": "Zu zweit geht's besser", "body": "Antworten öffnen sich erst, wenn alle im Haushalt geantwortet haben. Lade zuerst deinen Schatz ein." }
   },
   "lists": { "title": "Noch keine Listen", "body": "Einkauf und gemeinsame To-dos, abgeglichen mit Mealie." },
-  "home": { "title": "Smart Home kommt später", "body": "Dinner-Modus und Szenen aus Home Assistant, nur für Licht, Szenen und Musik." },
+  "home": {
+    "connected": "Home Assistant verbunden",
+    "scenes": "Szenen",
+    "dinner": "Abendessen",
+    "on": "An",
+    "lights": "Licht",
+    "whitelist": "Hier gibt's nur Szenen und Licht. Schlösser, Alarm und Garage bleiben in Home Assistant.",
+    "offTitle": "Smart Home ist nicht verbunden",
+    "emptyTitle": "Noch nichts zum Schalten",
+    "emptyBody": "Leg Szenen oder Lichter in Home Assistant an, dann tauchen sie hier auf.",
+    "failed": "Das hat nicht geklappt. Versuch es bitte noch mal."
+  },
   "questions": {
     "ask": "Stell eine Frage",
     "askPlaceholder": "Was möchtest du wissen?",

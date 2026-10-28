@@ -213,3 +213,46 @@ test("cooking says so when Mealie is down", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Suggest dinner" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Cooking isn't available");
 });
+
+test("home starts dinner mode, switches scenes and lights", async () => {
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/home`, () =>
+      json({
+        dinnerScene: "Abendessen",
+        scenes: [{ id: "scene.dinner", name: "Abendessen" }, { id: "scene.movie", name: "Movie night" }],
+        lights: [{ id: "light.kitchen", name: "Kitchen", on: false }],
+      }),
+    ),
+    at("POST", `/v1/households/${home.id}/dinner-mode`, () => new Response(null, { status: 204 })),
+    at("POST", `/v1/households/${home.id}/home/scenes/scene.movie`, () => new Response(null, { status: 204 })),
+    at("POST", `/v1/households/${home.id}/home/lights/light.kitchen/toggle`, () => json({ id: "light.kitchen", name: "Kitchen", on: true })),
+  );
+  renderApp("/home");
+  await userEvent.click(await screen.findByRole("button", { name: /Dinner/ }));
+  await waitFor(() => expect(screen.getByRole("button", { name: /Dinner/ })).toHaveAttribute("aria-pressed", "true"));
+  await userEvent.click(screen.getByRole("button", { name: "Movie night" }));
+  await waitFor(() => expect(calls.some((c) => c.url.endsWith("/scenes/scene.movie"))).toBe(true));
+  // The dinner scene shows once, as the dinner tile.
+  expect(screen.queryByRole("button", { name: "Abendessen" })).not.toBeInTheDocument();
+
+  const light = screen.getByRole("switch", { name: "Kitchen" });
+  expect(light).toHaveAttribute("aria-checked", "false");
+  await userEvent.click(light);
+  await waitFor(() => expect(screen.getByRole("switch", { name: "Kitchen" })).toHaveAttribute("aria-checked", "true"));
+  expect(calls.filter((c) => c.method === "POST").map((c) => new URL(c.url).pathname.split("/").slice(4).join("/"))).toEqual([
+    "dinner-mode",
+    "home/scenes/scene.movie",
+    "home/lights/light.kitchen/toggle",
+  ]);
+});
+
+test("home says so when Home Assistant isn't set up", async () => {
+  serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/home`, () => json({ code: "home_unavailable", message: "The smart home isn't reachable right now." }, 503)),
+  );
+  renderApp("/home");
+  expect(await screen.findByText("The smart home isn't reachable right now.")).toBeInTheDocument();
+  expect(screen.getByText("Smart home isn't connected")).toBeInTheDocument();
+});
