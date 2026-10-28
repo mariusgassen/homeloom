@@ -152,5 +152,19 @@
     "title": "This invite didn't work",
     "failed": "That didn't work. Please try again.",
     "continue": "Continue"
+  },
+  "assistant": {
+    "open": "Ask Homeloom",
+    "title": "Ask Homeloom",
+    "done": "Done",
+    "new": "New chat",
+    "intro": "Homeloom knows your recipes, lists and home. It asks before doing anything you didn't ask for.",
+    "recent": "Recent chats",
+    "placeholder": "Ask about dinner, lists or the house",
+    "message": "Message",
+    "send": "Send",
+    "failed": "That didn't work. Please try again.",
+    "unavailable": { "title": "Not available", "body": "The assistant isn't set up on this server." },
+    "steps": { "lists": "Looking at your lists…", "write": "Writing it down…", "done": "Ticking it off…", "recipes": "Looking through your recipes…", "shopping": "Checking the shopping list…", "home": "Checking the home…", "other": "One moment…" }
   }
 }

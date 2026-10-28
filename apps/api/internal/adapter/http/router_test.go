@@ -59,17 +59,21 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 	push := service.NewPush(store, &memory.Pusher{})
 	shopping := service.NewShopping(store, store)
 	smart := memory.NewSmartHome([]domain.Scene{{ID: "scene.dinner", Name: "Dinner"}}, []domain.Light{{ID: "light.kitchen", Name: "Kitchen"}})
+	entries := service.NewEntry(store, store, store, push, time.UTC)
+	cook := service.NewCook(store, recipes, memory.Chef{}, shopping)
+	home := service.NewHome(store, store, sessions, smart)
 	h, err := httpadapter.NewRouter(httpadapter.Deps{
 		Version:       "1.2.3",
 		Identity:      service.NewIdentity(fakeVerifier{}, sessions, store),
 		Login:         service.NewLogin(memory.NewLoginProvider(), sessions),
 		Households:    service.NewHousehold(store),
 		Questions:     service.NewQuestion(store, store, push),
-		Entries:       service.NewEntry(store, store, store, push, time.UTC),
-		Cook:          service.NewCook(store, recipes, memory.Chef{}, shopping),
+		Entries:       entries,
+		Cook:          cook,
 		Shopping:      shopping,
-		Home:          service.NewHome(store, store, sessions, smart),
+		Home:          home,
 		Push:          push,
+		Assistant:     service.NewAssistant(store, store, &memory.Assistant{}, entries, cook, shopping, home, time.UTC),
 		HealthChecks:  checks,
 		SecureCookies: true,
 		SessionTTL:    time.Hour,
@@ -651,5 +655,74 @@ func TestCalendarFlow(t *testing.T) {
 	}
 	if code, _ := do(t, h, "GET", path, "", ""); code != 404 {
 		t.Fatalf("after turning off: want 404, got %d", code)
+	}
+}
+
+// chat posts a message and returns the server-sent events of the answer by name.
+func chat(t *testing.T, h http.Handler, household, token, body string) (int, map[string][]map[string]any) {
+	t.Helper()
+	req := httptest.NewRequest("POST", "/v1/households/"+household+"/chat", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != 200 {
+		return rec.Code, nil
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "text/event-stream" {
+		t.Fatalf("content type %q", ct)
+	}
+	events := map[string][]map[string]any{}
+	for _, block := range strings.Split(strings.TrimSpace(rec.Body.String()), "\n\n") {
+		name, data, _ := strings.Cut(block, "\n")
+		var v map[string]any
+		if err := json.Unmarshal([]byte(strings.TrimPrefix(data, "data: ")), &v); err != nil {
+			t.Fatalf("event %q: %v", block, err)
+		}
+		events[strings.TrimPrefix(name, "event: ")] = append(events[strings.TrimPrefix(name, "event: ")], v)
+	}
+	return 200, events
+}
+
+func TestAssistantFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	id := created["id"].(string)
+
+	code, events := chat(t, h, id, "token-alice", `{"text":"Hallo"}`)
+	if code != 200 || len(events["conversation"]) != 1 || events["text"][0]["text"] != "en: Hallo" || events["done"][0]["text"] != "en: Hallo" {
+		t.Fatalf("chat: %d %v", code, events)
+	}
+	conv := events["conversation"][0]["id"].(string)
+	if code, events := chat(t, h, id, "token-alice", `{"conversationId":"`+conv+`","text":"/get_home {}"}`); code != 200 || events["tool"][0]["name"] != "get_home" {
+		t.Fatalf("tool: %d %v", code, events)
+	}
+	if code, events := chat(t, h, id, "token-alice", `{"conversationId":"`+conv+`","text":"down"}`); code != 200 || events["error"][0]["code"] != "assistant_unavailable" || events["done"] != nil {
+		t.Fatalf("down: %d %v", code, events)
+	}
+
+	code, body := do(t, h, "GET", "/v1/conversations/"+conv, "token-alice", "")
+	if msgs, _ := body["messages"].([]any); code != 200 || len(msgs) != 5 || body["title"] != "Hallo" {
+		t.Fatalf("get: %d %v", code, body)
+	}
+	req := httptest.NewRequest("GET", "/v1/households/"+id+"/conversations", nil)
+	req.Header.Set("Authorization", "Bearer token-alice")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), conv) {
+		t.Fatalf("list: %d %s", rec.Code, rec.Body)
+	}
+
+	if code, _ := chat(t, h, id, "token-alice", `{"text":"`+strings.Repeat("x", 2001)+`"}`); code != 400 {
+		t.Fatalf("too long: want 400, got %d", code)
+	}
+	if code, _ := chat(t, h, id, "token-eve", `{"text":"hi"}`); code != 404 {
+		t.Fatalf("non-member: want 404, got %d", code)
+	}
+	if code, _ := do(t, h, "GET", "/v1/conversations/"+conv, "token-eve", ""); code != 404 {
+		t.Fatalf("someone else's chat: want 404, got %d", code)
+	}
+	if code, _ := do(t, h, "DELETE", "/v1/conversations/"+conv, "token-alice", ""); code != 204 {
+		t.Fatalf("delete: %d", code)
 	}
 }

@@ -123,8 +123,10 @@ func run() error {
 		}
 	}
 	var chef port.Chef
+	var llm port.Assistant
 	if cfg.AnthropicAPIKey != "" {
 		chef = claude.NewChef(cfg.AnthropicAPIKey, cfg.LLMModel)
+		llm = claude.NewAssistant(cfg.AnthropicAPIKey, cfg.LLMModel)
 	}
 	var home port.SmartHome
 	var homeConnections port.HomeConnectionRepository = store
@@ -151,6 +153,8 @@ func run() error {
 	entries := service.NewEntry(store, store, store, push, cfg.TimeZone)
 	shopping := service.NewShopping(store, store)
 	go notifyDue(ctx, entries)
+	cook := service.NewCook(store, book, chef, shopping)
+	homeService := service.NewHome(store, homeConnections, sessions, home)
 
 	handler, err := httpadapter.NewRouter(httpadapter.Deps{
 		Version:        version,
@@ -159,10 +163,11 @@ func run() error {
 		Households:     service.NewHousehold(store),
 		Questions:      service.NewQuestion(store, store, push),
 		Entries:        entries,
-		Cook:           service.NewCook(store, book, chef, shopping),
+		Cook:           cook,
 		Shopping:       shopping,
-		Home:           service.NewHome(store, homeConnections, sessions, home),
+		Home:           homeService,
 		Push:           push,
+		Assistant:      service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone),
 		HealthChecks:   []port.HealthCheck{postgres.HealthCheck{Pool: pool}, redis.HealthCheck{Client: rdb}},
 		AllowedOrigins: cfg.AllowedOrigins,
 		SecureCookies:  cfg.SecureCookies(),

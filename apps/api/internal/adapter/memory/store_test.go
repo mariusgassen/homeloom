@@ -14,3 +14,4 @@ func TestPushSubscriptions(t *testing.T) { storetest.PushSubscriptions(t, memory
 func TestEntries(t *testing.T)           { storetest.Entries(t, memory.NewStore()) }
 func TestCalendarFeeds(t *testing.T)     { storetest.CalendarFeeds(t, memory.NewStore()) }
 func TestShoppingItems(t *testing.T)     { storetest.ShoppingItems(t, memory.NewStore()) }
+func TestConversations(t *testing.T)     { storetest.Conversations(t, memory.NewStore()) }
