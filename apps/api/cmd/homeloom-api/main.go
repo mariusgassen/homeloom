@@ -118,7 +118,7 @@ func run() error {
 	// Mealie, Claude, Home Assistant and Web Push are optional; a nil port switches the feature off or to its fallback.
 	var book port.RecipeBook
 	if cfg.MealieMCPURL != "" {
-		if book, err = mealie.New(cfg.MealieMCPURL, cfg.MealieMCPToken, cfg.MealieURL, cfg.MealieShoppingListID); err != nil {
+		if book, err = mealie.New(cfg.MealieMCPURL, cfg.MealieMCPToken, cfg.MealieURL); err != nil {
 			return err
 		}
 	}
@@ -149,6 +149,7 @@ func run() error {
 	defer push.Wait()
 
 	entries := service.NewEntry(store, store, store, push, cfg.TimeZone)
+	shopping := service.NewShopping(store, store)
 	go notifyDue(ctx, entries)
 
 	handler, err := httpadapter.NewRouter(httpadapter.Deps{
@@ -158,7 +159,8 @@ func run() error {
 		Households:     service.NewHousehold(store),
 		Questions:      service.NewQuestion(store, store, push),
 		Entries:        entries,
-		Cook:           service.NewCook(store, book, chef),
+		Cook:           service.NewCook(store, book, chef, shopping),
+		Shopping:       shopping,
 		Home:           service.NewHome(store, homeConnections, sessions, home),
 		Push:           push,
 		HealthChecks:   []port.HealthCheck{postgres.HealthCheck{Pool: pool}, redis.HealthCheck{Client: rdb}},

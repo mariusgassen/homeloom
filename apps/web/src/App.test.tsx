@@ -247,7 +247,7 @@ test("cook by mood suggests recipes and puts what's missing on the list", async 
     at("GET", `/v1/households/${home.id}/recipes/green-curry`, () =>
       json({ ...curry, steps: ["Simmer."], ingredients: [{ id: "i1", text: "Coconut milk" }, { id: "i2", text: "Rice" }, { id: "i3", text: "Lime" }] }),
     ),
-    at("POST", `/v1/households/${home.id}/shopping-list`, () => json({ added: 2, list: "Woche" })),
+    at("POST", `/v1/households/${home.id}/shopping-list`, () => json({ added: 2, list: "Shopping list" })),
   );
   renderApp("/cook");
   await userEvent.click(await screen.findByRole("button", { name: "Cozy" }));
@@ -259,7 +259,7 @@ test("cook by mood suggests recipes and puts what's missing on the list", async 
   await userEvent.click(await screen.findByText("Warm and a little spicy."));
   await userEvent.click(await screen.findByLabelText("Rice"));
   await userEvent.click(screen.getByRole("button", { name: "Put 2 missing items on the list" }));
-  expect(await screen.findByRole("status")).toHaveTextContent("2 items are on “Woche” now.");
+  expect(await screen.findByRole("status")).toHaveTextContent("2 items are on “Shopping list” now.");
   expect(await calls.find((c) => c.url.endsWith("/shopping-list"))?.json()).toEqual({ recipe: "green-curry", ingredientIds: ["i1", "i3"] });
 });
 
@@ -368,6 +368,34 @@ test("reminders are ticked off in Lists", async () => {
   await waitFor(() => expect(calls.some((c) => c.method === "PUT" && c.url.endsWith("/done"))).toBe(true));
   expect(calls.filter((c) => c.method === "GET" && new URL(c.url).pathname.endsWith("/entries"))).toHaveLength(2);
   expect(calls.find((c) => c.url.includes("/entries"))?.url).toContain("kind=reminder");
+});
+
+test("the shopping list adds, ticks and clears items", async () => {
+  const list = `/v1/households/${home.id}/shopping-list`;
+  const milk = { id: "44444444-4444-4444-8444-444444444444", text: "Milk", done: false, createdAt: "2026-10-28T08:00:00Z" };
+  const lime = { id: "55555555-5555-4555-8555-555555555555", text: "Lime", recipe: "Green curry", done: true, createdAt: "2026-10-28T08:00:00Z" };
+  const calls = serve(
+    ...signedIn(),
+    at("GET", list, () => json([milk, lime])),
+    at("POST", `${list}/items`, () => json({ ...milk, text: "Bread" }, 201)),
+    at("PUT", `${list}/items/${milk.id}/done`, () => json({ ...milk, done: true })),
+    at("DELETE", `${list}/done`, () => new Response(null, { status: 204 })),
+  );
+  renderApp("/lists?show=shopping");
+  expect(await screen.findByText("Green curry")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Add" })).toBeInTheDocument();
+  expect(calls.some((c) => c.url.includes("/entries"))).toBe(false);
+
+  await userEvent.type(screen.getByLabelText("Add an item"), "Bread");
+  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+  expect(await calls.find((c) => c.method === "POST")?.json()).toEqual({ text: "Bread" });
+  await waitFor(() => expect(screen.getByLabelText("Add an item")).toHaveValue(""));
+
+  await userEvent.click(screen.getByRole("checkbox", { name: "Milk" }));
+  await waitFor(() => expect(calls.some((c) => c.method === "PUT")).toBe(true));
+  await userEvent.click(screen.getByRole("button", { name: "Clear" }));
+  await waitFor(() => expect(calls.some((c) => c.method === "DELETE" && c.url.endsWith("/done"))).toBe(true));
 });
 
 test("the quick-add sheet sets a shared reminder for both", async () => {

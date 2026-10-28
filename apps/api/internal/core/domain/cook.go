@@ -43,8 +43,3 @@ type Suggestion struct {
 	Recipe RecipeSummary
 	Reason string
 }
-
-type ShoppingListAdded struct {
-	Added int
-	List  string
-}

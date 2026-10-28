@@ -25,7 +25,7 @@ func TestSuggestUsesTheChefAndDropsInventedRecipes(t *testing.T) {
 	store := memory.NewStore()
 	alice := newUser(t, store, "alice")
 	m, _ := service.NewHousehold(store).Create(ctx, alice, "Home")
-	cook := service.NewCook(store, memory.NewRecipeBook(recipes()...), memory.Chef{})
+	cook := service.NewCook(store, memory.NewRecipeBook(recipes()...), memory.Chef{}, nil)
 
 	s, err := cook.Suggest(ctx, alice, m.Household.ID, "  something with mushroom ", "de")
 	if err != nil || !s.Chef || len(s.Recipes) != 1 || s.Recipes[0].Recipe.Slug != "mushroom-soup" || s.Recipes[0].Reason != "de: fits mushroom" {
@@ -40,9 +40,9 @@ func TestSuggestFallsBackToRandomWithoutTheChef(t *testing.T) {
 	m, _ := service.NewHousehold(store).Create(ctx, alice, "Home")
 
 	for name, cook := range map[string]*service.Cook{
-		"chef down":    service.NewCook(store, memory.NewRecipeBook(recipes()...), memory.Chef{}),
-		"no chef":      service.NewCook(store, memory.NewRecipeBook(recipes()...), nil),
-		"nothing fits": service.NewCook(store, memory.NewRecipeBook(recipes()...), memory.Chef{}),
+		"chef down":    service.NewCook(store, memory.NewRecipeBook(recipes()...), memory.Chef{}, nil),
+		"no chef":      service.NewCook(store, memory.NewRecipeBook(recipes()...), nil, nil),
+		"nothing fits": service.NewCook(store, memory.NewRecipeBook(recipes()...), memory.Chef{}, nil),
 	} {
 		mood := map[string]string{"chef down": "down", "no chef": "cozy", "nothing fits": "sushi"}[name]
 		s, err := cook.Suggest(ctx, alice, m.Household.ID, mood, "en")
@@ -65,15 +65,16 @@ func TestCookingNeedsMembershipAndMealie(t *testing.T) {
 	alice, eve := newUser(t, store, "alice"), newUser(t, store, "eve")
 	m, _ := service.NewHousehold(store).Create(ctx, alice, "Home")
 	book := memory.NewRecipeBook(recipes()...)
-	cook := service.NewCook(store, book, memory.Chef{})
+	shopping := service.NewShopping(store, store)
+	cook := service.NewCook(store, book, memory.Chef{}, shopping)
 
 	if _, err := cook.Recipe(ctx, eve, m.Household.ID, "curry"); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("non-member: want ErrNotFound, got %v", err)
 	}
-	if _, err := service.NewCook(store, nil, nil).Recipe(ctx, eve, m.Household.ID, "curry"); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := service.NewCook(store, nil, nil, nil).Recipe(ctx, eve, m.Household.ID, "curry"); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("non-member without Mealie: want ErrNotFound, got %v", err)
 	}
-	if _, err := service.NewCook(store, nil, nil).Suggest(ctx, alice, m.Household.ID, "cozy", "en"); !errors.Is(err, domain.ErrUnavailable) {
+	if _, err := service.NewCook(store, nil, nil, nil).Suggest(ctx, alice, m.Household.ID, "cozy", "en"); !errors.Is(err, domain.ErrUnavailable) {
 		t.Fatalf("no Mealie: want ErrUnavailable, got %v", err)
 	}
 	if _, err := cook.Suggest(ctx, alice, m.Household.ID, " ", "en"); !errors.Is(err, domain.ErrInvalid) {
@@ -86,10 +87,14 @@ func TestCookingNeedsMembershipAndMealie(t *testing.T) {
 	book.Down = false
 
 	added, err := cook.AddToShoppingList(ctx, alice, m.Household.ID, "curry", []string{"curry-1", "pasta-1"})
-	if err != nil || added.Added != 1 || book.Added["curry"][0] != "curry-1" {
-		t.Fatalf("add: %+v, %v, %v", added, err, book.Added)
+	items, _ := shopping.Items(ctx, alice, m.Household.ID)
+	if err != nil || added != 1 || len(items) != 1 || items[0].Text != "1 onion" || items[0].Recipe != "Green curry" {
+		t.Fatalf("add: %d, %v, %+v", added, err, items)
 	}
 	if _, err := cook.AddToShoppingList(ctx, alice, m.Household.ID, "curry", nil); !errors.Is(err, domain.ErrInvalid) {
 		t.Fatalf("no ingredients: want ErrInvalid, got %v", err)
+	}
+	if _, err := cook.AddToShoppingList(ctx, eve, m.Household.ID, "curry", []string{"curry-1"}); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("non-member: want ErrNotFound, got %v", err)
 	}
 }

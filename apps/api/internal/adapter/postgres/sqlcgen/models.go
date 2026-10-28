@@ -137,6 +137,16 @@ type Question struct {
 	RevealedAt  *time.Time
 }
 
+type ShoppingItem struct {
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+	Text        string
+	Recipe      *string
+	AddedBy     *uuid.UUID
+	DoneAt      *time.Time
+	CreatedAt   time.Time
+}
+
 type User struct {
 	ID           uuid.UUID
 	AuthentikSub string

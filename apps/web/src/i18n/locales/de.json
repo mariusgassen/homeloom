@@ -136,6 +136,7 @@
       "Welcher Song gehört auf unsere gemeinsame Playlist?"
     ]
   },
+  "shopping": { "tab": "Einkauf", "placeholder": "Was fehlt?", "add": "Hinzufügen", "remove": "{{item}} entfernen", "clear": "Leeren", "emptyTitle": "Nichts zu kaufen", "emptyBody": "Schreib auf, was fehlt.", "open": "Zur Liste" },
   "invite": {
     "create": "Jemanden einladen",
     "body": "Schick diesen Link an deinen Schatz. Er gilt einmal und bis {{date}}.",

@@ -30,7 +30,6 @@ type Client struct {
 	http     *http.Client
 	mcp      *mcp.Client
 	web      *url.URL // Mealie itself, for links; nil: no links
-	listID   string   // empty: the most recently used shopping list
 
 	mu        sync.Mutex
 	session   *mcp.ClientSession // reused; dropped after a transport error
@@ -40,9 +39,8 @@ type Client struct {
 var _ port.RecipeBook = (*Client)(nil)
 
 // New talks to the Mealie MCP server at mcpURL with its bearer token. webURL is Mealie's own
-// address, used only for "open in Mealie" links, and may be empty. listID picks the shopping list;
-// if empty, ingredients go to the list that changed last.
-func New(mcpURL, token, webURL, listID string) (*Client, error) {
+// address, used only for "open in Mealie" links, and may be empty.
+func New(mcpURL, token, webURL string) (*Client, error) {
 	u, err := url.Parse(mcpURL)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return nil, fmt.Errorf("MEALIE_MCP_URL %q is not an http(s) URL", mcpURL)
@@ -51,7 +49,6 @@ func New(mcpURL, token, webURL, listID string) (*Client, error) {
 		endpoint: mcpURL,
 		http:     &http.Client{Timeout: 8 * time.Second, Transport: bearer{token: token, next: http.DefaultTransport}},
 		mcp:      mcp.NewClient(&mcp.Implementation{Name: "homeloom", Version: "1"}, nil),
-		listID:   listID,
 	}
 	if webURL != "" {
 		w, err := url.Parse(strings.TrimRight(webURL, "/"))
@@ -140,7 +137,6 @@ func (c *Client) Recipes(ctx context.Context) ([]domain.RecipeSummary, error) {
 
 type recipe struct {
 	summary
-	ID           string            `json:"id"`
 	Yield        string            `json:"recipeYield"`
 	Servings     float64           `json:"recipeServings"`
 	Ingredients  []json.RawMessage `json:"recipeIngredient"`
@@ -191,63 +187,6 @@ func (c *Client) Recipe(ctx context.Context, slug string) (domain.Recipe, error)
 		out.URL = c.web.JoinPath("g", group, "r", r.Slug).String()
 	}
 	return out, nil
-}
-
-func (c *Client) AddToShoppingList(ctx context.Context, slug string, ingredientIDs []string) (domain.ShoppingListAdded, error) {
-	r, err := c.get(ctx, slug)
-	if err != nil {
-		return domain.ShoppingListAdded{}, err
-	}
-	want := make(map[string]bool, len(ingredientIDs))
-	for _, id := range ingredientIDs {
-		want[id] = true
-	}
-	// Mealie wants the ingredients as it stores them, so they are passed on unchanged.
-	selected := []json.RawMessage{}
-	for _, raw := range r.Ingredients {
-		var in ingredient
-		if json.Unmarshal(raw, &in) == nil && want[in.ReferenceID] {
-			selected = append(selected, raw)
-		}
-	}
-	if len(selected) == 0 {
-		return domain.ShoppingListAdded{}, fmt.Errorf("%w: none of the ingredients belong to %s", domain.ErrInvalid, slug)
-	}
-	id, name, err := c.list(ctx)
-	if err != nil {
-		return domain.ShoppingListAdded{}, err
-	}
-	body := []map[string]any{{"recipeId": r.ID, "recipeIncrementQuantity": 1, "recipeIngredients": selected}}
-	if err := c.call(ctx, "create_households_shopping_lists_by_item_recipe", map[string]any{"item_id": id, "body": body}, nil); err != nil {
-		return domain.ShoppingListAdded{}, err
-	}
-	return domain.ShoppingListAdded{Added: len(selected), List: name}, nil
-}
-
-// list returns the configured shopping list, or else the one that changed last.
-func (c *Client) list(ctx context.Context) (id, name string, err error) {
-	type list struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-	}
-	if c.listID != "" {
-		var l list
-		if err := c.call(ctx, "get_households_shopping_lists_by_item", map[string]any{"item_id": c.listID}, &l); err != nil {
-			return "", "", err
-		}
-		return l.ID, l.Name, nil
-	}
-	var page struct {
-		Items []list `json:"items"`
-	}
-	args := map[string]any{"page": 1, "perPage": 1, "orderBy": "updatedAt", "orderDirection": "desc"}
-	if err := c.call(ctx, "list_households_shopping_lists", args, &page); err != nil {
-		return "", "", err
-	}
-	if len(page.Items) == 0 {
-		return "", "", fmt.Errorf("%w: Mealie has no shopping list", domain.ErrNotFound)
-	}
-	return page.Items[0].ID, page.Items[0].Name, nil
 }
 
 // group returns the group's slug for recipe links, or "" without MEALIE_URL or if Mealie won't say.
