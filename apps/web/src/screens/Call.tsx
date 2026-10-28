@@ -162,7 +162,11 @@ export function GuestCall({ token }: { token: string }) {
       ) : (
         <form className="call-guest" onSubmit={join}>
           <h1 className="large-title">{t("call.guest.title", { name: invitedBy })}</h1>
-          {state === "ended" && !room && <p className="callout">{t("call.state.ended")}</p>}
+          {!room && (state === "ended" || state === "linkUsed") && (
+            <p className="callout" role={state === "linkUsed" ? "alert" : undefined}>
+              {t(`call.state.${state}`)}
+            </p>
+          )}
           <label className="field">
             <span className="label">{t("call.guest.name")}</span>
             <input className="input" value={name} maxLength={50} autoComplete="name" onChange={(e) => setName(e.target.value)} />
@@ -305,7 +309,7 @@ function AddSheet({ room, householdId, callId, people, onClose }: { room: Room; 
   );
 }
 
-const isOver = (s: CallState) => s === "ended" || s === "noAnswer" || s === "failed" || s === "micBlocked";
+const isOver = (s: CallState) => s === "ended" || s === "noAnswer" || s === "failed" || s === "micBlocked" || s === "linkUsed";
 
 function Status({ state, since }: { state: CallState; since?: number }) {
   const { t } = useTranslation();
@@ -320,7 +324,7 @@ function Status({ state, since }: { state: CallState; since?: number }) {
     return <p className="callout call-status">{`${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`}</p>;
   }
   return (
-    <p className="callout call-status" role={state === "failed" || state === "micBlocked" ? "alert" : "status"}>
+    <p className="callout call-status" role={state === "failed" || state === "micBlocked" || state === "linkUsed" ? "alert" : "status"}>
       {t(`call.state.${state}`)}
     </p>
   );

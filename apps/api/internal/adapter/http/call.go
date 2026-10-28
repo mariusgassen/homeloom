@@ -96,8 +96,10 @@ func (h *handlers) GetGuestCall(ctx context.Context, req oapi.GetGuestCallReques
 }
 
 func (h *handlers) JoinGuestCall(ctx context.Context, req oapi.JoinGuestCallRequestObject) (oapi.JoinGuestCallResponseObject, error) {
-	c, err := h.calls.JoinAsGuest(ctx, req.Token, req.Body.Name)
+	c, err := h.calls.JoinAsGuest(ctx, req.Token, req.Body.Device, req.Body.Name)
 	switch {
+	case errors.Is(err, domain.ErrConflict):
+		return oapi.JoinGuestCall409JSONResponse(errorBody(ctx, "guest_link_used", "")), nil
 	case errors.Is(err, domain.ErrInvalid):
 		return oapi.JoinGuestCall400JSONResponse{BadRequestJSONResponse: badRequest(ctx, err)}, nil
 	case errors.Is(err, domain.ErrNotFound):

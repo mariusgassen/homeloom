@@ -70,7 +70,7 @@ func TestCalls(t *testing.T) {
 		t.Fatalf("rung: %v", got)
 	}
 
-	// A guest link lets someone in under their own name and a fresh identity, many times.
+	// A guest link lets one device in, under the guest's name and a fresh identity each time.
 	link, err := calls.GuestLink(ctx, alice, h, c.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -78,17 +78,20 @@ func TestCalls(t *testing.T) {
 	if pass, err := calls.GuestPass(ctx, link.Token); err != nil || pass.InvitedBy != "alice" {
 		t.Fatalf("pass: %+v %v", pass, err)
 	}
-	g1, err := calls.JoinAsGuest(ctx, link.Token, "  Grandma ")
+	g1, err := calls.JoinAsGuest(ctx, link.Token, "phone", "  Grandma ")
 	if err != nil || g1.Room != c.Room || !strings.HasPrefix(g1.Token, "guest-") || !strings.HasSuffix(g1.Token, "/Grandma@"+c.Room) {
 		t.Fatalf("guest: %+v %v", g1, err)
 	}
-	if g2, _ := calls.JoinAsGuest(ctx, link.Token, "Grandma"); g2.Token == g1.Token {
-		t.Fatal("guests share an identity")
+	if g2, err := calls.JoinAsGuest(ctx, link.Token, "phone", "Grandma"); err != nil || g2.Token == g1.Token {
+		t.Fatalf("coming back: %+v %v", g2, err)
 	}
-	if _, err := calls.JoinAsGuest(ctx, link.Token, " "); !errors.Is(err, domain.ErrInvalid) {
+	if _, err := calls.JoinAsGuest(ctx, link.Token, "laptop", "Mallory"); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("forwarded link: %v", err)
+	}
+	if _, err := calls.JoinAsGuest(ctx, link.Token, "phone", " "); !errors.Is(err, domain.ErrInvalid) {
 		t.Fatalf("no name: %v", err)
 	}
-	if _, err := calls.JoinAsGuest(ctx, "unknown", "Mallory"); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := calls.JoinAsGuest(ctx, "unknown", "phone", "Mallory"); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("unknown link: %v", err)
 	}
 

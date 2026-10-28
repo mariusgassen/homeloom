@@ -44,6 +44,9 @@ type SessionStore interface {
 	SaveGuestPass(ctx context.Context, token string, p domain.GuestPass) error
 	// GuestPass returns domain.ErrNotFound for an unknown or expired link; it works until it expires.
 	GuestPass(ctx context.Context, token string) (domain.GuestPass, error)
+	// ClaimGuestPass binds a guest link to the first device that uses it, atomically. It returns
+	// domain.ErrConflict when another device already has.
+	ClaimGuestPass(ctx context.Context, token, device string) error
 }
 
 type UserRepository interface {

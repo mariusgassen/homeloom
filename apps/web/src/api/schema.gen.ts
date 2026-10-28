@@ -613,8 +613,9 @@ export interface paths {
         put?: never;
         /**
          * Make a link that lets someone without an account into the call (members only)
-         * @description Share it as `PUBLIC_URL/guest/<token>`. It works for 12 hours, for anyone who has it, and
-         *     only for this call. Only its hash is stored.
+         * @description Share it as `PUBLIC_URL/guest/<token>`. It works for 12 hours and only for this call. The
+         *     first device that joins with it claims it and can come back; others get `409
+         *     guest_link_used`. Only hashes of the token and the device are stored.
          */
         post: operations["createGuestLink"];
         delete?: never;
@@ -635,7 +636,11 @@ export interface paths {
         /** Who invited the holder of a guest link (no sign-in) */
         get: operations["getGuestCall"];
         put?: never;
-        /** Join a call through a guest link (no sign-in) */
+        /**
+         * Join a call through a guest link (no sign-in)
+         * @description `device` is a random id the browser keeps for this link. The first device claims the link;
+         *     another one gets `409 guest_link_used`.
+         */
         post: operations["joinGuestCall"];
         delete?: never;
         options?: never;
@@ -958,6 +963,8 @@ export interface components {
         };
         GuestJoin: {
             name: string;
+            /** @description A random id this browser keeps for the link. */
+            device: string;
         };
         PushConfig: {
             /** @description The VAPID public key, base64url without padding. */
@@ -2129,6 +2136,15 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
+            /** @description Another device already uses this link (code `guest_link_used`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             503: components["responses"]["Unavailable"];
         };
     };

@@ -65,6 +65,29 @@ func (s *Sessions) GuestPass(ctx context.Context, token string) (domain.GuestPas
 	return p, decode(s.client.Get(ctx, hashedKey("guest-pass", token)), &p)
 }
 
+func (s *Sessions) ClaimGuestPass(ctx context.Context, token, device string) error {
+	ctx, cancel := context.WithTimeout(ctx, sessionTimeout)
+	defer cancel()
+	sum := sha256.Sum256([]byte(device))
+	claim := hex.EncodeToString(sum[:])
+	key := hashedKey("guest-claim", token)
+	ok, err := s.client.SetNX(ctx, key, claim, domain.GuestPassTTL).Result()
+	if err != nil {
+		return fmt.Errorf("redis: claim guest pass: %w", err)
+	}
+	if ok {
+		return nil
+	}
+	owner, err := s.client.Get(ctx, key).Result()
+	if err != nil {
+		return fmt.Errorf("redis: claim guest pass: %w", err)
+	}
+	if owner != claim {
+		return domain.ErrConflict
+	}
+	return nil
+}
+
 func (s *Sessions) Save(ctx context.Context, id string, sess domain.Session) error {
 	return s.set(ctx, hashedKey("session", id), sess, s.ttl)
 }

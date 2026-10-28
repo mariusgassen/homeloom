@@ -78,7 +78,7 @@
     "camera": "Camera",
     "hangUp": "Hang up",
     "tapToHear": "Tap to hear",
-    "state": { "connecting": "Connecting…", "ringing": "Calling…", "reconnecting": "Reconnecting…", "ended": "Call ended", "noAnswer": "No answer", "failed": "The call didn't go through.", "micBlocked": "Calls need your microphone. Allow it in your phone's Settings." }
+    "state": { "connecting": "Connecting…", "ringing": "Calling…", "reconnecting": "Reconnecting…", "ended": "Call ended", "noAnswer": "No answer", "failed": "The call didn't go through.", "micBlocked": "Calls need your microphone. Allow it in your phone's Settings.", "linkUsed": "This link is already in use on another device." }
   },
   "us": {
     "title": "No questions yet",

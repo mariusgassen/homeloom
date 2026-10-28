@@ -98,6 +98,7 @@ type CallService interface {
 	GuestLink(ctx context.Context, actor domain.User, householdID, callID uuid.UUID) (domain.GuestLink, error)
 	// GuestPass returns domain.ErrNotFound for an unknown or expired guest link.
 	GuestPass(ctx context.Context, token string) (domain.GuestPass, error)
-	// JoinAsGuest lets the link's holder into its call under the name they give.
-	JoinAsGuest(ctx context.Context, token, name string) (domain.Call, error)
+	// JoinAsGuest lets the link's holder into its call under the name they give. The first device
+	// to use a link claims it; another one gets domain.ErrConflict.
+	JoinAsGuest(ctx context.Context, token, device, name string) (domain.Call, error)
 }

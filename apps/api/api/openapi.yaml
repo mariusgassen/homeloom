@@ -745,8 +745,9 @@ paths:
       operationId: createGuestLink
       summary: Make a link that lets someone without an account into the call (members only)
       description: |
-        Share it as `PUBLIC_URL/guest/<token>`. It works for 12 hours, for anyone who has it, and
-        only for this call. Only its hash is stored.
+        Share it as `PUBLIC_URL/guest/<token>`. It works for 12 hours and only for this call. The
+        first device that joins with it claims it and can come back; others get `409
+        guest_link_used`. Only hashes of the token and the device are stored.
       responses:
         "201":
           description: The new link's token.
@@ -779,6 +780,9 @@ paths:
       tags: [calls]
       operationId: joinGuestCall
       summary: Join a call through a guest link (no sign-in)
+      description: |
+        `device` is a random id the browser keeps for this link. The first device claims the link;
+        another one gets `409 guest_link_used`.
       security: []
       requestBody:
         required: true
@@ -793,6 +797,11 @@ paths:
               schema: { $ref: "#/components/schemas/Call" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Another device already uses this link (code `guest_link_used`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
   /v1/push:
@@ -1204,9 +1213,10 @@ components:
 
     GuestJoin:
       type: object
-      required: [name]
+      required: [name, device]
       properties:
         name: { type: string, minLength: 1, maxLength: 50 }
+        device: { type: string, minLength: 16, maxLength: 100, description: "A random id this browser keeps for the link." }
 
     PushConfig:
       type: object

@@ -14,10 +14,11 @@ type Sessions struct {
 	sessions map[string]domain.Session
 	homes    map[string]domain.PendingHomeConnection
 	guests   map[string]domain.GuestPass
+	claims   map[string]string
 }
 
 func NewSessions() *Sessions {
-	return &Sessions{logins: map[string]domain.PendingLogin{}, sessions: map[string]domain.Session{}, homes: map[string]domain.PendingHomeConnection{}, guests: map[string]domain.GuestPass{}}
+	return &Sessions{logins: map[string]domain.PendingLogin{}, sessions: map[string]domain.Session{}, homes: map[string]domain.PendingHomeConnection{}, guests: map[string]domain.GuestPass{}, claims: map[string]string{}}
 }
 
 func (s *Sessions) SaveLogin(_ context.Context, state string, l domain.PendingLogin) error {
@@ -95,4 +96,14 @@ func (s *Sessions) GuestPass(_ context.Context, token string) (domain.GuestPass,
 		return p, domain.ErrNotFound
 	}
 	return p, nil
+}
+
+func (s *Sessions) ClaimGuestPass(_ context.Context, token, device string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if owner, ok := s.claims[token]; ok && owner != device {
+		return domain.ErrConflict
+	}
+	s.claims[token] = device
+	return nil
 }

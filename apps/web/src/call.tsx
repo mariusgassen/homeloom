@@ -2,8 +2,8 @@ import { Room, RoomEvent } from "livekit-client";
 import { createContext, use, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { api, type Call } from "./api/client";
 
-// How a call is going. ringing: you're in and waiting for someone else; the last four end it.
-export type CallState = "connecting" | "ringing" | "live" | "reconnecting" | "ended" | "noAnswer" | "failed" | "micBlocked";
+// How a call is going. ringing: you're in and waiting for someone else; the last five end it.
+export type CallState = "connecting" | "ringing" | "live" | "reconnecting" | "ended" | "noAnswer" | "failed" | "micBlocked" | "linkUsed";
 
 type Value = {
   room: Room | null;
@@ -62,7 +62,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
   // enter connects to the call that ask returns, once per tap.
   const enter = useCallback(
-    (ask: () => Promise<Call | undefined>, householdId: string | undefined, invite: string[]) => {
+    (ask: () => Promise<Call | "linkUsed" | undefined>, householdId: string | undefined, invite: string[]) => {
       if (current.current) return;
       const r = new Room({ adaptiveStream: true, dynacast: true });
       current.current = r;
@@ -101,7 +101,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       void (async () => {
         try {
           const data = await ask();
-          if (!data) return finish(r, "failed");
+          if (!data || data === "linkUsed") return finish(r, data ?? "failed");
           if (householdId) setCall({ householdId, id: data.id });
           await r.connect(data.url, data.token);
         } catch {
@@ -139,7 +139,14 @@ export function CallProvider({ children }: { children: ReactNode }) {
   );
   const joinAsGuest = useCallback(
     (token: string, name: string) =>
-      enter(async () => (await api.POST("/v1/guest-calls/{token}", { params: { path: { token } }, body: { name } })).data, undefined, []),
+      enter(
+        async () => {
+          const res = await api.POST("/v1/guest-calls/{token}", { params: { path: { token } }, body: { name, device: guestDevice(token) } });
+          return res.response.status === 409 ? "linkUsed" : res.data;
+        },
+        undefined,
+        [],
+      ),
     [enter],
   );
 
@@ -155,6 +162,27 @@ export function CallProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return <CallContext value={{ room, call, invited, state, since, start, answer, joinAsGuest, hangUp }}>{children}</CallContext>;
+}
+
+// guestDevice is this browser's id for a guest link: the first device to join claims the link, and
+// keeping the id lets the guest come back. Without storage it lasts as long as the page.
+const devices = new Map<string, string>();
+function guestDevice(token: string): string {
+  const key = `homeloom.guest.${token}`;
+  let id = devices.get(key);
+  try {
+    id ??= localStorage.getItem(key) ?? undefined;
+  } catch {
+    // private mode or blocked storage
+  }
+  id ??= crypto.randomUUID();
+  devices.set(key, id);
+  try {
+    localStorage.setItem(key, id);
+  } catch {
+    // as above
+  }
+  return id;
 }
 
 export function useCall() {

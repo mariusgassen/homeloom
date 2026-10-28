@@ -95,7 +95,7 @@ func (s *Call) GuestPass(ctx context.Context, token string) (domain.GuestPass, e
 	return s.passes.GuestPass(ctx, token)
 }
 
-func (s *Call) JoinAsGuest(ctx context.Context, token, name string) (domain.Call, error) {
+func (s *Call) JoinAsGuest(ctx context.Context, token, device, name string) (domain.Call, error) {
 	pass, err := s.GuestPass(ctx, token)
 	if err != nil {
 		return domain.Call{}, err
@@ -106,6 +106,13 @@ func (s *Call) JoinAsGuest(ctx context.Context, token, name string) (domain.Call
 	}
 	if s.server == nil {
 		return domain.Call{}, errCallsOff
+	}
+	if device == "" {
+		return domain.Call{}, fmt.Errorf("%w: device missing", domain.ErrInvalid)
+	}
+	// A link is for one guest: a forwarded one doesn't work, but the guest can come back.
+	if err := s.passes.ClaimGuestPass(ctx, token, device); err != nil {
+		return domain.Call{}, err
 	}
 	// Guests get an identity of their own each time, so they can never pass for a member.
 	return s.join("guest-"+uuid.NewString(), name, pass.HouseholdID, pass.CallID)

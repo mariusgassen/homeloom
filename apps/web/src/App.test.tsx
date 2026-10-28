@@ -560,8 +560,23 @@ test("a guest joins with a name, without signing in", async () => {
   await userEvent.type(screen.getByLabelText("Your name"), "Grandma");
   await userEvent.click(screen.getByRole("button", { name: "Join" }));
   await waitFor(() => expect(rooms).toHaveLength(1));
-  expect(await calls.find((c) => c.method === "POST")?.json()).toEqual({ name: "Grandma" });
+  const body = await calls.find((c) => c.method === "POST")?.json();
+  expect(body.name).toBe("Grandma");
+  expect(body.device).toBe(localStorage.getItem("homeloom.guest.guesttoken"));
   expect(screen.queryByRole("button", { name: "Add people" })).not.toBeInTheDocument();
+});
+
+test("a guest link used on another device says so", async () => {
+  rooms.length = 0;
+  serve(
+    at("GET", "/v1/me", () => json({}, 401)),
+    at("GET", "/v1/guest-calls/usedtoken", () => json({ invitedBy: "Marius" })),
+    at("POST", "/v1/guest-calls/usedtoken", () => json({ code: "guest_link_used", message: "" }, 409)),
+  );
+  renderApp("/guest/usedtoken");
+  await userEvent.type(await screen.findByLabelText("Your name"), "Mallory");
+  await userEvent.click(screen.getByRole("button", { name: "Join" }));
+  expect(await screen.findByText("This link is already in use on another device.")).toBeInTheDocument();
 });
 
 test("an expired guest link says so", async () => {

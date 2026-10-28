@@ -508,10 +508,13 @@ func TestCallFlow(t *testing.T) {
 	if code, body := do(t, h, "GET", guest, "", ""); code != 200 || body["invitedBy"] != "alice" {
 		t.Fatalf("guest call: %d %v", code, body)
 	}
-	if code, body := do(t, h, "POST", guest, "", `{"name":"Grandma"}`); code != 200 || body["room"] != c["room"] {
+	if code, body := do(t, h, "POST", guest, "", `{"name":"Grandma","device":"phone-0123456789abcdef"}`); code != 200 || body["room"] != c["room"] {
 		t.Fatalf("guest join: %d %v", code, body)
 	}
-	if code, _ := do(t, h, "POST", guest, "", `{"name":""}`); code != 400 {
+	if code, body := do(t, h, "POST", guest, "", `{"name":"Mallory","device":"laptop-0123456789abcdef"}`, "Accept-Language", "de"); code != 409 || body["code"] != "guest_link_used" || body["message"] == "" {
+		t.Fatalf("forwarded link: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "POST", guest, "", `{"name":"","device":"phone-0123456789abcdef"}`); code != 400 {
 		t.Fatalf("guest without a name: %d", code)
 	}
 	if code, _ := do(t, h, "GET", "/v1/guest-calls/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "", ""); code != 404 {

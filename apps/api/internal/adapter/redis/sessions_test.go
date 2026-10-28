@@ -48,6 +48,15 @@ func TestSessions(t *testing.T) {
 			t.Fatalf("guest pass: %+v, %v", got, err)
 		}
 	}
+	if err := s.ClaimGuestPass(ctx, token, "phone"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ClaimGuestPass(ctx, token, "phone"); err != nil {
+		t.Fatalf("same device again: %v", err)
+	}
+	if err := s.ClaimGuestPass(ctx, token, "laptop"); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("another device: want ErrConflict, got %v", err)
+	}
 	if _, err := s.GuestPass(ctx, uuid.NewString()); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("unknown guest pass: want ErrNotFound, got %v", err)
 	}
