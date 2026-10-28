@@ -27,5 +27,6 @@
   "push.reminder.body": "{text}",
   "push.reminder.title": "Reminder",
   "push.revealed.body": "Your answers to “{question}” are open now.",
-  "push.revealed.title": "{name} answered too"
+  "push.revealed.title": "{name} answered too",
+  "shopping.list": "Shopping list"
 }

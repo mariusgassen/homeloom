@@ -57,6 +57,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		recipes = book
 	}
 	push := service.NewPush(store, &memory.Pusher{})
+	shopping := service.NewShopping(store, store)
 	smart := memory.NewSmartHome([]domain.Scene{{ID: "scene.dinner", Name: "Dinner"}}, []domain.Light{{ID: "light.kitchen", Name: "Kitchen"}})
 	h, err := httpadapter.NewRouter(httpadapter.Deps{
 		Version:       "1.2.3",
@@ -65,7 +66,8 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Households:    service.NewHousehold(store),
 		Questions:     service.NewQuestion(store, store, push),
 		Entries:       service.NewEntry(store, store, store, push, time.UTC),
-		Cook:          service.NewCook(store, recipes, memory.Chef{}),
+		Cook:          service.NewCook(store, recipes, memory.Chef{}, shopping),
+		Shopping:      shopping,
 		Home:          service.NewHome(store, store, sessions, smart),
 		Push:          push,
 		HealthChecks:  checks,
@@ -95,6 +97,67 @@ func do(t *testing.T, h http.Handler, method, path, token, body string, headers 
 	var out map[string]any
 	_ = json.Unmarshal(rec.Body.Bytes(), &out)
 	return rec.Code, out
+}
+
+// doList is do for a GET that answers with an array.
+func doList(t *testing.T, h http.Handler, path, token string) (int, []map[string]any) {
+	t.Helper()
+	req := httptest.NewRequest("GET", path, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	var out []map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &out)
+	return rec.Code, out
+}
+
+func TestShoppingListFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	id := created["id"].(string)
+	_, inv := do(t, h, "POST", "/v1/households/"+id+"/invites", "token-alice", "")
+	do(t, h, "POST", "/v1/invites/"+inv["code"].(string), "token-bob", "")
+	list := "/v1/households/" + id + "/shopping-list"
+
+	if code, body := do(t, h, "POST", list+"/items", "token-alice", `{"text":"  "}`); code != 400 || body["code"] != "invalid_text" {
+		t.Fatalf("blank item: %d %v", code, body)
+	}
+	code, milk := do(t, h, "POST", list+"/items", "token-alice", `{"text":" Milk "}`)
+	if code != 201 || milk["text"] != "Milk" || milk["done"] != false || milk["recipe"] != nil {
+		t.Fatalf("add: %d %v", code, milk)
+	}
+	do(t, h, "POST", list+"/items", "token-bob", `{"text":"Bread"}`)
+	item := list + "/items/" + milk["id"].(string)
+
+	if code, _ := doList(t, h, list, "token-eve"); code != 404 {
+		t.Fatalf("non-member sees the list: %d", code)
+	}
+	if code, body := do(t, h, "PUT", item+"/done", "token-eve", ""); code != 404 {
+		t.Fatalf("non-member ticks: %d %v", code, body)
+	}
+	if code, body := do(t, h, "PUT", item+"/done", "token-bob", ""); code != 200 || body["done"] != true || body["doneAt"] == nil {
+		t.Fatalf("tick: %d %v", code, body)
+	}
+	if code, items := doList(t, h, list, "token-alice"); code != 200 || len(items) != 2 || items[0]["text"] != "Bread" || items[1]["done"] != true {
+		t.Fatalf("list: %d %v", code, items)
+	}
+	if code, body := do(t, h, "DELETE", item+"/done", "token-alice", ""); code != 200 || body["done"] != false {
+		t.Fatalf("untick: %d %v", code, body)
+	}
+	do(t, h, "PUT", item+"/done", "token-alice", "")
+	if code, _ := do(t, h, "DELETE", list+"/done", "token-alice", ""); code != 204 {
+		t.Fatalf("clear: %d", code)
+	}
+	code, items := doList(t, h, list, "token-bob")
+	if code != 200 || len(items) != 1 || items[0]["text"] != "Bread" {
+		t.Fatalf("after clearing: %d %v", code, items)
+	}
+	if code, _ := do(t, h, "DELETE", list+"/items/"+items[0]["id"].(string), "token-alice", ""); code != 204 {
+		t.Fatalf("delete: %d", code)
+	}
+	if code, _ := do(t, h, "DELETE", item, "token-alice", ""); code != 404 {
+		t.Fatalf("delete a cleared item: %d", code)
+	}
 }
 
 func TestHealthNeedsNoTokenAndReportsVersion(t *testing.T) {
@@ -266,9 +329,12 @@ func TestCookFlow(t *testing.T) {
 		t.Fatalf("unknown recipe: want 404, got %d", code)
 	}
 
-	code, added := do(t, h, "POST", base+"/shopping-list", "token-alice", `{"recipe":"green-curry","ingredientIds":["i2"]}`)
-	if code != 200 || added["added"] != 1.0 || added["list"] != "Groceries" {
+	code, added := do(t, h, "POST", base+"/shopping-list", "token-alice", `{"recipe":"green-curry","ingredientIds":["i2"]}`, "Accept-Language", "de")
+	if code != 200 || added["added"] != 1.0 || added["list"] != "Einkaufsliste" {
 		t.Fatalf("add: %d %v", code, added)
+	}
+	if code, items := doList(t, h, base+"/shopping-list", "token-alice"); code != 200 || len(items) != 1 || items[0]["recipe"] != "Green curry" {
+		t.Fatalf("list after adding a recipe: %d %v", code, items)
 	}
 	if code, body := do(t, h, "POST", base+"/shopping-list", "token-alice", `{"recipe":"green-curry","ingredientIds":["x"]}`); code != 400 || body["code"] != "invalid_ingredients" {
 		t.Fatalf("foreign ingredient: %d %v", code, body)

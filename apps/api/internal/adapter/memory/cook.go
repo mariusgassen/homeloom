@@ -2,7 +2,6 @@ package memory
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 
@@ -14,12 +13,10 @@ type RecipeBook struct {
 	mu      sync.Mutex
 	recipes []domain.Recipe
 	Down    bool
-	// Added holds the ingredient ids put on the shopping list, per recipe slug.
-	Added map[string][]string
 }
 
 func NewRecipeBook(recipes ...domain.Recipe) *RecipeBook {
-	return &RecipeBook{recipes: recipes, Added: map[string][]string{}}
+	return &RecipeBook{recipes: recipes}
 }
 
 func (b *RecipeBook) Recipes(context.Context) ([]domain.RecipeSummary, error) {
@@ -47,28 +44,6 @@ func (b *RecipeBook) Recipe(_ context.Context, slug string) (domain.Recipe, erro
 		}
 	}
 	return domain.Recipe{}, domain.ErrNotFound
-}
-
-func (b *RecipeBook) AddToShoppingList(ctx context.Context, slug string, ingredientIDs []string) (domain.ShoppingListAdded, error) {
-	r, err := b.Recipe(ctx, slug)
-	if err != nil {
-		return domain.ShoppingListAdded{}, err
-	}
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	added := 0
-	for _, in := range r.Ingredients {
-		for _, id := range ingredientIDs {
-			if in.ID == id {
-				b.Added[slug] = append(b.Added[slug], id)
-				added++
-			}
-		}
-	}
-	if added == 0 {
-		return domain.ShoppingListAdded{}, fmt.Errorf("%w: no such ingredients", domain.ErrInvalid)
-	}
-	return domain.ShoppingListAdded{Added: added, List: "Groceries"}, nil
 }
 
 // Chef is a stand-in for the LLM: it picks the candidates whose name contains a word of the

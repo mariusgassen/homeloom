@@ -2,12 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { api, type Entry, type EntryKind } from "./api/client";
 
 // The household's entries of one kind, or all of them, with helpers to keep the list current.
-export function useEntries(householdId: string, kind?: EntryKind) {
+// kind null loads nothing, for a tab that shows something else.
+export function useEntries(householdId: string, kind?: EntryKind | null) {
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [generation, setGeneration] = useState(0);
 
   useEffect(() => {
+    if (kind === null) return;
     let current = true;
     api
       .GET("/v1/households/{householdId}/entries", { params: { path: { householdId }, query: kind ? { kind } : {} } })

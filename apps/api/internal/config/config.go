@@ -26,10 +26,9 @@ type Config struct {
 	LogLevel       string
 	// Mealie is optional and reached through its MCP server: without MealieMCPURL cooking is
 	// switched off. MealieURL is Mealie itself, only for links into it.
-	MealieMCPURL         string
-	MealieMCPToken       string
-	MealieURL            string
-	MealieShoppingListID string
+	MealieMCPURL   string
+	MealieMCPToken string
+	MealieURL      string
 	// AnthropicAPIKey is optional: without it recipes are suggested at random.
 	AnthropicAPIKey string
 	LLMModel        string
@@ -57,27 +56,26 @@ func (c Config) SecureCookies() bool { return strings.HasPrefix(c.PublicURL, "ht
 
 func Load() (Config, error) {
 	c := Config{
-		HTTPAddr:             env("HTTP_ADDR", ":8080"),
-		DatabaseURL:          os.Getenv("DATABASE_URL"),
-		RedisURL:             os.Getenv("REDIS_URL"),
-		PublicURL:            os.Getenv("PUBLIC_URL"),
-		OIDCIssuerURL:        os.Getenv("OIDC_ISSUER_URL"),
-		OIDCClientID:         os.Getenv("OIDC_CLIENT_ID"),
-		OIDCClientSecret:     os.Getenv("OIDC_CLIENT_SECRET"),
-		OIDCClientIDs:        list(os.Getenv("OIDC_CLIENT_IDS")),
-		AllowedOrigins:       list(os.Getenv("CORS_ALLOWED_ORIGINS")),
-		LogLevel:             env("LOG_LEVEL", "info"),
-		MealieMCPURL:         os.Getenv("MEALIE_MCP_URL"),
-		MealieMCPToken:       os.Getenv("MEALIE_MCP_TOKEN"),
-		MealieURL:            os.Getenv("MEALIE_URL"),
-		MealieShoppingListID: os.Getenv("MEALIE_SHOPPING_LIST_ID"),
-		AnthropicAPIKey:      os.Getenv("ANTHROPIC_API_KEY"),
-		LLMModel:             env("LLM_MODEL", "claude-opus-5-5"),
-		HomeAssistantURL:     os.Getenv("HOME_ASSISTANT_URL"),
-		SecretKey:            os.Getenv("HOMELOOM_SECRET_KEY"),
-		VAPIDPublicKey:       os.Getenv("VAPID_PUBLIC_KEY"),
-		VAPIDPrivateKey:      os.Getenv("VAPID_PRIVATE_KEY"),
-		VAPIDSubject:         env("VAPID_SUBJECT", os.Getenv("PUBLIC_URL")),
+		HTTPAddr:         env("HTTP_ADDR", ":8080"),
+		DatabaseURL:      os.Getenv("DATABASE_URL"),
+		RedisURL:         os.Getenv("REDIS_URL"),
+		PublicURL:        os.Getenv("PUBLIC_URL"),
+		OIDCIssuerURL:    os.Getenv("OIDC_ISSUER_URL"),
+		OIDCClientID:     os.Getenv("OIDC_CLIENT_ID"),
+		OIDCClientSecret: os.Getenv("OIDC_CLIENT_SECRET"),
+		OIDCClientIDs:    list(os.Getenv("OIDC_CLIENT_IDS")),
+		AllowedOrigins:   list(os.Getenv("CORS_ALLOWED_ORIGINS")),
+		LogLevel:         env("LOG_LEVEL", "info"),
+		MealieMCPURL:     os.Getenv("MEALIE_MCP_URL"),
+		MealieMCPToken:   os.Getenv("MEALIE_MCP_TOKEN"),
+		MealieURL:        os.Getenv("MEALIE_URL"),
+		AnthropicAPIKey:  os.Getenv("ANTHROPIC_API_KEY"),
+		LLMModel:         env("LLM_MODEL", "claude-opus-5-5"),
+		HomeAssistantURL: os.Getenv("HOME_ASSISTANT_URL"),
+		SecretKey:        os.Getenv("HOMELOOM_SECRET_KEY"),
+		VAPIDPublicKey:   os.Getenv("VAPID_PUBLIC_KEY"),
+		VAPIDPrivateKey:  os.Getenv("VAPID_PRIVATE_KEY"),
+		VAPIDSubject:     env("VAPID_SUBJECT", os.Getenv("PUBLIC_URL")),
 	}
 	loc, err := time.LoadLocation(env("TIME_ZONE", "UTC"))
 	if err != nil {
