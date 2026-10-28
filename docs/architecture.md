@@ -22,6 +22,8 @@ Homeloom is an API plus separate clients. The API is the only component that hol
 | LLM | Claude by default, behind a provider port so it can be swapped |
 | Frontend | Mobile-first PWA, separate app; both users are on iOS |
 | Deployment | One Docker Compose resource on Coolify; every service is prefixed `homeloom-` |
+| Languages | German and English from the start, English as fallback; `Accept-Language` negotiated per request |
+| Versioning | SemVer via release-please from Conventional Commit PR titles; image `ghcr.io/mariusgassen/homeloom-api:X.Y.Z` per release |
 
 ## Hexagonal layout
 

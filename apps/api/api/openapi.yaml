@@ -5,6 +5,10 @@ info:
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
+
+    Language: send `Accept-Language`; the API answers in German (`de`) or English (`en`, the fallback)
+    and says which in `Content-Language`. `info.version` is the version of this contract, bumped by
+    hand when the contract changes; the app's release version is reported by `/healthz`.
 servers:
   - url: /
 security:
@@ -140,14 +144,16 @@ components:
       type: object
       required: [code, message]
       properties:
-        code: { type: string, example: not_found }
-        message: { type: string }
+        code: { type: string, example: not_found, description: Stable machine-readable code. }
+        message: { type: string, description: Human-readable message in the negotiated language. }
+        detail: { type: string, description: Optional technical detail, English only, for logs and debugging. }
 
     Health:
       type: object
-      required: [status]
+      required: [status, version]
       properties:
         status: { type: string, example: ok }
+        version: { type: string, example: 0.1.0, description: Release version of the running API. }
 
     Readiness:
       type: object

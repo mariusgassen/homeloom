@@ -39,6 +39,7 @@ func newServer(t *testing.T, checks ...port.HealthCheck) http.Handler {
 	t.Helper()
 	store := memory.NewStore()
 	h, err := httpadapter.NewRouter(httpadapter.Deps{
+		Version:      "1.2.3",
 		Identity:     service.NewIdentity(fakeVerifier{}, store),
 		Households:   service.NewHousehold(store),
 		HealthChecks: checks,
@@ -49,9 +50,12 @@ func newServer(t *testing.T, checks ...port.HealthCheck) http.Handler {
 	return h
 }
 
-func do(t *testing.T, h http.Handler, method, path, token, body string) (int, map[string]any) {
+func do(t *testing.T, h http.Handler, method, path, token, body string, headers ...string) (int, map[string]any) {
 	t.Helper()
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
+	for i := 0; i+1 < len(headers); i += 2 {
+		req.Header.Set(headers[i], headers[i+1])
+	}
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -65,9 +69,26 @@ func do(t *testing.T, h http.Handler, method, path, token, body string) (int, ma
 	return rec.Code, out
 }
 
-func TestHealthNeedsNoToken(t *testing.T) {
-	if code, _ := do(t, newServer(t), "GET", "/healthz", "", ""); code != 200 {
-		t.Fatalf("got %d", code)
+func TestHealthNeedsNoTokenAndReportsVersion(t *testing.T) {
+	if code, body := do(t, newServer(t), "GET", "/healthz", "", ""); code != 200 || body["version"] != "1.2.3" {
+		t.Fatalf("got %d %v", code, body)
+	}
+}
+
+func TestErrorsFollowAcceptLanguage(t *testing.T) {
+	h := newServer(t)
+	_, en := do(t, h, "GET", "/v1/me", "", "")
+	_, de := do(t, h, "GET", "/v1/me", "", "", "Accept-Language", "de-DE,de;q=0.9")
+	if en["code"] != "unauthenticated" || de["code"] != "unauthenticated" {
+		t.Fatalf("codes must not be translated: %v %v", en, de)
+	}
+	if en["message"] != "Please sign in again." || de["message"] != "Bitte melde dich erneut an." {
+		t.Fatalf("got en=%q de=%q", en["message"], de["message"])
+	}
+
+	_, bad := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"   "}`, "Accept-Language", "de")
+	if bad["message"] != "Gib dem Haushalt einen Namen mit 1 bis 100 Zeichen." {
+		t.Fatalf("got %v", bad)
 	}
 }
 

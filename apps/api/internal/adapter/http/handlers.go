@@ -9,10 +9,12 @@ import (
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/http/oapi"
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/domain"
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/port"
+	"github.com/mariusgassen/homeloom/apps/api/internal/i18n"
 )
 
 // handlers translates between the generated API types and the core. It holds no business rules.
 type handlers struct {
+	version    string
 	households port.HouseholdService
 	checks     []port.HealthCheck
 }
@@ -20,7 +22,7 @@ type handlers struct {
 var _ oapi.StrictServerInterface = (*handlers)(nil)
 
 func (h *handlers) GetHealth(context.Context, oapi.GetHealthRequestObject) (oapi.GetHealthResponseObject, error) {
-	return oapi.GetHealth200JSONResponse{Status: "ok"}, nil
+	return oapi.GetHealth200JSONResponse{Status: "ok", Version: h.version}, nil
 }
 
 func (h *handlers) GetReadiness(ctx context.Context, _ oapi.GetReadinessRequestObject) (oapi.GetReadinessResponseObject, error) {
@@ -84,7 +86,7 @@ func (h *handlers) CreateHousehold(ctx context.Context, req oapi.CreateHousehold
 	}
 	m, err := h.households.Create(ctx, u, req.Body.Name)
 	if errors.Is(err, domain.ErrInvalid) {
-		return oapi.CreateHousehold400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody("invalid", err))}, nil
+		return oapi.CreateHousehold400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "invalid_household_name", err.Error(), "max", domain.MaxHouseholdName))}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -99,7 +101,7 @@ func (h *handlers) GetHousehold(ctx context.Context, req oapi.GetHouseholdReques
 	}
 	d, err := h.households.Get(ctx, u, req.HouseholdId)
 	if errors.Is(err, domain.ErrNotFound) {
-		return oapi.GetHousehold404JSONResponse{NotFoundJSONResponse: oapi.NotFoundJSONResponse(errorBody("not_found", err))}, nil
+		return oapi.GetHousehold404JSONResponse{NotFoundJSONResponse: oapi.NotFoundJSONResponse(errorBody(ctx, "not_found", ""))}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -131,6 +133,7 @@ func optional(s string) *string {
 	return &s
 }
 
-func errorBody(code string, err error) oapi.Error {
-	return oapi.Error{Code: code, Message: err.Error()}
+// errorBody builds an error in the request's language from the catalog key "error.<code>".
+func errorBody(ctx context.Context, code, detail string, args ...any) oapi.Error {
+	return oapi.Error{Code: code, Message: i18n.T(i18n.FromContext(ctx), "error."+code, args...), Detail: optional(detail)}
 }

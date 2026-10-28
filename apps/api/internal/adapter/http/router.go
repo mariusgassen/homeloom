@@ -19,9 +19,11 @@ import (
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/http/oapi"
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/domain"
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/port"
+	"github.com/mariusgassen/homeloom/apps/api/internal/i18n"
 )
 
 type Deps struct {
+	Version        string
 	Identity       port.IdentityService
 	Households     port.HouseholdService
 	HealthChecks   []port.HealthCheck
@@ -36,7 +38,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 	spec.Servers = nil
 
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID, requestLogger, middleware.Recoverer)
+	r.Use(middleware.RequestID, requestLogger, middleware.Recoverer, withLanguage)
 	if len(d.AllowedOrigins) > 0 {
 		r.Use(cors.Handler(cors.Options{
 			AllowedOrigins: d.AllowedOrigins,
@@ -54,17 +56,17 @@ func NewRouter(d Deps) (http.Handler, error) {
 		ErrorHandlerWithOpts: validationError,
 	}))
 
-	strict := oapi.NewStrictHandlerWithOptions(&handlers{households: d.Households, checks: d.HealthChecks}, nil, oapi.StrictHTTPServerOptions{
-		RequestErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, err error) {
-			writeError(w, http.StatusBadRequest, "invalid", err.Error())
+	strict := oapi.NewStrictHandlerWithOptions(&handlers{version: d.Version, households: d.Households, checks: d.HealthChecks}, nil, oapi.StrictHTTPServerOptions{
+		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
+			writeError(r.Context(), w, http.StatusBadRequest, "invalid", err.Error())
 		},
 		ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			if errors.Is(err, domain.ErrUnauthenticated) {
-				writeError(w, http.StatusUnauthorized, "unauthenticated", "missing or invalid access token")
+				writeError(r.Context(), w, http.StatusUnauthorized, "unauthenticated", "")
 				return
 			}
 			slog.ErrorContext(r.Context(), "request failed", "err", err, "path", r.URL.Path)
-			writeError(w, http.StatusInternalServerError, "internal", "something went wrong")
+			writeError(r.Context(), w, http.StatusInternalServerError, "internal", "")
 		},
 	})
 	return oapi.HandlerWithOptions(strict, oapi.ChiServerOptions{BaseRouter: r}), nil
@@ -75,23 +77,33 @@ func validationError(ctx context.Context, err error, w http.ResponseWriter, _ *h
 		if slot := slotFrom(ctx); slot != nil && slot.err != nil && !errors.Is(slot.err, domain.ErrUnauthenticated) {
 			// The token could not be checked at all (e.g. authentik unreachable): not the caller's fault.
 			slog.ErrorContext(ctx, "authentication unavailable", "err", slot.err)
-			writeError(w, http.StatusServiceUnavailable, "auth_unavailable", "sign-in is temporarily unavailable")
+			writeError(ctx, w, http.StatusServiceUnavailable, "auth_unavailable", "")
 			return
 		}
-		writeError(w, http.StatusUnauthorized, "unauthenticated", "missing or invalid access token")
+		writeError(ctx, w, http.StatusUnauthorized, "unauthenticated", "")
 		return
 	}
 	code := "invalid"
 	if opts.StatusCode == http.StatusNotFound {
 		code = "not_found"
 	}
-	writeError(w, opts.StatusCode, code, err.Error())
+	writeError(ctx, w, opts.StatusCode, code, err.Error())
 }
 
-func writeError(w http.ResponseWriter, status int, code, msg string) {
+func writeError(ctx context.Context, w http.ResponseWriter, status int, code, detail string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(oapi.Error{Code: code, Message: msg})
+	_ = json.NewEncoder(w).Encode(errorBody(ctx, code, detail))
+}
+
+// withLanguage negotiates the response language once per request; handlers read it with i18n.FromContext.
+func withLanguage(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tag := i18n.Negotiate(r.Header.Get("Accept-Language"))
+		w.Header().Set("Content-Language", tag.String())
+		w.Header().Add("Vary", "Accept-Language")
+		next.ServeHTTP(w, r.WithContext(i18n.WithLanguage(r.Context(), tag)))
+	})
 }
 
 func requestLogger(next http.Handler) http.Handler {

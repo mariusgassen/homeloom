@@ -12,8 +12,6 @@ import (
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/port"
 )
 
-const maxHouseholdName = 100
-
 type Household struct {
 	repo port.HouseholdRepository
 }
@@ -28,8 +26,8 @@ func (s *Household) List(ctx context.Context, actor domain.User) ([]domain.Membe
 
 func (s *Household) Create(ctx context.Context, actor domain.User, name string) (domain.Membership, error) {
 	name = strings.TrimSpace(name)
-	if name == "" || utf8.RuneCountInString(name) > maxHouseholdName {
-		return domain.Membership{}, fmt.Errorf("%w: name must be 1-%d characters", domain.ErrInvalid, maxHouseholdName)
+	if name == "" || utf8.RuneCountInString(name) > domain.MaxHouseholdName {
+		return domain.Membership{}, fmt.Errorf("%w: name must be 1-%d characters", domain.ErrInvalid, domain.MaxHouseholdName)
 	}
 	return s.repo.Create(ctx, name, actor.ID)
 }

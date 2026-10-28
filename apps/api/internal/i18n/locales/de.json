@@ -1,0 +1,8 @@
+{
+  "error.auth_unavailable": "Die Anmeldung ist gerade nicht erreichbar. Versuch es in einer Minute noch einmal.",
+  "error.internal": "Bei uns ist etwas schiefgelaufen.",
+  "error.invalid": "Die Anfrage ist ungültig.",
+  "error.invalid_household_name": "Gib dem Haushalt einen Namen mit 1 bis {max} Zeichen.",
+  "error.not_found": "Das gibt es nicht, oder du kannst es nicht sehen.",
+  "error.unauthenticated": "Bitte melde dich erneut an."
+}

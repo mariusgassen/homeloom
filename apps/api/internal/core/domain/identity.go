@@ -29,6 +29,9 @@ const (
 	RoleMember Role = "member"
 )
 
+// MaxHouseholdName is the longest household name, in characters.
+const MaxHouseholdName = 100
+
 type Household struct {
 	ID        uuid.UUID
 	Name      string

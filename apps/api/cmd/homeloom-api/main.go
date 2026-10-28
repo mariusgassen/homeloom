@@ -21,6 +21,9 @@ import (
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/service"
 )
 
+// version is the release version, set at build time with -ldflags "-X main.version=<version>".
+var version = "dev"
+
 func main() {
 	// The runtime image has no shell or curl, so the container healthcheck calls the binary itself.
 	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
@@ -85,6 +88,7 @@ func run() error {
 	)
 
 	handler, err := httpadapter.NewRouter(httpadapter.Deps{
+		Version:        version,
 		Identity:       identity,
 		Households:     service.NewHousehold(store),
 		HealthChecks:   []port.HealthCheck{postgres.HealthCheck{Pool: pool}, redis.HealthCheck{Client: rdb}},
@@ -97,7 +101,7 @@ func run() error {
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 	errc := make(chan error, 1)
 	go func() {
-		slog.Info("listening", "addr", cfg.HTTPAddr)
+		slog.Info("listening", "addr", cfg.HTTPAddr, "version", version)
 		errc <- srv.ListenAndServe()
 	}()
 
