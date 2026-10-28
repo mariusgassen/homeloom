@@ -150,6 +150,28 @@ h1, h2, h3, p { margin: 0; }
 .assistant-step { color: var(--ink-muted); }
 .bubble { align-self: flex-start; max-width: 85%; background: var(--surface-raised); color: var(--ink); padding: 10px 14px; border-radius: 18px 18px 18px 4px; font: 400 17px/24px var(--font-text); white-space: pre-wrap; overflow-wrap: anywhere; }
 .bubble-me { align-self: flex-end; max-width: 80%; background: var(--spruce); color: var(--on-spruce); border-radius: 18px 18px 4px 18px; }
+/* Assistant answers are Markdown: compact, bubble-sized type; wide tables and code scroll inside the bubble. */
+.bubble-md { white-space: normal; min-width: 0; }
+.bubble-md > :first-child { margin-top: 0; }
+.bubble-md > :last-child { margin-bottom: 0; }
+.bubble-md :is(p, ul, ol, pre, blockquote, .md-table) { margin: 0 0 var(--space-2); }
+.bubble-md :is(h1, h2, h3, h4, h5, h6) { margin: var(--space-3) 0 var(--space-1); font: 600 17px/22px var(--font-text); }
+.bubble-md :is(h1, h2) { font: 650 20px/26px var(--font-display); letter-spacing: -.2px; }
+.bubble-md :is(ul, ol) { padding-left: 1.3em; }
+.bubble-md li + li, .bubble-md li > :is(ul, ol) { margin-top: 2px; }
+.bubble-md li > p { margin: 0; }
+.bubble-md li:has(> input[type="checkbox"]) { list-style: none; margin-left: -1.3em; }
+.bubble-md a { color: var(--spruce); text-decoration: underline; text-underline-offset: 2px; }
+.bubble-md hr { border: 0; border-top: 1px solid var(--line); margin: var(--space-3) 0; }
+.bubble-md blockquote { padding-left: var(--space-3); border-left: 3px solid var(--line); color: var(--ink-muted); }
+.bubble-md code { font: 400 .88em/1.4 ui-monospace, "SF Mono", Menlo, monospace; background: var(--surface-sunken); padding: 1px 5px; border-radius: 5px; }
+.bubble-md pre { overflow-x: auto; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: var(--surface-sunken); }
+.bubble-md pre code { padding: 0; background: none; white-space: pre; }
+.md-table { overflow-x: auto; }
+.bubble-md table { border-collapse: collapse; font: 400 15px/20px var(--font-text); }
+.bubble-md :is(th, td) { padding: 4px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.bubble-md th { font-weight: 600; }
+.bubble-md :is(th, td):first-child { padding-left: 0; }
 .assistant-input { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) max(var(--space-4), env(safe-area-inset-right, 0px)) max(var(--space-4), env(safe-area-inset-bottom, 0px)) max(var(--space-4), env(safe-area-inset-left, 0px)); background: var(--surface-raised); box-shadow: inset 0 1px 0 var(--line); }
 .assistant-input .input { flex: 1; min-width: 0; border: 0; border-radius: var(--radius-pill); background: var(--surface-sunken); padding: 0 var(--space-4); }
 .assistant-send { flex: none; width: var(--hit-min); height: var(--hit-min); display: grid; place-items: center; border: 0; border-radius: var(--radius-pill); background: var(--spruce); color: var(--on-spruce); cursor: pointer; }
