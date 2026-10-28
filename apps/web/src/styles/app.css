@@ -1,0 +1,28 @@
+/* App layout on top of the design system: full-height screens, a fixed tab bar, iOS safe areas. */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { min-height: 100dvh; overscroll-behavior-y: none; }
+h1, h2, h3, p { margin: 0; }
+.muted { color: var(--ink-muted); }
+.error { color: var(--danger); }
+
+.app { min-height: 100dvh; }
+.hl-tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; }
+.hl-tab { text-decoration: none; }
+
+.screen { padding: env(safe-area-inset-top, 0px) max(var(--space-4), env(safe-area-inset-right, 0px)) 0 max(var(--space-4), env(safe-area-inset-left, 0px)); max-width: 640px; margin: 0 auto; }
+.screen-header { padding: var(--space-2) 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.screen-toolbar { display: flex; align-items: center; gap: var(--space-2); min-height: var(--hit-min); }
+.screen-overline { flex-grow: 1; color: var(--ink-muted); }
+.screen-household { color: inherit; text-decoration: none; min-width: var(--hit-min); min-height: var(--hit-min); display: grid; place-items: center; border-radius: var(--radius-pill); }
+.screen-main { display: flex; flex-direction: column; gap: var(--space-6); padding: var(--space-2) 0 calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px) + var(--space-8)); }
+
+.group { display: flex; flex-direction: column; gap: var(--space-2); }
+.group-title { margin: 0 var(--space-1); color: var(--ink-muted); text-transform: uppercase; }
+
+.center { min-height: 100dvh; max-width: 420px; margin: 0 auto; padding: max(var(--space-8), env(safe-area-inset-top, 0px)) var(--space-4) max(var(--space-8), env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; justify-content: center; gap: var(--space-4); }
+
+.field { display: flex; flex-direction: column; gap: var(--space-2); color: var(--ink-muted); }
+/* 17px keeps iOS from zooming into the field on focus. */
+.input { font: 400 17px/22px var(--font-text); color: var(--ink); background: var(--surface-raised); border: 1px solid var(--line); border-radius: var(--radius-md); min-height: var(--hit-min); padding: 0 var(--space-3); }
+.input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }

@@ -1,0 +1,31 @@
+{
+  "app": { "tagline": "A shared home for two. Meals, moments and your smart home, in one private place." },
+  "tabs": { "label": "Main", "today": "Today", "cook": "Cook", "us": "Us", "lists": "Lists", "home": "Home" },
+  "auth": {
+    "signIn": "Sign in",
+    "signOut": "Sign out",
+    "error": {
+      "login_failed": "Signing in didn't work. Please try again.",
+      "auth_unavailable": "Sign-in is unavailable right now. Please try again in a moment."
+    }
+  },
+  "unavailable": { "title": "Homeloom can't be reached", "body": "Check your connection, or try again in a moment.", "retry": "Try again" },
+  "onboarding": {
+    "title": "Set up your home",
+    "body": "Give your household a name.",
+    "name": "Household name",
+    "placeholder": "Our place",
+    "create": "Create household",
+    "failed": "That didn't work. Please try again."
+  },
+  "settings": { "title": "Settings", "you": "You", "household": "Household", "owner": "Owner", "member": "Member", "open": "Household and settings" },
+  "today": {
+    "question": { "eyebrow": "Tonight's question", "title": "Questions are on their way", "body": "You'll both answer, and the answers open once you have." },
+    "dinner": { "eyebrow": "Dinner tonight", "title": "Nothing planned yet", "body": "Recipes from Mealie and cook-by-mood will show up here." },
+    "due": { "eyebrow": "Due today", "title": "All clear", "body": "Shared reminders will appear here." }
+  },
+  "cook": { "title": "Not cooking yet", "body": "Pick a mood, and Homeloom finds a recipe in Mealie and puts what's missing on the shopping list." },
+  "us": { "title": "Your questions live here", "body": "Questions you answer together, plus notes that stay private, shared, or open later." },
+  "lists": { "title": "No lists yet", "body": "Shopping and shared to-dos, synced with Mealie." },
+  "home": { "title": "Smart home comes later", "body": "Dinner mode and scenes from Home Assistant, only for lights, scenes and music." }
+}

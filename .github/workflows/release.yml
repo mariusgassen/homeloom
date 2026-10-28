@@ -27,17 +27,20 @@ jobs:
     needs: release-please
     if: needs.release-please.outputs.release_created == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [api, web]
     permissions:
       contents: read
       packages: write
     env:
-      IMAGE: ghcr.io/${{ github.repository_owner }}/homeloom-api
+      IMAGE: ghcr.io/${{ github.repository_owner }}/homeloom-${{ matrix.app }}
       VERSION: ${{ needs.release-please.outputs.version }}
     steps:
       - uses: actions/checkout@v6
       - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
       - name: Build and push
-        working-directory: apps/api
+        working-directory: apps/${{ matrix.app }}
         run: |
           docker build --build-arg VERSION="$VERSION" -t "$IMAGE:$VERSION" -t "$IMAGE:latest" .
           docker push "$IMAGE:$VERSION"
