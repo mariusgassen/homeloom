@@ -52,5 +52,7 @@ if (!process.env.OPENAI_API_KEY || !process.env.ANTHROPIC_API_KEY) {
   console.log("OPENAI_API_KEY or ANTHROPIC_API_KEY is not set; the voice agent is off");
   createServer((_, res) => res.end("off")).listen(8081);
 } else {
+  // Coolify passes an unset variable as an empty string, which the CLI rejects as a log level.
+  if (!process.env.LOG_LEVEL) delete process.env.LOG_LEVEL;
   cli.runApp(new ServerOptions({ agent: fileURLToPath(import.meta.url), agentName }));
 }
