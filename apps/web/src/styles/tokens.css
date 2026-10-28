@@ -17,6 +17,7 @@
   --danger: #a83a12;
   --focus: var(--spruce);
   --shadow-sheet: 0 -8px 32px rgba(22, 32, 30, 0.12);
+  --scrim: rgba(22, 32, 30, 0.35);
 }
 [data-theme="dark"] {
   --surface: #111918;
@@ -36,6 +37,7 @@
   --danger: #ff9a73;
   --focus: var(--spruce);
   --shadow-sheet: 0 -8px 32px rgba(0, 0, 0, 0.5);
+  --scrim: rgba(0, 0, 0, 0.55);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -56,6 +58,7 @@
     --danger: #ff9a73;
     --focus: var(--spruce);
     --shadow-sheet: 0 -8px 32px rgba(0, 0, 0, 0.5);
+  --scrim: rgba(0, 0, 0, 0.55);
   }
 }
 :root {
