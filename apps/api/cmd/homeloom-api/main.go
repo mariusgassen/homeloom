@@ -21,6 +21,7 @@ import (
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/livekit"
 	mcpadapter "github.com/mariusgassen/homeloom/apps/api/internal/adapter/mcp"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/mealie"
+	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/notesdav"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/oidc"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/postgres"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/redis"
@@ -195,6 +196,7 @@ func run() error {
 			Tools:      assistant,
 		}),
 		CalDAV: caldav.NewHandler(caldav.Deps{Agents: agents, Entries: entries, Location: cfg.TimeZone}),
+		Notes:  notesdav.NewHandler(notesdav.Deps{Agents: agents, Entries: entries}),
 	})
 	if err != nil {
 		return err

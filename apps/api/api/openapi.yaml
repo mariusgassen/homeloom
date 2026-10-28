@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.14.0
+  version: 0.15.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -1074,9 +1074,10 @@ paths:
       description: |
         With `access: tools` (the default) the secret is a key: an assistant sends it as
         `Authorization: Bearer <secret>` to `/mcp`. With `access: calendar` it is a password for a
-        calendar app, which syncs your events and reminders over CalDAV at `/dav` (any user name).
-        Either acts as you in this household, opens only what it was made for, and works until you
-        delete it. Only a hash of it is stored.
+        calendar app, which syncs your events and reminders over CalDAV at `/dav`; with
+        `access: notes` it is a password for a notes app, which syncs your notes as files over
+        WebDAV at `/webdav` (any user name for both). Each acts as you in this household, opens
+        only what it was made for, and works until you delete it. Only a hash of it is stored.
       requestBody:
         required: true
         content:
@@ -1642,11 +1643,12 @@ components:
 
     TokenAccess:
       type: string
-      enum: [tools, calendar]
+      enum: [tools, calendar, notes]
       default: tools
       description: |
         What it opens: `tools` is the assistant's tools at /mcp (a bearer key), `calendar` is your
-        events and reminders over CalDAV at /dav (a password).
+        events and reminders over CalDAV at /dav (a password), `notes` is your notes as files over
+        WebDAV at /webdav (a password).
 
     McpToken:
       type: object

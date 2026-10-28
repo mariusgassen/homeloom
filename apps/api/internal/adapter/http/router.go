@@ -48,6 +48,8 @@ type Deps struct {
 	// CalDAV, if set, is served at /dav and /.well-known/caldav, outside the contract; it
 	// authenticates on its own.
 	CalDAV http.Handler
+	// Notes, if set, is served at /webdav, outside the contract; it authenticates on its own.
+	Notes http.Handler
 }
 
 func NewRouter(d Deps) (http.Handler, error) {
@@ -74,6 +76,10 @@ func NewRouter(d Deps) (http.Handler, error) {
 		r.Handle("/.well-known/caldav", d.CalDAV)
 		r.Handle("/dav", d.CalDAV)
 		r.Handle("/dav/*", d.CalDAV)
+	}
+	if d.Notes != nil {
+		r.Handle("/webdav", d.Notes)
+		r.Handle("/webdav/*", d.Notes)
 	}
 	// Only the contract's own paths go through the validator, so other paths are answered here.
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {

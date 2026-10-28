@@ -686,6 +686,24 @@ test("settings makes a password for the iPhone's calendar", async () => {
   expect(await post?.json()).toEqual({ name: "iPhone", access: "calendar" });
 });
 
+test("settings makes a password for a notes app", async () => {
+  const token = { id: "88888888-8888-4888-8888-888888888888", name: "iPhone", access: "notes", createdAt: "2026-10-28T12:00:00Z" };
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/mcp-tokens`, () => json([])),
+    at("POST", `/v1/households/${home.id}/mcp-tokens`, () => json({ ...token, secret: "hln_secret" }, 201)),
+  );
+  renderApp("/settings");
+  await userEvent.click(await screen.findByRole("tab", { name: "Notes" }));
+  await userEvent.type(screen.getByRole("textbox", { name: "App" }), "iPhone");
+  await userEvent.click(screen.getByRole("button", { name: "Make password" }));
+  expect(await screen.findByText("hln_secret")).toBeInTheDocument();
+  expect(screen.getByText(`${window.location.origin}/webdav/`)).toBeInTheDocument();
+  expect(screen.getByText(/^Notes · Made/)).toBeInTheDocument();
+  const post = calls.find((c) => c.method === "POST" && c.url.endsWith("/mcp-tokens"));
+  expect(await post?.json()).toEqual({ name: "iPhone", access: "notes" });
+});
+
 const sse = (...events: [string, unknown][]) =>
   new Response(events.map(([e, d]) => `event: ${e}\ndata: ${JSON.stringify(d)}\n\n`).join(""), { headers: { "Content-Type": "text/event-stream" } });
 

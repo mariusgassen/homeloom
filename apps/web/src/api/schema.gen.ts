@@ -891,9 +891,10 @@ export interface paths {
          * Make a key or password for another app
          * @description With `access: tools` (the default) the secret is a key: an assistant sends it as
          *     `Authorization: Bearer <secret>` to `/mcp`. With `access: calendar` it is a password for a
-         *     calendar app, which syncs your events and reminders over CalDAV at `/dav` (any user name).
-         *     Either acts as you in this household, opens only what it was made for, and works until you
-         *     delete it. Only a hash of it is stored.
+         *     calendar app, which syncs your events and reminders over CalDAV at `/dav`; with
+         *     `access: notes` it is a password for a notes app, which syncs your notes as files over
+         *     WebDAV at `/webdav` (any user name for both). Each acts as you in this household, opens
+         *     only what it was made for, and works until you delete it. Only a hash of it is stored.
          */
         post: operations["createMcpToken"];
         delete?: never;
@@ -1324,11 +1325,12 @@ export interface components {
         };
         /**
          * @description What it opens: `tools` is the assistant's tools at /mcp (a bearer key), `calendar` is your
-         *     events and reminders over CalDAV at /dav (a password).
+         *     events and reminders over CalDAV at /dav (a password), `notes` is your notes as files over
+         *     WebDAV at /webdav (a password).
          * @default tools
          * @enum {string}
          */
-        TokenAccess: "tools" | "calendar";
+        TokenAccess: "tools" | "calendar" | "notes";
         McpToken: {
             /** Format: uuid */
             id: string;
