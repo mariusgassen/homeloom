@@ -647,11 +647,43 @@ test("the quick-add sheet sets a shared reminder for both", async () => {
   const sheet = screen.getByRole("dialog", { name: "New reminder" });
   expect(within(sheet).queryByRole("radiogroup", { name: "What to add" })).not.toBeInTheDocument();
   await userEvent.type(within(sheet).getByLabelText("Remind about"), "Call the landlord");
-  expect(within(sheet).getByRole("radio", { name: /Both of us/ })).toBeChecked();
+  expect(within(within(sheet).getByRole("radiogroup", { name: "Who can see this" })).getByRole("radio", { name: /Both of us/ })).toBeChecked();
   expect(within(sheet).getByText("Jo sees it right away.")).toBeInTheDocument();
   await userEvent.click(within(sheet).getByRole("button", { name: "Save" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   expect(await calls.find((c) => c.method === "POST")?.json()).toEqual({ kind: "reminder", text: "Call the landlord", visibility: "shared", repeat: "never" });
+});
+
+test("the quick-add sheet picks time, repeat and who with taps, not dropdowns", async () => {
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([])),
+    at("POST", `/v1/households/${home.id}/entries`, () => json(entry({ text: "Bins" }), 201)),
+  );
+  renderApp("/lists");
+  expect(await screen.findByText("Nothing to remember")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "New reminder" }));
+  const sheet = screen.getByRole("dialog", { name: "New reminder" });
+  expect(within(sheet).queryByRole("combobox")).not.toBeInTheDocument();
+  await userEvent.type(within(sheet).getByLabelText("Remind about"), "Bins");
+  expect(within(sheet).queryByRole("radiogroup", { name: "Repeat" })).not.toBeInTheDocument();
+  fireEvent.change(within(sheet).getByLabelText("When"), { target: { value: "2030-05-06T19:30" } });
+  await userEvent.click(within(within(sheet).getByRole("radiogroup", { name: "Repeat" })).getByRole("radio", { name: "Every week" }));
+  await userEvent.click(within(within(sheet).getByRole("radiogroup", { name: "For" })).getByRole("radio", { name: "Me" }));
+  await userEvent.click(within(sheet).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  const body = await calls.find((c) => c.method === "POST")?.json();
+  expect(body).toMatchObject({ text: "Bins", repeat: "weekly", assigneeId: expect.any(String), dueAt: new Date("2030-05-06T19:30").toISOString() });
+});
+
+test("a sheet closes on Escape", async () => {
+  serve(...signedIn(), at("GET", `/v1/households/${home.id}/entries`, () => json([])));
+  renderApp("/lists");
+  expect(await screen.findByText("Nothing to remember")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "New reminder" }));
+  expect(screen.getByRole("dialog", { name: "New reminder" })).toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 
 test("add follows the list you're in, and only Today asks what to add", async () => {

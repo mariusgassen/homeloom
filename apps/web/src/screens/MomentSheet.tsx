@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { api, type HouseholdDetail, type Moment, type User, type Visibility } from "../api/client";
 import { shrink, today, uploadPhoto } from "../moments";
 import { Button } from "../ui/Button";
-import { Icon } from "../ui/Icon";
+import { DateRow, FormGroup, Segmented } from "../ui/Form";
+import { Sheet } from "../ui/Sheet";
 
 // Keep a moment: what happened, the day, a photo if there is one, and who sees it. With a moment it
 // edits that one instead.
@@ -28,7 +29,9 @@ export function MomentSheet({ household, me, moment, onClose, onSaved }: {
   const textRef = useRef<HTMLTextAreaElement>(null);
   const partner = household.members.find((m) => m.user.id !== me.id)?.user;
 
-  useEffect(() => textRef.current?.focus(), []);
+  useEffect(() => {
+    if (!moment) textRef.current?.focus();
+  }, [moment]);
   useEffect(() => () => {
     if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
   }, [preview]);
@@ -82,69 +85,64 @@ export function MomentSheet({ household, me, moment, onClose, onSaved }: {
   }
 
   return (
-    <div className="sheet-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <form className="sheet" role="dialog" aria-modal="true" aria-label={t(moment ? "moments.edit" : "moments.new")} onSubmit={submit}>
-        <div className="sheet-grabber" aria-hidden="true" />
-        <div className="sheet-bar">
-          <Button variant="plain" onClick={onClose}>
-            {t("entries.cancel")}
-          </Button>
-          <h2 className="headline sheet-title">{t(moment ? "moments.edit" : "moments.new")}</h2>
-          <Button type="submit" size="sm" disabled={busy || !text.trim() || !day}>
-            {t("entries.save")}
-          </Button>
-        </div>
+    <Sheet
+      title={t(moment ? "moments.edit" : "moments.new")}
+      onClose={onClose}
+      onSubmit={submit}
+      leading={
+        <Button variant="plain" onClick={onClose}>
+          {t("entries.cancel")}
+        </Button>
+      }
+      trailing={
+        <Button type="submit" size="sm" disabled={busy || !text.trim() || !day}>
+          {t("entries.save")}
+        </Button>
+      }
+    >
+      <label className="field">
+        <span className="label">{t("moments.text")}</span>
+        <textarea ref={textRef} className="input textarea" rows={4} value={text} maxLength={2000} onChange={(e) => setText(e.target.value)} required />
+      </label>
 
-        <label className="field">
-          <span className="label">{t("moments.text")}</span>
-          <textarea ref={textRef} className="input textarea" rows={4} value={text} maxLength={2000} onChange={(e) => setText(e.target.value)} required />
+      <FormGroup>
+        <DateRow label={t("moments.day")} type="date" value={day} max={today()} onChange={setDay} placeholder={t("entries.pick")} required />
+      </FormGroup>
+
+      {preview && <img className="moment-photo" src={preview} alt="" />}
+      <div className="moment-photo-actions">
+        <label className="hl-btn hl-btn-secondary hl-btn-sm">
+          {t(preview ? "moments.photoChange" : "moments.photo")}
+          <input className="visually-hidden" type="file" accept="image/*" onChange={(e) => pick(e.target.files?.[0])} />
         </label>
-
-        <label className="field">
-          <span className="label">{t("moments.day")}</span>
-          <input className="input" type="date" value={day} max={today()} onChange={(e) => setDay(e.target.value)} required />
-        </label>
-
-        {preview && <img className="moment-photo" src={preview} alt="" />}
-        <div className="moment-photo-actions">
-          <label className="hl-btn hl-btn-secondary hl-btn-sm">
-            {t(preview ? "moments.photoChange" : "moments.photo")}
-            <input className="visually-hidden" type="file" accept="image/*" onChange={(e) => pick(e.target.files?.[0])} />
-          </label>
-          {preview && (
-            <Button variant="plain" size="sm" onClick={() => (setPhoto(null), setPreview(undefined))}>
-              {t("moments.photoRemove")}
-            </Button>
-          )}
-        </div>
-
-        <fieldset className="sheet-fieldset">
-          <legend className="label">{t("entries.who")}</legend>
-          <div className="hl-list sheet-choices">
-            {(["private", "shared"] as const).map((v) => (
-              <label key={v} className="hl-listrow sheet-choice">
-                <input type="radio" name="visibility" checked={visibility === v} onChange={() => setVisibility(v)} />
-                <span className="hl-listrow-main">
-                  <span className="hl-listrow-title">{t(`entries.visibility.${v}`)}</span>
-                  <span className="hl-listrow-sub">{t(`entries.visibilityHint.${v}`, { name: partner?.name ?? "" })}</span>
-                </span>
-                <Icon name={v === "private" ? "lock" : v} size="sm" />
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
-        {error && (
-          <p className="callout error" role="alert">
-            {error}
-          </p>
-        )}
-        {moment && (
-          <Button variant="danger" block disabled={busy} onClick={remove}>
-            {t("entries.delete")}
+        {preview && (
+          <Button variant="plain" size="sm" onClick={() => (setPhoto(null), setPreview(undefined))}>
+            {t("moments.photoRemove")}
           </Button>
         )}
-      </form>
-    </div>
+      </div>
+
+      <div className="field">
+        <span className="label">{t("entries.who")}</span>
+        <Segmented
+          label={t("entries.who")}
+          value={visibility}
+          options={(["private", "shared"] as const).map((v) => ({ value: v, label: t(`entries.visibility.${v}`), icon: v === "private" ? "lock" : v }))}
+          onChange={setVisibility}
+        />
+        <p className="caption muted sheet-hint">{t(`entries.visibilityHint.${visibility}`, { name: partner?.name ?? "" })}</p>
+      </div>
+
+      {error && (
+        <p className="callout error" role="alert">
+          {error}
+        </p>
+      )}
+      {moment && (
+        <Button variant="danger" block disabled={busy} onClick={remove}>
+          {t("entries.delete")}
+        </Button>
+      )}
+    </Sheet>
   );
 }
