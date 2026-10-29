@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -21,14 +23,24 @@ type notifier interface {
 	Notify(ctx context.Context, userIDs []uuid.UUID, n domain.Notification)
 }
 
+// questionThemes give each suggestion a different mix; a few are drawn for every call.
+var questionThemes = []string{
+	"playful and silly", "a shared memory", "dreams for the future", "little everyday habits",
+	"food and taste", "travel and places", "childhood", "what you love about each other",
+	"would-you-rather", "hypothetical scenarios", "values and beliefs", "home and family",
+	"music, films and books", "small surprises and gifts", "this week", "growing together",
+}
+
 type Question struct {
 	households port.HouseholdRepository
 	questions  port.QuestionRepository
 	notify     notifier
+	// muse is nil without an LLM; suggestions are then unavailable.
+	muse port.Muse
 }
 
-func NewQuestion(households port.HouseholdRepository, questions port.QuestionRepository, notify notifier) *Question {
-	return &Question{households: households, questions: questions, notify: notify}
+func NewQuestion(households port.HouseholdRepository, questions port.QuestionRepository, notify notifier, muse port.Muse) *Question {
+	return &Question{households: households, questions: questions, notify: notify, muse: muse}
 }
 
 func (s *Question) List(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.Question, error) {
@@ -77,6 +89,79 @@ func (s *Question) Answer(ctx context.Context, actor domain.User, questionID uui
 		s.notifyRevealed(ctx, actor, q)
 	}
 	return sealFor(q, actor.ID), nil
+}
+
+func (s *Question) Reword(ctx context.Context, actor domain.User, questionID uuid.UUID, text string) (domain.Question, error) {
+	if _, err := s.own(ctx, actor, questionID); err != nil {
+		return domain.Question{}, err
+	}
+	text, err := clean(text, domain.MaxQuestionText)
+	if err != nil {
+		return domain.Question{}, err
+	}
+	q, err := s.questions.RewordQuestion(ctx, questionID, text)
+	if err != nil {
+		return domain.Question{}, err
+	}
+	return sealFor(q, actor.ID), nil
+}
+
+func (s *Question) Delete(ctx context.Context, actor domain.User, questionID uuid.UUID) error {
+	if _, err := s.own(ctx, actor, questionID); err != nil {
+		return err
+	}
+	return s.questions.DeleteQuestion(ctx, questionID)
+}
+
+// own returns the question if actor asked it; other members get domain.ErrForbidden.
+func (s *Question) own(ctx context.Context, actor domain.User, questionID uuid.UUID) (domain.Question, error) {
+	q, err := s.questions.GetQuestion(ctx, questionID)
+	if err != nil {
+		return domain.Question{}, err
+	}
+	if _, err := s.households.Role(ctx, q.HouseholdID, actor.ID); err != nil {
+		return domain.Question{}, err
+	}
+	if q.AskedBy != actor.ID {
+		return domain.Question{}, fmt.Errorf("%w: only whoever asked can change a question", domain.ErrForbidden)
+	}
+	return q, nil
+}
+
+func (s *Question) Suggest(ctx context.Context, actor domain.User, householdID uuid.UUID, lang string) ([]string, error) {
+	if _, err := s.households.Role(ctx, householdID, actor.ID); err != nil {
+		return nil, err
+	}
+	if s.muse == nil {
+		return nil, fmt.Errorf("%w: no LLM is configured", domain.ErrUnavailable)
+	}
+	qs, err := s.questions.ListQuestions(ctx, householdID, listLimit)
+	if err != nil {
+		return nil, err
+	}
+	recent := make([]string, len(qs))
+	for i, q := range qs {
+		recent[i] = q.Text
+	}
+	themes := slices.Clone(questionThemes)
+	rand.Shuffle(len(themes), func(i, j int) { themes[i], themes[j] = themes[j], themes[i] }) //nolint:gosec // variety, not a secret
+	out, err := s.muse.Questions(ctx, lang, themes[:domain.QuestionSuggestionCount], recent, domain.QuestionSuggestionCount)
+	if err != nil {
+		return nil, err
+	}
+	// Keep only questions that fit and are new.
+	suggestions := make([]string, 0, len(out))
+	for _, text := range out {
+		text, err := clean(text, domain.MaxQuestionText)
+		if err != nil || slices.Contains(recent, text) || slices.Contains(suggestions, text) || len(suggestions) == domain.QuestionSuggestionCount {
+			continue
+		}
+		suggestions = append(suggestions, text)
+	}
+	if len(suggestions) == 0 {
+		return nil, fmt.Errorf("%w: the LLM suggested nothing usable", domain.ErrUnavailable)
+	}
+	return suggestions, nil
 }
 
 // notifyRevealed tells everyone but the last to answer that the answers are open.

@@ -137,6 +137,37 @@ func Questions(t *testing.T, s Store) {
 	if q, err := s.GetQuestion(ctx, race.ID); err != nil || !q.Revealed() {
 		t.Fatalf("simultaneous answers must reveal: %+v, %v", q, err)
 	}
+
+	// Rewording: fine while only the asker has answered, refused once someone else has.
+	edit, err := s.CreateQuestion(ctx, m.Household.ID, alice.ID, "Frist try?")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Answer(ctx, edit.ID, alice.ID, "mine"); err != nil {
+		t.Fatal(err)
+	}
+	if q, err := s.RewordQuestion(ctx, edit.ID, "First try?"); err != nil || q.Text != "First try?" || len(q.Answers) != 1 {
+		t.Fatalf("reword: %+v, %v", q, err)
+	}
+	if _, err := s.Answer(ctx, edit.ID, bob.ID, "his"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.RewordQuestion(ctx, edit.ID, "Changed"); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("reword after another answer: want ErrConflict, got %v", err)
+	}
+	if _, err := s.RewordQuestion(ctx, uuid.New(), "x"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("reword unknown: want ErrNotFound, got %v", err)
+	}
+
+	if err := s.DeleteQuestion(ctx, edit.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.GetQuestion(ctx, edit.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("deleted question: want ErrNotFound, got %v", err)
+	}
+	if err := s.DeleteQuestion(ctx, edit.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("delete twice: want ErrNotFound, got %v", err)
+	}
 }
 
 func join(t *testing.T, s Store, householdID uuid.UUID, inviter, joiner domain.User) {

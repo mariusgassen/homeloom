@@ -3,9 +3,11 @@ package http
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/http/oapi"
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/domain"
+	"github.com/mariusgassen/homeloom/apps/api/internal/i18n"
 )
 
 func (h *handlers) CreateInvite(ctx context.Context, req oapi.CreateInviteRequestObject) (oapi.CreateInviteResponseObject, error) {
@@ -109,4 +111,65 @@ func toQuestion(q domain.Question) oapi.Question {
 
 func notFound(ctx context.Context) oapi.NotFoundJSONResponse {
 	return oapi.NotFoundJSONResponse(errorBody(ctx, "not_found", ""))
+}
+
+func (h *handlers) UpdateQuestion(ctx context.Context, req oapi.UpdateQuestionRequestObject) (oapi.UpdateQuestionResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	q, err := h.questions.Reword(ctx, u, req.QuestionId, req.Body.Text)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.UpdateQuestion404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.Is(err, domain.ErrForbidden):
+		return oapi.UpdateQuestion403JSONResponse(errorBody(ctx, "not_yours", err.Error())), nil
+	case errors.Is(err, domain.ErrInvalid):
+		return oapi.UpdateQuestion400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "invalid_text", err.Error(), "max", domain.MaxQuestionText))}, nil
+	case errors.Is(err, domain.ErrConflict):
+		return oapi.UpdateQuestion409JSONResponse(errorBody(ctx, "already_answered", "")), nil
+	case err != nil:
+		return nil, err
+	}
+	return oapi.UpdateQuestion200JSONResponse(toQuestion(q)), nil
+}
+
+func (h *handlers) DeleteQuestion(ctx context.Context, req oapi.DeleteQuestionRequestObject) (oapi.DeleteQuestionResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = h.questions.Delete(ctx, u, req.QuestionId)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.DeleteQuestion404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.Is(err, domain.ErrForbidden):
+		return oapi.DeleteQuestion403JSONResponse(errorBody(ctx, "not_yours", err.Error())), nil
+	case err != nil:
+		return nil, err
+	}
+	return oapi.DeleteQuestion204Response{}, nil
+}
+
+func (h *handlers) SuggestQuestions(ctx context.Context, req oapi.SuggestQuestionsRequestObject) (oapi.SuggestQuestionsResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	qs, err := h.questions.Suggest(ctx, u, req.HouseholdId, i18n.FromContext(ctx).String())
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.SuggestQuestions404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.Is(err, domain.ErrUnavailable):
+		return oapi.SuggestQuestions503JSONResponse{UnavailableJSONResponse: ideasUnavailable(ctx, err)}, nil
+	case err != nil:
+		return nil, err
+	}
+	return oapi.SuggestQuestions200JSONResponse{Questions: qs}, nil
+}
+
+// ideasUnavailable answers when the LLM can't be asked; the cause is logged, not sent.
+func ideasUnavailable(ctx context.Context, err error) oapi.UnavailableJSONResponse {
+	slog.WarnContext(ctx, "ideas unavailable", "err", err)
+	return oapi.UnavailableJSONResponse(errorBody(ctx, "ideas_unavailable", ""))
 }

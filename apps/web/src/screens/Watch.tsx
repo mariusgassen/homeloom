@@ -10,6 +10,7 @@ import { Empty } from "../ui/Empty";
 import { cx, Icon } from "../ui/Icon";
 import { Mark } from "../ui/Mark";
 import { Screen } from "./Screen";
+import { WatchIdeas } from "./WatchIdeas";
 
 function useHouseholdId() {
   const { session } = useSession();
@@ -81,6 +82,7 @@ export function Watch() {
   if (unavailable) {
     return (
       <Screen title={t("watch.title")} back={back}>
+        <WatchIdeas householdId={householdId} />
         <Empty title={t("watch.offTitle")}>{unavailable}</Empty>
       </Screen>
     );
@@ -113,6 +115,7 @@ export function Watch() {
           {t("watch.connectBody")}
         </Card>
       )}
+      {shelf && <WatchIdeas householdId={householdId} />}
       {shelf?.connected && libraries.length === 0 && <Empty title={t("watch.emptyTitle")}>{t("watch.emptyBody")}</Empty>}
       {libraries.length > 1 && <LibraryPicker libraries={libraries} chosen={chosen} onPick={setLibrary} />}
       {chosen && <Library key={chosen.id} householdId={householdId} library={chosen} />}
@@ -209,13 +212,13 @@ function Library({ householdId, library }: { householdId: string; library: Watch
   );
 }
 
-function Poster({ householdId, title }: { householdId: string; title: WatchTitle }) {
+export function Poster({ householdId, title }: { householdId: string; title: WatchTitle }) {
   const [missing, setMissing] = useState(false);
   if (missing) return <span className="watch-poster watch-poster-none" aria-hidden="true">{title.name.slice(0, 1)}</span>;
   return <img className="watch-poster" src={posterURL(householdId, title.id)} alt="" loading="lazy" onError={() => setMissing(true)} />;
 }
 
-function TitleSheet({ householdId, title, onClose, onAnother }: { householdId: string; title: WatchTitle; onClose: () => void; onAnother?: () => void }) {
+export function TitleSheet({ householdId, title, onClose, onAnother }: { householdId: string; title: WatchTitle; onClose: () => void; onAnother?: () => void }) {
   const { t, i18n } = useTranslation();
   const facts = [
     title.year,

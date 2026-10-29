@@ -47,17 +47,20 @@ function people(q: Question, household: HouseholdDetail, me: User): Person[] {
   });
 }
 
-// A question with its answers and, until it opens, a form for your own answer.
-export function QuestionCard({ question, household, me, eyebrow, onChange }: {
+// A question with its answers and, until it opens, a form for your own answer. With onRemoved,
+// whoever asked can also reword it (until someone else answers) or delete it.
+export function QuestionCard({ question, household, me, eyebrow, onChange, onRemoved }: {
   question: Question;
   household: HouseholdDetail;
   me: User;
   eyebrow: string;
   onChange: (q: Question) => void;
+  onRemoved?: () => void;
 }) {
   const { t } = useTranslation();
   const mine = question.answers.find((a) => a.userId === me.id);
   const [editing, setEditing] = useState(false);
+  const [rewording, setRewording] = useState(false);
   const [text, setText] = useState(mine?.text ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,6 +80,20 @@ export function QuestionCard({ question, household, me, eyebrow, onChange }: {
     } else {
       setError(res?.error?.message ?? t("questions.failed"));
     }
+  }
+
+  if (rewording && onRemoved) {
+    return (
+      <RewordForm
+        question={question}
+        canReword={!question.answers.some((a) => a.userId !== me.id)}
+        onDone={(q) => {
+          setRewording(false);
+          if (q) onChange(q);
+        }}
+        onRemoved={onRemoved}
+      />
+    );
   }
 
   return (
@@ -104,20 +121,108 @@ export function QuestionCard({ question, household, me, eyebrow, onChange }: {
           </Button>
         )
       )}
+      {onRemoved && question.askedBy === me.id && (
+        <Button variant="plain" size="sm" className="question-manage" onClick={() => setRewording(true)}>
+          {t("questions.manage")}
+        </Button>
+      )}
     </RevealCard>
+  );
+}
+
+// Rewording your own question, or deleting it with its answers.
+function RewordForm({ question, canReword, onDone, onRemoved }: {
+  question: Question;
+  canReword: boolean;
+  onDone: (q?: Question) => void;
+  onRemoved: () => void;
+}) {
+  const { t } = useTranslation();
+  const [text, setText] = useState(question.text);
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const path = { params: { path: { questionId: question.id } } };
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    if (text.trim() === question.text) return onDone();
+    setBusy(true);
+    setError(null);
+    const res = await api.PUT("/v1/questions/{questionId}", { ...path, body: { text: text.trim() } }).catch(() => undefined);
+    setBusy(false);
+    if (res?.data) onDone(res.data);
+    else setError(res?.error?.message ?? t("questions.failed"));
+  }
+
+  async function remove() {
+    if (!confirming) return setConfirming(true);
+    setBusy(true);
+    setError(null);
+    const res = await api.DELETE("/v1/questions/{questionId}", path).catch(() => undefined);
+    setBusy(false);
+    if (res?.response.ok) onRemoved();
+    else setError(res?.error?.message ?? t("questions.failed"));
+  }
+
+  return (
+    <form className="hl-card" onSubmit={save}>
+      {canReword ? (
+        <label className="field">
+          <span className="label">{t("questions.reword")}</span>
+          <textarea className="input textarea" value={text} onChange={(e) => setText(e.target.value)} maxLength={280} rows={2} required autoFocus />
+        </label>
+      ) : (
+        <>
+          <h2 className="hl-reveal-q">{question.text}</h2>
+          <p className="caption muted">{t("questions.answeredAlready")}</p>
+        </>
+      )}
+      {error && (
+        <p className="callout error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="hl-card-footer">
+        {canReword && (
+          <Button type="submit" size="sm" disabled={busy || !text.trim()}>
+            {t("questions.save")}
+          </Button>
+        )}
+        <Button variant="secondary" size="sm" disabled={busy} onClick={() => onDone()}>
+          {t("questions.cancel")}
+        </Button>
+        <Button variant="danger" size="sm" disabled={busy} onClick={remove}>
+          {t(confirming ? "questions.deleteConfirm" : "questions.delete")}
+        </Button>
+      </div>
+    </form>
   );
 }
 
 export function AskForm({ householdId, onAsked }: { householdId: string; onAsked: (q: Question) => void }) {
   const { t } = useTranslation();
-  const suggestions = t("questions.suggestions", { returnObjects: true }) as string[];
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [thinking, setThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Fresh questions from the API, used up one per tap; a new batch when they run out.
+  const [ideas, setIdeas] = useState<string[]>([]);
 
-  function suggest() {
-    const others = suggestions.filter((s) => s !== text);
-    setText(others[Math.floor(Math.random() * others.length)] ?? "");
+  async function suggest() {
+    let next = ideas.filter((s) => s !== text);
+    if (next.length === 0) {
+      setThinking(true);
+      const res = await api
+        .GET("/v1/households/{householdId}/questions/suggestions", { params: { path: { householdId } } })
+        .catch(() => undefined);
+      setThinking(false);
+      // Without the assistant, fall back to a few built-in questions.
+      const fallback = (t("questions.suggestions", { returnObjects: true }) as string[]).filter((s) => s !== text);
+      next = res?.data?.questions.length ? res.data.questions : [fallback[Math.floor(Math.random() * fallback.length)] ?? ""];
+    }
+    setText(next[0] ?? "");
+    setIdeas(next.slice(1));
   }
 
   async function submit(e: FormEvent) {
@@ -159,8 +264,8 @@ export function AskForm({ householdId, onAsked }: { householdId: string; onAsked
         <Button type="submit" size="sm" disabled={busy || !text.trim()}>
           {t("questions.askSend")}
         </Button>
-        <Button variant="secondary" size="sm" icon="sparkle" onClick={suggest}>
-          {t("questions.suggest")}
+        <Button variant="secondary" size="sm" icon="sparkle" disabled={thinking} onClick={suggest}>
+          {t(thinking ? "questions.thinking" : "questions.suggest")}
         </Button>
       </div>
     </form>

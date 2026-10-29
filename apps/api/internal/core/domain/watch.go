@@ -38,6 +38,32 @@ type Title struct {
 	Episodes int
 }
 
+const (
+	MaxWatchMood = 200
+	// WatchIdeaCount is how many ideas one suggestion offers.
+	WatchIdeaCount = 4
+)
+
+// WatchPick is a title the LLM chose: one of the candidates by TitleID, or one from outside the
+// libraries by name, year and kind.
+type WatchPick struct {
+	TitleID string
+	Name    string
+	Year    int
+	Kind    MediaKind
+	Reason  string
+}
+
+// WatchIdea is something to watch and why it fits. Title is set when it is in the person's
+// libraries.
+type WatchIdea struct {
+	Name   string
+	Year   int
+	Kind   MediaKind
+	Reason string
+	Title  *Title
+}
+
 // Shelf is what the person can watch: every movie and series library they can reach.
 type Shelf struct {
 	// Connected is false until the person has signed in to Plex; Libraries is then empty.
