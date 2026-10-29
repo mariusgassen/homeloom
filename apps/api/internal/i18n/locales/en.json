@@ -1,6 +1,7 @@
 {
   "dav.private": "Homeloom · just me",
   "dav.shared": "Homeloom",
+  "error.already_answered": "Someone has answered already, so the question can't change any more.",
   "error.already_revealed": "The answers are already open, so they can't change any more.",
   "error.assistant_unavailable": "The assistant isn't available right now.",
   "error.auth_unavailable": "Sign-in is temporarily unavailable. Try again in a minute.",
@@ -8,6 +9,7 @@
   "error.cooking_unavailable": "Cooking isn't available right now.",
   "error.guest_link_used": "This link is already in use on another device.",
   "error.home_unavailable": "The smart home isn't reachable right now. Is Home Assistant set up and running?",
+  "error.ideas_unavailable": "No ideas right now. Try again in a minute.",
   "error.internal": "Something went wrong on our side.",
   "error.invalid": "The request is not valid.",
   "error.invalid_aisle": "Pick one of the aisles.",

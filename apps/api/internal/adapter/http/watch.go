@@ -8,6 +8,7 @@ import (
 
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/http/oapi"
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/domain"
+	"github.com/mariusgassen/homeloom/apps/api/internal/i18n"
 )
 
 func (h *handlers) GetWatchShelf(ctx context.Context, req oapi.GetWatchShelfRequestObject) (oapi.GetWatchShelfResponseObject, error) {
@@ -159,4 +160,34 @@ func toWatchTitle(t domain.Title) oapi.WatchTitle {
 func watchUnavailable(ctx context.Context, err error) oapi.UnavailableJSONResponse {
 	slog.WarnContext(ctx, "watch unavailable", "err", err)
 	return oapi.UnavailableJSONResponse(errorBody(ctx, "watch_unavailable", ""))
+}
+
+func (h *handlers) SuggestWatch(ctx context.Context, req oapi.SuggestWatchRequestObject) (oapi.SuggestWatchResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ideas, err := h.watch.Suggest(ctx, u, req.HouseholdId, deref(req.Body.Mood), i18n.FromContext(ctx).String())
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.SuggestWatch404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.Is(err, domain.ErrInvalid):
+		return oapi.SuggestWatch400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "invalid_text", err.Error(), "max", domain.MaxWatchMood))}, nil
+	case errors.Is(err, domain.ErrUnavailable):
+		return oapi.SuggestWatch503JSONResponse{UnavailableJSONResponse: ideasUnavailable(ctx, err)}, nil
+	case err != nil:
+		return nil, err
+	}
+	out := oapi.SuggestWatch200JSONResponse{Ideas: make([]oapi.WatchIdea, len(ideas))}
+	for i, x := range ideas {
+		out.Ideas[i] = oapi.WatchIdea{Name: x.Name, Kind: oapi.MediaKind(x.Kind), Reason: x.Reason}
+		if x.Year > 0 {
+			out.Ideas[i].Year = &x.Year
+		}
+		if x.Title != nil {
+			t := toWatchTitle(*x.Title)
+			out.Ideas[i].Title = &t
+		}
+	}
+	return out, nil
 }

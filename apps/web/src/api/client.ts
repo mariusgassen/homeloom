@@ -25,6 +25,7 @@ export type Room = components["schemas"]["Room"];
 export type WatchShelf = components["schemas"]["WatchShelf"];
 export type WatchLibrary = components["schemas"]["WatchLibrary"];
 export type WatchTitle = components["schemas"]["WatchTitle"];
+export type WatchIdea = components["schemas"]["WatchIdea"];
 export type Entry = components["schemas"]["Entry"];
 export type Moment = components["schemas"]["Moment"];
 export type MomentKind = components["schemas"]["MomentKind"];

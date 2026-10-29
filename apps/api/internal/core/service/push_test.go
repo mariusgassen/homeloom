@@ -62,7 +62,7 @@ func TestRevealNotifiesTheOthers(t *testing.T) {
 	pusher := &memory.Pusher{Gone: map[string]bool{"https://web.push.apple.com/old": true}}
 	push := service.NewPush(store, pusher)
 	households := service.NewHousehold(store)
-	questions := service.NewQuestion(store, store, push)
+	questions := service.NewQuestion(store, store, push, nil)
 	alice, bob := newUser(t, store, "alice"), newUser(t, store, "bob")
 	m, _ := households.Create(ctx, alice, "Home")
 	store.AddMember(m.Household.ID, bob.ID, domain.RoleMember)

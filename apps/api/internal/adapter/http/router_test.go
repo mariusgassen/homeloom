@@ -70,7 +70,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Identity:      service.NewIdentity(fakeVerifier{}, sessions, store),
 		Login:         service.NewLogin(memory.NewLoginProvider(), sessions),
 		Households:    service.NewHousehold(store),
-		Questions:     service.NewQuestion(store, store, push),
+		Questions:     service.NewQuestion(store, store, push, nil),
 		Entries:       entries,
 		Moments:       service.NewMoments(store, store, store, push, time.UTC),
 		Cook:          cook,

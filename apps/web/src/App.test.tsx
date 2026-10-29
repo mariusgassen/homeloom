@@ -218,6 +218,53 @@ test("a question stays sealed until both have answered", async () => {
   expect(await calls.find((c) => c.method === "PUT")?.json()).toEqual({ text: "Porto" });
 });
 
+test("suggest asks for fresh questions and your own can be reworded or deleted", async () => {
+  const q = { id: "44444444-4444-4444-8444-444444444445", text: "Bset trip?", askedBy: marius.id, createdAt: "2026-10-27T18:00:00Z", revealed: false, answers: [] };
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/questions`, () => json([q])),
+    at("GET", `/v1/households/${home.id}/questions/suggestions`, () => json({ questions: ["Which smell means home?", "What made you laugh?"] })),
+    at("PUT", `/v1/questions/${q.id}`, () => json({ ...q, text: "Best trip?" })),
+    at("DELETE", `/v1/questions/${q.id}`, () => new Response(null, { status: 204 })),
+  );
+  renderApp("/us?show=questions");
+  await userEvent.click(await screen.findByRole("button", { name: "Suggest one" }));
+  expect(await screen.findByDisplayValue("Which smell means home?")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Suggest one" }));
+  expect(await screen.findByDisplayValue("What made you laugh?")).toBeInTheDocument();
+  expect(calls.filter((c) => c.url.endsWith("/questions/suggestions"))).toHaveLength(1);
+
+  await userEvent.click(screen.getByRole("button", { name: "Edit question" }));
+  const field = screen.getByLabelText("Your question");
+  await userEvent.clear(field);
+  await userEvent.type(field, "Best trip?");
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  expect(await screen.findByText("Best trip?")).toBeInTheDocument();
+  expect(await calls.find((c) => c.method === "PUT")?.json()).toEqual({ text: "Best trip?" });
+
+  await userEvent.click(screen.getByRole("button", { name: "Edit question" }));
+  await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+  await userEvent.click(screen.getByRole("button", { name: "Really delete?" }));
+  await waitFor(() => expect(calls.some((c) => c.method === "DELETE")).toBe(true));
+});
+
+test("watch ideas come from the assistant, with or without a library", async () => {
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/watch`, () => json({ connected: false, libraries: [] })),
+    at("POST", `/v1/households/${home.id}/watch/suggestions`, () =>
+      json({ ideas: [{ name: "Paddington 2", year: 2017, kind: "movie", reason: "Pure joy." }] }),
+    ),
+  );
+  renderApp("/watch");
+  await userEvent.type(await screen.findByRole("textbox", { name: "Ideas for tonight" }), "something light");
+  await userEvent.click(screen.getByRole("button", { name: "Get ideas" }));
+  expect(await screen.findByText("Paddington 2")).toBeInTheDocument();
+  expect(screen.getByText("Pure joy.")).toBeInTheDocument();
+  expect(screen.getByText(/Not in your library/)).toBeInTheDocument();
+  expect(await calls.find((c) => c.url.endsWith("/watch/suggestions"))?.json()).toEqual({ mood: "something light" });
+});
+
 // A local date as the API writes it, days from today.
 function isoDay(offset = 0) {
   const d = new Date();

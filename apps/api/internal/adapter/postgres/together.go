@@ -122,6 +122,31 @@ func (s *Store) Answer(ctx context.Context, questionID, userID uuid.UUID, text s
 	return out, err
 }
 
+func (s *Store) RewordQuestion(ctx context.Context, questionID uuid.UUID, text string) (domain.Question, error) {
+	_, err := s.q.RewordQuestion(ctx, sqlcgen.RewordQuestionParams{ID: questionID, Text: text})
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Either it doesn't exist or someone else has answered.
+		if _, err := s.q.GetQuestion(ctx, questionID); errors.Is(err, pgx.ErrNoRows) {
+			return domain.Question{}, domain.ErrNotFound
+		} else if err != nil {
+			return domain.Question{}, err
+		}
+		return domain.Question{}, domain.ErrConflict
+	}
+	if err != nil {
+		return domain.Question{}, err
+	}
+	return loadQuestion(ctx, s.q, questionID)
+}
+
+func (s *Store) DeleteQuestion(ctx context.Context, questionID uuid.UUID) error {
+	n, err := s.q.DeleteQuestion(ctx, questionID)
+	if err == nil && n == 0 {
+		return domain.ErrNotFound
+	}
+	return err
+}
+
 func loadQuestion(ctx context.Context, q *sqlcgen.Queries, id uuid.UUID) (domain.Question, error) {
 	row, err := q.GetQuestion(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {

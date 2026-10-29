@@ -310,7 +310,7 @@ function Questions({ household, me }: { household: HouseholdDetail; me: User }) 
         <Empty title={t("us.title")}>{t("us.body")}</Empty>
       )}
       {questions?.map((q) => (
-        <QuestionCard key={q.id} question={q} household={household} me={me} eyebrow={asked(q)} onChange={replace} />
+        <QuestionCard key={q.id} question={q} household={household} me={me} eyebrow={asked(q)} onChange={replace} onRemoved={reload} />
       ))}
     </>
   );

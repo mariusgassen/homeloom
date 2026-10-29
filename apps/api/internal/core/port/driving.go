@@ -47,6 +47,11 @@ type QuestionService interface {
 	List(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.Question, error)
 	Ask(ctx context.Context, actor domain.User, householdID uuid.UUID, text string) (domain.Question, error)
 	Answer(ctx context.Context, actor domain.User, questionID uuid.UUID, text string) (domain.Question, error)
+	// Reword and Delete are for whoever asked; others get domain.ErrForbidden.
+	Reword(ctx context.Context, actor domain.User, questionID uuid.UUID, text string) (domain.Question, error)
+	Delete(ctx context.Context, actor domain.User, questionID uuid.UUID) error
+	// Suggest returns new questions to ask, written in lang; domain.ErrUnavailable without an LLM.
+	Suggest(ctx context.Context, actor domain.User, householdID uuid.UUID, lang string) ([]string, error)
 }
 
 type EntryService interface {
@@ -160,6 +165,9 @@ type WatchService interface {
 	Shelf(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Shelf, error)
 	Titles(ctx context.Context, actor domain.User, householdID uuid.UUID, libraryID string) ([]domain.Title, error)
 	Poster(ctx context.Context, actor domain.User, householdID uuid.UUID, titleID string) (domain.Poster, error)
+	// Suggest returns ideas that fit the mood, from the actor's libraries when connected and from
+	// outside them; domain.ErrUnavailable without an LLM.
+	Suggest(ctx context.Context, actor domain.User, householdID uuid.UUID, mood, lang string) ([]domain.WatchIdea, error)
 }
 
 type PushService interface {

@@ -346,6 +346,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/questions/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Fresh questions to ask, written by Claude (members only)
+         * @description A few new questions in the caller's language, different on every call. Claude sees the
+         *     household's recent questions so it doesn't repeat them. When Claude can't be reached the
+         *     answer is 503 and the client offers its own.
+         */
+        get: operations["suggestQuestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/questions/{questionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Reword your question, until someone else has answered it */
+        put: operations["updateQuestion"];
+        post?: never;
+        /** Delete your question and its answers */
+        delete: operations["deleteQuestion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/questions/{questionId}/answer": {
         parameters: {
             query?: never;
@@ -959,6 +1003,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/watch/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ideas for what to watch, picked by Claude (members only)
+         * @description With Plex connected, Claude picks mostly from what the caller hasn't seen in their
+         *     libraries, taking what they have watched as their taste, and adds one or two titles from
+         *     outside them. Without Plex, every idea is from outside. Ideas from a library carry `title`.
+         */
+        post: operations["suggestWatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/watch/libraries/{libraryId}/titles": {
         parameters: {
             query?: never;
@@ -1421,6 +1489,9 @@ export interface components {
         AskQuestion: {
             text: string;
         };
+        QuestionSuggestions: {
+            questions: string[];
+        };
         AnswerQuestion: {
             text: string;
         };
@@ -1747,6 +1818,21 @@ export interface components {
             episodes?: number;
             /** @description You have seen the movie, or every episode. */
             watched: boolean;
+        };
+        WatchMood: {
+            /** @description In your own words, e.g. "something light, under two hours"; may be empty. */
+            mood?: string;
+        };
+        WatchIdeas: {
+            ideas: components["schemas"]["WatchIdea"][];
+        };
+        WatchIdea: {
+            name: string;
+            year?: number;
+            kind: components["schemas"]["MediaKind"];
+            /** @description One short sentence on why it fits. */
+            reason: string;
+            title?: components["schemas"]["WatchTitle"];
         };
         Scene: {
             /** @description Home Assistant entity id, e.g. scene.dinner. */
@@ -2509,6 +2595,109 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    suggestQuestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Up to five questions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionSuggestions"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    updateQuestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskQuestion"];
+            };
+        };
+        responses: {
+            /** @description The question after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Question"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Someone else asked this question (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description Someone else has answered it already, so it can no longer change (code `already_answered`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteQuestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Someone else asked this question (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             404: components["responses"]["NotFound"];
         };
     };
@@ -3674,6 +3863,36 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    suggestWatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WatchMood"];
+            };
+        };
+        responses: {
+            /** @description Up to four ideas. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchIdeas"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             503: components["responses"]["Unavailable"];

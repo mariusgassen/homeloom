@@ -185,7 +185,7 @@
     "failed": "That didn't work. Please try again.",
     "reading": { "window": "Window open", "door": "Door open", "garage_door": "Garage open", "motion": "Motion", "moisture": "Water", "smoke": "Smoke" }
   },
-  "watch": {"title": "Movies & shows", "libraries": "Libraries", "offTitle": "Movies and shows aren't available", "connectTitle": "Connect your movies and shows", "connectBody": "Sign in with your own account. Your libraries and the ones shared with you show up here.", "connect": "Connect", "disconnect": "Disconnect movies and shows", "emptyTitle": "No libraries yet", "emptyBody": "Movie and series libraries you can watch show up here.", "unseen": "Not seen yet", "count_one": "{{count}} title", "count_other": "{{count}} titles", "surprise": "Surprise us", "another": "Something else", "allSeen": "You've seen everything here", "seen": "Seen", "episodes_one": "{{count}} episode", "episodes_other": "{{count}} episodes", "minutes_one": "{{count}} min", "minutes_other": "{{count}} min", "failed": "That didn't work. Please try again.", "error": {"connect_failed": "Connecting didn't work. Please try again.", "watch_unavailable": "Your movies aren't reachable right now. Please try again later."}},
+  "watch": {"title": "Movies & shows", "libraries": "Libraries", "offTitle": "Movies and shows aren't available", "connectTitle": "Connect your movies and shows", "connectBody": "Sign in with your own account. Your libraries and the ones shared with you show up here.", "connect": "Connect", "disconnect": "Disconnect movies and shows", "emptyTitle": "No libraries yet", "emptyBody": "Movie and series libraries you can watch show up here.", "unseen": "Not seen yet", "count_one": "{{count}} title", "count_other": "{{count}} titles", "surprise": "Surprise us", "another": "Something else", "allSeen": "You've seen everything here", "seen": "Seen", "episodes_one": "{{count}} episode", "episodes_other": "{{count}} episodes", "minutes_one": "{{count}} min", "minutes_other": "{{count}} min", "ideas": {"title": "Ideas for tonight", "placeholder": "In the mood for… (optional)", "ask": "Get ideas", "more": "New ideas", "thinking": "Thinking…", "elsewhere": "Not in your library", "kind": {"movie": "Movie", "show": "Series"}}, "failed": "That didn't work. Please try again.", "error": {"connect_failed": "Connecting didn't work. Please try again.", "watch_unavailable": "Your movies aren't reachable right now. Please try again later."}},
   "questions": {
     "ask": "Ask a question",
     "askPlaceholder": "What would you like to know?",
@@ -202,6 +202,13 @@
     "theyAnswered": "{{name}} has answered",
     "waiting": "Waiting for {{name}}",
     "failed": "That didn't work. Please try again.",
+    "manage": "Edit question",
+    "reword": "Your question",
+    "answeredAlready": "Already answered, so it can't be reworded any more. You can still delete it.",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleteConfirm": "Really delete?",
+    "thinking": "Thinking…",
     "suggestions": [
       "What made you smile this week?",
       "Which trip together would you take again tomorrow?",
