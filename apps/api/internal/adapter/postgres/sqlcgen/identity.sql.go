@@ -89,26 +89,6 @@ func (q *Queries) GetMembershipRole(ctx context.Context, arg GetMembershipRolePa
 	return role, err
 }
 
-const getUser = `-- name: GetUser :one
-SELECT id, authentik_sub, name, email, avatar_url, created_at, updated_at, avatar_at FROM users WHERE id = $1
-`
-
-func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
-	row := q.db.QueryRow(ctx, getUser, id)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.AuthentikSub,
-		&i.Name,
-		&i.Email,
-		&i.AvatarUrl,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.AvatarAt,
-	)
-	return i, err
-}
-
 const getUserAvatar = `-- name: GetUserAvatar :one
 SELECT content_type, data FROM user_avatars WHERE user_id = $1
 `
