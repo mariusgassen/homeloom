@@ -46,6 +46,18 @@ func (b *RecipeBook) Recipe(_ context.Context, slug string) (domain.Recipe, erro
 	return domain.Recipe{}, domain.ErrNotFound
 }
 
+// Image is a tiny stand-in picture for recipes with an Image version.
+func (b *RecipeBook) Image(ctx context.Context, slug string) (domain.RecipeImage, error) {
+	r, err := b.Recipe(ctx, slug)
+	if err != nil {
+		return domain.RecipeImage{}, err
+	}
+	if r.Image == "" {
+		return domain.RecipeImage{}, domain.ErrNotFound
+	}
+	return domain.RecipeImage{ContentType: "image/webp", Body: []byte("RIFF-" + slug)}, nil
+}
+
 // Chef is a stand-in for the LLM: it picks the candidates whose name contains a word of the
 // mood, and is unavailable for the mood "down". It also picks "made-up", which doesn't exist.
 type Chef struct{}

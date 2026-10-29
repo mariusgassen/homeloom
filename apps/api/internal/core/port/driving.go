@@ -101,6 +101,7 @@ type CookService interface {
 	// Suggest picks recipes for a mood; lang is the language the reasons are written in.
 	Suggest(ctx context.Context, actor domain.User, householdID uuid.UUID, mood, lang string) (domain.Suggestions, error)
 	Recipe(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string) (domain.Recipe, error)
+	Image(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string) (domain.RecipeImage, error)
 	// AddToShoppingList puts the recipe's ingredients with the given ids on the shopping list and
 	// returns how many; unknown ids are ignored.
 	AddToShoppingList(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string, ingredientIDs []string) (int, error)

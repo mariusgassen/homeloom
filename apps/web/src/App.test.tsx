@@ -376,7 +376,7 @@ test("a used invite says so and lets you go on", async () => {
 
 test("cook by mood suggests recipes and puts what's missing on the list", async () => {
   sessionStorage.clear();
-  const curry = { slug: "green-curry", name: "Green curry", tags: ["Thai"], totalTime: "30 min" };
+  const curry = { slug: "green-curry", name: "Green curry", tags: ["Thai"], totalTime: "30 min", imageUrl: `/v1/households/${home.id}/recipes/green-curry/image?v=1` };
   const calls = serve(
     ...signedIn(),
     at("POST", `/v1/households/${home.id}/cook/suggestions`, () =>
@@ -394,8 +394,10 @@ test("cook by mood suggests recipes and puts what's missing on the list", async 
   await userEvent.click(screen.getByRole("button", { name: "Suggest dinner" }));
   expect(await calls.find((c) => c.url.endsWith("/cook/suggestions"))?.json()).toEqual({ mood: "Cozy; Time: 20 min; Use up: lime" });
 
+  expect(document.querySelector(".recipe-thumb")).toHaveAttribute("src", curry.imageUrl);
   await userEvent.click(await screen.findByText("Warm and a little spicy."));
   await userEvent.click(await screen.findByLabelText("Rice"));
+  expect(document.querySelector(".recipe-hero")).toHaveAttribute("src", curry.imageUrl);
   await userEvent.click(screen.getByRole("button", { name: "Put 2 missing items on the list" }));
   expect(await screen.findByRole("status")).toHaveTextContent("2 items are on “Shopping list” now.");
   expect(await calls.find((c) => c.url.endsWith("/shopping-list"))?.json()).toEqual({ recipe: "green-curry", ingredientIds: ["i1", "i3"] });

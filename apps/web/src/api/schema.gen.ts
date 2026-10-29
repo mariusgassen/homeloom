@@ -611,6 +611,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/recipes/{slug}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                slug: components["parameters"]["RecipeSlug"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A recipe's picture, about 600 pixels wide (members only)
+         * @description Fetched from Mealie through the API, like everything else from Mealie. 404 when the recipe has none.
+         */
+        get: operations["getRecipeImage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/shopping-list": {
         parameters: {
             query?: never;
@@ -1495,12 +1518,16 @@ export interface components {
             /** @description As written in Mealie */
             totalTime?: string;
             tags: string[];
+            /** @description The recipe's picture (getRecipeImage), versioned; absent when it has none. */
+            imageUrl?: string;
         };
         Recipe: {
             slug: string;
             name: string;
             description?: string;
             totalTime?: string;
+            /** @description The recipe's picture (getRecipeImage), versioned; absent when it has none. */
+            imageUrl?: string;
             servings?: string;
             tags: string[];
             ingredients: components["schemas"]["Ingredient"][];
@@ -2997,6 +3024,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Recipe"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getRecipeImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                slug: components["parameters"]["RecipeSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The picture. */
+            200: {
+                headers: {
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": string;
                 };
             };
             401: components["responses"]["Unauthorized"];

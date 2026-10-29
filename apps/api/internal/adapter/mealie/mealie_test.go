@@ -16,7 +16,7 @@ import (
 )
 
 const soup = `{
-  "id": "c9fde254-ea2b-43ab-b693-d2860e13b24e", "slug": "soup", "name": "Pilzsuppe", "description": "Cremig",
+  "id": "c9fde254-ea2b-43ab-b693-d2860e13b24e", "image": "z3GG", "slug": "soup", "name": "Pilzsuppe", "description": "Cremig",
   "totalTime": null, "totalTimeSeconds": null, "prepTimeSeconds": 600, "performTimeSeconds": 4500, "recipeYield": "", "recipeServings": 2,
   "recipeCategory": [{"name": "Suppe"}], "tags": [{"name": "Pilze"}],
   "recipeIngredient": [
@@ -63,6 +63,12 @@ func (f *fake) server(t *testing.T) *httptest.Server {
 		}
 		return soup, 0
 	})
+	tool("get_media_recipes_by_recipe_images_by_file_name", func(args map[string]any) (string, int) {
+		if args["recipe_id"] != "c9fde254-ea2b-43ab-b693-d2860e13b24e" || args["file_name"] != "min-original.webp" {
+			return ": Not Found", http.StatusNotFound
+		}
+		return `{"contentType": "image/webp", "base64": "UklGRg=="}`, 0
+	})
 	tool("list_groups_self", func(map[string]any) (string, int) { return `{"slug": "home"}`, 0 })
 	h := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s }, nil)
 	f.restart = func() { h = mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s }, nil) }
@@ -100,6 +106,23 @@ func TestRecipes(t *testing.T) {
 		t.Fatalf("url: %q", r.URL)
 	}
 	if _, err := c.Recipe(ctx, "nope"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("unknown recipe: want ErrNotFound, got %v", err)
+	}
+	if all[0].Image != "z3GG" {
+		t.Fatalf("image version: %q", all[0].Image)
+	}
+}
+
+func TestImageGoesThroughTheMCPServer(t *testing.T) {
+	f := &fake{}
+	c, _ := mealie.New(f.server(t).URL, "tok", "")
+	ctx := context.Background()
+	// Without a listing first, the recipe's id is looked up by its slug.
+	img, err := c.Image(ctx, "soup")
+	if err != nil || img.ContentType != "image/webp" || string(img.Body) != "RIFF" {
+		t.Fatalf("image: %+v, %v", img, err)
+	}
+	if _, err := c.Image(ctx, "nope"); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("unknown recipe: want ErrNotFound, got %v", err)
 	}
 }

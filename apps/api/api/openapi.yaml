@@ -838,6 +838,27 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  /v1/households/{householdId}/recipes/{slug}/image:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/RecipeSlug"
+    get:
+      tags: [cook]
+      operationId: getRecipeImage
+      summary: A recipe's picture, about 600 pixels wide (members only)
+      description: Fetched from Mealie through the API, like everything else from Mealie. 404 when the recipe has none.
+      responses:
+        "200":
+          description: The picture.
+          headers:
+            Cache-Control: { required: true, schema: { type: string } }
+          content:
+            image/*:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
   /v1/households/{householdId}/shopping-list:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -1859,6 +1880,7 @@ components:
         tags:
           type: array
           items: { type: string }
+        imageUrl: { type: string, description: "The recipe's picture (getRecipeImage), versioned; absent when it has none." }
 
     Recipe:
       type: object
@@ -1868,6 +1890,7 @@ components:
         name: { type: string }
         description: { type: string }
         totalTime: { type: string }
+        imageUrl: { type: string, description: "The recipe's picture (getRecipeImage), versioned; absent when it has none." }
         servings: { type: string }
         tags:
           type: array

@@ -169,6 +169,8 @@ type RecipeBook interface {
 	Recipes(ctx context.Context) ([]domain.RecipeSummary, error)
 	// Recipe returns domain.ErrNotFound for an unknown slug.
 	Recipe(ctx context.Context, slug string) (domain.Recipe, error)
+	// Image returns the recipe's picture; domain.ErrNotFound when it has none.
+	Image(ctx context.Context, slug string) (domain.RecipeImage, error)
 }
 
 // ShoppingRepository keeps the household's shopping list. Calls that name an item return

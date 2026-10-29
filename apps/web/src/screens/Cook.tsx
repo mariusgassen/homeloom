@@ -132,7 +132,8 @@ export function Cook() {
             <Empty title={t("cook.emptyTitle")}>{t("cook.emptyBody")}</Empty>
           )}
           {result.suggestions.map(({ recipe, reason }) => (
-            <Link key={recipe.slug} to={`/cook/${recipe.slug}`} className="card-link">
+            <Link key={recipe.slug} to={`/cook/${recipe.slug}`} className="card-link recipe-card">
+              <RecipePhoto src={recipe.imageUrl} className="recipe-thumb" />
               <Card
                 eyebrow={<span>{[recipe.totalTime, ...recipe.tags.slice(0, 2)].filter(Boolean).join(" · ")}</span>}
                 title={recipe.name}
@@ -210,6 +211,7 @@ export function RecipeScreen() {
       )}
       {recipe && (
         <>
+          <RecipePhoto src={recipe.imageUrl} className="recipe-hero" />
           {(recipe.description ?? recipe.totalTime ?? recipe.servings) && (
             <p className="body muted recipe-intro">
               {[recipe.totalTime, recipe.servings && t("cook.servings", { servings: recipe.servings })].filter(Boolean).join(" · ")}
@@ -266,4 +268,11 @@ export function RecipeScreen() {
       )}
     </Screen>
   );
+}
+
+// A recipe's picture; nothing at all when it has none or it doesn't load.
+function RecipePhoto({ src, className }: { src?: string; className: string }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) return null;
+  return <img className={className} src={src} alt="" loading="lazy" onError={() => setFailed(true)} />;
 }
