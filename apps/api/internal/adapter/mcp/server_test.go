@@ -43,7 +43,7 @@ func newFixture(t *testing.T) *fixture {
 	store, sessions := memory.NewStore(), memory.NewSessions()
 	push := service.NewPush(store, &memory.Pusher{})
 	entries := service.NewEntry(store, store, store, push, time.UTC)
-	shopping := service.NewShopping(store, store)
+	shopping := service.NewShopping(store, store, nil)
 	cook := service.NewCook(store, nil, nil, shopping)
 	smart := memory.NewSmartHome([]domain.Scene{{ID: "scene.dinner", Name: "Dinner"}}, nil)
 	home := service.NewHome(store, store, sessions, smart)

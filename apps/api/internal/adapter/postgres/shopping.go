@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"cmp"
 	"context"
 	"errors"
 
@@ -34,7 +35,7 @@ func (s *Store) AddShoppingItems(ctx context.Context, items []domain.ShoppingIte
 			if it.Recipe != "" {
 				recipe = &it.Recipe
 			}
-			row, err := q.AddShoppingItem(ctx, sqlcgen.AddShoppingItemParams{HouseholdID: it.HouseholdID, Text: it.Text, Recipe: recipe, AddedBy: it.AddedBy})
+			row, err := q.AddShoppingItem(ctx, sqlcgen.AddShoppingItemParams{HouseholdID: it.HouseholdID, Text: it.Text, Recipe: recipe, AddedBy: it.AddedBy, Aisle: string(cmp.Or(it.Aisle, domain.AisleOther))})
 			if err != nil {
 				return err
 			}
@@ -91,8 +92,43 @@ func (s *Store) ShoppingSuggestions(ctx context.Context, householdID uuid.UUID, 
 	return out, nil
 }
 
+func (s *Store) SetShoppingItemAisle(ctx context.Context, householdID, id uuid.UUID, aisle domain.Aisle) (domain.ShoppingItem, error) {
+	row, err := s.q.SetShoppingItemAisle(ctx, sqlcgen.SetShoppingItemAisleParams{Aisle: string(aisle), ID: id, HouseholdID: householdID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ShoppingItem{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.ShoppingItem{}, err
+	}
+	return toShoppingItem(row), nil
+}
+
+func (s *Store) KnownAisles(ctx context.Context, householdID uuid.UUID, keys []string) (map[string]domain.Aisle, error) {
+	rows, err := s.q.KnownShoppingAisles(ctx, sqlcgen.KnownShoppingAislesParams{HouseholdID: householdID, Names: keys})
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]domain.Aisle, len(rows))
+	for _, r := range rows {
+		out[r.Name] = domain.Aisle(r.Aisle)
+	}
+	return out, nil
+}
+
+func (s *Store) RememberAisles(ctx context.Context, householdID uuid.UUID, aisles map[string]domain.Aisle) error {
+	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		q := s.q.WithTx(tx)
+		for name, aisle := range aisles {
+			if err := q.RememberShoppingAisle(ctx, sqlcgen.RememberShoppingAisleParams{HouseholdID: householdID, Name: name, Aisle: string(aisle)}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 func toShoppingItem(r sqlcgen.ShoppingItem) domain.ShoppingItem {
-	it := domain.ShoppingItem{ID: r.ID, HouseholdID: r.HouseholdID, Text: r.Text, AddedBy: r.AddedBy, DoneAt: r.DoneAt, Created: r.CreatedAt}
+	it := domain.ShoppingItem{ID: r.ID, HouseholdID: r.HouseholdID, Text: r.Text, Aisle: domain.Aisle(r.Aisle), AddedBy: r.AddedBy, DoneAt: r.DoneAt, Created: r.CreatedAt}
 	if r.Recipe != nil {
 		it.Recipe = *r.Recipe
 	}

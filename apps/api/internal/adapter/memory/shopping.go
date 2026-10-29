@@ -1,7 +1,9 @@
 package memory
 
 import (
+	"cmp"
 	"context"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -41,7 +43,7 @@ func (s *Store) AddShoppingItems(_ context.Context, items []domain.ShoppingItem)
 	defer s.mu.Unlock()
 	out := make([]domain.ShoppingItem, len(items))
 	for i, it := range items {
-		it.ID, it.Created, it.DoneAt = uuid.New(), time.Now(), nil
+		it.ID, it.Created, it.DoneAt, it.Aisle = uuid.New(), time.Now(), nil, cmp.Or(it.Aisle, domain.AisleOther)
 		s.shopping = append(s.shopping, it)
 		out[i] = it
 		key := historyKey{it.HouseholdID, strings.ToLower(it.Text)}
@@ -105,4 +107,41 @@ func (s *Store) ShoppingSuggestions(_ context.Context, householdID uuid.UUID, li
 		}
 	}
 	return rankSuggestions(out, limit), nil
+}
+
+func (s *Store) SetShoppingItemAisle(_ context.Context, householdID, id uuid.UUID, aisle domain.Aisle) (domain.ShoppingItem, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, it := range s.shopping {
+		if it.ID == id && it.HouseholdID == householdID {
+			s.shopping[i].Aisle = aisle
+			return s.shopping[i], nil
+		}
+	}
+	return domain.ShoppingItem{}, domain.ErrNotFound
+}
+
+func (s *Store) KnownAisles(_ context.Context, householdID uuid.UUID, keys []string) (map[string]domain.Aisle, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := map[string]domain.Aisle{}
+	for _, k := range keys {
+		if a, ok := s.aisles[householdID][k]; ok {
+			out[k] = a
+		}
+	}
+	return out, nil
+}
+
+func (s *Store) RememberAisles(_ context.Context, householdID uuid.UUID, aisles map[string]domain.Aisle) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.aisles == nil {
+		s.aisles = map[uuid.UUID]map[string]domain.Aisle{}
+	}
+	if s.aisles[householdID] == nil {
+		s.aisles[householdID] = map[string]domain.Aisle{}
+	}
+	maps.Copy(s.aisles[householdID], aisles)
+	return nil
 }

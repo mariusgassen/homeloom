@@ -129,9 +129,11 @@ func run() error {
 		}
 	}
 	var chef port.Chef
+	var grocer port.Grocer
 	var llm port.Assistant
 	if cfg.AnthropicAPIKey != "" {
 		chef = claude.NewChef(cfg.AnthropicAPIKey, cfg.LLMModel)
+		grocer = claude.NewGrocer(cfg.AnthropicAPIKey, cfg.LLMModel)
 		llm = claude.NewAssistant(cfg.AnthropicAPIKey, cfg.LLMModel)
 	}
 	// Tokens from signing in to Home Assistant or Plex are sealed with HOMELOOM_SECRET_KEY.
@@ -178,7 +180,7 @@ func run() error {
 	defer push.Wait()
 
 	entries := service.NewEntry(store, store, store, push, cfg.TimeZone)
-	shopping := service.NewShopping(store, store)
+	shopping := service.NewShopping(store, store, grocer)
 	go notifyDue(ctx, entries)
 	moments := service.NewMoments(store, store, store, push, cfg.TimeZone)
 	go notifyDaily(ctx, moments)

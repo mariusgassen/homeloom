@@ -65,7 +65,7 @@ func TestCookingNeedsMembershipAndMealie(t *testing.T) {
 	alice, eve := newUser(t, store, "alice"), newUser(t, store, "eve")
 	m, _ := service.NewHousehold(store).Create(ctx, alice, "Home")
 	book := memory.NewRecipeBook(recipes()...)
-	shopping := service.NewShopping(store, store)
+	shopping := service.NewShopping(store, store, nil)
 	cook := service.NewCook(store, book, memory.Chef{}, shopping)
 
 	if _, err := cook.Recipe(ctx, eve, m.Household.ID, "curry"); !errors.Is(err, domain.ErrNotFound) {

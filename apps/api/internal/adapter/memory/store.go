@@ -40,6 +40,8 @@ type Store struct {
 	shopping          []domain.ShoppingItem
 	shoppingHistory   map[historyKey]suggestion
 
+	aisles            map[uuid.UUID]map[string]domain.Aisle
+
 	conversations []domain.Conversation
 	chatMessages  []domain.ChatMessage
 

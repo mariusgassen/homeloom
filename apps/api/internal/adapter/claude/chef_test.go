@@ -75,3 +75,24 @@ func TestPickFailuresAreUnavailable(t *testing.T) {
 		}
 	}
 }
+
+func TestGrocerSortsItemsInOrder(t *testing.T) {
+	var seen map[string]any
+	srv := fakeAPI(t, "end_turn", `{"aisles":["dairy","produce"]}`, &seen)
+	g := claude.NewGrocer("key", "claude-opus-5-5", option.WithBaseURL(srv.URL))
+	got, err := g.Aisles(context.Background(), []string{"Milch", "2 Lauch"})
+	if err != nil || len(got) != 2 || got[0] != domain.AisleDairy || got[1] != domain.AisleProduce {
+		t.Fatalf("aisles: %v, %v", got, err)
+	}
+	if !strings.Contains(fmt.Sprint(seen["messages"]), "2. 2 Lauch") {
+		t.Fatalf("items not sent: %v", seen["messages"])
+	}
+}
+
+func TestGrocerWithTooFewAislesIsUnavailable(t *testing.T) {
+	srv := fakeAPI(t, "end_turn", `{"aisles":["dairy"]}`, nil)
+	g := claude.NewGrocer("key", "claude-opus-5-5", option.WithBaseURL(srv.URL))
+	if _, err := g.Aisles(context.Background(), []string{"Milch", "Lauch"}); !errors.Is(err, domain.ErrUnavailable) {
+		t.Fatalf("want ErrUnavailable, got %v", err)
+	}
+}

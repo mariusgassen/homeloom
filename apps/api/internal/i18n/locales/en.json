@@ -10,6 +10,7 @@
   "error.home_unavailable": "The smart home isn't reachable right now. Is Home Assistant set up and running?",
   "error.internal": "Something went wrong on our side.",
   "error.invalid": "The request is not valid.",
+  "error.invalid_aisle": "Pick one of the aisles.",
   "error.invalid_assignee": "Pick someone from your household. The reminder has to be shared for that.",
   "error.invalid_entry": "That doesn't work for this kind of entry.",
   "error.invalid_event_time": "Check the time: an event needs a start, and it can't end before it starts.",

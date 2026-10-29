@@ -191,6 +191,12 @@ type Question struct {
 	RevealedAt  *time.Time
 }
 
+type ShoppingAisle struct {
+	HouseholdID uuid.UUID
+	Name        string
+	Aisle       string
+}
+
 type ShoppingHistory struct {
 	HouseholdID uuid.UUID
 	Key         string
@@ -207,6 +213,7 @@ type ShoppingItem struct {
 	AddedBy     *uuid.UUID
 	DoneAt      *time.Time
 	CreatedAt   time.Time
+	Aisle       string
 }
 
 type User struct {

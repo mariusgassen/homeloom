@@ -57,7 +57,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		recipes = book
 	}
 	push := service.NewPush(store, &memory.Pusher{})
-	shopping := service.NewShopping(store, store)
+	shopping := service.NewShopping(store, store, nil)
 	smart := memory.NewSmartHome([]domain.Scene{{ID: "scene.dinner", Name: "Dinner"}}, []domain.Light{{ID: "light.kitchen", Name: "Kitchen"}})
 	entries := service.NewEntry(store, store, store, push, time.UTC)
 	cook := service.NewCook(store, recipes, memory.Chef{}, shopping)

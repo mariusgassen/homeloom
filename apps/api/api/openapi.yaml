@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.20.0
+  version: 0.21.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -902,6 +902,25 @@ paths:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
       - $ref: "#/components/parameters/ShoppingItemId"
+    patch:
+      tags: [shopping]
+      operationId: updateShoppingItem
+      summary: Move an item to another aisle
+      description: The household remembers it, so the same thing goes to that aisle from now on.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ShoppingItemUpdate" }
+      responses:
+        "200":
+          description: The item, moved.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShoppingItem" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
     delete:
       tags: [shopping]
       operationId: deleteShoppingItem
@@ -1892,12 +1911,26 @@ components:
       properties:
         text: { type: string, minLength: 1, maxLength: 200 }
 
+    ShoppingAisle:
+      type: string
+      enum: [produce, bakery, meat, dairy, frozen, pantry, drinks, household, other]
+      description: >-
+        Where in the shop the item is, listed in this order. New items go where the household put the
+        same thing before, else where Claude says, else `other`.
+
+    ShoppingItemUpdate:
+      type: object
+      required: [aisle]
+      properties:
+        aisle: { $ref: "#/components/schemas/ShoppingAisle" }
+
     ShoppingItem:
       type: object
-      required: [id, text, done, createdAt]
+      required: [id, text, aisle, done, createdAt]
       properties:
         id: { type: string, format: uuid }
         text: { type: string }
+        aisle: { $ref: "#/components/schemas/ShoppingAisle" }
         recipe: { type: string, description: "The recipe the item came from, if any." }
         addedBy: { type: string, format: uuid, description: Who added it; absent once they left. }
         done: { type: boolean }

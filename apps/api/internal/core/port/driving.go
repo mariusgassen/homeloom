@@ -114,6 +114,8 @@ type ShoppingService interface {
 	// Add puts the texts on the list, noting the recipe they came from ("" for none).
 	Add(ctx context.Context, actor domain.User, householdID uuid.UUID, texts []string, recipe string) ([]domain.ShoppingItem, error)
 	SetDone(ctx context.Context, actor domain.User, householdID, id uuid.UUID, done bool) (domain.ShoppingItem, error)
+	// SetAisle moves an item to another aisle; things with the same text go there from now on.
+	SetAisle(ctx context.Context, actor domain.User, householdID, id uuid.UUID, aisle domain.Aisle) (domain.ShoppingItem, error)
 	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
 	// ClearDone removes the ticked items.
 	ClearDone(ctx context.Context, actor domain.User, householdID uuid.UUID) error

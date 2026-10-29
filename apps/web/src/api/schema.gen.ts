@@ -670,7 +670,11 @@ export interface paths {
         delete: operations["deleteShoppingItem"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Move an item to another aisle
+         * @description The household remembers it, so the same thing goes to that aisle from now on.
+         */
+        patch: operations["updateShoppingItem"];
         trace?: never;
     };
     "/v1/households/{householdId}/shopping-list/items/{itemId}/done": {
@@ -1523,10 +1527,19 @@ export interface components {
         NewShoppingItem: {
             text: string;
         };
+        /**
+         * @description Where in the shop the item is, listed in this order. New items go where the household put the same thing before, else where Claude says, else `other`.
+         * @enum {string}
+         */
+        ShoppingAisle: "produce" | "bakery" | "meat" | "dairy" | "frozen" | "pantry" | "drinks" | "household" | "other";
+        ShoppingItemUpdate: {
+            aisle: components["schemas"]["ShoppingAisle"];
+        };
         ShoppingItem: {
             /** Format: uuid */
             id: string;
             text: string;
+            aisle: components["schemas"]["ShoppingAisle"];
             /** @description The recipe the item came from, if any. */
             recipe?: string;
             /**
@@ -3093,6 +3106,36 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateShoppingItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                itemId: components["parameters"]["ShoppingItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShoppingItemUpdate"];
+            };
+        };
+        responses: {
+            /** @description The item, moved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingItem"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };

@@ -30,7 +30,7 @@ func ShoppingItems(t *testing.T, s interface {
 	hh := home.Household.ID
 
 	added, err := s.AddShoppingItems(ctx, []domain.ShoppingItem{
-		{HouseholdID: hh, Text: "Milk", AddedBy: &alice.ID},
+		{HouseholdID: hh, Text: "Milk", AddedBy: &alice.ID, Aisle: domain.AisleDairy},
 		{HouseholdID: hh, Text: "Leek", Recipe: "Soup", AddedBy: &alice.ID},
 		{HouseholdID: hh, Text: "Bread"},
 	})
@@ -41,6 +41,27 @@ func ShoppingItems(t *testing.T, s interface {
 		t.Fatal(err)
 	}
 	milk, leek, bread := added[0].ID, added[1].ID, added[2].ID
+	if added[0].Aisle != domain.AisleDairy {
+		t.Fatalf("aisle: %q", added[0].Aisle)
+	}
+	if _, err := s.SetShoppingItemAisle(ctx, other.Household.ID, bread, domain.AisleBakery); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("move in another household: want ErrNotFound, got %v", err)
+	}
+	if it, err := s.SetShoppingItemAisle(ctx, hh, bread, domain.AisleBakery); err != nil || it.Aisle != domain.AisleBakery {
+		t.Fatalf("move: %+v, %v", it, err)
+	}
+	if err := s.RememberAisles(ctx, hh, map[string]domain.Aisle{"bread": domain.AislePantry, "milk": domain.AisleDairy}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RememberAisles(ctx, hh, map[string]domain.Aisle{"bread": domain.AisleBakery}); err != nil {
+		t.Fatal(err)
+	}
+	if known, err := s.KnownAisles(ctx, hh, []string{"bread", "milk", "tea"}); err != nil || len(known) != 2 || known["bread"] != domain.AisleBakery {
+		t.Fatalf("known aisles: %v, %v", known, err)
+	}
+	if known, err := s.KnownAisles(ctx, other.Household.ID, []string{"bread"}); err != nil || len(known) != 0 {
+		t.Fatalf("aisles of another household: %v, %v", known, err)
+	}
 
 	if _, err := s.SetShoppingItemDone(ctx, other.Household.ID, milk, true); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("tick in another household: want ErrNotFound, got %v", err)
