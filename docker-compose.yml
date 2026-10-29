@@ -101,6 +101,7 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       VOICE_LLM_MODEL: ${VOICE_LLM_MODEL:-claude-sonnet-5-5}
+      VOICE_NOISE_CANCELLATION: ${VOICE_NOISE_CANCELLATION:-dtln}
       HOMELOOM_MCP_URL: http://homeloom-api:8080/mcp
       TIME_ZONE: ${TIME_ZONE:-Europe/Berlin}
       LOG_LEVEL: ${LOG_LEVEL:-info}

@@ -5,6 +5,7 @@ import * as silero from "@livekit/agents-plugin-silero";
 import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import { greeting, instructions, parseCaller } from "./caller.js";
+import { DTLN, loadModels, sampleRate, type Models } from "./dtln.js";
 
 type TTSVoice = NonNullable<ConstructorParameters<typeof openai.TTS>[0]>["voice"];
 
@@ -13,13 +14,24 @@ const agentName = "homeloom";
 const mcpURL = process.env.HOMELOOM_MCP_URL || "http://homeloom-api:8080/mcp";
 const model = process.env.VOICE_LLM_MODEL || "claude-sonnet-5-5";
 const timeZone = process.env.TIME_ZONE || "UTC";
+// "dtln" denoises the caller's microphone before speech-to-text; "off" leaves it as it is.
+const noiseCancellation = (process.env.VOICE_NOISE_CANCELLATION || "dtln").toLowerCase();
+const modelDir = fileURLToPath(new URL("../models/", import.meta.url));
 
 export default defineAgent({
   prewarm: async (proc: JobProcess) => {
     proc.userData.vad = await silero.VAD.load();
+    if (noiseCancellation === "dtln") {
+      // Without the models the agent still answers, just without noise cancellation.
+      proc.userData.dtln = await loadModels(modelDir).catch((err) => {
+        console.warn(`noise cancellation is off: ${err}`);
+        return undefined;
+      });
+    }
   },
   entry: async (ctx: JobContext) => {
     const caller = parseCaller(ctx.job.metadata);
+    const dtln = ctx.proc.userData.dtln as Models | undefined;
     // Homeloom's own tools, acting as the caller with the key the API minted for this call.
     const homeloom = new llm.MCPServerHTTP({
       url: mcpURL,
@@ -50,6 +62,8 @@ export default defineAgent({
         tools: [new llm.MCPToolset({ id: "homeloom", mcpServer: homeloom })],
       }),
       room: ctx.room,
+      // DTLN runs at 16 kHz mono, which is plenty for voice detection and speech-to-text.
+      inputOptions: dtln && { audioSampleRate: sampleRate, audioNumChannels: 1, noiseCancellation: new DTLN(dtln) },
     });
     session.say(greeting(caller));
   },
