@@ -58,6 +58,26 @@ type EntryService interface {
 	CalendarFeed(ctx context.Context, token string) ([]domain.Entry, *time.Location, error)
 }
 
+// MomentService is the household's timeline: moments, gratitude lines and what comes back from
+// them.
+type MomentService interface {
+	// Month returns the moments of the month that day is in; the household's current month when
+	// it is zero.
+	Month(ctx context.Context, actor domain.User, householdID uuid.UUID, day time.Time) (domain.MomentMonth, error)
+	// Create keeps a moment, or writes the actor's gratitude line for today, replacing an earlier one.
+	Create(ctx context.Context, actor domain.User, householdID uuid.UUID, kind domain.MomentKind, f domain.MomentFields) (domain.Moment, error)
+	Get(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Moment, error)
+	Update(ctx context.Context, actor domain.User, id uuid.UUID, f domain.MomentFields) (domain.Moment, error)
+	Delete(ctx context.Context, actor domain.User, id uuid.UUID) error
+	// Resurfaced returns what the actor can see from this day in earlier years, and one older
+	// gratitude line at random (nil when there is none).
+	Resurfaced(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.Moment, *domain.Moment, error)
+	SetPhoto(ctx context.Context, actor domain.User, id uuid.UUID, p domain.Photo) (domain.Moment, error)
+	// Photo returns domain.ErrNotFound unless the actor can see the moment and its photo.
+	Photo(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Photo, error)
+	DeletePhoto(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Moment, error)
+}
+
 // EntrySyncService lets a calendar app (over CalDAV) or a notes app (over WebDAV) read and change
 // the events, reminders or notes its owner can see, one list at a time; "later" notes are in none.
 // Entries are named as the app names them: by the name the app gave one it made, else by

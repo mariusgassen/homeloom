@@ -69,6 +69,8 @@ type HouseholdRepository interface {
 	Role(ctx context.Context, householdID, userID uuid.UUID) (domain.Role, error)
 	Get(ctx context.Context, id uuid.UUID) (domain.Household, error)
 	Members(ctx context.Context, householdID uuid.UUID) ([]domain.Member, error)
+	// HouseholdIDs returns every household, for jobs that visit each one.
+	HouseholdIDs(ctx context.Context) ([]uuid.UUID, error)
 	CreateInvite(ctx context.Context, householdID, createdBy uuid.UUID, codeHash []byte, expiresAt time.Time) error
 	// AcceptInvite adds the user to the invite's household and uses the invite up, atomically.
 	// An existing member gets the membership back and the invite stays unused. It returns
@@ -118,6 +120,39 @@ type CalendarFeedRepository interface {
 	CalendarFeed(ctx context.Context, tokenHash []byte) (domain.CalendarFeed, error)
 	HasCalendarFeed(ctx context.Context, f domain.CalendarFeed) (bool, error)
 	DeleteCalendarFeed(ctx context.Context, f domain.CalendarFeed) error
+}
+
+// MomentRepository keeps the household's timeline. Lists hold only what the viewer may see: their
+// own moments and everyone's that are not private.
+type MomentRepository interface {
+	CreateMoment(ctx context.Context, m domain.Moment) (domain.Moment, error)
+	// SaveGratitude stores the author's line for m.Day, replacing one they wrote that day.
+	SaveGratitude(ctx context.Context, m domain.Moment) (domain.Moment, error)
+	// GetMoment returns domain.ErrNotFound for an unknown id.
+	GetMoment(ctx context.Context, id uuid.UUID) (domain.Moment, error)
+	// UpdateMoment stores the moment's fields.
+	UpdateMoment(ctx context.Context, m domain.Moment) (domain.Moment, error)
+	// DeleteMoment deletes it and its photo.
+	DeleteMoment(ctx context.Context, id uuid.UUID) error
+	// ListMoments returns the moments with from <= Day < to, newest day first, then newest first.
+	ListMoments(ctx context.Context, householdID, viewer uuid.UUID, from, to time.Time, limit int) ([]domain.Moment, error)
+	// LatestMomentDay returns the newest day before the given one with a moment, or domain.ErrNotFound.
+	LatestMomentDay(ctx context.Context, householdID, viewer uuid.UUID, before time.Time) (time.Time, error)
+	// MomentsOnDay returns the moments on today's month and day in earlier years, newest first.
+	MomentsOnDay(ctx context.Context, householdID, viewer uuid.UUID, today time.Time, limit int) ([]domain.Moment, error)
+	// RandomGratitude returns one gratitude line from before the day, at random, or domain.ErrNotFound.
+	RandomGratitude(ctx context.Context, householdID, viewer uuid.UUID, before time.Time) (domain.Moment, error)
+	// SetMomentPhoto replaces the moment's photo and sets its PhotoAt.
+	SetMomentPhoto(ctx context.Context, id uuid.UUID, p domain.Photo) error
+	// MomentPhoto returns domain.ErrNotFound when the moment has none.
+	MomentPhoto(ctx context.Context, id uuid.UUID) (domain.Photo, error)
+	DeleteMomentPhoto(ctx context.Context, id uuid.UUID) error
+}
+
+// JobRepository lets a daily job run once per day across all API instances.
+type JobRepository interface {
+	// ClaimJobRun returns true for the first caller with this job and day, false for every later one.
+	ClaimJobRun(ctx context.Context, job string, day time.Time) (bool, error)
 }
 
 // RecipeBook is the household's recipe collection (Mealie). Every method returns

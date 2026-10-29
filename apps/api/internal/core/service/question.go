@@ -95,7 +95,7 @@ func (s *Question) notifyRevealed(ctx context.Context, actor domain.User, q doma
 	s.notify.Notify(ctx, others, domain.Notification{
 		Key:  "push.revealed",
 		Args: []any{"name", actor.Name, "question", q.Text},
-		URL:  "/us",
+		URL:  "/us?show=questions",
 		Tag:  "question-" + q.ID.String(),
 	})
 }

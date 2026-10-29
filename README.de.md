@@ -54,12 +54,18 @@ Homeloom wächst mit eurem gemeinsamen Alltag. Die Funktionen sind danach sortie
 
 **Rund um den Tisch**
 - **Geschmacksprofile:** bewertet Gerichte und bekommt Ideen, die euch beiden schmecken.
-- **Essenserinnerungen:** Fotos und Notizen zu euren Gerichten, dazu ein Jahresrückblick.
+- **Essenserinnerungen:** Fotos und Notizen zu euren Gerichten, auf eurem Zeitstrahl, dazu ein Jahresrückblick.
 
 **Rund um euch zwei**
 - **Briefe an die Zukunft:** schreibt euch, versiegelt bis zu einem Datum oder Meilenstein.
-- **Dankbarkeitswand:** eine Zeile am Tag, die zufällig wieder auftaucht.
-- **„Wir“-Zeitstrahl:** eure gemeinsamen Momente, mit Monatsrückblick und „Heute vor …“.
+- **Dankbarkeitswand:** eine Zeile am Tag, die zufällig wieder auftaucht (begonnen).
+- **„Wir“-Zeitstrahl:** eure gemeinsamen Momente, mit Monatsrückblick und „Heute vor …“ (begonnen).
+- **Dankbarkeit auf Heute:** die Zeile des Tages direkt unter Heute schreiben, mit einem optionalen Hinweis am Abend, falls sie noch fehlt.
+- **Antworten aufheben:** eine geöffnete Frage mit einem Tipp auf euren Zeitstrahl legen.
+- **Reaktionen auf Momente:** ein Herz oder eine kurze Antwort auf die Momente des anderen.
+- **Gemeinsame Serien:** wie viele Tage am Stück ihr beide eine Zeile geschrieben habt, ohne schlechtes Gewissen für einen verpassten Tag.
+- **Jahresrückblick:** zu Neujahr ein geschriebener Blick zurück auf eure Momente und euer Danke.
+- **Frag nach Erinnerungen:** der Assistent schaut auf eurem Zeitstrahl nach („Was haben wir letzten Mai gemacht?“).
 
 **Ausgehen und Daheimbleiben**
 - **Date-Night-Ideen:** Vorschläge nach Wetter, Veranstaltungen in der Nähe, Budget und Laune.

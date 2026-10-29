@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.17.0
+  version: 0.18.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -26,6 +26,7 @@ tags:
   - name: households
   - name: questions
   - name: entries
+  - name: moments
   - name: cook
   - name: shopping
   - name: home
@@ -585,6 +586,192 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/households/{householdId}/moments:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [moments]
+      operationId: listMoments
+      summary: One month of the timeline you can see (members only)
+      description: |
+        Moments and gratitude lines of one month, newest day first: your own plus everyone's shared
+        and "later" ones; others' private ones never appear. A "later" moment by someone else carries
+        no text or photo until `revealAt` (`sealed` is true). At most 500.
+      parameters:
+        - name: month
+          in: query
+          description: "`YYYY-MM`; this month in the household's time zone when absent."
+          schema: { $ref: "#/components/schemas/Month" }
+      responses:
+        "200":
+          description: The month.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MomentMonth" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [moments]
+      operationId: createMoment
+      summary: Keep a moment, or write today's gratitude line
+      description: |
+        A gratitude line is always for today, in the household's time zone; writing a second one on
+        the same day replaces the first. A moment's `day` may lie in the past and is today when
+        absent. Only moments can open later (`reveal`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateMoment" }
+      responses:
+        "201":
+          description: The moment or line.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/moments/resurfaced:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [moments]
+      operationId: getResurfaced
+      summary: What comes back today
+      description: |
+        Moments and lines you can see from this day in earlier years, and one gratitude line from
+        more than a week ago, picked at random on every call. Sealed ones are left out.
+      responses:
+        "200":
+          description: Today's look back.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Resurfaced" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/moments/{momentId}:
+    parameters:
+      - $ref: "#/components/parameters/MomentId"
+    get:
+      tags: [moments]
+      operationId: getMoment
+      summary: One moment or gratitude line
+      responses:
+        "200":
+          description: The moment.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [moments]
+      operationId: updateMoment
+      summary: Change your moment or line
+      description: Only its author can change it. A gratitude line keeps its day.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MomentFields" }
+      responses:
+        "200":
+          description: The moment after the change.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: You can see it but not change it (code `not_yours`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [moments]
+      operationId: deleteMoment
+      summary: Delete your moment or line, with its photo
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: You can see it but not delete it (code `not_yours`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/moments/{momentId}/photo:
+    parameters:
+      - $ref: "#/components/parameters/MomentId"
+    get:
+      tags: [moments]
+      operationId: getMomentPhoto
+      summary: A moment's photo
+      description: Use the moment's `photoUrl`; it changes with the photo, so the answer may be cached.
+      parameters:
+        - name: v
+          in: query
+          description: The photo's version, part of `photoUrl`.
+          schema: { type: string, maxLength: 40 }
+      responses:
+        "200":
+          description: The photo.
+          headers:
+            Cache-Control:
+              schema: { type: string }
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [moments]
+      operationId: setMomentPhoto
+      summary: Add or replace the photo of your moment
+      description: A JPEG of at most 5 MB; the app makes photos smaller first. Gratitude lines have no photo.
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+      responses:
+        "200":
+          description: The moment with its photo.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: You can see it but not change it (code `not_yours`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [moments]
+      operationId: deleteMomentPhoto
+      summary: Remove the photo of your moment
+      responses:
+        "200":
+          description: The moment without a photo.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: You can see it but not change it (code `not_yours`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/households/{householdId}/cook/suggestions:
     parameters:
@@ -1317,6 +1504,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    MomentId:
+      name: momentId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     CallId:
       name: callId
       in: path
@@ -1448,7 +1640,7 @@ components:
       enum: [private, shared, reveal]
       description: |
         `private`: only the author. `shared`: every member. `reveal`: every member sees that it
-        exists, but its text opens only at `revealAt` (notes only).
+        exists, but its text opens only at `revealAt` (notes and moments only).
 
     Repeat:
       type: string
@@ -1499,6 +1691,67 @@ components:
         doneBy: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    MomentKind:
+      type: string
+      enum: [moment, gratitude]
+
+    Month:
+      type: string
+      pattern: "^[0-9]{4}-(0[1-9]|1[0-2])$"
+      example: 2026-10
+
+    MomentFields:
+      type: object
+      required: [text, visibility]
+      properties:
+        text: { type: string, minLength: 1, maxLength: 2000, description: "A moment's text, or a gratitude line (at most 200 characters)." }
+        visibility: { $ref: "#/components/schemas/Visibility" }
+        revealAt: { type: string, format: date-time, description: "When a `reveal` moment opens; required for it." }
+        day: { type: string, format: date, description: "Moments only: the day it happened, not after today. Today when absent." }
+
+    CreateMoment:
+      allOf:
+        - $ref: "#/components/schemas/MomentFields"
+        - type: object
+          required: [kind]
+          properties:
+            kind: { $ref: "#/components/schemas/MomentKind" }
+
+    Moment:
+      type: object
+      required: [id, kind, authorId, day, visibility, sealed, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: "#/components/schemas/MomentKind" }
+        authorId: { type: string, format: uuid }
+        day: { type: string, format: date }
+        visibility: { $ref: "#/components/schemas/Visibility" }
+        revealAt: { type: string, format: date-time }
+        sealed: { type: boolean, description: True while you may not read it yet; `text` and `photoUrl` are then absent. }
+        text: { type: string }
+        photoUrl: { type: string, description: Where its photo is, if it has one. }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    MomentMonth:
+      type: object
+      required: [month, moments]
+      properties:
+        month: { $ref: "#/components/schemas/Month" }
+        moments:
+          type: array
+          items: { $ref: "#/components/schemas/Moment" }
+        earlier: { $ref: "#/components/schemas/Month", description: "The latest earlier month with something you can see; absent when there is none." }
+
+    Resurfaced:
+      type: object
+      required: [onThisDay]
+      properties:
+        onThisDay:
+          type: array
+          items: { $ref: "#/components/schemas/Moment" }
+        gratitude: { $ref: "#/components/schemas/Moment" }
 
     CalendarFeedState:
       type: object

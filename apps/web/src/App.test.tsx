@@ -193,7 +193,7 @@ test("a question stays sealed until both have answered", async () => {
       }),
     ),
   );
-  renderApp("/us");
+  renderApp("/us?show=questions");
   expect(await screen.findByText("Jo has answered")).toBeInTheDocument();
   expect(screen.queryByText("Lisbon")).not.toBeInTheDocument();
   await userEvent.type(screen.getByLabelText("Your answer"), "Porto");
@@ -201,6 +201,65 @@ test("a question stays sealed until both have answered", async () => {
   expect(await screen.findByText("Lisbon")).toBeInTheDocument();
   expect(screen.getByText("Porto")).toBeInTheDocument();
   expect(await calls.find((c) => c.method === "PUT")?.json()).toEqual({ text: "Porto" });
+});
+
+// A local date as the API writes it, days from today.
+function isoDay(offset = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+test("the timeline shows the month, brings back a year ago and keeps today's line", async () => {
+  const month = isoDay().slice(0, 7);
+  const moment = (id: string, fields: object) => ({
+    id, authorId: jo.id, visibility: "shared", sealed: false, createdAt: "2026-10-01T08:00:00Z", updatedAt: "2026-10-01T08:00:00Z", ...fields,
+  });
+  const lake = moment("66666666-6666-4666-8666-666666666661", { kind: "moment", day: isoDay(), text: "Lake day", photoUrl: "/v1/moments/x/photo?v=1" });
+  const line = moment("66666666-6666-4666-8666-666666666662", { kind: "gratitude", day: isoDay(), text: "Your soup" });
+  const mine = moment("66666666-6666-4666-8666-666666666663", { kind: "gratitude", day: isoDay(), text: "The walk", authorId: marius.id });
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/moments`, () => json({ month, moments: [lake, line], earlier: "2025-10" })),
+    at("GET", `/v1/households/${home.id}/moments/resurfaced`, () =>
+      json({ onThisDay: [moment("66666666-6666-4666-8666-666666666664", { kind: "moment", day: "2025-10-28", text: "First apartment" })] }),
+    ),
+    at("POST", `/v1/households/${home.id}/moments`, () => json(mine, 201)),
+  );
+  renderApp("/us");
+  expect(await screen.findByText("Lake day")).toBeInTheDocument();
+  expect(screen.getByText("1 moment · 1 thank-you")).toBeInTheDocument();
+  expect(screen.getByText("On this day · 2025")).toBeInTheDocument();
+  // In the card for today and in the month.
+  expect(screen.getAllByText("Your soup")).toHaveLength(2);
+  expect(screen.getByRole("button", { name: "Earlier" })).toBeInTheDocument();
+
+  await userEvent.type(screen.getByLabelText("What are you grateful for today?"), " The walk ");
+  await userEvent.click(screen.getByRole("button", { name: "Just for me" }));
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  const post = calls.find((c) => c.method === "POST");
+  expect(await post?.json()).toEqual({ kind: "gratitude", text: "The walk", visibility: "private" });
+});
+
+test("keeping a moment sends what happened and the day", async () => {
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/moments`, () => json({ month: isoDay().slice(0, 7), moments: [] })),
+    at("GET", `/v1/households/${home.id}/moments/resurfaced`, () => json({ onThisDay: [] })),
+    at("POST", `/v1/households/${home.id}/moments`, () =>
+      json({ id: "77777777-7777-4777-8777-777777777777", kind: "moment", authorId: marius.id, day: isoDay(-1), visibility: "shared", sealed: false, text: "Pizza night", createdAt: "2026-10-28T08:00:00Z", updatedAt: "2026-10-28T08:00:00Z" }, 201),
+    ),
+  );
+  renderApp("/us");
+  expect(await screen.findByText("Your story starts here")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Keep a moment" }));
+  const sheet = screen.getByRole("dialog", { name: "New moment" });
+  await userEvent.type(within(sheet).getByLabelText("What happened"), "Pizza night");
+  fireEvent.change(within(sheet).getByLabelText("Day"), { target: { value: isoDay(-1) } });
+  await userEvent.click(within(sheet).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  const post = calls.find((c) => c.method === "POST");
+  expect(await post?.json()).toEqual({ kind: "moment", text: "Pizza night", visibility: "shared", day: isoDay(-1) });
 });
 
 test("settings creates an invite link", async () => {

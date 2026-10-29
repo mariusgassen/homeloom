@@ -44,6 +44,10 @@ type Store struct {
 
 	mcpTokens []mcpToken
 
+	moments      []domain.Moment
+	momentPhotos map[uuid.UUID]domain.Photo
+	jobRuns      map[string]bool
+
 	voices map[uuid.UUID]domain.VoiceSettings
 }
 
@@ -55,7 +59,11 @@ func NewStore() *Store {
 		invites:    map[string]*invite{},
 
 		calendarFeeds: map[string]domain.CalendarFeed{},
-		voices:        map[uuid.UUID]domain.VoiceSettings{},
+
+		momentPhotos: map[uuid.UUID]domain.Photo{},
+		jobRuns:      map[string]bool{},
+
+		voices: map[uuid.UUID]domain.VoiceSettings{},
 	}
 }
 
