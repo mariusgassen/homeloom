@@ -38,6 +38,21 @@ func (h *handlers) ListEntries(ctx context.Context, req oapi.ListEntriesRequestO
 	return out, nil
 }
 
+func (h *handlers) ListReminderSuggestions(ctx context.Context, req oapi.ListReminderSuggestionsRequestObject) (oapi.ListReminderSuggestionsResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ss, err := h.entries.Suggestions(ctx, u, req.HouseholdId)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.ListReminderSuggestions404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case err != nil:
+		return nil, err
+	}
+	return oapi.ListReminderSuggestions200JSONResponse(toTitleSuggestions(ss)), nil
+}
+
 func (h *handlers) CreateEntry(ctx context.Context, req oapi.CreateEntryRequestObject) (oapi.CreateEntryResponseObject, error) {
 	u, err := actor(ctx)
 	if err != nil {

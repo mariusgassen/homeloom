@@ -91,6 +91,20 @@ func (s *Store) DeleteEntry(ctx context.Context, id uuid.UUID) error {
 	return s.q.DeleteEntry(ctx, id)
 }
 
+func (s *Store) ReminderSuggestions(ctx context.Context, householdID, viewer uuid.UUID, limit int) ([]domain.TitleSuggestion, error) {
+	rows, err := s.q.ReminderSuggestions(ctx, sqlcgen.ReminderSuggestionsParams{
+		HouseholdID: householdID, Viewer: viewer, Lim: int32(min(limit, 1000)), //nolint:gosec // bounded above
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.TitleSuggestion, len(rows))
+	for i, r := range rows {
+		out[i] = domain.TitleSuggestion{Text: r.Text, Uses: int(r.Uses)}
+	}
+	return out, nil
+}
+
 func (s *Store) ClaimDue(ctx context.Context, now time.Time, limit int) ([]domain.Entry, error) {
 	rows, err := s.q.ClaimDue(ctx, sqlcgen.ClaimDueParams{Now: now, Lim: int32(min(limit, 1000))}) //nolint:gosec // bounded above
 	if err != nil {

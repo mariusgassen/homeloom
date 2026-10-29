@@ -344,6 +344,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/entries/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Reminders you set before, to set again (members only)
+         * @description Titles of past reminders you can see, most often used first, then most recently. Titles
+         *     of open reminders are left out. At most 20.
+         */
+        get: operations["listReminderSuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/calendar-feed": {
         parameters: {
             query?: never;
@@ -713,6 +736,29 @@ export interface paths {
         post?: never;
         /** Untick an item */
         delete: operations["untickShoppingItem"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/shopping-list/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Things you put on the shopping list before (members only)
+         * @description What the household has put on the list, most often first, then most recently, including
+         *     items since cleared. Items open on the list are left out. At most 20.
+         */
+        get: operations["listShoppingSuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1548,6 +1594,12 @@ export interface components {
             doneAt?: string;
             /** Format: date-time */
             createdAt: string;
+        };
+        TitleSuggestion: {
+            /** @description The title, as it was last written. */
+            text: string;
+            /** @description How often it was used. */
+            uses: number;
         };
         Home: {
             /** @description Whether you have connected your Home Assistant account. */
@@ -2389,6 +2441,30 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listReminderSuggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The suggestions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleSuggestion"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getCalendarFeed: {
         parameters: {
             query?: never;
@@ -3184,6 +3260,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ShoppingItem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listShoppingSuggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The suggestions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleSuggestion"][];
                 };
             };
             401: components["responses"]["Unauthorized"];

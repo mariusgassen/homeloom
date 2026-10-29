@@ -138,6 +138,9 @@ func TestEntryVisibility(t *testing.T) {
 	if _, err := f.entries.List(ctx, f.eve, f.household, ""); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("non-member list: want ErrNotFound, got %v", err)
 	}
+	if _, err := f.entries.Suggestions(ctx, f.eve, f.household); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("non-member suggestions: want ErrNotFound, got %v", err)
+	}
 	if _, err := f.entries.Get(ctx, f.eve, letter.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("non-member get: want ErrNotFound, got %v", err)
 	}
@@ -443,5 +446,48 @@ func TestNotePhotos(t *testing.T) {
 	}
 	if _, err := f.entries.AddPhoto(ctx, f.alice, note.ID, pic); !errors.Is(err, domain.ErrNotePhotos) {
 		t.Fatalf("one too many: %v", err)
+	}
+}
+
+func TestNotePhotosInAPhotoStore(t *testing.T) {
+	ctx := context.Background()
+	f := newEntryFixture(t)
+	jpeg := domain.Photo{ContentType: "image/jpeg", Data: []byte{0xFF, 0xD8, 0xFF, 1}}
+	note := f.create(t, f.alice, domain.KindNote, domain.EntryFields{Text: "# Trip", Visibility: domain.VisibilityShared})
+	// A photo from before the store was set up stays in the repository and is still served.
+	old, err := f.entries.AddPhoto(ctx, f.alice, note.ID, jpeg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	photos := memory.NewPhotos()
+	f.entries.WithPhotos(photos)
+	if p, err := f.entries.Photo(ctx, f.bob, note.ID, old); err != nil || len(p.Data) != 4 {
+		t.Fatalf("photo from before: %+v, %v", p, err)
+	}
+
+	kept, err := f.entries.AddPhoto(ctx, f.alice, note.ID, jpeg)
+	if err != nil || photos.Len() != 1 {
+		t.Fatalf("add photo: %v, %d in the store", err, photos.Len())
+	}
+	if p, err := f.store.EntryPhoto(ctx, note.ID, kept); err != nil || len(p.Data) != 0 {
+		t.Fatalf("photo bytes also in the repository: %+v, %v", p, err)
+	}
+	if p, err := f.entries.Photo(ctx, f.bob, note.ID, kept); err != nil || len(p.Data) != 4 {
+		t.Fatalf("photo from the store: %+v, %v", p, err)
+	}
+	dropped, err := f.entries.AddPhoto(ctx, f.alice, note.ID, jpeg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Unlinking a photo deletes it from the store too, and so does deleting the note.
+	text := "# Trip\n\n![](/v1/entries/" + note.ID.String() + "/photos/" + kept.String() + ")"
+	if _, err := f.entries.Update(ctx, f.alice, note.ID, domain.EntryFields{Text: text, Visibility: domain.VisibilityShared}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.entries.Photo(ctx, f.alice, note.ID, dropped); !errors.Is(err, domain.ErrNotFound) || photos.Len() != 1 {
+		t.Fatalf("unlinked photo: %v, %d in the store", err, photos.Len())
+	}
+	if err := f.entries.Delete(ctx, f.alice, note.ID); err != nil || photos.Len() != 0 {
+		t.Fatalf("delete note: %v, %d in the store", err, photos.Len())
 	}
 }

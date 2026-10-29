@@ -5,6 +5,7 @@ import { CallProvider } from "./call";
 import { CallView, GuestCall, IncomingCall } from "./screens/Call";
 import { AssistantContext } from "./assistant";
 import { Assistant } from "./screens/Assistant";
+import { useNotificationLinks } from "./links";
 import { Join, pendingInvite } from "./screens/Join";
 import { Onboarding } from "./screens/Onboarding";
 import { Settings } from "./screens/Settings";
@@ -30,6 +31,7 @@ export function App() {
   // Bumped when the assistant may have changed something, so the screen behind it loads again.
   const [generation, setGeneration] = useState(0);
   const assistant = useMemo(() => ({ open: () => setAsking(true) }), []);
+  useNotificationLinks();
 
   useEffect(() => {
     if (linked) pendingInvite.set(linked);

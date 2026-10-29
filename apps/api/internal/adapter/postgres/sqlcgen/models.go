@@ -199,6 +199,14 @@ type Question struct {
 	RevealedAt  *time.Time
 }
 
+type ShoppingHistory struct {
+	HouseholdID uuid.UUID
+	Key         string
+	Text        string
+	Uses        int32
+	LastUsed    time.Time
+}
+
 type ShoppingItem struct {
 	ID          uuid.UUID
 	HouseholdID uuid.UUID

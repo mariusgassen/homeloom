@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
 import { api, type Entry, type EntryKind, type HouseholdDetail, type User } from "../api/client";
-import { sameDay, setDone, startOfDay, useEntries } from "../entries";
+import { sameDay, setDone, startOfDay, useEntries, useShowDone } from "../entries";
 import { excerpt, firstPhoto } from "../notes";
 import { useSession } from "../session";
 import { Empty } from "../ui/Empty";
@@ -10,6 +10,7 @@ import { Icon } from "../ui/Icon";
 import { ListRow } from "../ui/ListRow";
 import { MarkdownText } from "../ui/Markdown";
 import { ThreadAvatar, threadFor } from "../ui/ThreadAvatar";
+import { DoneToggle } from "./DoneToggle";
 import { EntrySheet } from "./EntrySheet";
 import { Shopping } from "./Shopping";
 import { Screen } from "./Screen";
@@ -60,7 +61,7 @@ export function Lists() {
           </button>
         ))}
       </div>
-      {kind === null && <Shopping householdId={household.id} />}
+      {kind === null && <Shopping householdId={household.id} userId={me.id} />}
       {kind && failed && (
         <p className="callout error" role="alert">
           {t("entries.failed")}
@@ -134,6 +135,7 @@ function Reminders({ entries, household, me, onOpen, onChange }: {
 }) {
   const { t } = useTranslation();
   const { moment } = useWhen();
+  const [showDone, toggleDone] = useShowDone(me.id, "reminders");
   const open = entries.filter((e) => !e.doneAt);
   const done = entries.filter((e) => e.doneAt);
   const subtitle = (e: Entry) =>
@@ -164,8 +166,11 @@ function Reminders({ entries, household, me, onOpen, onChange }: {
       {open.length > 0 && <div className="hl-list">{open.map(row)}</div>}
       {done.length > 0 && (
         <section className="group">
-          <h2 className="label group-title">{t("entries.done")}</h2>
-          <div className="hl-list">{done.map(row)}</div>
+          <div className="shopping-done">
+            <h2 className="label group-title">{t("entries.done")}</h2>
+            <DoneToggle count={done.length} shown={showDone} onToggle={toggleDone} />
+          </div>
+          {showDone && <div className="hl-list">{done.map(row)}</div>}
         </section>
       )}
     </>

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
@@ -34,12 +35,21 @@ type Entry struct {
 	notify     notifier
 	loc        *time.Location
 	now        func() time.Time
+	// photos is where notes' photos go; nil keeps them in the entry repository.
+	photos port.PhotoStore
 }
 
 // NewEntry places all-day events and repeats in loc, the household's time zone, so they keep
 // their wall-clock time.
 func NewEntry(households port.HouseholdRepository, entries port.EntryRepository, feeds port.CalendarFeedRepository, notify notifier, loc *time.Location) *Entry {
 	return &Entry{households: households, entries: entries, feeds: feeds, notify: notify, loc: loc, now: time.Now}
+}
+
+// WithPhotos keeps new photos in notes in photos; the entry repository then only keeps that they
+// exist. Photos from before stay where they are and are still served from there.
+func (s *Entry) WithPhotos(photos port.PhotoStore) *Entry {
+	s.photos = photos
+	return s
 }
 
 func (s *Entry) List(ctx context.Context, actor domain.User, householdID uuid.UUID, kind domain.EntryKind) ([]domain.Entry, error) {
@@ -112,6 +122,13 @@ func (s *Entry) Get(ctx context.Context, actor domain.User, id uuid.UUID) (domai
 	return sealEntry(e, actor.ID, s.now()), nil
 }
 
+func (s *Entry) Suggestions(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.TitleSuggestion, error) {
+	if _, err := s.households.Role(ctx, householdID, actor.ID); err != nil {
+		return nil, err
+	}
+	return s.entries.ReminderSuggestions(ctx, householdID, actor.ID, domain.MaxSuggestions)
+}
+
 func (s *Entry) Update(ctx context.Context, actor domain.User, id uuid.UUID, f domain.EntryFields) (domain.Entry, error) {
 	e, err := s.editable(ctx, actor, id)
 	if err != nil {
@@ -144,10 +161,26 @@ func (s *Entry) prunePhotos(ctx context.Context, e domain.Entry) error {
 		return err
 	}
 	ids = slices.DeleteFunc(ids, func(id uuid.UUID) bool { return strings.Contains(e.Text, id.String()) })
+	return s.deletePhotos(ctx, e.ID, ids)
+}
+
+func (s *Entry) deletePhotos(ctx context.Context, entryID uuid.UUID, ids []uuid.UUID) error {
 	if len(ids) == 0 {
 		return nil
 	}
-	return s.entries.DeleteEntryPhotos(ctx, e.ID, ids)
+	if s.photos != nil {
+		for _, id := range ids {
+			if err := s.photos.DeletePhoto(ctx, notePhotoKey(entryID, id)); err != nil {
+				return err
+			}
+		}
+	}
+	return s.entries.DeleteEntryPhotos(ctx, entryID, ids)
+}
+
+// notePhotoKey is where a photo in a note is kept in the PhotoStore.
+func notePhotoKey(entryID, photoID uuid.UUID) string {
+	return "notes/" + entryID.String() + "/" + photoID.String() + ".jpg"
 }
 
 func (s *Entry) AddPhoto(ctx context.Context, actor domain.User, id uuid.UUID, p domain.Photo) (uuid.UUID, error) {
@@ -167,7 +200,18 @@ func (s *Entry) AddPhoto(ctx context.Context, actor domain.User, id uuid.UUID, p
 	if len(ids) >= domain.MaxNotePhotos {
 		return uuid.Nil, domain.ErrNotePhotos
 	}
-	return s.entries.AddEntryPhoto(ctx, id, p)
+	if s.photos == nil {
+		return s.entries.AddEntryPhoto(ctx, id, p)
+	}
+	// The repository keeps that the photo exists, without its bytes, so it can be counted and pruned.
+	photoID, err := s.entries.AddEntryPhoto(ctx, id, domain.Photo{ContentType: p.ContentType})
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if err := s.photos.PutPhoto(ctx, notePhotoKey(id, photoID), p); err != nil {
+		return uuid.Nil, errors.Join(err, s.entries.DeleteEntryPhotos(ctx, id, []uuid.UUID{photoID}))
+	}
+	return photoID, nil
 }
 
 func (s *Entry) Photo(ctx context.Context, actor domain.User, id, photoID uuid.UUID) (domain.Photo, error) {
@@ -178,12 +222,26 @@ func (s *Entry) Photo(ctx context.Context, actor domain.User, id, photoID uuid.U
 	if e.Sealed {
 		return domain.Photo{}, domain.ErrNotFound
 	}
-	return s.entries.EntryPhoto(ctx, id, photoID)
+	p, err := s.entries.EntryPhoto(ctx, id, photoID)
+	if err != nil || len(p.Data) > 0 || s.photos == nil {
+		return p, err
+	}
+	return s.photos.GetPhoto(ctx, notePhotoKey(id, photoID))
 }
 
 func (s *Entry) Delete(ctx context.Context, actor domain.User, id uuid.UUID) error {
-	if _, err := s.editable(ctx, actor, id); err != nil {
+	e, err := s.editable(ctx, actor, id)
+	if err != nil {
 		return err
+	}
+	if e.Kind == domain.KindNote {
+		ids, err := s.entries.EntryPhotoIDs(ctx, id)
+		if err != nil {
+			return err
+		}
+		if err := s.deletePhotos(ctx, id, ids); err != nil {
+			return err
+		}
 	}
 	return s.entries.DeleteEntry(ctx, id)
 }
