@@ -1,4 +1,8 @@
+import { createReadStream, readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
+import type { Plugin } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 import { defineConfig } from "vitest/config";
 
@@ -6,9 +10,31 @@ import { defineConfig } from "vitest/config";
 // Vite server proxies them, so the session cookie is first-party in both cases.
 const apiPaths = ["/auth", "/v1", "/healthz", "/readyz"];
 
+// mediapipe serves MediaPipe's runtime for call effects at /mediapipe/ from Homeloom itself, so
+// no camera frame or request goes to a CDN; its models are in public/mediapipe/.
+function mediapipe(): Plugin {
+  const dir = fileURLToPath(new URL("node_modules/@mediapipe/tasks-vision/wasm/", import.meta.url));
+  const files = readdirSync(dir);
+  return {
+    name: "homeloom-mediapipe",
+    configureServer(server) {
+      server.middlewares.use("/mediapipe/", (req, res, next) => {
+        const file = req.url?.slice(1).split("?")[0];
+        if (!file || !files.includes(file)) return next();
+        res.setHeader("Content-Type", file.endsWith(".wasm") ? "application/wasm" : "text/javascript");
+        createReadStream(join(dir, file)).pipe(res);
+      });
+    },
+    generateBundle() {
+      for (const file of files) this.emitFile({ type: "asset", fileName: `mediapipe/${file}`, source: readFileSync(join(dir, file)) });
+    },
+  };
+}
+
 export default defineConfig({
   plugins: [
     react(),
+    mediapipe(),
     VitePWA({
       registerType: "autoUpdate",
       manifest: {
@@ -33,6 +59,8 @@ export default defineConfig({
         // Sign-in and API calls must always reach the server, never the app shell.
         navigateFallbackDenylist: apiPaths.map((p) => new RegExp(`^${p}`)),
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+        // Call effects load their runtime when first used, not with the app.
+        globIgnores: ["mediapipe/**", "assets/effects-*.js"],
         // Web Push: showing notifications and opening them (public/push-sw.js).
         importScripts: ["push-sw.js"],
       },

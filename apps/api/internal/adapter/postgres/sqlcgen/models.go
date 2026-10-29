@@ -131,6 +131,11 @@ type Invite struct {
 	CreatedAt   time.Time
 }
 
+type JobRun struct {
+	Job string
+	Day time.Time
+}
+
 type McpToken struct {
 	ID          uuid.UUID
 	TokenHash   []byte
@@ -146,6 +151,26 @@ type Membership struct {
 	UserID      uuid.UUID
 	Role        HouseholdRole
 	CreatedAt   time.Time
+}
+
+type Moment struct {
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+	AuthorID    uuid.UUID
+	Kind        string
+	Day         time.Time
+	Visibility  string
+	RevealAt    *time.Time
+	Text        string
+	PhotoAt     *time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type MomentPhoto struct {
+	MomentID    uuid.UUID
+	ContentType string
+	Data        []byte
 }
 
 type PushSubscription struct {

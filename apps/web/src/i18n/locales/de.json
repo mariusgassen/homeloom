@@ -82,6 +82,11 @@
     "decline": "Jetzt nicht",
     "mute": "Stumm",
     "camera": "Kamera",
+    "flip": "Kamera wechseln",
+    "react": "Reagieren",
+    "effects": { "title": "Effekte", "blur": "Hintergrund weich", "shades": "Sonnenbrille", "crown": "Krone", "cat": "Katze", "hearts": "Herzaugen", "clown": "Clownsnase" },
+    "swap": "Ansicht tauschen",
+    "spotlight": "{{name}} groß zeigen",
     "hangUp": "Auflegen",
     "tapToHear": "Tippen zum Hören",
     "agent": { "initializing": "Kommt dazu…", "listening": "Hört zu", "thinking": "Denkt nach…", "speaking": "Spricht" },
@@ -90,7 +95,22 @@
   "us": {
     "title": "Noch keine Fragen",
     "body": "Stell die erste.",
+    "tabs": { "moments": "Momente", "questions": "Fragen" },
     "alone": { "title": "Zu zweit geht's besser", "body": "Lade zuerst deinen Schatz ein." }
+  },
+  "moments": {
+    "add": "Moment festhalten", "new": "Neuer Moment", "edit": "Moment",
+    "text": "Was war?", "day": "Tag",
+    "photo": "Foto hinzufügen", "photoChange": "Anderes Foto", "photoRemove": "Foto entfernen",
+    "photoFailed": "Das Foto hat nicht geklappt. Versuch bitte ein anderes.",
+    "empty": { "title": "Hier beginnt eure Geschichte", "body": "Halt den ersten Moment fest." },
+    "earlier": "Früher",
+    "count": { "moments_one": "{{count}} Moment", "moments_other": "{{count}} Momente", "thanks_one": "{{count}}× Danke", "thanks_other": "{{count}}× Danke" },
+    "onThisDay": "An diesem Tag · {{year}}",
+    "grateful": "{{name}} war dankbar", "gratefulMe": "Du warst dankbar",
+    "gratitude": { "eyebrow": "Heute dankbar für", "label": "Wofür bist du heute dankbar?", "placeholder": "Eine Zeile reicht", "save": "Sichern", "change": "Meine Zeile ändern" },
+    "justMe": "Nur für mich", "you": "Du",
+    "failed": "Das hat nicht geklappt. Versuch es bitte noch mal."
   },
   "entries": {
     "add": "Hinzufügen",
