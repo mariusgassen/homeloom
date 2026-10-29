@@ -1,5 +1,6 @@
 import { AudioFrame } from "@livekit/rtc-node";
 import * as ort from "onnxruntime-node";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { DTLN, fft, sampleRate, type Model, type Models } from "./dtln.js";
 
@@ -74,5 +75,15 @@ describe("DTLN", () => {
     broken.process(new AudioFrame(new Int16Array(n), sampleRate, 1, n));
     await new Promise((resolve) => setTimeout(resolve, 5));
     expect(broken.isEnabled()).toBe(false);
+  });
+});
+
+describe("onnxruntime-node", () => {
+  // Silero loads its own copy first, and a second version fails to load in the same process.
+  it("is the version Silero uses", () => {
+    const read = (path: string) => JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
+    const ours = read("../package.json").dependencies["onnxruntime-node"];
+    const silero = read("../node_modules/@livekit/agents-plugin-silero/package.json").dependencies["onnxruntime-node"];
+    expect(ours).toBe(silero);
   });
 });

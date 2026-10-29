@@ -1,7 +1,7 @@
 # Slim (glibc), not Alpine: LiveKit's WebRTC bindings and the voice activity model are glibc builds.
 FROM node:26-slim AS build
 WORKDIR /src
-# ONNX Runtime runs on the CPU here; skip its CUDA libraries (hundreds of MB per copy).
+# ONNX Runtime runs on the CPU here; skip its CUDA libraries (hundreds of MB).
 ENV ONNXRUNTIME_NODE_INSTALL=skip
 COPY package.json package-lock.json ./
 RUN npm ci
