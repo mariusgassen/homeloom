@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
 	goredis "github.com/redis/go-redis/v9"
 
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/domain"
@@ -27,7 +28,8 @@ func Connect(url string) (*goredis.Client, error) {
 
 // UserCache sits in front of a UserRepository so that an authenticated request does not
 // write to Postgres every time. The key covers every identity field, so a changed name or
-// avatar in authentik misses the cache and is written through immediately.
+// avatar in authentik misses the cache and is written through immediately. A picture set in
+// Homeloom drops the user's cached entries, so it shows on the next request.
 // cacheTimeout bounds each Redis call, so a Redis outage costs a request milliseconds, not seconds.
 const cacheTimeout = 250 * time.Millisecond
 
@@ -63,11 +65,59 @@ func (c *UserCache) UpsertByIdentity(ctx context.Context, id domain.Identity) (d
 	if raw, err := json.Marshal(u); err == nil {
 		setCtx, cancel := context.WithTimeout(ctx, cacheTimeout)
 		defer cancel()
-		if err := c.client.Set(setCtx, key, raw, c.ttl).Err(); err != nil {
+		// Each user's keys are remembered too, so forget can find them.
+		_, err := c.client.TxPipelined(setCtx, func(p goredis.Pipeliner) error {
+			p.Set(setCtx, key, raw, c.ttl)
+			p.SAdd(setCtx, userKeys(u.ID), key)
+			p.Expire(setCtx, userKeys(u.ID), c.ttl)
+			return nil
+		})
+		if err != nil {
 			slog.WarnContext(ctx, "user cache write failed", "err", err)
 		}
 	}
 	return u, nil
+}
+
+func (c *UserCache) SetAvatar(ctx context.Context, userID uuid.UUID, p domain.Photo) (domain.User, error) {
+	u, err := c.next.SetAvatar(ctx, userID, p)
+	if err == nil {
+		c.forget(ctx, userID)
+	}
+	return u, err
+}
+
+func (c *UserCache) DeleteAvatar(ctx context.Context, userID uuid.UUID) (domain.User, error) {
+	u, err := c.next.DeleteAvatar(ctx, userID)
+	if err == nil {
+		c.forget(ctx, userID)
+	}
+	return u, err
+}
+
+func (c *UserCache) Avatar(ctx context.Context, userID uuid.UUID) (domain.Photo, error) {
+	return c.next.Avatar(ctx, userID)
+}
+
+func (c *UserCache) SharesHousehold(ctx context.Context, a, b uuid.UUID) (bool, error) {
+	return c.next.SharesHousehold(ctx, a, b)
+}
+
+// forget drops the user's cached entries. If Redis is down they expire with the TTL instead.
+func (c *UserCache) forget(ctx context.Context, userID uuid.UUID) {
+	ctx, cancel := context.WithTimeout(ctx, cacheTimeout)
+	defer cancel()
+	keys, err := c.client.SMembers(ctx, userKeys(userID)).Result()
+	if err == nil {
+		err = c.client.Del(ctx, append(keys, userKeys(userID))...).Err()
+	}
+	if err != nil {
+		slog.WarnContext(ctx, "user cache forget failed", "err", err)
+	}
+}
+
+func userKeys(id uuid.UUID) string {
+	return "homeloom:user-keys:" + id.String()
 }
 
 func identityKey(id domain.Identity) string {

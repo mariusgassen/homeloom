@@ -62,6 +62,13 @@ type SessionStore interface {
 
 type UserRepository interface {
 	UpsertByIdentity(ctx context.Context, id domain.Identity) (domain.User, error)
+	// SetAvatar and DeleteAvatar return the user as it is afterwards; Avatar returns
+	// domain.ErrNotFound when the user has set none.
+	SetAvatar(ctx context.Context, userID uuid.UUID, p domain.Photo) (domain.User, error)
+	Avatar(ctx context.Context, userID uuid.UUID) (domain.Photo, error)
+	DeleteAvatar(ctx context.Context, userID uuid.UUID) (domain.User, error)
+	// SharesHousehold reports whether a and b are members of one household together.
+	SharesHousehold(ctx context.Context, a, b uuid.UUID) (bool, error)
 }
 
 type HouseholdRepository interface {

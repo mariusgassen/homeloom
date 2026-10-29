@@ -79,6 +79,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Push:          push,
 		Calls:         service.NewCall(store, sessions, memory.NewCallServer(), push).WithVoiceAgent("homeloom", agents).WithVoice(voice),
 		Voice:         voice,
+		Avatars:       service.NewAvatars(store),
 		Assistant:     service.NewAssistant(store, store, &memory.Assistant{}, entries, cook, shopping, home, time.UTC),
 		Agents:        agents,
 		HealthChecks:  checks,
@@ -194,6 +195,60 @@ func TestUnknownPath(t *testing.T) {
 	code, body := do(t, newServer(t), "GET", "/v1/nope", "token-alice", "")
 	if code != http.StatusNotFound || body["code"] != "not_found" {
 		t.Fatalf("got %d %v", code, body)
+	}
+}
+
+func TestAvatarsFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	_, inv := do(t, h, "POST", "/v1/households/"+created["id"].(string)+"/invites", "token-alice", "")
+	do(t, h, "POST", "/v1/invites/"+inv["code"].(string), "token-bob", "")
+	_, eve := do(t, h, "GET", "/v1/me", "token-eve", "")
+
+	put := func(body string) (int, map[string]any) {
+		t.Helper()
+		req := httptest.NewRequest("PUT", "/v1/me/avatar", strings.NewReader(body))
+		req.Header.Set("Content-Type", "image/jpeg")
+		req.Header.Set("Authorization", "Bearer token-alice")
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		var out map[string]any
+		_ = json.Unmarshal(rec.Body.Bytes(), &out)
+		return rec.Code, out
+	}
+	if code, body := put("not a jpeg"); code != 400 || body["code"] != "invalid_photo" {
+		t.Fatalf("not a JPEG: %d %v", code, body)
+	}
+	jpeg := "\xFF\xD8\xFF\xE0 a face"
+	code, alice := put(jpeg)
+	url, _ := alice["avatarUrl"].(string)
+	if code != 200 || !strings.HasPrefix(url, "/v1/users/"+alice["id"].(string)+"/avatar?v=") {
+		t.Fatalf("set avatar: %d %v", code, alice)
+	}
+	if _, me := do(t, h, "GET", "/v1/me", "token-alice", ""); me["avatarUrl"] != url {
+		t.Fatalf("me without the new picture: %v", me)
+	}
+	get := func(token string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("GET", url, nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	if rec := get("token-bob"); rec.Code != 200 || rec.Body.String() != jpeg || !strings.Contains(rec.Header().Get("Cache-Control"), "private") {
+		t.Fatalf("partner sees it: %d %q %v", rec.Code, rec.Body.String(), rec.Header())
+	}
+	if rec := get("token-eve"); rec.Code != 404 {
+		t.Fatalf("stranger sees it: %d", rec.Code)
+	}
+	if code, _ := do(t, h, "GET", "/v1/users/"+eve["id"].(string)+"/avatar", "token-alice", ""); code != 404 {
+		t.Fatalf("no picture: %d", code)
+	}
+	if code, body := do(t, h, "DELETE", "/v1/me/avatar", "token-alice", ""); code != 200 || body["avatarUrl"] != nil {
+		t.Fatalf("remove avatar: %d %v", code, body)
+	}
+	if rec := get("token-alice"); rec.Code != 404 {
+		t.Fatalf("removed avatar: %d", rec.Code)
 	}
 }
 

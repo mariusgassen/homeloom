@@ -17,6 +17,7 @@ type handlers struct {
 	version    string
 	publicURL  string
 	households port.HouseholdService
+	avatars    port.AvatarService
 	questions  port.QuestionService
 	entries    port.EntryService
 	moments    port.MomentService
@@ -134,7 +135,7 @@ func (h *handlers) GetHousehold(ctx context.Context, req oapi.GetHouseholdReques
 }
 
 func toUser(u domain.User) oapi.User {
-	return oapi.User{Id: u.ID, Name: u.Name, Email: optional(u.Email), AvatarUrl: optional(u.AvatarURL)}
+	return oapi.User{Id: u.ID, Name: u.Name, Email: optional(u.Email), AvatarUrl: optional(avatarURL(u))}
 }
 
 func toHousehold(m domain.Membership) oapi.Household {

@@ -55,7 +55,7 @@ func (s *Store) MCPTokenByHash(ctx context.Context, tokenHash []byte) (domain.MC
 		return domain.MCPToken{}, domain.User{}, err
 	}
 	t := domain.MCPToken{ID: r.ID, UserID: r.UserID, HouseholdID: r.HouseholdID, Name: r.Name, Access: domain.TokenAccess(r.Access), CreatedAt: r.CreatedAt}
-	return t, domain.User{ID: r.UserID, Name: r.UserName, Email: deref(r.Email), AvatarURL: deref(r.AvatarUrl)}, nil
+	return t, domain.User{ID: r.UserID, Name: r.UserName, Email: deref(r.Email), AvatarURL: deref(r.AvatarUrl), AvatarAt: r.AvatarAt}, nil
 }
 
 func (s *Store) MCPTokenByID(ctx context.Context, id uuid.UUID) (domain.MCPToken, domain.User, []byte, error) {
@@ -67,5 +67,5 @@ func (s *Store) MCPTokenByID(ctx context.Context, id uuid.UUID) (domain.MCPToken
 		return domain.MCPToken{}, domain.User{}, nil, err
 	}
 	t := domain.MCPToken{ID: r.ID, UserID: r.UserID, HouseholdID: r.HouseholdID, Name: r.Name, Access: domain.TokenAccess(r.Access), CreatedAt: r.CreatedAt}
-	return t, domain.User{ID: r.UserID, Name: r.UserName, Email: deref(r.Email), AvatarURL: deref(r.AvatarUrl)}, r.TokenHash, nil
+	return t, domain.User{ID: r.UserID, Name: r.UserName, Email: deref(r.Email), AvatarURL: deref(r.AvatarUrl), AvatarAt: r.AvatarAt}, r.TokenHash, nil
 }

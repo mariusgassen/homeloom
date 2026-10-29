@@ -61,7 +61,44 @@ func (s *Store) UpsertByIdentity(ctx context.Context, id domain.Identity) (domai
 	if err != nil {
 		return domain.User{}, err
 	}
-	return domain.User{ID: u.ID, Name: u.Name, Email: deref(u.Email), AvatarURL: deref(u.AvatarUrl)}, nil
+	return toUser(u), nil
+}
+
+func (s *Store) SetAvatar(ctx context.Context, userID uuid.UUID, p domain.Photo) (domain.User, error) {
+	u, err := s.q.SetUserAvatar(ctx, sqlcgen.SetUserAvatarParams{UserID: userID, ContentType: p.ContentType, Data: p.Data})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.User{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.User{}, err
+	}
+	return toUser(u), nil
+}
+
+func (s *Store) Avatar(ctx context.Context, userID uuid.UUID) (domain.Photo, error) {
+	row, err := s.q.GetUserAvatar(ctx, userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Photo{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.Photo{}, err
+	}
+	return domain.Photo{ContentType: row.ContentType, Data: row.Data}, nil
+}
+
+func (s *Store) DeleteAvatar(ctx context.Context, userID uuid.UUID) (domain.User, error) {
+	u, err := s.q.DeleteUserAvatar(ctx, userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.User{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.User{}, err
+	}
+	return toUser(u), nil
+}
+
+func (s *Store) SharesHousehold(ctx context.Context, a, b uuid.UUID) (bool, error) {
+	return s.q.SharesHousehold(ctx, sqlcgen.SharesHouseholdParams{A: a, B: b})
 }
 
 func (s *Store) Create(ctx context.Context, name string, owner uuid.UUID) (domain.Membership, error) {
@@ -117,7 +154,7 @@ func (s *Store) Members(ctx context.Context, householdID uuid.UUID) ([]domain.Me
 	out := make([]domain.Member, len(rows))
 	for i, r := range rows {
 		out[i] = domain.Member{
-			User: domain.User{ID: r.ID, Name: r.Name, Email: deref(r.Email), AvatarURL: deref(r.AvatarUrl)},
+			User: domain.User{ID: r.ID, Name: r.Name, Email: deref(r.Email), AvatarURL: deref(r.AvatarUrl), AvatarAt: r.AvatarAt},
 			Role: domain.Role(r.Role),
 		}
 	}
@@ -129,6 +166,10 @@ type HealthCheck struct{ Pool *pgxpool.Pool }
 
 func (HealthCheck) Name() string                      { return "postgres" }
 func (h HealthCheck) Check(ctx context.Context) error { return h.Pool.Ping(ctx) }
+
+func toUser(u sqlcgen.User) domain.User {
+	return domain.User{ID: u.ID, Name: u.Name, Email: deref(u.Email), AvatarURL: deref(u.AvatarUrl), AvatarAt: u.AvatarAt}
+}
 
 func toHousehold(h sqlcgen.Household) domain.Household {
 	return domain.Household{ID: h.ID, Name: h.Name, CreatedAt: h.CreatedAt}
