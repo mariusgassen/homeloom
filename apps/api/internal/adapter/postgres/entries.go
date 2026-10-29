@@ -47,6 +47,17 @@ func (s *Store) GetEntry(ctx context.Context, id uuid.UUID) (domain.Entry, error
 	return toEntry(row), nil
 }
 
+func (s *Store) RenameEntry(ctx context.Context, id uuid.UUID, name string) error {
+	n, err := s.q.RenameEntry(ctx, sqlcgen.RenameEntryParams{ID: id, IcalName: &name})
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
+}
+
 func (s *Store) ListEntries(ctx context.Context, householdID, viewer uuid.UUID, kind domain.EntryKind, since time.Time, limit int) ([]domain.Entry, error) {
 	var k *string
 	if kind != "" {

@@ -186,6 +186,14 @@ type User struct {
 	UpdatedAt    time.Time
 }
 
+type VoiceSetting struct {
+	UserID    uuid.UUID
+	Voice     string
+	Speed     float64
+	Tone      string
+	UpdatedAt time.Time
+}
+
 type WatchConnection struct {
 	UserID    uuid.UUID
 	Token     string

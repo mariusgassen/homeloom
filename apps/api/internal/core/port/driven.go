@@ -95,6 +95,8 @@ type EntryRepository interface {
 	// EntryByICalName returns the household's entry a calendar app made under that resource
 	// name, or domain.ErrNotFound.
 	EntryByICalName(ctx context.Context, householdID uuid.UUID, name string) (domain.Entry, error)
+	// RenameEntry sets the name an app knows the entry by; domain.ErrNotFound for an unknown id.
+	RenameEntry(ctx context.Context, id uuid.UUID, name string) error
 	// ListEntries returns the household's entries of the kind ("" for all) that are the viewer's
 	// own or not private, grouped by kind: events by start, those ending before since left out
 	// unless they repeat; notes newest first; open reminders by due time, then those done in the
@@ -232,6 +234,20 @@ type CallServer interface {
 	// Dispatch sends the named agent into the room with the given metadata. It returns
 	// domain.ErrUnavailable when LiveKit can't be reached.
 	Dispatch(ctx context.Context, room, agent, metadata string) error
+}
+
+// VoiceSettingsRepository keeps how Homeloom sounds for each member. VoiceSettings returns
+// domain.ErrNotFound for a member who hasn't saved any.
+type VoiceSettingsRepository interface {
+	VoiceSettings(ctx context.Context, userID uuid.UUID) (domain.VoiceSettings, error)
+	SaveVoiceSettings(ctx context.Context, userID uuid.UUID, v domain.VoiceSettings) error
+}
+
+// Speaker turns text into speech, the way the voice agent speaks on a call.
+type Speaker interface {
+	// Speak returns text spoken with v as MP3. It returns domain.ErrUnavailable when the speech
+	// model can't be reached.
+	Speak(ctx context.Context, text string, v domain.VoiceSettings) ([]byte, error)
 }
 
 // Assistant is the LLM as a chat partner that can use tools.

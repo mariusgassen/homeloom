@@ -37,6 +37,7 @@ type Deps struct {
 	Watch          port.WatchService
 	Push           port.PushService
 	Calls          port.CallService
+	Voice          port.VoiceService
 	Assistant      port.AssistantService
 	Agents         port.AgentAccessService
 	HealthChecks   []port.HealthCheck
@@ -49,6 +50,8 @@ type Deps struct {
 	// CalDAV, if set, is served at /dav and /.well-known/caldav, outside the contract; it
 	// authenticates on its own.
 	CalDAV http.Handler
+	// Notes, if set, is served at /webdav, outside the contract; it authenticates on its own.
+	Notes http.Handler
 }
 
 func NewRouter(d Deps) (http.Handler, error) {
@@ -76,6 +79,10 @@ func NewRouter(d Deps) (http.Handler, error) {
 		r.Handle("/dav", d.CalDAV)
 		r.Handle("/dav/*", d.CalDAV)
 	}
+	if d.Notes != nil {
+		r.Handle("/webdav", d.Notes)
+		r.Handle("/webdav/*", d.Notes)
+	}
 	// Only the contract's own paths go through the validator, so other paths are answered here.
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		writeError(r.Context(), w, http.StatusNotFound, "not_found", "")
@@ -100,6 +107,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 		watch:      d.Watch,
 		push:       d.Push,
 		calls:      d.Calls,
+		voice:      d.Voice,
 		assistant:  d.Assistant,
 		agents:     d.Agents,
 		login:      d.Login,

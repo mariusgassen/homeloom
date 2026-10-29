@@ -59,3 +59,6 @@ SELECT EXISTS (SELECT 1 FROM calendar_feeds WHERE user_id = $1 AND household_id 
 
 -- name: DeleteCalendarFeed :exec
 DELETE FROM calendar_feeds WHERE user_id = $1 AND household_id = $2;
+
+-- name: RenameEntry :execrows
+UPDATE entries SET ical_name = $2, updated_at = now() WHERE id = $1;

@@ -58,9 +58,10 @@ type EntryService interface {
 	CalendarFeed(ctx context.Context, token string) ([]domain.Entry, *time.Location, error)
 }
 
-// EntrySyncService lets a calendar app (over CalDAV) read and change the events and reminders
-// its owner can see, one list at a time. Entries are named as the app names them: by the name the
-// app gave one it made, else by "<id>.ics".
+// EntrySyncService lets a calendar app (over CalDAV) or a notes app (over WebDAV) read and change
+// the events, reminders or notes its owner can see, one list at a time; "later" notes are in none.
+// Entries are named as the app names them: by the name the app gave one it made, else by
+// "<id>.ics".
 type EntrySyncService interface {
 	// SyncEntries returns the entries in the list: shared ones, or the actor's private ones.
 	SyncEntries(ctx context.Context, actor domain.User, householdID uuid.UUID, l domain.SyncList) ([]domain.Entry, error)
@@ -70,6 +71,8 @@ type EntrySyncService interface {
 	SyncPut(ctx context.Context, actor domain.User, householdID uuid.UUID, l domain.SyncList, name string, in domain.SyncEntry) (domain.Entry, bool, error)
 	// SyncDelete deletes the named entry. One that has moved to another list is left alone.
 	SyncDelete(ctx context.Context, actor domain.User, householdID uuid.UUID, l domain.SyncList, name string) error
+	// SyncMove moves the named entry to another list of its kind under a new name.
+	SyncMove(ctx context.Context, actor domain.User, householdID uuid.UUID, from domain.SyncList, name string, to domain.SyncList, newName string) (domain.Entry, error)
 }
 
 type CookService interface {
@@ -148,6 +151,18 @@ type CallService interface {
 	TalkToHomeloom(ctx context.Context, actor domain.User, householdID uuid.UUID, lang string) (domain.Call, error)
 }
 
+// VoiceService is how Homeloom sounds on each member's own calls with it.
+type VoiceService interface {
+	// Available says whether Homeloom can speak at all: calls with it and previews.
+	Available() bool
+	// Settings returns the actor's settings, or domain.DefaultVoice until they save their own.
+	Settings(ctx context.Context, actor domain.User) (domain.VoiceSettings, error)
+	Save(ctx context.Context, actor domain.User, v domain.VoiceSettings) (domain.VoiceSettings, error)
+	// Preview speaks text with v, which needn't be saved. It returns domain.ErrUnavailable when
+	// speech isn't set up or can't be reached.
+	Preview(ctx context.Context, actor domain.User, v domain.VoiceSettings, text string) ([]byte, error)
+}
+
 // AssistantService is the chat assistant. Each conversation belongs to one person, and the
 // assistant acts only as that person, with the same rules as every other service.
 type AssistantService interface {
@@ -179,9 +194,9 @@ type AgentAccessService interface {
 	// Authenticate takes a minted or a personal token for the tools. It returns
 	// domain.ErrUnauthenticated for an unknown, revoked or expired one.
 	Authenticate(ctx context.Context, token string) (domain.AgentGrant, error)
-	// AuthenticateCalendar takes a personal password for calendar apps. It returns
-	// domain.ErrUnauthenticated for anything else.
-	AuthenticateCalendar(ctx context.Context, token string) (domain.AgentGrant, error)
+	// AuthenticatePassword takes a personal password for calendar or notes apps, which opens only
+	// that access. It returns domain.ErrUnauthenticated for anything else.
+	AuthenticatePassword(ctx context.Context, access domain.TokenAccess, password string) (domain.AgentGrant, error)
 	Revoke(ctx context.Context, token string) error
 	// Tokens are the actor's personal tokens in the household.
 	Tokens(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.MCPToken, error)

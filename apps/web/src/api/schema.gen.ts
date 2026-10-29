@@ -157,6 +157,49 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/voice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How Homeloom sounds on the caller's calls with it
+         * @description The caller's voice settings for calls with Homeloom, the defaults until they save their own,
+         *     and whether Homeloom can speak at all on this server.
+         */
+        get: operations["getVoice"];
+        /** Save how Homeloom sounds on the caller's calls with it */
+        put: operations["saveVoice"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/voice/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hear a short sentence spoken with the given settings
+         * @description Speaks a short sentence in the request's language, so settings can be tried before they're
+         *     saved. Answers `503 voice_unavailable` when speech isn't set up.
+         */
+        post: operations["previewVoice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households": {
         parameters: {
             query?: never;
@@ -1004,9 +1047,10 @@ export interface paths {
          * Make a key or password for another app
          * @description With `access: tools` (the default) the secret is a key: an assistant sends it as
          *     `Authorization: Bearer <secret>` to `/mcp`. With `access: calendar` it is a password for a
-         *     calendar app, which syncs your events and reminders over CalDAV at `/dav` (any user name).
-         *     Either acts as you in this household, opens only what it was made for, and works until you
-         *     delete it. Only a hash of it is stored.
+         *     calendar app, which syncs your events and reminders over CalDAV at `/dav`; with
+         *     `access: notes` it is a password for a notes app, which syncs your notes as files over
+         *     WebDAV at `/webdav` (any user name for both). Each acts as you in this household, opens
+         *     only what it was made for, and works until you delete it. Only a hash of it is stored.
          */
         post: operations["createMcpToken"];
         delete?: never;
@@ -1380,6 +1424,25 @@ export interface components {
             token: string;
             room: string;
         };
+        VoiceSetup: {
+            /** @description Whether Homeloom can speak on this server: calls with it and previews. */
+            available: boolean;
+            settings: components["schemas"]["VoiceSettings"];
+        };
+        VoiceSettings: {
+            /** @enum {string} */
+            voice: "marin" | "cedar" | "coral" | "sage" | "shimmer" | "nova" | "alloy" | "ash" | "ballad" | "echo" | "fable" | "onyx" | "verse";
+            /**
+             * Format: double
+             * @description 1 is the voice's natural pace.
+             */
+            speed: number;
+            /**
+             * @description How Homeloom speaks, turned into instructions for the speech model.
+             * @enum {string}
+             */
+            tone: "warm" | "calm" | "playful" | "clear";
+        };
         GuestLink: {
             token: string;
             /** Format: date-time */
@@ -1478,11 +1541,12 @@ export interface components {
         };
         /**
          * @description What it opens: `tools` is the assistant's tools at /mcp (a bearer key), `calendar` is your
-         *     events and reminders over CalDAV at /dav (a password).
+         *     events and reminders over CalDAV at /dav (a password), `notes` is your notes as files over
+         *     WebDAV at /webdav (a password).
          * @default tools
          * @enum {string}
          */
-        TokenAccess: "tools" | "calendar";
+        TokenAccess: "tools" | "calendar" | "notes";
         McpToken: {
             /** Format: uuid */
             id: string;
@@ -1757,6 +1821,80 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    getVoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceSetup"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    saveVoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceSettings"];
+            };
+        };
+        responses: {
+            /** @description The saved settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceSettings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    previewVoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceSettings"];
+            };
+        };
+        responses: {
+            /** @description The sentence as MP3. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/mpeg": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            503: components["responses"]["Unavailable"];
         };
     };
     listHouseholds: {

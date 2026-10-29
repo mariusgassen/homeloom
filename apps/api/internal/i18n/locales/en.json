@@ -23,6 +23,7 @@
   "error.not_yours": "Only the person who wrote this can change it.",
   "error.push_unavailable": "Notifications aren't set up on this server.",
   "error.unauthenticated": "Please sign in again.",
+  "error.voice_unavailable": "Homeloom can't speak right now.",
   "error.watch_unavailable": "Movies and shows aren't reachable right now. Is Plex connected and your server online?",
   "push.call.body": "Tap to answer.",
   "push.call.title": "{name} is calling",
@@ -36,5 +37,6 @@
   "push.reminder.title": "Reminder",
   "push.revealed.body": "Your answers to “{question}” are open now.",
   "push.revealed.title": "{name} answered too",
-  "shopping.list": "Shopping list"
+  "shopping.list": "Shopping list",
+  "voice.preview": "Hi, I'm Homeloom. This is how I'll sound when we talk."
 }

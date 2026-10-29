@@ -25,6 +25,7 @@ type handlers struct {
 	watch      port.WatchService
 	push       port.PushService
 	calls      port.CallService
+	voice      port.VoiceService
 	assistant  port.AssistantService
 	agents     port.AgentAccessService
 	login      port.LoginService

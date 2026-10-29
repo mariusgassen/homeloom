@@ -34,6 +34,10 @@ open http://localhost:3000
 
 Homeloom's events and reminders sync both ways with the iPhone's Calendar and Reminders apps over CalDAV. On the iPhone, open Homeloom, go to Settings › Other apps › Calendar and tap Add to iPhone, then install the downloaded profile in Settings (iOS calls it "Not Verified" because it isn't signed). Or make a password instead and add it under Settings › Apps › Calendar › Calendar Accounts › Add Account › Other › Add CalDAV Account, with your Homeloom address as the server and any user name. Each app shows a shared list and one just for you. The password only opens your calendar and reminders, and stops working when you remove it.
 
+## Notes in other apps
+
+Homeloom's notes are also Markdown files over WebDAV, so a notes app or file manager that syncs a WebDAV folder can read and change them (Apple Notes can't). Make a password under Settings › Other apps › Notes and add a WebDAV account in the app with the shown address, any user name and the password. You get a Shared folder and a Private one just for you; "later" notes stay out. Moving a file to the other folder shares it or makes it private.
+
 ## Movies and shows
 
 Under Us › Movies & shows, each of you signs in with your own Plex account. Homeloom then shows the movie and series libraries on your own servers and on servers friends share with you, with what you haven't seen yet and a random pick. It only reads: nothing is played or changed, and the Plex token stays on the server, encrypted with `HOMELOOM_SECRET_KEY`. The API must be able to reach your Plex server (on the same network, or through Plex's remote access).

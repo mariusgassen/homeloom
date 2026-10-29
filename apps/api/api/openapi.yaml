@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.15.0
+  version: 0.17.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -170,6 +170,62 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/User" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/me/voice:
+    get:
+      tags: [me]
+      operationId: getVoice
+      summary: How Homeloom sounds on the caller's calls with it
+      description: |
+        The caller's voice settings for calls with Homeloom, the defaults until they save their own,
+        and whether Homeloom can speak at all on this server.
+      responses:
+        "200":
+          description: The settings.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VoiceSetup" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      tags: [me]
+      operationId: saveVoice
+      summary: Save how Homeloom sounds on the caller's calls with it
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VoiceSettings" }
+      responses:
+        "200":
+          description: The saved settings.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VoiceSettings" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/me/voice/preview:
+    post:
+      tags: [me]
+      operationId: previewVoice
+      summary: Hear a short sentence spoken with the given settings
+      description: |
+        Speaks a short sentence in the request's language, so settings can be tried before they're
+        saved. Answers `503 voice_unavailable` when speech isn't set up.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VoiceSettings" }
+      responses:
+        "200":
+          description: The sentence as MP3.
+          content:
+            audio/mpeg:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/Unavailable" }
 
   /v1/households:
     get:
@@ -1184,9 +1240,10 @@ paths:
       description: |
         With `access: tools` (the default) the secret is a key: an assistant sends it as
         `Authorization: Bearer <secret>` to `/mcp`. With `access: calendar` it is a password for a
-        calendar app, which syncs your events and reminders over CalDAV at `/dav` (any user name).
-        Either acts as you in this household, opens only what it was made for, and works until you
-        delete it. Only a hash of it is stored.
+        calendar app, which syncs your events and reminders over CalDAV at `/dav`; with
+        `access: notes` it is a password for a notes app, which syncs your notes as files over
+        WebDAV at `/webdav` (any user name for both). Each acts as you in this household, opens
+        only what it was made for, and works until you delete it. Only a hash of it is stored.
       requestBody:
         required: true
         content:
@@ -1672,6 +1729,26 @@ components:
         token: { type: string, description: "LiveKit access token for this person and room." }
         room: { type: string }
 
+    VoiceSetup:
+      type: object
+      required: [available, settings]
+      properties:
+        available: { type: boolean, description: "Whether Homeloom can speak on this server: calls with it and previews." }
+        settings: { $ref: "#/components/schemas/VoiceSettings" }
+
+    VoiceSettings:
+      type: object
+      required: [voice, speed, tone]
+      properties:
+        voice:
+          type: string
+          enum: [marin, cedar, coral, sage, shimmer, nova, alloy, ash, ballad, echo, fable, onyx, verse]
+        speed: { type: number, format: double, minimum: 0.75, maximum: 1.5, description: "1 is the voice's natural pace." }
+        tone:
+          type: string
+          enum: [warm, calm, playful, clear]
+          description: How Homeloom speaks, turned into instructions for the speech model.
+
     GuestLink:
       type: object
       required: [token, expiresAt]
@@ -1803,11 +1880,12 @@ components:
 
     TokenAccess:
       type: string
-      enum: [tools, calendar]
+      enum: [tools, calendar, notes]
       default: tools
       description: |
         What it opens: `tools` is the assistant's tools at /mcp (a bearer key), `calendar` is your
-        events and reminders over CalDAV at /dav (a password).
+        events and reminders over CalDAV at /dav (a password), `notes` is your notes as files over
+        WebDAV at /webdav (a password).
 
     McpToken:
       type: object

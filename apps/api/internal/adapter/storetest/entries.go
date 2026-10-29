@@ -69,6 +69,16 @@ func Entries(t *testing.T, s interface {
 	if _, err := s.EntryByICalName(ctx, uuid.New(), name); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("another household's name: %v", err)
 	}
+	renamed := uuid.NewString() + ".md"
+	if err := s.RenameEntry(ctx, synced.ID, renamed); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := s.EntryByICalName(ctx, h, renamed); err != nil || got.ID != synced.ID {
+		t.Fatalf("by new name: %+v, %v", got, err)
+	}
+	if err := s.RenameEntry(ctx, uuid.New(), renamed); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("rename unknown entry: %v", err)
+	}
 	if err := s.DeleteEntry(ctx, synced.ID); err != nil {
 		t.Fatal(err)
 	}
