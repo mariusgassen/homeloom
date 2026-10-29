@@ -13,6 +13,7 @@ import { RefreshProvider } from "./refresh";
 import { Cook, RecipeScreen } from "./screens/Cook";
 import { Home } from "./screens/Home";
 import { Lists } from "./screens/Lists";
+import { NotePage } from "./screens/NotePage";
 import { Today, Us } from "./screens/Tabs";
 import { Watch } from "./screens/Watch";
 import { Loading, Unavailable, Welcome } from "./screens/Welcome";
@@ -68,6 +69,7 @@ export function App() {
               <Route path="/us" element={<Us />} />
               <Route path="/watch" element={<Watch />} />
               <Route path="/lists" element={<Lists />} />
+              <Route path="/lists/notes/:id" element={<NotePage />} />
               <Route path="/home" element={<Home />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/call/:callId" element={<IncomingCall />} />

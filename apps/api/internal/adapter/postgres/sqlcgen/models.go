@@ -109,6 +109,14 @@ type Entry struct {
 	IcalName     *string
 }
 
+type EntryPhoto struct {
+	ID          uuid.UUID
+	EntryID     uuid.UUID
+	ContentType string
+	Data        []byte
+	CreatedAt   time.Time
+}
+
 type HomeConnection struct {
 	UserID       uuid.UUID
 	RefreshToken string

@@ -18,6 +18,7 @@
   "error.invalid_ingredients": "Pick at least one ingredient from this recipe.",
   "error.invalid_moment_day": "A moment can't be in the future.",
   "error.invalid_photo": "Pick a photo of at most {max} MB.",
+  "error.too_many_photos": "A note holds at most {max} photos.",
   "error.invalid_reveal": "Pick when it opens. Only notes and moments can open later.",
   "error.invalid_text": "Please write between 1 and {max} characters.",
   "error.invite_invalid": "This invite link is no longer valid. Ask for a new one.",

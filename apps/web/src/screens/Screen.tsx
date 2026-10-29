@@ -9,13 +9,15 @@ import { Mark } from "../ui/Mark";
 import { ThreadAvatar, threadFor } from "../ui/ThreadAvatar";
 
 // A tab's page: the assistant and household buttons top right, a large title, then content. back
-// replaces the overline on pages below a tab; action is a button left of those, such as add.
+// replaces the overline on pages below a tab; action is a button left of those, such as call. add
+// is the round plus above the tab bar, in reach of the thumb, for what this screen holds.
 // Pulling down from the top loads the screen again, unless refreshable is false.
-export function Screen({ title, overline, back, action, refreshable = true, children }: {
+export function Screen({ title, overline, back, action, add, refreshable = true, children }: {
   title: string;
   overline?: string;
   back?: ReactNode;
   action?: ReactNode;
+  add?: { label: string; onClick: () => void };
   refreshable?: boolean;
   children: ReactNode;
 }) {
@@ -26,7 +28,7 @@ export function Screen({ title, overline, back, action, refreshable = true, chil
   const pull = usePullToRefresh(refreshable);
   const members = session.state === "signedIn" ? (session.household?.members ?? []) : [];
   return (
-    <div className="screen" {...pull.handlers}>
+    <div className={cx("screen", add && "screen-with-add")} {...pull.handlers}>
       <div className="screen-toolbar">
         {back ?? <span className="caption screen-overline">{overline}</span>}
         {action}
@@ -56,6 +58,11 @@ export function Screen({ title, overline, back, action, refreshable = true, chil
         <h1 className="large-title">{title}</h1>
       </header>
       <main className="screen-main">{children}</main>
+      {add && (
+        <button type="button" className="screen-add" aria-label={add.label} onClick={add.onClick}>
+          <Icon name="plus" />
+        </button>
+      )}
     </div>
   );
 }

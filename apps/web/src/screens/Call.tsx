@@ -11,6 +11,7 @@ import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { cx, Icon } from "../ui/Icon";
 import { ListRow } from "../ui/ListRow";
+import { Sheet as BottomSheet } from "../ui/Sheet";
 import { ThreadAvatar, threadFor, type Thread } from "../ui/ThreadAvatar";
 
 type Person = { id: string; name: string; avatarUrl?: string; thread?: Thread };
@@ -90,18 +91,17 @@ function PickSheet({ people, onClose, onCall }: { people: Person[]; onClose: () 
 function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   const { t } = useTranslation();
   return (
-    <div className="sheet-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={title}>
-        <div className="sheet-grabber" aria-hidden="true" />
-        <div className="sheet-bar">
-          <Button variant="plain" onClick={onClose}>
-            {t("entries.done")}
-          </Button>
-          <h2 className="headline sheet-title">{title}</h2>
-        </div>
-        {children}
-      </div>
-    </div>
+    <BottomSheet
+      title={title}
+      onClose={onClose}
+      leading={
+        <Button variant="plain" onClick={onClose}>
+          {t("entries.done")}
+        </Button>
+      }
+    >
+      {children}
+    </BottomSheet>
   );
 }
 

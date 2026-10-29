@@ -146,6 +146,7 @@ func (s *Store) DeleteEntry(_ context.Context, id uuid.UUID) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.entries = slices.DeleteFunc(s.entries, func(e domain.Entry) bool { return e.ID == id })
+	s.entryPhotos = slices.DeleteFunc(s.entryPhotos, func(p entryPhoto) bool { return p.entryID == id })
 	return nil
 }
 
@@ -241,4 +242,50 @@ func cmpDue(a, b *time.Time) int {
 		return -1
 	}
 	return a.Compare(*b)
+}
+
+type entryPhoto struct {
+	id, entryID uuid.UUID
+	domain.Photo
+}
+
+func (s *Store) AddEntryPhoto(_ context.Context, entryID uuid.UUID, p domain.Photo) (uuid.UUID, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !slices.ContainsFunc(s.entries, func(e domain.Entry) bool { return e.ID == entryID }) {
+		return uuid.Nil, domain.ErrNotFound
+	}
+	id := uuid.New()
+	s.entryPhotos = append(s.entryPhotos, entryPhoto{id: id, entryID: entryID, Photo: p})
+	return id, nil
+}
+
+func (s *Store) EntryPhoto(_ context.Context, entryID, photoID uuid.UUID) (domain.Photo, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, p := range s.entryPhotos {
+		if p.id == photoID && p.entryID == entryID {
+			return p.Photo, nil
+		}
+	}
+	return domain.Photo{}, domain.ErrNotFound
+}
+
+func (s *Store) EntryPhotoIDs(_ context.Context, entryID uuid.UUID) ([]uuid.UUID, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ids := []uuid.UUID{}
+	for _, p := range s.entryPhotos {
+		if p.entryID == entryID {
+			ids = append(ids, p.id)
+		}
+	}
+	return ids, nil
+}
+
+func (s *Store) DeleteEntryPhotos(_ context.Context, entryID uuid.UUID, ids []uuid.UUID) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.entryPhotos = slices.DeleteFunc(s.entryPhotos, func(p entryPhoto) bool { return p.entryID == entryID && slices.Contains(ids, p.id) })
+	return nil
 }

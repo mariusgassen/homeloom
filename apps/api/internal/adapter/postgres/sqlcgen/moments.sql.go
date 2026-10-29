@@ -235,6 +235,19 @@ func (q *Queries) ListMoments(ctx context.Context, arg ListMomentsParams) ([]Mom
 	return items, nil
 }
 
+const markMomentPhoto = `-- name: MarkMomentPhoto :exec
+WITH photo AS (
+    DELETE FROM moment_photos WHERE moment_id = $1
+)
+UPDATE moments SET photo_at = now(), updated_at = now() WHERE id = $1
+`
+
+// The photo is kept elsewhere; a copy from before goes.
+func (q *Queries) MarkMomentPhoto(ctx context.Context, momentID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markMomentPhoto, momentID)
+	return err
+}
+
 const momentsOnDay = `-- name: MomentsOnDay :many
 SELECT id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at FROM moments
 WHERE household_id = $1

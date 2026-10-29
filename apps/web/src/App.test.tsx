@@ -630,7 +630,7 @@ test("the quick-add sheet suggests reminders set before", async () => {
   );
   renderApp("/lists");
   await screen.findByText("Nothing to remember");
-  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  await userEvent.click(screen.getByRole("button", { name: "New reminder" }));
   const sheet = screen.getByRole("dialog", { name: "New reminder" });
   await userEvent.type(within(sheet).getByLabelText("Remind about"), "wat");
   const chips = await within(sheet).findByRole("group", { name: "Used before" });
@@ -650,14 +650,63 @@ test("the quick-add sheet sets a shared reminder for both", async () => {
   );
   renderApp("/lists");
   expect(await screen.findByText("Nothing to remember")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  await userEvent.click(screen.getByRole("button", { name: "New reminder" }));
   const sheet = screen.getByRole("dialog", { name: "New reminder" });
+  expect(within(sheet).queryByRole("radiogroup", { name: "What to add" })).not.toBeInTheDocument();
   await userEvent.type(within(sheet).getByLabelText("Remind about"), "Call the landlord");
-  expect(within(sheet).getByRole("radio", { name: /Both of us/ })).toBeChecked();
+  expect(within(within(sheet).getByRole("radiogroup", { name: "Who can see this" })).getByRole("radio", { name: /Both of us/ })).toBeChecked();
   expect(within(sheet).getByText("Jo sees it right away.")).toBeInTheDocument();
   await userEvent.click(within(sheet).getByRole("button", { name: "Save" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   expect(await calls.find((c) => c.method === "POST")?.json()).toEqual({ kind: "reminder", text: "Call the landlord", visibility: "shared", repeat: "never" });
+});
+
+test("the quick-add sheet picks time, repeat and who with taps, not dropdowns", async () => {
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([])),
+    at("POST", `/v1/households/${home.id}/entries`, () => json(entry({ text: "Bins" }), 201)),
+  );
+  renderApp("/lists");
+  expect(await screen.findByText("Nothing to remember")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "New reminder" }));
+  const sheet = screen.getByRole("dialog", { name: "New reminder" });
+  expect(within(sheet).queryByRole("combobox")).not.toBeInTheDocument();
+  await userEvent.type(within(sheet).getByLabelText("Remind about"), "Bins");
+  expect(within(sheet).queryByRole("radiogroup", { name: "Repeat" })).not.toBeInTheDocument();
+  fireEvent.change(within(sheet).getByLabelText("When"), { target: { value: "2030-05-06T19:30" } });
+  await userEvent.click(within(within(sheet).getByRole("radiogroup", { name: "Repeat" })).getByRole("radio", { name: "Every week" }));
+  await userEvent.click(within(within(sheet).getByRole("radiogroup", { name: "For" })).getByRole("radio", { name: "Me" }));
+  await userEvent.click(within(sheet).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  const body = await calls.find((c) => c.method === "POST")?.json();
+  expect(body).toMatchObject({ text: "Bins", repeat: "weekly", assigneeId: expect.any(String), dueAt: new Date("2030-05-06T19:30").toISOString() });
+});
+
+test("a sheet closes on Escape", async () => {
+  serve(...signedIn(), at("GET", `/v1/households/${home.id}/entries`, () => json([])));
+  renderApp("/lists");
+  expect(await screen.findByText("Nothing to remember")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "New reminder" }));
+  expect(screen.getByRole("dialog", { name: "New reminder" })).toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+test("add follows the list you're in, and only Today asks what to add", async () => {
+  serve(...signedIn(), at("GET", `/v1/households/${home.id}/entries`, () => json([])));
+  renderApp("/lists?show=note");
+  // A note opens on its own page, with no choice of what to add.
+  await userEvent.click(await screen.findByRole("button", { name: "New note" }));
+  expect(await screen.findByLabelText("Title")).toBeInTheDocument();
+  expect(screen.queryByRole("radiogroup", { name: "What to add" })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Notes" }));
+
+  await userEvent.click(screen.getByRole("link", { name: "Today" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Add" }));
+  const sheet = screen.getByRole("dialog", { name: "New reminder" });
+  await userEvent.click(within(sheet).getByRole("radio", { name: "Note" }));
+  expect(screen.getByRole("dialog", { name: "New note" })).toBeInTheDocument();
 });
 
 test("a note for later stays sealed", async () => {
@@ -670,6 +719,50 @@ test("a note for later stays sealed", async () => {
   renderApp("/lists?show=note");
   expect(await screen.findByText(/Jo wrote you something\. It opens on/)).toBeInTheDocument();
   expect(screen.getByRole("tab", { name: "Notes" })).toHaveAttribute("aria-selected", "true");
+});
+
+test("a note opens as its own page to read, and saves its title as a heading on the way back", async () => {
+  const note = entry({ kind: "note", text: "# Trip\n\nPack **light**", title: "Trip" });
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([note])),
+    at("GET", `/v1/entries/${note.id}`, () => json(note)),
+    at("PUT", `/v1/entries/${note.id}`, () => json(note)),
+  );
+  renderApp("/lists?show=note");
+  expect(await screen.findByText("Pack light")).toBeInTheDocument();
+  await userEvent.click(screen.getByText("Trip"));
+  expect(await screen.findByRole("heading", { name: "Trip" })).toBeInTheDocument();
+  expect(screen.getByText("light").tagName).toBe("STRONG");
+  await userEvent.click(screen.getByRole("button", { name: "Write" }));
+  const title = screen.getByLabelText("Title");
+  await userEvent.clear(title);
+  await userEvent.type(title, "Rome trip");
+  await userEvent.click(screen.getByRole("button", { name: "Notes" }));
+  expect(await screen.findByRole("tab", { name: "Notes" })).toHaveAttribute("aria-selected", "true");
+  expect(await calls.find((c) => c.method === "PUT")?.json()).toEqual({ text: "# Rome trip\n\nPack **light**", visibility: "shared", repeat: "never" });
+});
+
+test("an empty new note is never saved", async () => {
+  const calls = serve(...signedIn(), at("GET", `/v1/households/${home.id}/entries`, () => json([])));
+  renderApp("/lists/notes/new");
+  await userEvent.click(await screen.findByRole("button", { name: "Notes" }));
+  await screen.findByText("No notes yet");
+  expect(calls.some((c) => c.method === "POST")).toBe(false);
+});
+
+test("a new note is made with its first words", async () => {
+  const made = entry({ id: "99999999-9999-4999-8999-999999999999", kind: "note", text: "# Groceries" });
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([made])),
+    at("POST", `/v1/households/${home.id}/entries`, () => json(made, 201)),
+  );
+  renderApp("/lists/notes/new");
+  await userEvent.type(await screen.findByLabelText("Title"), "Groceries");
+  await userEvent.click(screen.getByRole("button", { name: "Notes" }));
+  await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+  expect(await calls.find((c) => c.method === "POST")?.json()).toEqual({ kind: "note", text: "# Groceries", visibility: "shared", repeat: "never" });
 });
 
 test("today lists what's due and today's events", async () => {

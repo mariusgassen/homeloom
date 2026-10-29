@@ -129,6 +129,21 @@ func (s *Store) SetMomentPhoto(_ context.Context, id uuid.UUID, p domain.Photo) 
 	return domain.ErrNotFound
 }
 
+func (s *Store) MarkMomentPhoto(_ context.Context, id uuid.UUID) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, m := range s.moments {
+		if m.ID == id {
+			now := time.Now()
+			m.PhotoAt, m.UpdatedAt = &now, now
+			s.moments[i] = m
+			delete(s.momentPhotos, id)
+			return nil
+		}
+	}
+	return domain.ErrNotFound
+}
+
 func (s *Store) MomentPhoto(_ context.Context, id uuid.UUID) (domain.Photo, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

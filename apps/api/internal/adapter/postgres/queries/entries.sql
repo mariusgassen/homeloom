@@ -75,3 +75,15 @@ DELETE FROM calendar_feeds WHERE user_id = $1 AND household_id = $2;
 
 -- name: RenameEntry :execrows
 UPDATE entries SET ical_name = $2, updated_at = now() WHERE id = $1;
+
+-- name: AddEntryPhoto :one
+INSERT INTO entry_photos (entry_id, content_type, data) VALUES ($1, $2, $3) RETURNING id;
+
+-- name: GetEntryPhoto :one
+SELECT content_type, data FROM entry_photos WHERE entry_id = $1 AND id = $2;
+
+-- name: ListEntryPhotoIDs :many
+SELECT id FROM entry_photos WHERE entry_id = $1 ORDER BY created_at, id;
+
+-- name: DeleteEntryPhotos :exec
+DELETE FROM entry_photos WHERE entry_id = @entry_id AND id = ANY(@ids::uuid[]);
