@@ -131,11 +131,13 @@ func run() error {
 		}
 	}
 	var chef port.Chef
+	var grocer port.Grocer
 	var muse port.Muse
 	var critic port.Critic
 	var llm port.Assistant
 	if cfg.AnthropicAPIKey != "" {
 		chef = claude.NewChef(cfg.AnthropicAPIKey, cfg.LLMModel)
+		grocer = claude.NewGrocer(cfg.AnthropicAPIKey, cfg.LLMModel)
 		muse = claude.NewMuse(cfg.AnthropicAPIKey, cfg.LLMModel)
 		critic = claude.NewCritic(cfg.AnthropicAPIKey, cfg.LLMModel)
 		llm = claude.NewAssistant(cfg.AnthropicAPIKey, cfg.LLMModel)
@@ -194,7 +196,7 @@ func run() error {
 	if photos != nil {
 		entries.WithPhotos(photos)
 	}
-	shopping := service.NewShopping(store, store)
+	shopping := service.NewShopping(store, store, grocer)
 	go notifyDue(ctx, entries)
 	moments := service.NewMoments(store, store, store, push, cfg.TimeZone)
 	if photos != nil {

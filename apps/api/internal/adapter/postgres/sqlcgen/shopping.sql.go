@@ -12,8 +12,8 @@ import (
 )
 
 const addShoppingItem = `-- name: AddShoppingItem :one
-INSERT INTO shopping_items (household_id, text, recipe, added_by, created_at) VALUES ($1, $2, $3, $4, clock_timestamp())
-RETURNING id, household_id, text, recipe, added_by, done_at, created_at
+INSERT INTO shopping_items (household_id, text, recipe, added_by, aisle, created_at) VALUES ($1, $2, $3, $4, $5, clock_timestamp())
+RETURNING id, household_id, text, recipe, added_by, done_at, created_at, aisle
 `
 
 type AddShoppingItemParams struct {
@@ -21,6 +21,7 @@ type AddShoppingItemParams struct {
 	Text        string
 	Recipe      *string
 	AddedBy     *uuid.UUID
+	Aisle       string
 }
 
 // clock_timestamp keeps the order of items added in one transaction.
@@ -30,6 +31,7 @@ func (q *Queries) AddShoppingItem(ctx context.Context, arg AddShoppingItemParams
 		arg.Text,
 		arg.Recipe,
 		arg.AddedBy,
+		arg.Aisle,
 	)
 	var i ShoppingItem
 	err := row.Scan(
@@ -40,6 +42,7 @@ func (q *Queries) AddShoppingItem(ctx context.Context, arg AddShoppingItemParams
 		&i.AddedBy,
 		&i.DoneAt,
 		&i.CreatedAt,
+		&i.Aisle,
 	)
 	return i, err
 }
@@ -70,8 +73,42 @@ func (q *Queries) DeleteShoppingItem(ctx context.Context, arg DeleteShoppingItem
 	return result.RowsAffected(), nil
 }
 
+const knownShoppingAisles = `-- name: KnownShoppingAisles :many
+SELECT name, aisle FROM shopping_aisles WHERE household_id = $1 AND name = ANY($2::text[])
+`
+
+type KnownShoppingAislesParams struct {
+	HouseholdID uuid.UUID
+	Names       []string
+}
+
+type KnownShoppingAislesRow struct {
+	Name  string
+	Aisle string
+}
+
+func (q *Queries) KnownShoppingAisles(ctx context.Context, arg KnownShoppingAislesParams) ([]KnownShoppingAislesRow, error) {
+	rows, err := q.db.Query(ctx, knownShoppingAisles, arg.HouseholdID, arg.Names)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []KnownShoppingAislesRow
+	for rows.Next() {
+		var i KnownShoppingAislesRow
+		if err := rows.Scan(&i.Name, &i.Aisle); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listShoppingItems = `-- name: ListShoppingItems :many
-SELECT id, household_id, text, recipe, added_by, done_at, created_at FROM shopping_items
+SELECT id, household_id, text, recipe, added_by, done_at, created_at, aisle FROM shopping_items
 WHERE household_id = $1
 ORDER BY done_at IS NOT NULL, done_at DESC, created_at, id
 LIMIT $2
@@ -100,6 +137,7 @@ func (q *Queries) ListShoppingItems(ctx context.Context, arg ListShoppingItemsPa
 			&i.AddedBy,
 			&i.DoneAt,
 			&i.CreatedAt,
+			&i.Aisle,
 		); err != nil {
 			return nil, err
 		}
@@ -126,11 +164,55 @@ func (q *Queries) RecordShoppingHistory(ctx context.Context, arg RecordShoppingH
 	return err
 }
 
+const rememberShoppingAisle = `-- name: RememberShoppingAisle :exec
+INSERT INTO shopping_aisles (household_id, name, aisle) VALUES ($1, $2, $3)
+ON CONFLICT (household_id, name) DO UPDATE SET aisle = excluded.aisle
+`
+
+type RememberShoppingAisleParams struct {
+	HouseholdID uuid.UUID
+	Name        string
+	Aisle       string
+}
+
+func (q *Queries) RememberShoppingAisle(ctx context.Context, arg RememberShoppingAisleParams) error {
+	_, err := q.db.Exec(ctx, rememberShoppingAisle, arg.HouseholdID, arg.Name, arg.Aisle)
+	return err
+}
+
+const setShoppingItemAisle = `-- name: SetShoppingItemAisle :one
+UPDATE shopping_items SET aisle = $1
+WHERE id = $2 AND household_id = $3
+RETURNING id, household_id, text, recipe, added_by, done_at, created_at, aisle
+`
+
+type SetShoppingItemAisleParams struct {
+	Aisle       string
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+}
+
+func (q *Queries) SetShoppingItemAisle(ctx context.Context, arg SetShoppingItemAisleParams) (ShoppingItem, error) {
+	row := q.db.QueryRow(ctx, setShoppingItemAisle, arg.Aisle, arg.ID, arg.HouseholdID)
+	var i ShoppingItem
+	err := row.Scan(
+		&i.ID,
+		&i.HouseholdID,
+		&i.Text,
+		&i.Recipe,
+		&i.AddedBy,
+		&i.DoneAt,
+		&i.CreatedAt,
+		&i.Aisle,
+	)
+	return i, err
+}
+
 const setShoppingItemDone = `-- name: SetShoppingItemDone :one
 UPDATE shopping_items
 SET done_at = CASE WHEN $1::boolean THEN coalesce(done_at, now()) END
 WHERE id = $2 AND household_id = $3
-RETURNING id, household_id, text, recipe, added_by, done_at, created_at
+RETURNING id, household_id, text, recipe, added_by, done_at, created_at, aisle
 `
 
 type SetShoppingItemDoneParams struct {
@@ -150,6 +232,7 @@ func (q *Queries) SetShoppingItemDone(ctx context.Context, arg SetShoppingItemDo
 		&i.AddedBy,
 		&i.DoneAt,
 		&i.CreatedAt,
+		&i.Aisle,
 	)
 	return i, err
 }

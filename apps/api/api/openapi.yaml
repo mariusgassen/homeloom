@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.23.0
+  version: 0.24.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -1026,6 +1026,27 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  /v1/households/{householdId}/recipes/{slug}/image:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/RecipeSlug"
+    get:
+      tags: [cook]
+      operationId: getRecipeImage
+      summary: A recipe's picture, about 600 pixels wide (members only)
+      description: Fetched from Mealie through the API, like everything else from Mealie. 404 when the recipe has none.
+      responses:
+        "200":
+          description: The picture.
+          headers:
+            Cache-Control: { required: true, schema: { type: string } }
+          content:
+            image/*:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
   /v1/households/{householdId}/shopping-list:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -1090,6 +1111,25 @@ paths:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
       - $ref: "#/components/parameters/ShoppingItemId"
+    patch:
+      tags: [shopping]
+      operationId: updateShoppingItem
+      summary: Move an item to another aisle
+      description: The household remembers it, so the same thing goes to that aisle from now on.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ShoppingItemUpdate" }
+      responses:
+        "200":
+          description: The item, moved.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShoppingItem" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
     delete:
       tags: [shopping]
       operationId: deleteShoppingItem
@@ -2069,6 +2109,7 @@ components:
         tags:
           type: array
           items: { type: string }
+        imageUrl: { type: string, description: "The recipe's picture (getRecipeImage), versioned; absent when it has none." }
 
     Recipe:
       type: object
@@ -2078,6 +2119,7 @@ components:
         name: { type: string }
         description: { type: string }
         totalTime: { type: string }
+        imageUrl: { type: string, description: "The recipe's picture (getRecipeImage), versioned; absent when it has none." }
         servings: { type: string }
         tags:
           type: array
@@ -2121,12 +2163,26 @@ components:
       properties:
         text: { type: string, minLength: 1, maxLength: 200 }
 
+    ShoppingAisle:
+      type: string
+      enum: [produce, bakery, meat, dairy, frozen, pantry, drinks, household, other]
+      description: >-
+        Where in the shop the item is, listed in this order. New items go where the household put the
+        same thing before, else where Claude says, else `other`.
+
+    ShoppingItemUpdate:
+      type: object
+      required: [aisle]
+      properties:
+        aisle: { $ref: "#/components/schemas/ShoppingAisle" }
+
     ShoppingItem:
       type: object
-      required: [id, text, done, createdAt]
+      required: [id, text, aisle, done, createdAt]
       properties:
         id: { type: string, format: uuid }
         text: { type: string }
+        aisle: { $ref: "#/components/schemas/ShoppingAisle" }
         recipe: { type: string, description: "The recipe the item came from, if any." }
         addedBy: { type: string, format: uuid, description: Who added it; absent once they left. }
         done: { type: boolean }

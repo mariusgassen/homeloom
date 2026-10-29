@@ -198,6 +198,8 @@ type RecipeBook interface {
 	Recipes(ctx context.Context) ([]domain.RecipeSummary, error)
 	// Recipe returns domain.ErrNotFound for an unknown slug.
 	Recipe(ctx context.Context, slug string) (domain.Recipe, error)
+	// Image returns the recipe's picture; domain.ErrNotFound when it has none.
+	Image(ctx context.Context, slug string) (domain.RecipeImage, error)
 }
 
 // ShoppingRepository keeps the household's shopping list. Calls that name an item return
@@ -213,6 +215,18 @@ type ShoppingRepository interface {
 	// ShoppingSuggestions returns what the household put on the list before, kept after items
 	// are cleared, most used first, then most recent; texts open on the list are left out.
 	ShoppingSuggestions(ctx context.Context, householdID uuid.UUID, limit int) ([]domain.TitleSuggestion, error)
+	SetShoppingItemAisle(ctx context.Context, householdID, id uuid.UUID, aisle domain.Aisle) (domain.ShoppingItem, error)
+	// KnownAisles returns the remembered aisle of each of the keys (domain.AisleKey) it knows.
+	KnownAisles(ctx context.Context, householdID uuid.UUID, keys []string) (map[string]domain.Aisle, error)
+	// RememberAisles stores where the household puts these things, replacing what it knew.
+	RememberAisles(ctx context.Context, householdID uuid.UUID, aisles map[string]domain.Aisle) error
+}
+
+// Grocer is the LLM's sense of where things are in a shop.
+type Grocer interface {
+	// Aisles returns one aisle for each of the texts, in order. It returns domain.ErrUnavailable
+	// when the LLM can't be asked.
+	Aisles(ctx context.Context, texts []string) ([]domain.Aisle, error)
 }
 
 // Chef is the LLM's cooking judgement.

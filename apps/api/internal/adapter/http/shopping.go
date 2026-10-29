@@ -127,9 +127,26 @@ func toTitleSuggestions(ss []domain.TitleSuggestion) []oapi.TitleSuggestion {
 	return out
 }
 
+func (h *handlers) UpdateShoppingItem(ctx context.Context, req oapi.UpdateShoppingItemRequestObject) (oapi.UpdateShoppingItemResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	it, err := h.shopping.SetAisle(ctx, u, req.HouseholdId, req.ItemId, domain.Aisle(req.Body.Aisle))
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.UpdateShoppingItem404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.Is(err, domain.ErrInvalid):
+		return oapi.UpdateShoppingItem400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "invalid_aisle", err.Error()))}, nil
+	case err != nil:
+		return nil, err
+	}
+	return oapi.UpdateShoppingItem200JSONResponse(toShoppingItem(it)), nil
+}
+
 func toShoppingItem(it domain.ShoppingItem) oapi.ShoppingItem {
 	return oapi.ShoppingItem{
-		Id: it.ID, Text: it.Text, Recipe: optional(it.Recipe), AddedBy: it.AddedBy,
+		Id: it.ID, Text: it.Text, Aisle: oapi.ShoppingAisle(it.Aisle), Recipe: optional(it.Recipe), AddedBy: it.AddedBy,
 		Done: it.DoneAt != nil, DoneAt: it.DoneAt, CreatedAt: it.Created,
 	}
 }

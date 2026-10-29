@@ -5,6 +5,7 @@ package mealie
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -34,6 +35,7 @@ type Client struct {
 	mu        sync.Mutex
 	session   *mcp.ClientSession // reused; dropped after a transport error
 	groupSlug string             // for links into Mealie; looked up once
+	ids       map[string]string  // recipe slug to id, for pictures; filled as recipes are read
 }
 
 var _ port.RecipeBook = (*Client)(nil)
@@ -76,6 +78,8 @@ type tag struct {
 }
 
 type summary struct {
+	ID          string `json:"id"`
+	Image       string `json:"image"` // the picture's version; empty without one
 	Slug        string `json:"slug"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -117,7 +121,7 @@ func (s summary) domain() domain.RecipeSummary {
 	for _, t := range s.Tags {
 		tags = append(tags, t.Name)
 	}
-	return domain.RecipeSummary{Slug: s.Slug, Name: s.Name, Description: s.Description, TotalTime: s.totalTime(), Tags: tags}
+	return domain.RecipeSummary{Slug: s.Slug, Name: s.Name, Description: s.Description, TotalTime: s.totalTime(), Tags: tags, Image: s.Image}
 }
 
 func (c *Client) Recipes(ctx context.Context) ([]domain.RecipeSummary, error) {
@@ -131,8 +135,53 @@ func (c *Client) Recipes(ctx context.Context) ([]domain.RecipeSummary, error) {
 	out := make([]domain.RecipeSummary, len(page.Items))
 	for i, s := range page.Items {
 		out[i] = s.domain()
+		c.remember(s)
 	}
 	return out, nil
+}
+
+func (c *Client) remember(s summary) {
+	if s.ID == "" || s.Slug == "" {
+		return
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.ids == nil {
+		c.ids = map[string]string{}
+	}
+	c.ids[s.Slug] = s.ID
+}
+
+// imageFile is Mealie's smaller rendition of a recipe's picture, about 600 pixels wide.
+const imageFile = "min-original.webp"
+
+func (c *Client) Image(ctx context.Context, slug string) (domain.RecipeImage, error) {
+	c.mu.Lock()
+	id := c.ids[slug]
+	c.mu.Unlock()
+	if id == "" {
+		r, err := c.get(ctx, slug)
+		if err != nil {
+			return domain.RecipeImage{}, err
+		}
+		if r.Image == "" {
+			return domain.RecipeImage{}, fmt.Errorf("%w: recipe %s has no picture", domain.ErrNotFound, slug)
+		}
+		id = r.ID
+	}
+	// The MCP server hands binary answers over as base64 in JSON.
+	var media struct {
+		ContentType string `json:"contentType"`
+		Base64      string `json:"base64"`
+	}
+	if err := c.call(ctx, "get_media_recipes_by_recipe_images_by_file_name", map[string]any{"recipe_id": id, "file_name": imageFile}, &media); err != nil {
+		return domain.RecipeImage{}, err
+	}
+	body, err := base64.StdEncoding.DecodeString(media.Base64)
+	if err != nil || len(body) == 0 || !strings.HasPrefix(media.ContentType, "image/") {
+		return domain.RecipeImage{}, fmt.Errorf("%w: mealie sent no picture for %s", domain.ErrUnavailable, slug)
+	}
+	return domain.RecipeImage{ContentType: media.ContentType, Body: body}, nil
 }
 
 type recipe struct {
@@ -155,6 +204,9 @@ type ingredient struct {
 func (c *Client) get(ctx context.Context, slug string) (recipe, error) {
 	var r recipe
 	err := c.call(ctx, "get_recipes_by_slug", map[string]any{"slug": slug}, &r)
+	if err == nil {
+		c.remember(r.summary)
+	}
 	return r, err
 }
 

@@ -12,6 +12,7 @@
   "error.ideas_unavailable": "Gerade keine Ideen. Versuch es gleich noch einmal.",
   "error.internal": "Bei uns ist etwas schiefgelaufen.",
   "error.invalid": "Die Anfrage ist ungültig.",
+  "error.invalid_aisle": "Wähl einen der Bereiche.",
   "error.invalid_assignee": "Wähle jemanden aus deinem Haushalt. Dafür muss die Erinnerung geteilt sein.",
   "error.invalid_entry": "Das passt nicht zu dieser Art von Eintrag.",
   "error.invalid_event_time": "Prüf die Zeit: Ein Termin braucht einen Beginn und kann nicht vor ihm enden.",

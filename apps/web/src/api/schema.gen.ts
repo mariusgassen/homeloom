@@ -750,6 +750,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/recipes/{slug}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                slug: components["parameters"]["RecipeSlug"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A recipe's picture, about 600 pixels wide (members only)
+         * @description Fetched from Mealie through the API, like everything else from Mealie. 404 when the recipe has none.
+         */
+        get: operations["getRecipeImage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/shopping-list": {
         parameters: {
             query?: never;
@@ -809,7 +832,11 @@ export interface paths {
         delete: operations["deleteShoppingItem"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Move an item to another aisle
+         * @description The household remembers it, so the same thing goes to that aisle from now on.
+         */
+        patch: operations["updateShoppingItem"];
         trace?: never;
     };
     "/v1/households/{householdId}/shopping-list/items/{itemId}/done": {
@@ -1665,12 +1692,16 @@ export interface components {
             /** @description As written in Mealie */
             totalTime?: string;
             tags: string[];
+            /** @description The recipe's picture (getRecipeImage), versioned; absent when it has none. */
+            imageUrl?: string;
         };
         Recipe: {
             slug: string;
             name: string;
             description?: string;
             totalTime?: string;
+            /** @description The recipe's picture (getRecipeImage), versioned; absent when it has none. */
+            imageUrl?: string;
             servings?: string;
             tags: string[];
             ingredients: components["schemas"]["Ingredient"][];
@@ -1697,10 +1728,19 @@ export interface components {
         NewShoppingItem: {
             text: string;
         };
+        /**
+         * @description Where in the shop the item is, listed in this order. New items go where the household put the same thing before, else where Claude says, else `other`.
+         * @enum {string}
+         */
+        ShoppingAisle: "produce" | "bakery" | "meat" | "dairy" | "frozen" | "pantry" | "drinks" | "household" | "other";
+        ShoppingItemUpdate: {
+            aisle: components["schemas"]["ShoppingAisle"];
+        };
         ShoppingItem: {
             /** Format: uuid */
             id: string;
             text: string;
+            aisle: components["schemas"]["ShoppingAisle"];
             /** @description The recipe the item came from, if any. */
             recipe?: string;
             /**
@@ -3423,6 +3463,33 @@ export interface operations {
             503: components["responses"]["Unavailable"];
         };
     };
+    getRecipeImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                slug: components["parameters"]["RecipeSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The picture. */
+            200: {
+                headers: {
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
     listShoppingItems: {
         parameters: {
             query?: never;
@@ -3525,6 +3592,36 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateShoppingItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                itemId: components["parameters"]["ShoppingItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShoppingItemUpdate"];
+            };
+        };
+        responses: {
+            /** @description The item, moved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingItem"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };

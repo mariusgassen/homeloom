@@ -32,6 +32,7 @@ export type MomentKind = components["schemas"]["MomentKind"];
 export type MomentMonth = components["schemas"]["MomentMonth"];
 export type Resurfaced = components["schemas"]["Resurfaced"];
 export type ShoppingItem = components["schemas"]["ShoppingItem"];
+export type ShoppingAisle = components["schemas"]["ShoppingAisle"];
 export type EntryKind = components["schemas"]["EntryKind"];
 export type EntryFields = components["schemas"]["EntryFields"];
 export type Visibility = components["schemas"]["Visibility"];

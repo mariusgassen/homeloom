@@ -27,7 +27,7 @@ func newAssistantFixture(t *testing.T) *assistantFixture {
 	t.Helper()
 	f := &assistantFixture{entryFixture: newEntryFixture(t), llm: &memory.Assistant{}, smart: smartHome()}
 	f.home = service.NewHome(f.store, f.store, memory.NewSessions(), f.smart)
-	shopping := service.NewShopping(f.store, f.store)
+	shopping := service.NewShopping(f.store, f.store, nil)
 	cook := service.NewCook(f.store, memory.NewRecipeBook(recipes()...), nil, shopping)
 	// The same time zone as the entries, as in the app.
 	f.assistant = service.NewAssistant(f.store, f.store, f.llm, f.entries, cook, shopping, f.home, time.UTC)

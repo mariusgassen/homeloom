@@ -43,7 +43,7 @@ func newServer(t *testing.T, checks ...port.HealthCheck) http.Handler {
 }
 
 var curry = domain.Recipe{
-	RecipeSummary: domain.RecipeSummary{Slug: "green-curry", Name: "Green curry", Tags: []string{"Thai"}},
+	RecipeSummary: domain.RecipeSummary{Slug: "green-curry", Name: "Green curry", Tags: []string{"Thai"}, Image: "v1"},
 	Ingredients:   []domain.Ingredient{{ID: "i1", Text: "Coconut milk"}, {ID: "i2", Text: "Rice"}},
 	Steps:         []string{"Cook."},
 }
@@ -57,7 +57,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		recipes = book
 	}
 	push := service.NewPush(store, &memory.Pusher{})
-	shopping := service.NewShopping(store, store)
+	shopping := service.NewShopping(store, store, nil)
 	smart := memory.NewSmartHome([]domain.Scene{{ID: "scene.dinner", Name: "Dinner"}}, []domain.Light{{ID: "light.kitchen", Name: "Kitchen"}})
 	entries := service.NewEntry(store, store, store, push, time.UTC)
 	cook := service.NewCook(store, recipes, memory.Chef{}, shopping)
@@ -548,6 +548,19 @@ func TestCookFlow(t *testing.T) {
 	code, r := do(t, h, "GET", base+"/recipes/green-curry", "token-alice", "")
 	if code != 200 || len(r["ingredients"].([]any)) != 2 || r["steps"].([]any)[0] != "Cook." {
 		t.Fatalf("recipe: %d %v", code, r)
+	}
+	if r["imageUrl"] != base+"/recipes/green-curry/image?v=v1" {
+		t.Fatalf("image url: %v", r["imageUrl"])
+	}
+	img := httptest.NewRequest("GET", base+"/recipes/green-curry/image?v=v1", nil)
+	img.Header.Set("Authorization", "Bearer token-alice")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, img)
+	if rec.Code != 200 || rec.Header().Get("Content-Type") != "image/webp" || !strings.HasPrefix(rec.Header().Get("Cache-Control"), "private") || rec.Body.String() != "RIFF-green-curry" {
+		t.Fatalf("image: %d %v %q", rec.Code, rec.Header(), rec.Body.String())
+	}
+	if code, _ := do(t, h, "GET", base+"/recipes/green-curry/image", "token-eve", ""); code != 404 {
+		t.Fatalf("image for a non-member: want 404, got %d", code)
 	}
 	if code, _ := do(t, h, "GET", base+"/recipes/no..pe", "token-alice", ""); code != 400 {
 		t.Fatalf("bad slug: want 400, got %d", code)

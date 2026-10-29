@@ -64,6 +64,13 @@ func (s *Cook) Recipe(ctx context.Context, actor domain.User, householdID uuid.U
 	return s.book.Recipe(ctx, slug)
 }
 
+func (s *Cook) Image(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string) (domain.RecipeImage, error) {
+	if err := s.ready(ctx, actor, householdID); err != nil {
+		return domain.RecipeImage{}, err
+	}
+	return s.book.Image(ctx, slug)
+}
+
 func (s *Cook) AddToShoppingList(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string, ingredientIDs []string) (int, error) {
 	if err := s.ready(ctx, actor, householdID); err != nil {
 		return 0, err

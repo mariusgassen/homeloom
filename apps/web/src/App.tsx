@@ -80,7 +80,6 @@ export function App() {
             label={t("tabs.label")}
             items={[
               { to: "/", label: t("tabs.today"), icon: "today" },
-              { to: "/cook", label: t("tabs.cook"), icon: "cook" },
               { to: "/us", label: t("tabs.us"), icon: "us" },
               { to: "/lists", label: t("tabs.lists"), icon: "lists" },
               { to: "/home", label: t("tabs.home"), icon: "home" },

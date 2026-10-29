@@ -153,7 +153,7 @@ test("signed in with a household shows the tabs and both people", async () => {
   renderApp();
   expect(await screen.findByRole("heading", { level: 1, name: "Today" })).toBeInTheDocument();
   const nav = screen.getByRole("navigation", { name: "Main" });
-  expect(nav).toHaveTextContent("TodayCookUsListsHome");
+  expect(nav).toHaveTextContent("TodayUsListsHome");
   expect(screen.getByRole("link", { name: "Today" })).toHaveAttribute("aria-current", "page");
   expect(screen.getByRole("img", { name: "Jo" })).toHaveClass("hl-avatar-berry");
 });
@@ -423,7 +423,7 @@ test("a used invite says so and lets you go on", async () => {
 
 test("cook by mood suggests recipes and puts what's missing on the list", async () => {
   sessionStorage.clear();
-  const curry = { slug: "green-curry", name: "Green curry", tags: ["Thai"], totalTime: "30 min" };
+  const curry = { slug: "green-curry", name: "Green curry", tags: ["Thai"], totalTime: "30 min", imageUrl: `/v1/households/${home.id}/recipes/green-curry/image?v=1` };
   const calls = serve(
     ...signedIn(),
     at("POST", `/v1/households/${home.id}/cook/suggestions`, () =>
@@ -441,8 +441,10 @@ test("cook by mood suggests recipes and puts what's missing on the list", async 
   await userEvent.click(screen.getByRole("button", { name: "Suggest dinner" }));
   expect(await calls.find((c) => c.url.endsWith("/cook/suggestions"))?.json()).toEqual({ mood: "Cozy; Time: 20 min; Use up: lime" });
 
+  expect(document.querySelector(".recipe-thumb")).toHaveAttribute("src", curry.imageUrl);
   await userEvent.click(await screen.findByText("Warm and a little spicy."));
   await userEvent.click(await screen.findByLabelText("Rice"));
+  expect(document.querySelector(".recipe-hero")).toHaveAttribute("src", curry.imageUrl);
   await userEvent.click(screen.getByRole("button", { name: "Put 2 missing items on the list" }));
   expect(await screen.findByRole("status")).toHaveTextContent("2 items are on “Shopping list” now.");
   expect(await calls.find((c) => c.url.endsWith("/shopping-list"))?.json()).toEqual({ recipe: "green-curry", ingredientIds: ["i1", "i3"] });
@@ -607,8 +609,8 @@ test("pulling down from the top loads the list again", async () => {
 
 test("the shopping list adds, ticks and clears items", async () => {
   const list = `/v1/households/${home.id}/shopping-list`;
-  const milk = { id: "44444444-4444-4444-8444-444444444444", text: "Milk", done: false, createdAt: "2026-10-28T08:00:00Z" };
-  const lime = { id: "55555555-5555-4555-8555-555555555555", text: "Lime", recipe: "Green curry", done: true, createdAt: "2026-10-28T08:00:00Z" };
+  const milk = { id: "44444444-4444-4444-8444-444444444444", text: "Milk", aisle: "dairy", done: false, createdAt: "2026-10-28T08:00:00Z" };
+  const lime = { id: "55555555-5555-4555-8555-555555555555", text: "Lime", aisle: "produce", recipe: "Green curry", done: true, createdAt: "2026-10-28T08:00:00Z" };
   const calls = serve(
     ...signedIn(),
     at("GET", list, () => json([milk, lime])),
@@ -616,9 +618,14 @@ test("the shopping list adds, ticks and clears items", async () => {
     at("POST", `${list}/items`, () => json({ ...milk, text: "Bread" }, 201)),
     at("PUT", `${list}/items/${milk.id}/done`, () => json({ ...milk, done: true })),
     at("DELETE", `${list}/done`, () => new Response(null, { status: 204 })),
+    at("PATCH", `${list}/items/${milk.id}`, () => json({ ...milk, aisle: "drinks" })),
   );
   renderApp("/lists?show=shopping");
   expect(await screen.findByText("Milk")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Dairy & eggs" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /^Milk/ }));
+  await userEvent.click(screen.getByRole("button", { name: "Drinks" }));
+  await waitFor(() => expect(calls.find((c) => c.method === "PATCH")?.json()).resolves.toEqual({ aisle: "drinks" }));
   expect(screen.queryByRole("button", { name: "Add" })).toBeInTheDocument();
   expect(calls.some((c) => c.url.includes("/entries"))).toBe(false);
 
