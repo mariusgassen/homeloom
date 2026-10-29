@@ -14,7 +14,9 @@
     "@livekit/agents": "^1.9.4",
     "@livekit/agents-plugin-anthropic": "^1.9.4",
     "@livekit/agents-plugin-openai": "^1.9.4",
-    "@livekit/agents-plugin-silero": "^1.9.4"
+    "@livekit/agents-plugin-silero": "^1.9.4",
+    "@livekit/rtc-node": "^1.2.1",
+    "onnxruntime-node": "1.24.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

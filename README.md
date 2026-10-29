@@ -22,6 +22,7 @@ cp .env.example .env   # set POSTGRES_PASSWORD, PUBLIC_URL=http://localhost:3000
                        # and LIVEKIT_API_SECRET (32+ characters) for calls
                        # optional: MEALIE_MCP_URL + MEALIE_MCP_TOKEN for cooking, ANTHROPIC_API_KEY for Claude and the assistant
                        # optional: OPENAI_API_KEY (with ANTHROPIC_API_KEY) to talk to Homeloom in a call
+                       #           (background noise is filtered on the agent; VOICE_NOISE_CANCELLATION=off turns it off)
                        # optional: HOME_ASSISTANT_URL + HOMELOOM_SECRET_KEY for scenes and lights
                        # optional: HOMELOOM_SECRET_KEY alone lets each of you sign in to Plex for movies and shows
                        # optional: VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY for notifications (see .env.example)

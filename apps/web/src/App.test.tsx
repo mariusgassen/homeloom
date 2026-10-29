@@ -623,7 +623,7 @@ test("the quick-add sheet suggests reminders set before", async () => {
   );
   renderApp("/lists");
   await screen.findByText("Nothing to remember");
-  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  await userEvent.click(screen.getByRole("button", { name: "New reminder" }));
   const sheet = screen.getByRole("dialog", { name: "New reminder" });
   await userEvent.type(within(sheet).getByLabelText("Remind about"), "wat");
   const chips = await within(sheet).findByRole("group", { name: "Used before" });
@@ -643,14 +643,31 @@ test("the quick-add sheet sets a shared reminder for both", async () => {
   );
   renderApp("/lists");
   expect(await screen.findByText("Nothing to remember")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  await userEvent.click(screen.getByRole("button", { name: "New reminder" }));
   const sheet = screen.getByRole("dialog", { name: "New reminder" });
+  expect(within(sheet).queryByRole("radiogroup", { name: "What to add" })).not.toBeInTheDocument();
   await userEvent.type(within(sheet).getByLabelText("Remind about"), "Call the landlord");
   expect(within(sheet).getByRole("radio", { name: /Both of us/ })).toBeChecked();
   expect(within(sheet).getByText("Jo sees it right away.")).toBeInTheDocument();
   await userEvent.click(within(sheet).getByRole("button", { name: "Save" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   expect(await calls.find((c) => c.method === "POST")?.json()).toEqual({ kind: "reminder", text: "Call the landlord", visibility: "shared", repeat: "never" });
+});
+
+test("add follows the list you're in, and only Today asks what to add", async () => {
+  serve(...signedIn(), at("GET", `/v1/households/${home.id}/entries`, () => json([])));
+  renderApp("/lists?show=note");
+  // A note opens on its own page, with no choice of what to add.
+  await userEvent.click(await screen.findByRole("button", { name: "New note" }));
+  expect(await screen.findByLabelText("Title")).toBeInTheDocument();
+  expect(screen.queryByRole("radiogroup", { name: "What to add" })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Notes" }));
+
+  await userEvent.click(screen.getByRole("link", { name: "Today" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Add" }));
+  const sheet = screen.getByRole("dialog", { name: "New reminder" });
+  await userEvent.click(within(sheet).getByRole("radio", { name: "Note" }));
+  expect(screen.getByRole("dialog", { name: "New note" })).toBeInTheDocument();
 });
 
 test("a note for later stays sealed", async () => {
