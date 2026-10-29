@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.18.0
+  version: 0.19.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -1975,12 +1975,18 @@ components:
 
     Call:
       type: object
-      required: [id, url, token, room]
+      required: [id, url, token, room, e2eeKey]
       properties:
         id: { type: string, format: uuid }
         url: { type: string, description: "The LiveKit server to connect to (wss://)." }
         token: { type: string, description: "LiveKit access token for this person and room." }
         room: { type: string }
+        e2eeKey:
+          type: string
+          description: |
+            The shared key everyone in the call encrypts their audio and video with (LiveKit
+            end-to-end encryption). LiveKit never gets it, so it can't read the media it forwards.
+            Clients must not join without encryption, or nobody can hear or see them.
 
     VoiceSetup:
       type: object

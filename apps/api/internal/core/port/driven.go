@@ -50,6 +50,9 @@ type SessionStore interface {
 	// ClaimGuestPass binds a guest link to the first device that uses it, atomically. It returns
 	// domain.ErrConflict when another device already has.
 	ClaimGuestPass(ctx context.Context, token, device string) error
+	// CallKey keeps key as the encryption key of room unless the room has one already, and
+	// returns the room's key. Each call keeps it for another domain.CallKeyTTL.
+	CallKey(ctx context.Context, room, key string) (string, error)
 	// SaveAgentGrant keeps the grant until it expires; AgentGrant returns domain.ErrNotFound for
 	// an unknown or expired token.
 	SaveAgentGrant(ctx context.Context, token string, g domain.AgentGrant) error

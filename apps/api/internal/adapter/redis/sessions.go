@@ -99,6 +99,24 @@ func (s *Sessions) ClaimGuestPass(ctx context.Context, token, device string) err
 	return nil
 }
 
+func (s *Sessions) CallKey(ctx context.Context, room, key string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, sessionTimeout)
+	defer cancel()
+	k := hashedKey("call-key", room)
+	ok, err := s.client.SetNX(ctx, k, key, domain.CallKeyTTL).Result()
+	if err != nil {
+		return "", fmt.Errorf("redis: call key: %w", err)
+	}
+	if ok {
+		return key, nil
+	}
+	existing, err := s.client.GetEx(ctx, k, domain.CallKeyTTL).Result()
+	if err != nil {
+		return "", fmt.Errorf("redis: call key: %w", err)
+	}
+	return existing, nil
+}
+
 func (s *Sessions) Save(ctx context.Context, id string, sess domain.Session) error {
 	return s.set(ctx, hashedKey("session", id), sess, s.ttl)
 }

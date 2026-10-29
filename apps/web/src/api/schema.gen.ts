@@ -1580,6 +1580,12 @@ export interface components {
             /** @description LiveKit access token for this person and room. */
             token: string;
             room: string;
+            /**
+             * @description The shared key everyone in the call encrypts their audio and video with (LiveKit
+             *     end-to-end encryption). LiveKit never gets it, so it can't read the media it forwards.
+             *     Clients must not join without encryption, or nobody can hear or see them.
+             */
+            e2eeKey: string;
         };
         VoiceSetup: {
             /** @description Whether Homeloom can speak on this server: calls with it and previews. */

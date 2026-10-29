@@ -61,6 +61,14 @@ func TestSessions(t *testing.T) {
 		t.Errorf("unknown guest pass: want ErrNotFound, got %v", err)
 	}
 
+	room := "call-" + uuid.NewString()
+	if k, err := s.CallKey(ctx, room, "first"); err != nil || k != "first" {
+		t.Fatalf("call key: %q, %v", k, err)
+	}
+	if k, err := s.CallKey(ctx, room, "second"); err != nil || k != "first" {
+		t.Fatalf("call key again: want the first, got %q, %v", k, err)
+	}
+
 	id := uuid.NewString()
 	want := domain.Session{Identity: domain.Identity{Subject: "sub", Name: "Alice"}, IDToken: "tok"}
 	if err := s.Save(ctx, id, want); err != nil {

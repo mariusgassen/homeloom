@@ -52,9 +52,10 @@ func (s *Call) WithVoice(v *Voice) *Call {
 }
 
 // VoiceCall is the metadata the voice agent gets with each call: the key it acts as the caller
-// with, and how to talk to them.
+// with, the key the call's media is encrypted with, and how to talk to them.
 type VoiceCall struct {
 	Key   string      `json:"key"`
+	E2EE  string      `json:"e2ee"`
 	Lang  string      `json:"lang"`
 	Name  string      `json:"name"`
 	Voice VoiceOfCall `json:"voice"`
@@ -78,12 +79,16 @@ func (s *Call) TalkToHomeloom(ctx context.Context, actor domain.User, householdI
 	// The room is the actor's alone: no one else can join it, so the agent's answers stay theirs.
 	id := uuid.New()
 	room := "homeloom-" + householdID.String() + "-" + actor.ID.String() + "-" + id.String()
+	e2ee, err := s.passes.CallKey(ctx, room, randomID())
+	if err != nil {
+		return domain.Call{}, err
+	}
 	key, err := s.keys.Mint(ctx, actor, householdID, voiceCallTTL)
 	if err != nil {
 		return domain.Call{}, err
 	}
 	v := s.voice.forCall(ctx, actor)
-	meta, err := json.Marshal(VoiceCall{Key: key, Lang: lang, Name: actor.Name, Voice: VoiceOfCall{Voice: v.Voice, Speed: v.Speed, Instructions: v.Tone.Instructions()}})
+	meta, err := json.Marshal(VoiceCall{Key: key, E2EE: e2ee, Lang: lang, Name: actor.Name, Voice: VoiceOfCall{Voice: v.Voice, Speed: v.Speed, Instructions: v.Tone.Instructions()}})
 	if err != nil {
 		return domain.Call{}, err
 	}
@@ -94,7 +99,7 @@ func (s *Call) TalkToHomeloom(ctx context.Context, actor domain.User, householdI
 	if err != nil {
 		return domain.Call{}, err
 	}
-	return domain.Call{ID: id, URL: s.server.URL(), Token: token, Room: room}, nil
+	return domain.Call{ID: id, URL: s.server.URL(), Token: token, Room: room, Key: e2ee}, nil
 }
 
 func (s *Call) Start(ctx context.Context, actor domain.User, householdID uuid.UUID, invite []uuid.UUID) (domain.Call, error) {
@@ -104,7 +109,7 @@ func (s *Call) Start(ctx context.Context, actor domain.User, householdID uuid.UU
 	if s.server == nil {
 		return domain.Call{}, errCallsOff
 	}
-	c, err := s.join(actor.ID.String(), actor.Name, householdID, uuid.New())
+	c, err := s.join(ctx, actor.ID.String(), actor.Name, householdID, uuid.New())
 	if err != nil {
 		return domain.Call{}, err
 	}
@@ -119,7 +124,7 @@ func (s *Call) Join(ctx context.Context, actor domain.User, householdID, callID 
 	if s.server == nil {
 		return domain.Call{}, errCallsOff
 	}
-	return s.join(actor.ID.String(), actor.Name, householdID, callID)
+	return s.join(ctx, actor.ID.String(), actor.Name, householdID, callID)
 }
 
 func (s *Call) Invite(ctx context.Context, actor domain.User, householdID, callID uuid.UUID, userIDs []uuid.UUID) error {
@@ -186,7 +191,7 @@ func (s *Call) JoinAsGuest(ctx context.Context, token, device, name string) (dom
 		return domain.Call{}, err
 	}
 	// Guests get an identity of their own each time, so they can never pass for a member.
-	return s.join("guest-"+uuid.NewString(), name, pass.HouseholdID, pass.CallID)
+	return s.join(ctx, "guest-"+uuid.NewString(), name, pass.HouseholdID, pass.CallID)
 }
 
 var errCallsOff = fmt.Errorf("%w: calls are not set up", domain.ErrUnavailable)
@@ -207,13 +212,18 @@ func (s *Call) members(ctx context.Context, householdID, actor uuid.UUID, others
 	return nil
 }
 
-func (s *Call) join(identity, name string, householdID, callID uuid.UUID) (domain.Call, error) {
+// join hands out the room's token and its key; whoever joins first decides the key.
+func (s *Call) join(ctx context.Context, identity, name string, householdID, callID uuid.UUID) (domain.Call, error) {
 	room := callRoom(householdID, callID)
+	key, err := s.passes.CallKey(ctx, room, randomID())
+	if err != nil {
+		return domain.Call{}, err
+	}
 	token, err := s.server.Token(identity, name, room)
 	if err != nil {
 		return domain.Call{}, err
 	}
-	return domain.Call{ID: callID, URL: s.server.URL(), Token: token, Room: room}, nil
+	return domain.Call{ID: callID, URL: s.server.URL(), Token: token, Room: room, Key: key}, nil
 }
 
 // ring tells members someone is calling them; the notification opens the call to answer it.
