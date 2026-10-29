@@ -983,3 +983,27 @@ func TestAssistantFlow(t *testing.T) {
 		t.Fatalf("delete: %d", code)
 	}
 }
+
+// TestDAVMethodsReachTheirHandlers guards against the router answering WebDAV and CalDAV methods
+// with 405 before /dav and /webdav see them.
+func TestDAVMethodsReachTheirHandlers(t *testing.T) {
+	var got []string
+	record := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = append(got, r.Method+" "+r.URL.Path)
+		w.WriteHeader(http.StatusMultiStatus)
+	})
+	h, err := httpadapter.NewRouter(httpadapter.Deps{CalDAV: record, Notes: record})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/.well-known/caldav", "/dav", "/dav/x/calendars/events/", "/webdav", "/webdav/a.md"} {
+		for _, method := range []string{"PROPFIND", "PROPPATCH", "REPORT", "MKCALENDAR", "MKCOL", "MOVE", "COPY", "LOCK", "UNLOCK", "OPTIONS", "PUT"} {
+			got = nil
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, httptest.NewRequest(method, path, nil))
+			if rec.Code != http.StatusMultiStatus || len(got) != 1 {
+				t.Errorf("%s %s: %d, handler saw %v", method, path, rec.Code, got)
+			}
+		}
+	}
+}
