@@ -8,6 +8,11 @@ import { SessionProvider } from "./session";
 
 // A stand-in for LiveKit's Room: connects at once and lets a test play the other side.
 const rooms = vi.hoisted(() => [] as InstanceType<typeof import("node:events").EventEmitter>[]);
+const keyProviders = vi.hoisted(() => [] as { setKey: ReturnType<typeof vi.fn> }[]);
+// jsdom has no workers; the fake Room never starts LiveKit's encryption worker anyway.
+vi.hoisted(() => {
+  globalThis.Worker ??= function Worker() {} as unknown as typeof Worker;
+});
 vi.mock("livekit-client", async () => {
   const { EventEmitter } = await import("node:events");
   class Participant extends EventEmitter {
@@ -34,6 +39,7 @@ vi.mock("livekit-client", async () => {
       }),
       setCameraEnabled: vi.fn(),
     };
+    setE2EEEnabled = vi.fn(async () => undefined);
     connect = vi.fn(async () => undefined);
     disconnect = vi.fn(async () => undefined);
     startAudio = vi.fn(async () => undefined);
@@ -46,8 +52,16 @@ vi.mock("livekit-client", async () => {
       this.emit("participantConnected");
     }
   }
+  class ExternalE2EEKeyProvider {
+    setKey = vi.fn(async () => undefined);
+    constructor() {
+      keyProviders.push(this);
+    }
+  }
   return {
     Room,
+    ExternalE2EEKeyProvider,
+    isE2EESupported: () => true,
     RoomEvent: Object.fromEntries(
       ["ParticipantConnected", "ParticipantDisconnected", "Reconnecting", "Reconnected", "Disconnected", "TrackSubscribed", "TrackUnsubscribed", "TrackMuted", "TrackUnmuted", "LocalTrackPublished", "LocalTrackUnpublished", "AudioPlaybackStatusChanged"].map((e) => [
         e,
@@ -547,8 +561,9 @@ test("settings makes a calendar subscription link", async () => {
 const household = () =>
   json({ ...home, members: [{ user: marius, role: "owner" }, { user: jo, role: "member" }] });
 const callId = "55555555-5555-4555-8555-555555555555";
-const callJoin = () => json({ id: callId, url: "wss://home.example", token: "t", room: `call-${home.id}-${callId}` });
+const callJoin = () => json({ id: callId, url: "wss://home.example", token: "t", e2eeKey: "callkey", room: `call-${home.id}-${callId}` });
 type FakeRoom = {
+  setE2EEEnabled: ReturnType<typeof vi.fn>;
   connect: ReturnType<typeof vi.fn>;
   disconnect: ReturnType<typeof vi.fn>;
   join: (id: string, name: string, isAgent?: boolean) => void;
@@ -570,6 +585,9 @@ test("calling from Us rings and shows the call until hung up", async () => {
   expect(await screen.findByText("Calling…")).toBeInTheDocument();
   const room = rooms[0] as unknown as FakeRoom;
   expect(room.connect).toHaveBeenCalledWith("wss://home.example", "t");
+  // The call is end-to-end encrypted with the key from the API before it connects.
+  expect(keyProviders.at(-1)?.setKey).toHaveBeenCalledWith("callkey");
+  expect(room.setE2EEEnabled).toHaveBeenCalledWith(true);
 
   act(() => room.join(jo.id, "Jo"));
   expect(await screen.findByText("0:00")).toBeInTheDocument();
@@ -788,7 +806,7 @@ test("the phone in the assistant starts a call with Homeloom", async () => {
   const calls = serve(
     ...signedIn(),
     at("GET", `/v1/households/${home.id}/conversations`, () => json([])),
-    at("POST", `/v1/households/${home.id}/calls/homeloom`, () => json({ id: callId, url: "wss://home.example", token: "t", room: "homeloom-x" }, 201)),
+    at("POST", `/v1/households/${home.id}/calls/homeloom`, () => json({ id: callId, url: "wss://home.example", token: "t", e2eeKey: "callkey", room: "homeloom-x" }, 201)),
   );
   renderApp();
   await userEvent.click(await screen.findByRole("button", { name: "Ask Homeloom" }));

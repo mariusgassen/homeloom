@@ -131,7 +131,7 @@ func (h *handlers) JoinGuestCall(ctx context.Context, req oapi.JoinGuestCallRequ
 }
 
 func toCall(c domain.Call) oapi.Call {
-	return oapi.Call{Id: c.ID, Url: c.URL, Token: c.Token, Room: c.Room}
+	return oapi.Call{Id: c.ID, Url: c.URL, Token: c.Token, Room: c.Room, E2eeKey: c.Key}
 }
 
 func badRequest(ctx context.Context, err error) oapi.BadRequestJSONResponse {

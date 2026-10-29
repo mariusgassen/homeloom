@@ -1,4 +1,4 @@
-import { Room, RoomEvent } from "livekit-client";
+import { ExternalE2EEKeyProvider, isE2EESupported, Room, RoomEvent } from "livekit-client";
 import { createContext, use, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { api, type Call } from "./api/client";
 
@@ -68,7 +68,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const enter = useCallback(
     (ask: () => Promise<Call | "linkUsed" | undefined>, householdId: string | undefined, invite: string[], withHomeloom = false) => {
       if (current.current) return;
-      const r = new Room({ adaptiveStream: true, dynacast: true });
+      // Every call is end-to-end encrypted with the key the API hands out; LiveKit never has it.
+      const keyProvider = new ExternalE2EEKeyProvider();
+      const encryption = isE2EESupported()
+        ? { keyProvider, worker: new Worker(new URL("livekit-client/e2ee-worker", import.meta.url), { type: "module" }) }
+        : undefined;
+      const r = new Room({ adaptiveStream: true, dynacast: true, encryption });
       current.current = r;
       setRoom(r);
       setInvited(invite);
@@ -108,6 +113,10 @@ export function CallProvider({ children }: { children: ReactNode }) {
           const data = await ask();
           if (!data || data === "linkUsed") return finish(r, data ?? "failed");
           if (householdId) setCall({ householdId, id: data.id });
+          // Without encryption nobody could hear or see us, so a browser that can't do it doesn't join.
+          if (!encryption) return finish(r, "failed");
+          await keyProvider.setKey(data.e2eeKey);
+          await r.setE2EEEnabled(true);
           await r.connect(data.url, data.token);
         } catch {
           return finish(r, "failed");

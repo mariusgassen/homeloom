@@ -17,6 +17,7 @@ type Sessions struct {
 	guests   map[string]domain.GuestPass
 	claims   map[string]string
 	agents   map[string]domain.AgentGrant
+	callKeys map[string]string
 }
 
 func NewSessions() *Sessions {
@@ -24,6 +25,7 @@ func NewSessions() *Sessions {
 		logins: map[string]domain.PendingLogin{}, sessions: map[string]domain.Session{}, homes: map[string]domain.PendingHomeConnection{},
 		watches: map[string]domain.PendingWatchConnection{},
 		guests:  map[string]domain.GuestPass{}, claims: map[string]string{}, agents: map[string]domain.AgentGrant{},
+		callKeys: map[string]string{},
 	}
 }
 
@@ -130,6 +132,16 @@ func (s *Sessions) ClaimGuestPass(_ context.Context, token, device string) error
 	}
 	s.claims[token] = device
 	return nil
+}
+
+func (s *Sessions) CallKey(_ context.Context, room, key string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if k, ok := s.callKeys[room]; ok {
+		return k, nil
+	}
+	s.callKeys[room] = key
+	return key, nil
 }
 
 func (s *Sessions) SaveAgentGrant(_ context.Context, token string, g domain.AgentGrant) error {

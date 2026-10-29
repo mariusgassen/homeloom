@@ -2,6 +2,8 @@
 export type Caller = {
   // A short-lived key for Homeloom's MCP server that acts as the caller.
   key: string;
+  // The key the call's media is end-to-end encrypted with; LiveKit never has it.
+  e2ee: string;
   lang: "de" | "en";
   name: string;
   voice: Voice;
@@ -21,8 +23,10 @@ export const defaultVoice: Voice = { voice: "coral", speed: 1, instructions: "Sp
 export function parseCaller(metadata: string): Caller {
   const m = JSON.parse(metadata) as Partial<Record<keyof Caller, unknown>>;
   if (typeof m.key !== "string" || m.key === "") throw new Error("job metadata has no key");
+  if (typeof m.e2ee !== "string" || m.e2ee === "") throw new Error("job metadata has no encryption key");
   return {
     key: m.key,
+    e2ee: m.e2ee,
     lang: m.lang === "de" ? "de" : "en",
     name: typeof m.name === "string" ? m.name : "",
     voice: parseVoice(m.voice),
