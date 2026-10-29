@@ -9,8 +9,9 @@ Ein gemeinsames Zuhause für zwei. Homeloom verwebt eure Mahlzeiten, Momente und
 - `apps/api`: die Go-API (hexagonal, API first). Der Vertrag liegt in `apps/api/api/openapi.yaml`.
 - `apps/web`: die PWA (Vite, React, TypeScript), auf dem iPhone über Safari installierbar.
 - `apps/agent`: Homeloom als Stimme in Anrufen (LiveKit Agents für Node).
+- `apps/garage`: der S3-Speicher für Fotos (Garage), der sich beim Start selbst einrichtet.
 - `docs/architecture.md`: Entscheidungen, Aufbau und Deployment (auf Englisch).
-- `docker-compose.yml`: der Stack, den Coolify ausrollt (`homeloom-web`, `homeloom-api`, `homeloom-livekit` für Anrufe, `homeloom-agent`, `homeloom-postgres`, `homeloom-redis`).
+- `docker-compose.yml`: der Stack, den Coolify ausrollt (`homeloom-web`, `homeloom-api`, `homeloom-livekit` für Anrufe, `homeloom-agent`, `homeloom-postgres`, `homeloom-redis`, `homeloom-garage` für Fotos).
 
 Die App spricht Deutsch und Englisch. Die API antwortet in der Sprache aus dem `Accept-Language`-Header.
 
@@ -21,9 +22,11 @@ cp .env.example .env   # POSTGRES_PASSWORD, PUBLIC_URL=http://localhost:3000, di
                        # und LIVEKIT_API_SECRET (32+ Zeichen) für Anrufe setzen
                        # optional: MEALIE_MCP_URL + MEALIE_MCP_TOKEN zum Kochen, ANTHROPIC_API_KEY für Claude und den Assistenten
                        # optional: OPENAI_API_KEY (mit ANTHROPIC_API_KEY), um im Anruf mit Homeloom zu sprechen
+                       #           (Hintergrundgeräusche filtert der Agent heraus; VOICE_NOISE_CANCELLATION=off schaltet das ab)
                        # optional: HOME_ASSISTANT_URL + HOMELOOM_SECRET_KEY für Szenen und Licht
                        # optional: HOMELOOM_SECRET_KEY allein, damit ihr euch für Filme und Serien bei Plex anmelden könnt
                        # optional: VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY für Mitteilungen (siehe .env.example)
+                       # optional: S3_ACCESS_KEY_ID + S3_SECRET_ACCESS_KEY, um Fotos in homeloom-garage abzulegen (siehe .env.example)
                        # optional: TIME_ZONE für Erinnerungen und Kalender (Standard: Europe/Berlin)
                        # optional: OIDC_CLIENT_IDS, damit ein MCP-Client wie Claude PUBLIC_URL/mcp nutzen kann
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
@@ -41,6 +44,17 @@ Die Notizen aus Homeloom gibt es auch als Markdown-Dateien über WebDAV. So kann
 ## Filme und Serien
 
 Unter Wir › Filme & Serien meldet ihr euch jeweils mit eurem eigenen Plex-Konto an. Homeloom zeigt dann die Film- und Serien-Mediatheken auf euren eigenen Servern und auf Servern, die Freunde mit euch teilen, mit dem, was ihr noch nicht gesehen habt, und einem Zufallsvorschlag. Homeloom liest nur: Nichts wird abgespielt oder geändert, und das Plex-Token bleibt verschlüsselt mit `HOMELOOM_SECRET_KEY` auf dem Server. Die API muss deinen Plex-Server erreichen können (im selben Netz oder über Plex' Fernzugriff).
+
+## Fotospeicher
+
+Fotos von Momenten und Notizen liegen in Postgres, solange du kein S3-Schlüsselpaar setzt. Mit einem landen sie in `homeloom-garage`, einem kleinen S3-Speicher ([Garage](https://garagehq.deuxfleurs.fr)) im Stack, der sich beim Start selbst einrichtet: Er legt den Bucket an und importiert deinen Schlüssel. Erstell den Schlüssel einmal, im Format, das Garage erwartet:
+
+```sh
+S3_ACCESS_KEY_ID=GK$(openssl rand -hex 12)
+S3_SECRET_ACCESS_KEY=$(openssl rand -hex 32)
+```
+
+Ältere Fotos bleiben in Postgres und werden weiter angezeigt; ein Foto wandert nach S3, sobald du es ersetzt. Garage speichert seine Daten im Volume `homeloom-garage-data`, sichere das also zusammen mit Postgres. Für einen anderen S3-kompatiblen Speicher setzt du zusätzlich `S3_ENDPOINT` (und `S3_REGION`, `S3_BUCKET`) und legst Bucket und Schlüssel dort selbst an.
 
 ## Roadmap
 

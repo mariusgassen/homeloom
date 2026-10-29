@@ -47,12 +47,23 @@ updates:
     commit-message:
       prefix: fix
       include: scope
+    # Silero pins onnxruntime-node and two versions can't share a process; a test keeps them equal.
+    ignore:
+      - dependency-name: onnxruntime-node
     groups:
       npm:
         patterns: ["*"]
 
   - package-ecosystem: docker
     directory: /apps/agent
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: fix
+      include: scope
+
+  - package-ecosystem: docker
+    directory: /apps/garage
     schedule:
       interval: weekly
     commit-message:

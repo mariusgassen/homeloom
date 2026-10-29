@@ -109,6 +109,14 @@ type Entry struct {
 	IcalName     *string
 }
 
+type EntryPhoto struct {
+	ID          uuid.UUID
+	EntryID     uuid.UUID
+	ContentType string
+	Data        []byte
+	CreatedAt   time.Time
+}
+
 type HomeConnection struct {
 	UserID       uuid.UUID
 	RefreshToken string
@@ -189,6 +197,14 @@ type Question struct {
 	Text        string
 	CreatedAt   time.Time
 	RevealedAt  *time.Time
+}
+
+type ShoppingHistory struct {
+	HouseholdID uuid.UUID
+	Key         string
+	Text        string
+	Uses        int32
+	LastUsed    time.Time
 }
 
 type ShoppingItem struct {

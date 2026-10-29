@@ -19,6 +19,7 @@
   "error.invalid_ingredients": "Wähl mindestens eine Zutat aus diesem Rezept.",
   "error.invalid_moment_day": "Ein Moment kann nicht in der Zukunft liegen.",
   "error.invalid_photo": "Wähl ein Foto mit höchstens {max} MB.",
+  "error.too_many_photos": "Eine Notiz hat Platz für höchstens {max} Fotos.",
   "error.invalid_reveal": "Wähl, wann es sich öffnet. Nur Notizen und Momente können sich später öffnen.",
   "error.invalid_text": "Schreib bitte zwischen 1 und {max} Zeichen.",
   "error.invite_invalid": "Dieser Einladungslink gilt nicht mehr. Lass dir einen neuen schicken.",

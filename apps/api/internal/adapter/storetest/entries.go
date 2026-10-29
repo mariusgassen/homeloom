@@ -131,6 +131,38 @@ func Entries(t *testing.T, s interface {
 	}
 	expect("deleted", alice, domain.KindReminder)
 
+	// Photos in a note: kept in order, only found in their note, gone with the note.
+	pic := domain.Photo{ContentType: "image/jpeg", Data: []byte{1, 2, 3}}
+	first, err := s.AddEntryPhoto(ctx, note.ID, pic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := s.AddEntryPhoto(ctx, note.ID, pic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p, err := s.EntryPhoto(ctx, note.ID, first); err != nil || p.ContentType != "image/jpeg" || len(p.Data) != 3 {
+		t.Fatalf("photo: %+v, %v", p, err)
+	}
+	if _, err := s.EntryPhoto(ctx, letter.ID, first); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("photo of another note: %v", err)
+	}
+	if got, err := s.EntryPhotoIDs(ctx, note.ID); err != nil || len(got) != 2 || got[0] != first || got[1] != second {
+		t.Fatalf("photo ids: %v, %v", got, err)
+	}
+	if err := s.DeleteEntryPhotos(ctx, note.ID, []uuid.UUID{first}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.EntryPhotoIDs(ctx, note.ID); len(got) != 1 || got[0] != second {
+		t.Fatalf("after deleting one: %v", got)
+	}
+	if err := s.DeleteEntry(ctx, note.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.EntryPhoto(ctx, note.ID, second); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("photo of a deleted note: %v", err)
+	}
+
 	// Claiming: only open, due, not yet notified reminders, once each.
 	due := create(alice, domain.KindReminder, domain.EntryFields{Text: "due", Visibility: domain.VisibilityShared, DueAt: at(-time.Minute)})
 	notified := create(alice, domain.KindReminder, domain.EntryFields{Text: "notified", Visibility: domain.VisibilityShared, DueAt: at(-time.Hour)})

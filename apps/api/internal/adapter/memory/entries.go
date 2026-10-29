@@ -5,6 +5,7 @@ import (
 	"context"
 	"maps"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -76,6 +77,57 @@ func (s *Store) ListEntries(_ context.Context, householdID, viewer uuid.UUID, ki
 	return out[:min(limit, len(out))], nil
 }
 
+func (s *Store) ReminderSuggestions(_ context.Context, householdID, viewer uuid.UUID, limit int) ([]domain.TitleSuggestion, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	byKey := map[string]suggestion{}
+	open := map[string]bool{}
+	for _, e := range s.entries {
+		if e.HouseholdID != householdID || e.Kind != domain.KindReminder || (e.AuthorID != viewer && e.Visibility == domain.VisibilityPrivate) {
+			continue
+		}
+		key := strings.ToLower(e.Text)
+		open[key] = open[key] || e.DoneAt == nil
+		h := byKey[key]
+		h.Uses++
+		if !e.CreatedAt.Before(h.LastUsed) {
+			h.Text, h.LastUsed = e.Text, e.CreatedAt
+		}
+		byKey[key] = h
+	}
+	var out []suggestion
+	for key, h := range byKey {
+		if !open[key] {
+			out = append(out, h)
+		}
+	}
+	return rankSuggestions(out, limit), nil
+}
+
+// suggestion is a title used before, with when it was last used.
+type suggestion struct {
+	Text     string
+	Uses     int
+	LastUsed time.Time
+}
+
+type historyKey struct {
+	household uuid.UUID
+	text      string
+}
+
+// rankSuggestions orders them as the Postgres queries do: most used first, then most recent.
+func rankSuggestions(in []suggestion, limit int) []domain.TitleSuggestion {
+	slices.SortFunc(in, func(a, b suggestion) int {
+		return cmp.Or(cmp.Compare(b.Uses, a.Uses), b.LastUsed.Compare(a.LastUsed))
+	})
+	out := make([]domain.TitleSuggestion, 0, min(limit, len(in)))
+	for _, h := range in[:min(limit, len(in))] {
+		out = append(out, domain.TitleSuggestion{Text: h.Text, Uses: h.Uses})
+	}
+	return out
+}
+
 func (s *Store) UpdateEntry(_ context.Context, e domain.Entry) (domain.Entry, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -94,6 +146,7 @@ func (s *Store) DeleteEntry(_ context.Context, id uuid.UUID) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.entries = slices.DeleteFunc(s.entries, func(e domain.Entry) bool { return e.ID == id })
+	s.entryPhotos = slices.DeleteFunc(s.entryPhotos, func(p entryPhoto) bool { return p.entryID == id })
 	return nil
 }
 
@@ -189,4 +242,50 @@ func cmpDue(a, b *time.Time) int {
 		return -1
 	}
 	return a.Compare(*b)
+}
+
+type entryPhoto struct {
+	id, entryID uuid.UUID
+	domain.Photo
+}
+
+func (s *Store) AddEntryPhoto(_ context.Context, entryID uuid.UUID, p domain.Photo) (uuid.UUID, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !slices.ContainsFunc(s.entries, func(e domain.Entry) bool { return e.ID == entryID }) {
+		return uuid.Nil, domain.ErrNotFound
+	}
+	id := uuid.New()
+	s.entryPhotos = append(s.entryPhotos, entryPhoto{id: id, entryID: entryID, Photo: p})
+	return id, nil
+}
+
+func (s *Store) EntryPhoto(_ context.Context, entryID, photoID uuid.UUID) (domain.Photo, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, p := range s.entryPhotos {
+		if p.id == photoID && p.entryID == entryID {
+			return p.Photo, nil
+		}
+	}
+	return domain.Photo{}, domain.ErrNotFound
+}
+
+func (s *Store) EntryPhotoIDs(_ context.Context, entryID uuid.UUID) ([]uuid.UUID, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ids := []uuid.UUID{}
+	for _, p := range s.entryPhotos {
+		if p.entryID == entryID {
+			ids = append(ids, p.id)
+		}
+	}
+	return ids, nil
+}
+
+func (s *Store) DeleteEntryPhotos(_ context.Context, entryID uuid.UUID, ids []uuid.UUID) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.entryPhotos = slices.DeleteFunc(s.entryPhotos, func(p entryPhoto) bool { return p.entryID == entryID && slices.Contains(ids, p.id) })
+	return nil
 }

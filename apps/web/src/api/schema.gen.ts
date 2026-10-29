@@ -388,6 +388,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/entries/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Reminders you set before, to set again (members only)
+         * @description Titles of past reminders you can see, most often used first, then most recently. Titles
+         *     of open reminders are left out. At most 20.
+         */
+        get: operations["listReminderSuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/calendar-feed": {
         parameters: {
             query?: never;
@@ -480,6 +503,53 @@ export interface paths {
         post?: never;
         /** Untick a reminder */
         delete: operations["reopenEntry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/entries/{entryId}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryId: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a photo to a note you can change
+         * @description A JPEG of at most 5 MB; the app makes photos smaller first. A note holds at most 50. Put
+         *     `![](url)` in the note's text to show it: a photo the text no longer links is deleted with
+         *     the note's next change.
+         */
+        post: operations["addNotePhoto"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/entries/{entryId}/photos/{photoId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryId: components["parameters"]["EntryId"];
+                photoId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * A photo in a note you can read
+         * @description A photo never changes, so the answer may be cached.
+         */
+        get: operations["getNotePhoto"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -710,6 +780,29 @@ export interface paths {
         post?: never;
         /** Untick an item */
         delete: operations["untickShoppingItem"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/shopping-list/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Things you put on the shopping list before (members only)
+         * @description What the household has put on the list, most often first, then most recently, including
+         *     items since cleared. Items open on the list are left out. At most 20.
+         */
+        get: operations["listShoppingSuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1363,7 +1456,7 @@ export interface components {
         /** @enum {string} */
         Repeat: "never" | "daily" | "weekly" | "monthly" | "yearly";
         EntryFields: {
-            /** @description A note's text, or a reminder's or event's title (at most 200 characters). */
+            /** @description A note's Markdown text, or a reminder's or event's title (at most 200 characters). A note's title is its first line, usually a `# Heading`. */
             text: string;
             visibility: components["schemas"]["Visibility"];
             /**
@@ -1412,6 +1505,8 @@ export interface components {
             /** @description True while you may not read the text yet; `text` is then absent. */
             sealed: boolean;
             text?: string;
+            /** @description Notes only: the first line of the text without its Markdown, such as a `# Heading`'s words. Absent while `sealed`. */
+            title?: string;
             /**
              * Format: date-time
              * @description A reminder's due time, or when an event's next alert goes out.
@@ -1434,6 +1529,12 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        NotePhoto: {
+            /** Format: uuid */
+            id: string;
+            /** @description Where the photo is, to link in the note's text as `![](url)`. */
+            url: string;
         };
         /** @enum {string} */
         MomentKind: "moment" | "gratitude";
@@ -1564,6 +1665,12 @@ export interface components {
             doneAt?: string;
             /** Format: date-time */
             createdAt: string;
+        };
+        TitleSuggestion: {
+            /** @description The title, as it was last written. */
+            text: string;
+            /** @description How often it was used. */
+            uses: number;
         };
         Home: {
             /** @description Whether you have connected your Home Assistant account. */
@@ -2523,6 +2630,30 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listReminderSuggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The suggestions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleSuggestion"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getCalendarFeed: {
         parameters: {
             query?: never;
@@ -2773,6 +2904,70 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    addNotePhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryId: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            /** @description The photo, ready to link. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotePhoto"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description You can see this note but not change it (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getNotePhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryId: components["parameters"]["EntryId"];
+                photoId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The photo. */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     listMoments: {
@@ -3254,6 +3449,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ShoppingItem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listShoppingSuggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The suggestions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TitleSuggestion"][];
                 };
             };
             401: components["responses"]["Unauthorized"];

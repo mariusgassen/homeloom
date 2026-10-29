@@ -91,6 +91,20 @@ func (s *Store) DeleteEntry(ctx context.Context, id uuid.UUID) error {
 	return s.q.DeleteEntry(ctx, id)
 }
 
+func (s *Store) ReminderSuggestions(ctx context.Context, householdID, viewer uuid.UUID, limit int) ([]domain.TitleSuggestion, error) {
+	rows, err := s.q.ReminderSuggestions(ctx, sqlcgen.ReminderSuggestionsParams{
+		HouseholdID: householdID, Viewer: viewer, Lim: int32(min(limit, 1000)), //nolint:gosec // bounded above
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.TitleSuggestion, len(rows))
+	for i, r := range rows {
+		out[i] = domain.TitleSuggestion{Text: r.Text, Uses: int(r.Uses)}
+	}
+	return out, nil
+}
+
 func (s *Store) ClaimDue(ctx context.Context, now time.Time, limit int) ([]domain.Entry, error) {
 	rows, err := s.q.ClaimDue(ctx, sqlcgen.ClaimDueParams{Now: now, Lim: int32(min(limit, 1000))}) //nolint:gosec // bounded above
 	if err != nil {
@@ -154,4 +168,27 @@ func (s *Store) HasCalendarFeed(ctx context.Context, f domain.CalendarFeed) (boo
 
 func (s *Store) DeleteCalendarFeed(ctx context.Context, f domain.CalendarFeed) error {
 	return s.q.DeleteCalendarFeed(ctx, sqlcgen.DeleteCalendarFeedParams{UserID: f.UserID, HouseholdID: f.HouseholdID})
+}
+
+func (s *Store) AddEntryPhoto(ctx context.Context, entryID uuid.UUID, p domain.Photo) (uuid.UUID, error) {
+	return s.q.AddEntryPhoto(ctx, sqlcgen.AddEntryPhotoParams{EntryID: entryID, ContentType: p.ContentType, Data: p.Data})
+}
+
+func (s *Store) EntryPhoto(ctx context.Context, entryID, photoID uuid.UUID) (domain.Photo, error) {
+	row, err := s.q.GetEntryPhoto(ctx, sqlcgen.GetEntryPhotoParams{EntryID: entryID, ID: photoID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Photo{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.Photo{}, err
+	}
+	return domain.Photo{ContentType: row.ContentType, Data: row.Data}, nil
+}
+
+func (s *Store) EntryPhotoIDs(ctx context.Context, entryID uuid.UUID) ([]uuid.UUID, error) {
+	return s.q.ListEntryPhotoIDs(ctx, entryID)
+}
+
+func (s *Store) DeleteEntryPhotos(ctx context.Context, entryID uuid.UUID, ids []uuid.UUID) error {
+	return s.q.DeleteEntryPhotos(ctx, sqlcgen.DeleteEntryPhotosParams{EntryID: entryID, Ids: ids})
 }

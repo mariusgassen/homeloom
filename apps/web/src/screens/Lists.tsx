@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { api, type Entry, type EntryKind, type HouseholdDetail, type User } from "../api/client";
-import { sameDay, setDone, startOfDay, useEntries } from "../entries";
+import { sameDay, setDone, startOfDay, useEntries, useShowDone } from "../entries";
+import { excerpt, firstPhoto } from "../notes";
 import { useSession } from "../session";
 import { Empty } from "../ui/Empty";
 import { Icon } from "../ui/Icon";
 import { ListRow } from "../ui/ListRow";
+import { MarkdownText } from "../ui/Markdown";
 import { ThreadAvatar, threadFor } from "../ui/ThreadAvatar";
+import { DoneToggle } from "./DoneToggle";
 import { EntrySheet } from "./EntrySheet";
 import { Shopping } from "./Shopping";
 import { Screen } from "./Screen";
@@ -21,6 +24,7 @@ export function Lists() {
   const { session } = useSession();
   const [params, setParams] = useSearchParams();
   const [sheet, setSheet] = useState<Sheet>(null);
+  const navigate = useNavigate();
   if (session.state !== "signedIn" || !session.household) throw new Error("tab without a household");
   const { user: me, household } = session;
   const tab = tabs.find((k) => k === params.get("show")) ?? "reminder";
@@ -35,20 +39,18 @@ export function Lists() {
     api.GET("/v1/entries/{entryId}", { params: { path: { entryId: linked } } }).then((res) => {
       if (!live) return;
       setParams({ show: res.data?.kind ?? "reminder" }, { replace: true });
-      if (res.data && !res.data.sealed) setSheet({ entry: res.data, kind: res.data.kind });
+      if (res.data?.kind === "note" && !res.data.sealed) navigate(`/lists/notes/${res.data.id}`);
+      else if (res.data && !res.data.sealed) setSheet({ entry: res.data, kind: res.data.kind });
     }, () => undefined);
     return () => {
       live = false;
     };
-  }, [linked, setParams]);
+  }, [linked, setParams, navigate]);
 
-  const add = (
-    <button type="button" className="screen-action screen-add" aria-label={t("entries.add")} onClick={() => kind && setSheet({ kind })}>
-      <Icon name="plus" />
-    </button>
-  );
+  // Shopping adds in its own field at the top, so it has no plus. A note opens on its own page.
+  const add = kind ? { label: t(`entries.title.${kind}`), onClick: () => (kind === "note" ? navigate("/lists/notes/new") : setSheet({ kind })) } : undefined;
   return (
-    <Screen title={t("tabs.lists")} action={kind ? add : undefined}>
+    <Screen title={t("tabs.lists")} add={add}>
       <div className="segmented" role="tablist" aria-label={t("entries.kind")}>
         {tabs.map((k) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setParams({ show: k }, { replace: true })}>
@@ -56,7 +58,7 @@ export function Lists() {
           </button>
         ))}
       </div>
-      {kind === null && <Shopping householdId={household.id} />}
+      {kind === null && <Shopping householdId={household.id} userId={me.id} />}
       {kind && failed && (
         <p className="callout error" role="alert">
           {t("entries.failed")}
@@ -67,7 +69,7 @@ export function Lists() {
       )}
       {entries && entries.length > 0 && tab === "reminder" && <Reminders entries={entries} household={household} me={me} onOpen={(entry) => setSheet({ entry, kind: entry.kind })} onChange={reload} />}
       {entries && entries.length > 0 && tab === "event" && <Agenda entries={entries} onOpen={(entry) => setSheet({ entry, kind: entry.kind })} />}
-      {entries && entries.length > 0 && tab === "note" && <Notes entries={entries} household={household} me={me} onOpen={(entry) => setSheet({ entry, kind: entry.kind })} />}
+      {entries && entries.length > 0 && tab === "note" && <Notes entries={entries} household={household} me={me} onOpen={(entry) => navigate(`/lists/notes/${entry.id}`)} />}
       {sheet && (
         <EntrySheet
           household={household}
@@ -130,6 +132,7 @@ function Reminders({ entries, household, me, onOpen, onChange }: {
 }) {
   const { t } = useTranslation();
   const { moment } = useWhen();
+  const [showDone, toggleDone] = useShowDone(me.id, "reminders");
   const open = entries.filter((e) => !e.doneAt);
   const done = entries.filter((e) => e.doneAt);
   const subtitle = (e: Entry) =>
@@ -160,8 +163,11 @@ function Reminders({ entries, household, me, onOpen, onChange }: {
       {open.length > 0 && <div className="hl-list">{open.map(row)}</div>}
       {done.length > 0 && (
         <section className="group">
-          <h2 className="label group-title">{t("entries.done")}</h2>
-          <div className="hl-list">{done.map(row)}</div>
+          <div className="shopping-done">
+            <h2 className="label group-title">{t("entries.done")}</h2>
+            <DoneToggle count={done.length} shown={showDone} onToggle={toggleDone} />
+          </div>
+          {showDone && <div className="hl-list">{done.map(row)}</div>}
         </section>
       )}
     </>
@@ -209,14 +215,28 @@ function Notes({ entries, household, me, onOpen }: { entries: Entry[]; household
       return (
         <article className="hl-card hl-card-sunken" key={e.id}>
           <div className="hl-eyebrow">{eyebrow}</div>
-          <p className={e.sealed ? "hl-card-body" : "note-text"}>{e.sealed ? t("entries.sealed", { name: author, date: day.format(new Date(e.revealAt ?? e.createdAt)) }) : e.text}</p>
+          {e.sealed ? (
+            <p className="hl-card-body">{t("entries.sealed", { name: author, date: day.format(new Date(e.revealAt ?? e.createdAt)) })}</p>
+          ) : (
+            <div className="bubble-md note-md">
+              <MarkdownText text={e.text ?? ""} photos />
+            </div>
+          )}
         </article>
       );
     }
+    const photo = firstPhoto(e.text ?? "");
+    const more = excerpt(e.text ?? "");
     return (
       <button type="button" className="hl-card note" key={e.id} onClick={() => onOpen(e)}>
         <span className="hl-eyebrow">{eyebrow}</span>
-        <span className="note-text">{e.text}</span>
+        <span className="note-head">
+          <span className="note-head-text">
+            <span className="headline note-title">{e.title || t("notes.untitled")}</span>
+            {more && <span className="note-text">{more}</span>}
+          </span>
+          {photo && <img className="note-thumb" src={photo} alt="" loading="lazy" />}
+        </span>
         {e.visibility === "reveal" && e.revealAt && <span className="caption muted">{t("entries.opens", { date: day.format(new Date(e.revealAt)) })}</span>}
       </button>
     );

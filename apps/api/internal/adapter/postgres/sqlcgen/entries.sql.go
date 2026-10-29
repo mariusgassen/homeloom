@@ -12,6 +12,23 @@ import (
 	"github.com/google/uuid"
 )
 
+const addEntryPhoto = `-- name: AddEntryPhoto :one
+INSERT INTO entry_photos (entry_id, content_type, data) VALUES ($1, $2, $3) RETURNING id
+`
+
+type AddEntryPhotoParams struct {
+	EntryID     uuid.UUID
+	ContentType string
+	Data        []byte
+}
+
+func (q *Queries) AddEntryPhoto(ctx context.Context, arg AddEntryPhotoParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, addEntryPhoto, arg.EntryID, arg.ContentType, arg.Data)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const claimDue = `-- name: ClaimDue :many
 UPDATE entries SET notified_at = $1::timestamptz
 WHERE id IN (
@@ -169,6 +186,20 @@ func (q *Queries) DeleteEntry(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const deleteEntryPhotos = `-- name: DeleteEntryPhotos :exec
+DELETE FROM entry_photos WHERE entry_id = $1 AND id = ANY($2::uuid[])
+`
+
+type DeleteEntryPhotosParams struct {
+	EntryID uuid.UUID
+	Ids     []uuid.UUID
+}
+
+func (q *Queries) DeleteEntryPhotos(ctx context.Context, arg DeleteEntryPhotosParams) error {
+	_, err := q.db.Exec(ctx, deleteEntryPhotos, arg.EntryID, arg.Ids)
+	return err
+}
+
 const getCalendarFeed = `-- name: GetCalendarFeed :one
 SELECT token_hash, user_id, household_id, created_at FROM calendar_feeds WHERE token_hash = $1
 `
@@ -256,6 +287,27 @@ func (q *Queries) GetEntryByICalName(ctx context.Context, arg GetEntryByICalName
 	return i, err
 }
 
+const getEntryPhoto = `-- name: GetEntryPhoto :one
+SELECT content_type, data FROM entry_photos WHERE entry_id = $1 AND id = $2
+`
+
+type GetEntryPhotoParams struct {
+	EntryID uuid.UUID
+	ID      uuid.UUID
+}
+
+type GetEntryPhotoRow struct {
+	ContentType string
+	Data        []byte
+}
+
+func (q *Queries) GetEntryPhoto(ctx context.Context, arg GetEntryPhotoParams) (GetEntryPhotoRow, error) {
+	row := q.db.QueryRow(ctx, getEntryPhoto, arg.EntryID, arg.ID)
+	var i GetEntryPhotoRow
+	err := row.Scan(&i.ContentType, &i.Data)
+	return i, err
+}
+
 const hasCalendarFeed = `-- name: HasCalendarFeed :one
 SELECT EXISTS (SELECT 1 FROM calendar_feeds WHERE user_id = $1 AND household_id = $2)
 `
@@ -331,6 +383,75 @@ func (q *Queries) ListEntries(ctx context.Context, arg ListEntriesParams) ([]Ent
 			&i.IcalUid,
 			&i.IcalName,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEntryPhotoIDs = `-- name: ListEntryPhotoIDs :many
+SELECT id FROM entry_photos WHERE entry_id = $1 ORDER BY created_at, id
+`
+
+func (q *Queries) ListEntryPhotoIDs(ctx context.Context, entryID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listEntryPhotoIDs, entryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const reminderSuggestions = `-- name: ReminderSuggestions :many
+SELECT (array_agg(text ORDER BY created_at DESC))[1]::text AS text, count(*)::integer AS uses
+FROM entries
+WHERE household_id = $1
+  AND kind = 'reminder'
+  AND (author_id = $2 OR visibility <> 'private')
+GROUP BY lower(text)
+HAVING bool_and(done_at IS NOT NULL)
+ORDER BY count(*) DESC, max(created_at) DESC
+LIMIT $3
+`
+
+type ReminderSuggestionsParams struct {
+	HouseholdID uuid.UUID
+	Viewer      uuid.UUID
+	Lim         int32
+}
+
+type ReminderSuggestionsRow struct {
+	Text string
+	Uses int32
+}
+
+// Titles of reminders the viewer can see, most used first, then most recent; a title with an
+// open reminder is left out.
+func (q *Queries) ReminderSuggestions(ctx context.Context, arg ReminderSuggestionsParams) ([]ReminderSuggestionsRow, error) {
+	rows, err := q.db.Query(ctx, reminderSuggestions, arg.HouseholdID, arg.Viewer, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReminderSuggestionsRow
+	for rows.Next() {
+		var i ReminderSuggestionsRow
+		if err := rows.Scan(&i.Text, &i.Uses); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.20.0
+  version: 0.23.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -500,6 +500,27 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/households/{householdId}/entries/suggestions:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [entries]
+      operationId: listReminderSuggestions
+      summary: Reminders you set before, to set again (members only)
+      description: |
+        Titles of past reminders you can see, most often used first, then most recently. Titles
+        of open reminders are left out. At most 20.
+      responses:
+        "200":
+          description: The suggestions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TitleSuggestion" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/households/{householdId}/calendar-feed:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -655,6 +676,61 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/entries/{entryId}/photos:
+    parameters:
+      - $ref: "#/components/parameters/EntryId"
+    post:
+      tags: [entries]
+      operationId: addNotePhoto
+      summary: Add a photo to a note you can change
+      description: |
+        A JPEG of at most 5 MB; the app makes photos smaller first. A note holds at most 50. Put
+        `![](url)` in the note's text to show it: a photo the text no longer links is deleted with
+        the note's next change.
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+      responses:
+        "201":
+          description: The photo, ready to link.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotePhoto" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: You can see this note but not change it (code `not_yours`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/entries/{entryId}/photos/{photoId}:
+    parameters:
+      - $ref: "#/components/parameters/EntryId"
+      - name: photoId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [entries]
+      operationId: getNotePhoto
+      summary: A photo in a note you can read
+      description: A photo never changes, so the answer may be cached.
+      responses:
+        "200":
+          description: The photo.
+          headers:
+            Cache-Control:
+              schema: { type: string }
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/households/{householdId}/moments:
     parameters:
@@ -985,6 +1061,27 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ShoppingItem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/shopping-list/suggestions:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [shopping]
+      operationId: listShoppingSuggestions
+      summary: Things you put on the shopping list before (members only)
+      description: |
+        What the household has put on the list, most often first, then most recently, including
+        items since cleared. Items open on the list are left out. At most 20.
+      responses:
+        "200":
+          description: The suggestions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TitleSuggestion" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
@@ -1752,7 +1849,7 @@ components:
       type: object
       required: [text, visibility]
       properties:
-        text: { type: string, minLength: 1, maxLength: 5000, description: "A note's text, or a reminder's or event's title (at most 200 characters)." }
+        text: { type: string, minLength: 1, maxLength: 20000, description: "A note's Markdown text, or a reminder's or event's title (at most 200 characters). A note's title is its first line, usually a `# Heading`." }
         visibility: { $ref: "#/components/schemas/Visibility" }
         revealAt: { type: string, format: date-time, description: "When a `reveal` note opens; required for it." }
         dueAt: { type: string, format: date-time, description: "Reminders only: when it is due; a notification goes out then. Ignored for events, which say when their alert goes out." }
@@ -1782,6 +1879,7 @@ components:
         revealAt: { type: string, format: date-time }
         sealed: { type: boolean, description: True while you may not read the text yet; `text` is then absent. }
         text: { type: string }
+        title: { type: string, description: "Notes only: the first line of the text without its Markdown, such as a `# Heading`'s words. Absent while `sealed`." }
         dueAt: { type: string, format: date-time, description: "A reminder's due time, or when an event's next alert goes out." }
         startsAt: { type: string, format: date-time }
         endsAt: { type: string, format: date-time }
@@ -1793,6 +1891,13 @@ components:
         doneBy: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    NotePhoto:
+      type: object
+      required: [id, url]
+      properties:
+        id: { type: string, format: uuid }
+        url: { type: string, description: "Where the photo is, to link in the note's text as `![](url)`." }
 
     MomentKind:
       type: string
@@ -1963,6 +2068,13 @@ components:
         done: { type: boolean }
         doneAt: { type: string, format: date-time }
         createdAt: { type: string, format: date-time }
+
+    TitleSuggestion:
+      type: object
+      required: [text, uses]
+      properties:
+        text: { type: string, description: "The title, as it was last written." }
+        uses: { type: integer, minimum: 1, description: How often it was used. }
 
     Home:
       type: object

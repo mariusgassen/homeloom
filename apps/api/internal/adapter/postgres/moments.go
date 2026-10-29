@@ -104,6 +104,10 @@ func (s *Store) SetMomentPhoto(ctx context.Context, id uuid.UUID, p domain.Photo
 	return s.q.SetMomentPhoto(ctx, sqlcgen.SetMomentPhotoParams{MomentID: id, ContentType: p.ContentType, Data: p.Data})
 }
 
+func (s *Store) MarkMomentPhoto(ctx context.Context, id uuid.UUID) error {
+	return s.q.MarkMomentPhoto(ctx, id)
+}
+
 func (s *Store) MomentPhoto(ctx context.Context, id uuid.UUID) (domain.Photo, error) {
 	row, err := s.q.GetMomentPhoto(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {

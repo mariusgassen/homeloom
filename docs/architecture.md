@@ -6,6 +6,7 @@ Homeloom is an API plus separate clients. The API is the only component that hol
  PWA ─┐
  iOS ─┼──▶ homeloom-api ──▶ homeloom-postgres
  MCP ─┤    (Go)          ──▶ homeloom-redis
+     │                   ──▶ homeloom-garage (S3, photos)
  3rd ─┘                  ──▶ authentik · Mealie · Home Assistant · Claude
 ```
 
@@ -135,7 +136,7 @@ apps/web/
 
 - One `moments` table holds the Us tab's timeline: **moments** (a line, the day it happened, maybe a photo) and **gratitude lines** (one per person and day; writing again that day replaces the line, enforced by a partial unique index). Both use the entries' visibility model; only the author changes or deletes theirs. `reveal` (sealed until `revealAt`, photo included) is ready for letters to the future; the app doesn't offer it yet.
 - `GET /v1/households/{id}/moments?month=YYYY-MM` returns one month, newest day first, and the latest earlier month with anything in it, so the app pages month by month. `…/moments/resurfaced` returns this day in earlier years and one gratitude line older than a week, at random.
-- **Photos** are JPEGs of at most 5 MB in Postgres (`moment_photos`, apart from the rows so lists never read them). The PWA makes them at most 1600 px on the long side before upload. `photoUrl` carries the photo's version, so browsers may cache it privately. The API checks the JPEG signature and bounds every request body.
+- **Photos** are JPEGs of at most 5 MB. With `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` set they go to S3 (`adapter/s3`, port `PhotoStore`, key `moments/<id>.jpg`; the bundled `homeloom-garage` by default) and Postgres only records `photo_at`. Without them they stay in Postgres (`moment_photos`, apart from the rows so lists never read them). Photos stored in Postgres before S3 was set up are still served from there and move to S3 when replaced. Deleting a photo or its moment deletes the object first, so nothing is left behind; while S3 is down, photos can't be set, shown or deleted, and everything else works. Each S3 call is bounded to 10 s. The PWA makes them at most 1600 px on the long side before upload. `photoUrl` carries the photo's version, so browsers may cache it privately. The API checks the JPEG signature and bounds every request body.
 - **Daily notifications** (`Moments.NotifyDaily`, every minute on each instance): this day in earlier years at 9:00, last month's look back on the 1st at 19:00, and at 20:00, with a one-in-three chance per person, a gratitude line from more than two weeks ago. Each job claims its day in `job_runs`, so it runs once across instances. Days count in `TIME_ZONE`.
 
 ## Assistant
@@ -178,7 +179,7 @@ apps/web/
 
 - `/healthz` reports the process is up; `/readyz` checks Postgres and Redis and returns `503` when one is down.
 - Redis outages degrade to direct database access; each Redis call is bounded to 250 ms.
-- Mealie, Home Assistant, the LLM, Web Push and LiveKit follow the same rule: their outage disables a feature, never the app.
+- Mealie, Home Assistant, the LLM, Web Push, LiveKit and S3 follow the same rule: their outage disables a feature, never the app.
 
 ## Deployment on Coolify
 
@@ -188,6 +189,7 @@ apps/web/
 - Assign the public domain to `homeloom-web` (port 8080). Its Caddy serves the PWA and forwards `/auth/*`, `/v1/*`, `/mcp`, `/healthz` and `/readyz` to `homeloom-api`, so app and API share one origin and the session cookie stays first-party, and `/rtc` to `homeloom-livekit`. The API, Postgres and Redis stay internal.
 - Open UDP 7882 and TCP 7881 in the server's firewall for call audio and video.
 - Optional: set `OPENAI_API_KEY` (and `ANTHROPIC_API_KEY`) to talk to Homeloom in a call.
+- Optional: set `S3_ACCESS_KEY_ID` (`GK` + 24 hex characters) and `S3_SECRET_ACCESS_KEY` (64 hex characters) to keep photos in `homeloom-garage`. Its entrypoint makes a single-node layout, the bucket `S3_BUCKET` and imports the key, every start and idempotently; the RPC secret is generated once into its volume. Back up `homeloom-garage-data` with Postgres.
 
 ## Planned components
 

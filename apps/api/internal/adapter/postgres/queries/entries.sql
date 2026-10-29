@@ -22,6 +22,19 @@ WHERE household_id = @household_id
 ORDER BY kind, done_at IS NOT NULL, coalesce(starts_at, due_at) NULLS LAST, created_at DESC, id
 LIMIT @lim;
 
+-- name: ReminderSuggestions :many
+-- Titles of reminders the viewer can see, most used first, then most recent; a title with an
+-- open reminder is left out.
+SELECT (array_agg(text ORDER BY created_at DESC))[1]::text AS text, count(*)::integer AS uses
+FROM entries
+WHERE household_id = @household_id
+  AND kind = 'reminder'
+  AND (author_id = @viewer OR visibility <> 'private')
+GROUP BY lower(text)
+HAVING bool_and(done_at IS NOT NULL)
+ORDER BY count(*) DESC, max(created_at) DESC
+LIMIT @lim;
+
 -- name: UpdateEntry :one
 UPDATE entries
 SET visibility = $2, reveal_at = $3, text = $4, due_at = $5, starts_at = $6, ends_at = $7, all_day = $8,
@@ -62,3 +75,15 @@ DELETE FROM calendar_feeds WHERE user_id = $1 AND household_id = $2;
 
 -- name: RenameEntry :execrows
 UPDATE entries SET ical_name = $2, updated_at = now() WHERE id = $1;
+
+-- name: AddEntryPhoto :one
+INSERT INTO entry_photos (entry_id, content_type, data) VALUES ($1, $2, $3) RETURNING id;
+
+-- name: GetEntryPhoto :one
+SELECT content_type, data FROM entry_photos WHERE entry_id = $1 AND id = $2;
+
+-- name: ListEntryPhotoIDs :many
+SELECT id FROM entry_photos WHERE entry_id = $1 ORDER BY created_at, id;
+
+-- name: DeleteEntryPhotos :exec
+DELETE FROM entry_photos WHERE entry_id = @entry_id AND id = ANY(@ids::uuid[]);

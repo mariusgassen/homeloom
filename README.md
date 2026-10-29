@@ -9,8 +9,9 @@ A shared home for two. Homeloom weaves your meals, moments and smart home into o
 - `apps/api`: the Go API (hexagonal, API first). Contract in `apps/api/api/openapi.yaml`.
 - `apps/web`: the PWA (Vite, React, TypeScript), installable on iPhone from Safari.
 - `apps/agent`: Homeloom's voice in calls (LiveKit Agents for Node).
+- `apps/garage`: the S3 store for photos (Garage), set up on start.
 - `docs/architecture.md`: decisions, layout and deployment.
-- `docker-compose.yml`: the stack Coolify deploys (`homeloom-web`, `homeloom-api`, `homeloom-livekit` for calls, `homeloom-agent`, `homeloom-postgres`, `homeloom-redis`).
+- `docker-compose.yml`: the stack Coolify deploys (`homeloom-web`, `homeloom-api`, `homeloom-livekit` for calls, `homeloom-agent`, `homeloom-postgres`, `homeloom-redis`, `homeloom-garage` for photos).
 
 The app speaks German and English. The API answers in the language of the `Accept-Language` header.
 
@@ -21,9 +22,11 @@ cp .env.example .env   # set POSTGRES_PASSWORD, PUBLIC_URL=http://localhost:3000
                        # and LIVEKIT_API_SECRET (32+ characters) for calls
                        # optional: MEALIE_MCP_URL + MEALIE_MCP_TOKEN for cooking, ANTHROPIC_API_KEY for Claude and the assistant
                        # optional: OPENAI_API_KEY (with ANTHROPIC_API_KEY) to talk to Homeloom in a call
+                       #           (background noise is filtered on the agent; VOICE_NOISE_CANCELLATION=off turns it off)
                        # optional: HOME_ASSISTANT_URL + HOMELOOM_SECRET_KEY for scenes and lights
                        # optional: HOMELOOM_SECRET_KEY alone lets each of you sign in to Plex for movies and shows
                        # optional: VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY for notifications (see .env.example)
+                       # optional: S3_ACCESS_KEY_ID + S3_SECRET_ACCESS_KEY to keep photos in homeloom-garage (see .env.example)
                        # optional: TIME_ZONE for reminders and the calendar (Europe/Berlin by default)
                        # optional: OIDC_CLIENT_IDS to let an MCP client such as Claude use PUBLIC_URL/mcp
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
@@ -41,6 +44,17 @@ Homeloom's notes are also Markdown files over WebDAV, so a notes app or file man
 ## Movies and shows
 
 Under Us › Movies & shows, each of you signs in with your own Plex account. Homeloom then shows the movie and series libraries on your own servers and on servers friends share with you, with what you haven't seen yet and a random pick. It only reads: nothing is played or changed, and the Plex token stays on the server, encrypted with `HOMELOOM_SECRET_KEY`. The API must be able to reach your Plex server (on the same network, or through Plex's remote access).
+
+## Photo storage
+
+Photos of moments and notes are kept in Postgres unless you set an S3 key pair. Then they go to `homeloom-garage`, a small S3 store ([Garage](https://garagehq.deuxfleurs.fr)) that runs in the stack and sets itself up on start: it creates the bucket and imports your key. Make the key once, in the format Garage wants:
+
+```sh
+S3_ACCESS_KEY_ID=GK$(openssl rand -hex 12)
+S3_SECRET_ACCESS_KEY=$(openssl rand -hex 32)
+```
+
+Photos from before stay in Postgres and still show; a photo moves to S3 when it's replaced. Garage keeps its data in the `homeloom-garage-data` volume, so back that up along with Postgres. To use another S3-compatible store, also set `S3_ENDPOINT` (and `S3_REGION`, `S3_BUCKET`) and create the bucket and key there yourself.
 
 ## Roadmap
 

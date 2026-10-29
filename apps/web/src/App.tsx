@@ -5,6 +5,7 @@ import { CallProvider } from "./call";
 import { CallView, GuestCall, IncomingCall } from "./screens/Call";
 import { AssistantContext } from "./assistant";
 import { Assistant } from "./screens/Assistant";
+import { useNotificationLinks } from "./links";
 import { Join, pendingInvite } from "./screens/Join";
 import { Onboarding } from "./screens/Onboarding";
 import { Settings } from "./screens/Settings";
@@ -12,6 +13,7 @@ import { RefreshProvider } from "./refresh";
 import { Cook, RecipeScreen } from "./screens/Cook";
 import { Home } from "./screens/Home";
 import { Lists } from "./screens/Lists";
+import { NotePage } from "./screens/NotePage";
 import { Today, Us } from "./screens/Tabs";
 import { Watch } from "./screens/Watch";
 import { Loading, Unavailable, Welcome } from "./screens/Welcome";
@@ -29,6 +31,7 @@ export function App() {
   // Bumped when the assistant may have changed something, so the screen behind it loads again.
   const [generation, setGeneration] = useState(0);
   const assistant = useMemo(() => ({ open: () => setAsking(true) }), []);
+  useNotificationLinks();
 
   useEffect(() => {
     if (linked) pendingInvite.set(linked);
@@ -66,6 +69,7 @@ export function App() {
               <Route path="/us" element={<Us />} />
               <Route path="/watch" element={<Watch />} />
               <Route path="/lists" element={<Lists />} />
+              <Route path="/lists/notes/:id" element={<NotePage />} />
               <Route path="/home" element={<Home />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/call/:callId" element={<IncomingCall />} />
