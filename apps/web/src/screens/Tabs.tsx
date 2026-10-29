@@ -55,13 +55,8 @@ export function Today() {
   const [adding, setAdding] = useState(false);
   const [generation, setGeneration] = useState(0);
   const date = new Intl.DateTimeFormat(i18n.language, { weekday: "long", day: "numeric", month: "long" }).format(new Date());
-  const add = (
-    <button type="button" className="screen-action screen-add" aria-label={t("entries.add")} onClick={() => setAdding(true)}>
-      <Icon name="plus" />
-    </button>
-  );
   return (
-    <Screen title={t("tabs.today")} overline={date} action={add}>
+    <Screen title={t("tabs.today")} overline={date} add={{ label: t("entries.add"), onClick: () => setAdding(true) }}>
       <TodayQuestion household={household} me={me} />
       <Card eyebrow={<span>{t("today.dinner.eyebrow")}</span>} title={t("today.dinner.title")}>
         {t("today.dinner.body")}
@@ -126,21 +121,8 @@ export function Us() {
   const [sheet, setSheet] = useState<Moment | "new" | null>(null);
   const [generation, setGeneration] = useState(0);
   const tab = usTabs.find((k) => k === params.get("show")) ?? "moments";
-  const add = (
-    <button type="button" className="screen-action screen-add" aria-label={t("moments.add")} onClick={() => setSheet("new")}>
-      <Icon name="plus" />
-    </button>
-  );
   return (
-    <Screen
-      title={t("tabs.us")}
-      action={
-        <>
-          {tab === "moments" && add}
-          <CallButton />
-        </>
-      }
-    >
+    <Screen title={t("tabs.us")} action={<CallButton />} add={tab === "moments" ? { label: t("moments.add"), onClick: () => setSheet("new") } : undefined}>
       {household.members.length < 2 && (
         <Card
           tone="sunken"

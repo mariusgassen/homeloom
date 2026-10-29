@@ -42,13 +42,10 @@ export function Lists() {
     };
   }, [linked, setParams]);
 
-  const add = (
-    <button type="button" className="screen-action screen-add" aria-label={t("entries.add")} onClick={() => kind && setSheet({ kind })}>
-      <Icon name="plus" />
-    </button>
-  );
+  // Shopping adds in its own field at the top, so it has no plus.
+  const add = kind ? { label: t(`entries.title.${kind}`), onClick: () => setSheet({ kind }) } : undefined;
   return (
-    <Screen title={t("tabs.lists")} action={kind ? add : undefined}>
+    <Screen title={t("tabs.lists")} add={add}>
       <div className="segmented" role="tablist" aria-label={t("entries.kind")}>
         {tabs.map((k) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setParams({ show: k }, { replace: true })}>
