@@ -9,9 +9,11 @@ import { BrowserRouter } from "react-router";
 import { App } from "./App";
 import { Crashed } from "./screens/Welcome";
 import { SessionProvider } from "./session";
+import { trackViewport } from "./viewport";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("#root missing from index.html");
+trackViewport();
 
 createRoot(root).render(
   <StrictMode>

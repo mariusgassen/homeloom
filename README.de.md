@@ -47,7 +47,7 @@ Unter Wir › Filme & Serien meldet ihr euch jeweils mit eurem eigenen Plex-Kont
 
 ## Fotospeicher
 
-Fotos von Momenten liegen in Postgres, solange du kein S3-Schlüsselpaar setzt. Mit einem landen sie in `homeloom-garage`, einem kleinen S3-Speicher ([Garage](https://garagehq.deuxfleurs.fr)) im Stack, der sich beim Start selbst einrichtet: Er legt den Bucket an und importiert deinen Schlüssel. Erstell den Schlüssel einmal, im Format, das Garage erwartet:
+Fotos von Momenten und Notizen liegen in Postgres, solange du kein S3-Schlüsselpaar setzt. Mit einem landen sie in `homeloom-garage`, einem kleinen S3-Speicher ([Garage](https://garagehq.deuxfleurs.fr)) im Stack, der sich beim Start selbst einrichtet: Er legt den Bucket an und importiert deinen Schlüssel. Erstell den Schlüssel einmal, im Format, das Garage erwartet:
 
 ```sh
 S3_ACCESS_KEY_ID=GK$(openssl rand -hex 12)

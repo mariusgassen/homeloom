@@ -512,6 +512,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/entries/{entryId}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryId: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a photo to a note you can change
+         * @description A JPEG of at most 5 MB; the app makes photos smaller first. A note holds at most 50. Put
+         *     `![](url)` in the note's text to show it: a photo the text no longer links is deleted with
+         *     the note's next change.
+         */
+        post: operations["addNotePhoto"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/entries/{entryId}/photos/{photoId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryId: components["parameters"]["EntryId"];
+                photoId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * A photo in a note you can read
+         * @description A photo never changes, so the answer may be cached.
+         */
+        get: operations["getNotePhoto"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/moments": {
         parameters: {
             query?: never;
@@ -1386,7 +1433,7 @@ export interface components {
         /** @enum {string} */
         Repeat: "never" | "daily" | "weekly" | "monthly" | "yearly";
         EntryFields: {
-            /** @description A note's text, or a reminder's or event's title (at most 200 characters). */
+            /** @description A note's Markdown text, or a reminder's or event's title (at most 200 characters). A note's title is its first line, usually a `# Heading`. */
             text: string;
             visibility: components["schemas"]["Visibility"];
             /**
@@ -1435,6 +1482,8 @@ export interface components {
             /** @description True while you may not read the text yet; `text` is then absent. */
             sealed: boolean;
             text?: string;
+            /** @description Notes only: the first line of the text without its Markdown, such as a `# Heading`'s words. Absent while `sealed`. */
+            title?: string;
             /**
              * Format: date-time
              * @description A reminder's due time, or when an event's next alert goes out.
@@ -1457,6 +1506,12 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        NotePhoto: {
+            /** Format: uuid */
+            id: string;
+            /** @description Where the photo is, to link in the note's text as `![](url)`. */
+            url: string;
         };
         /** @enum {string} */
         MomentKind: "moment" | "gratitude";
@@ -2784,6 +2839,70 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    addNotePhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryId: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            /** @description The photo, ready to link. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotePhoto"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description You can see this note but not change it (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getNotePhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryId: components["parameters"]["EntryId"];
+                photoId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The photo. */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     listMoments: {

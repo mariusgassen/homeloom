@@ -47,7 +47,7 @@ Under Us › Movies & shows, each of you signs in with your own Plex account. Ho
 
 ## Photo storage
 
-Photos of moments are kept in Postgres unless you set an S3 key pair. Then they go to `homeloom-garage`, a small S3 store ([Garage](https://garagehq.deuxfleurs.fr)) that runs in the stack and sets itself up on start: it creates the bucket and imports your key. Make the key once, in the format Garage wants:
+Photos of moments and notes are kept in Postgres unless you set an S3 key pair. Then they go to `homeloom-garage`, a small S3 store ([Garage](https://garagehq.deuxfleurs.fr)) that runs in the stack and sets itself up on start: it creates the bucket and imports your key. Make the key once, in the format Garage wants:
 
 ```sh
 S3_ACCESS_KEY_ID=GK$(openssl rand -hex 12)
