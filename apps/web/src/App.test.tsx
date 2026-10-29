@@ -453,6 +453,34 @@ test("home switches live scenes and lights, room by room", async () => {
   ]);
 });
 
+test("home turns all lights off at once", async () => {
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/home`, () =>
+      json({
+        connected: true,
+        rooms: [{ id: "living", name: "Living room" }],
+        scenes: [],
+        lights: [
+          { id: "light.sofa", name: "Sofa", room: "living", on: true },
+          { id: "light.desk", name: "Desk", room: "living", on: true },
+          { id: "light.hall", name: "Hall", on: false },
+        ],
+        readings: [],
+      }),
+    ),
+    at("POST", `/v1/households/${home.id}/home/lights/light.sofa/toggle`, () => json({ id: "light.sofa", name: "Sofa", on: false })),
+    at("POST", `/v1/households/${home.id}/home/lights/light.desk/toggle`, () => json({ id: "light.desk", name: "Desk", on: false })),
+  );
+  renderApp("/home");
+  expect(await screen.findByText("2 lights on")).toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "Living room" })).toHaveTextContent("2 on");
+  await userEvent.click(screen.getByRole("button", { name: "All off" }));
+  expect(await screen.findByText("All lights off")).toBeInTheDocument();
+  expect(screen.getByRole("switch", { name: "Sofa" })).toHaveAttribute("aria-checked", "false");
+  expect(calls.filter((c) => c.method === "POST").map((c) => new URL(c.url).pathname.split("/").at(-2))).toEqual(["light.sofa", "light.desk"]);
+});
+
 test("home asks you to connect your own Home Assistant", async () => {
   const assign = vi.fn();
   vi.stubGlobal("location", { ...window.location, assign });
@@ -617,9 +645,25 @@ test("today lists what's due and today's events", async () => {
     ),
   );
   renderApp("/");
-  expect(await screen.findByText("Water the plants")).toBeInTheDocument();
-  expect(screen.getByText("Dinner with Jo")).toBeInTheDocument();
+  const next = await screen.findByRole("region", { name: "Next up" });
+  expect(within(next).getByText("Water the plants")).toBeInTheDocument();
+  expect(within(next).getByText("Dinner with Jo")).toBeInTheDocument();
   expect(screen.queryByText("Next year")).not.toBeInTheDocument();
+});
+
+test("today greets you and brings back a thank-you", async () => {
+  serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([])),
+    at("GET", `/v1/households/${home.id}/moments/resurfaced`, () =>
+      json({ onThisDay: [], gratitude: { id: "88888888-8888-4888-8888-888888888888", kind: "gratitude", authorId: jo.id, day: "2026-01-02", visibility: "shared", sealed: false, text: "Pancakes", createdAt: "2026-01-02T08:00:00Z", updatedAt: "2026-01-02T08:00:00Z" } }),
+    ),
+  );
+  renderApp("/");
+  expect(await screen.findByRole("heading", { level: 2, name: /Marius/ })).toBeInTheDocument();
+  expect(screen.getByText("You and Jo")).toBeInTheDocument();
+  expect(await screen.findByText("Nothing planned today. Time for each other.")).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: /Jo was grateful.*Pancakes/ })).toBeInTheDocument();
 });
 
 test("settings makes a calendar subscription link", async () => {
