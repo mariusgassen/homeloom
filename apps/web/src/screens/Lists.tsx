@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { api, type Entry, type EntryKind, type HouseholdDetail, type User } from "../api/client";
 import { sameDay, setDone, startOfDay, useEntries } from "../entries";
 import { excerpt, firstPhoto } from "../notes";
@@ -11,7 +11,6 @@ import { ListRow } from "../ui/ListRow";
 import { MarkdownText } from "../ui/Markdown";
 import { ThreadAvatar, threadFor } from "../ui/ThreadAvatar";
 import { EntrySheet } from "./EntrySheet";
-import { NoteSheet } from "./NoteSheet";
 import { Shopping } from "./Shopping";
 import { Screen } from "./Screen";
 
@@ -24,6 +23,7 @@ export function Lists() {
   const { session } = useSession();
   const [params, setParams] = useSearchParams();
   const [sheet, setSheet] = useState<Sheet>(null);
+  const navigate = useNavigate();
   if (session.state !== "signedIn" || !session.household) throw new Error("tab without a household");
   const { user: me, household } = session;
   const tab = tabs.find((k) => k === params.get("show")) ?? "reminder";
@@ -38,15 +38,16 @@ export function Lists() {
     api.GET("/v1/entries/{entryId}", { params: { path: { entryId: linked } } }).then((res) => {
       if (!live) return;
       setParams({ show: res.data?.kind ?? "reminder" }, { replace: true });
-      if (res.data && !res.data.sealed) setSheet({ entry: res.data, kind: res.data.kind });
+      if (res.data?.kind === "note" && !res.data.sealed) navigate(`/lists/notes/${res.data.id}`);
+      else if (res.data && !res.data.sealed) setSheet({ entry: res.data, kind: res.data.kind });
     }, () => undefined);
     return () => {
       live = false;
     };
-  }, [linked, setParams]);
+  }, [linked, setParams, navigate]);
 
   const add = (
-    <button type="button" className="screen-action screen-add" aria-label={t("entries.add")} onClick={() => kind && setSheet({ kind })}>
+    <button type="button" className="screen-action screen-add" aria-label={t("entries.add")} onClick={() => (kind === "note" ? navigate("/lists/notes/new") : kind && setSheet({ kind }))}>
       <Icon name="plus" />
     </button>
   );
@@ -70,20 +71,8 @@ export function Lists() {
       )}
       {entries && entries.length > 0 && tab === "reminder" && <Reminders entries={entries} household={household} me={me} onOpen={(entry) => setSheet({ entry, kind: entry.kind })} onChange={reload} />}
       {entries && entries.length > 0 && tab === "event" && <Agenda entries={entries} onOpen={(entry) => setSheet({ entry, kind: entry.kind })} />}
-      {entries && entries.length > 0 && tab === "note" && <Notes entries={entries} household={household} me={me} onOpen={(entry) => setSheet({ entry, kind: entry.kind })} />}
-      {sheet?.kind === "note" && (
-        <NoteSheet
-          household={household}
-          me={me}
-          entry={sheet.entry}
-          onClose={() => setSheet(null)}
-          onSaved={() => {
-            setSheet(null);
-            reload();
-          }}
-        />
-      )}
-      {sheet && sheet.kind !== "note" && (
+      {entries && entries.length > 0 && tab === "note" && <Notes entries={entries} household={household} me={me} onOpen={(entry) => navigate(`/lists/notes/${entry.id}`)} />}
+      {sheet && (
         <EntrySheet
           household={household}
           me={me}

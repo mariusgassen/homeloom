@@ -164,11 +164,18 @@ h1, h2, h3, p { margin: 0; }
 /* A note reads like an assistant answer (the .bubble-md type), at full size, with its photos. */
 .note-md { font: 400 17px/24px var(--font-text); overflow-wrap: anywhere; }
 .note-photo { display: block; max-width: 100%; max-height: 420px; border-radius: var(--radius-sm); background: var(--surface-sunken); }
-.note-tools { display: flex; align-items: center; gap: var(--space-2); }
-.note-tools .segmented { flex: 1; }
-.note-tools label { flex: none; cursor: pointer; }
-.note-title-input { font: 650 20px/26px var(--font-display); }
-.note-body-input { min-height: 40dvh; font: 400 16px/22px ui-monospace, "SF Mono", Menlo, monospace; }
+/* A note's own page: a bar like the screen toolbar, then the title and text as one open page, no boxes. */
+.note-page { --screen-pad-left: max(var(--space-4), env(safe-area-inset-left, 0px)); --screen-pad-right: max(var(--space-4), env(safe-area-inset-right, 0px)); max-width: 640px; margin: 0 auto; padding: 0 var(--screen-pad-right) var(--space-8) var(--screen-pad-left); display: flex; flex-direction: column; gap: var(--space-3); }
+.note-bar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: var(--space-2); min-height: calc(var(--hit-min) + env(safe-area-inset-top, 0px) + var(--space-2)); margin: 0 calc(-1 * var(--screen-pad-right)) 0 calc(-1 * var(--screen-pad-left)); padding: calc(env(safe-area-inset-top, 0px) + var(--space-2)) var(--screen-pad-right) 0 var(--screen-pad-left); background: var(--surface); }
+.note-state { color: var(--ink-muted); }
+.note-state-failed { color: var(--danger); }
+.note-photo-button { cursor: pointer; }
+.note-who { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-raised); }
+.note-title-input, .note-body-input { width: 100%; padding: 0; border: 0; background: none; color: var(--ink); resize: none; overflow: hidden; outline: none; }
+.note-title-input::placeholder, .note-body-input::placeholder { color: var(--ink-muted); }
+.note-body-input { min-height: 50dvh; font: 400 17px/24px var(--font-text); }
+.note-read { display: flex; flex-direction: column; gap: var(--space-3); min-height: 50dvh; }
+.note-read-title { margin: 0; overflow-wrap: anywhere; }
 
 .month-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); margin-right: var(--space-1); }
 .month-head .caption { color: var(--ink-muted); }
