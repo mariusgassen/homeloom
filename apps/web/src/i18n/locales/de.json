@@ -84,6 +84,7 @@
     "camera": "Kamera",
     "flip": "Kamera wechseln",
     "react": "Reagieren",
+    "effects": { "title": "Effekte", "blur": "Hintergrund weich", "shades": "Sonnenbrille", "crown": "Krone", "cat": "Katze", "hearts": "Herzaugen", "clown": "Clownsnase" },
     "swap": "Ansicht tauschen",
     "spotlight": "{{name}} groß zeigen",
     "hangUp": "Auflegen",

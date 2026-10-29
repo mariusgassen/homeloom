@@ -6,6 +6,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import { AssistantOrb } from "./AssistantOrb";
 import { useCall, type CallState } from "../call";
+import { effectsSupported, maskGlyph, masks, type Effect } from "../masks";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { cx, Icon } from "../ui/Icon";
@@ -197,7 +198,9 @@ function CallStage({ room }: { room: Room }) {
   const { call, invited, homeloom, state, since, hangUp } = useCall();
   const { partners } = usePartners();
   const [adding, setAdding] = useState(false);
-  const [reacting, setReacting] = useState(false);
+  const [tray, setTray] = useState<"react" | "effects">();
+  const [effect, setEffect] = useState<Effect>({ blur: false });
+  const [applying, setApplying] = useState(false);
   const [pinned, setPinned] = useState<string>();
   const [swapped, setSwapped] = useState(false);
   const [facing, setFacing] = useState<Facing>("user");
@@ -216,6 +219,25 @@ function CallStage({ room }: { room: Room }) {
   const waitingFor = others.length === 0 && invited.length === 1 ? partners.find((p) => p.id === invited[0]) : undefined;
   const personOf = (p: Participant) => partners.find((m) => m.id === p.identity);
 
+  // Effects load on first use; a camera without any never loads them.
+  const camera = localVideo?.videoTrack as LocalVideoTrack | undefined;
+  useEffect(() => {
+    if (!camera || (!effect.blur && !effect.mask && !camera.getProcessor())) return;
+    let current = true;
+    import("../effects")
+      .then((m) => m.apply(camera, effect))
+      .catch(() => current && setEffect({ blur: false }))
+      .finally(() => current && setApplying(false));
+    return () => {
+      current = false;
+    };
+  }, [camera, effect]);
+  const choose = (next: Effect) => {
+    setApplying(true);
+    setEffect(next);
+  };
+  const toggle = (which: NonNullable<typeof tray>) => setTray((open) => (open === which ? undefined : which));
+
   const flip = async () => {
     const next = facing === "user" ? "environment" : "user";
     const track = localVideo?.videoTrack as LocalVideoTrack | undefined;
@@ -228,7 +250,11 @@ function CallStage({ room }: { room: Room }) {
   const self = (
     <Tile
       participant={me}
-      self={{ mirror: facing === "user", onFlip: cameras > 1 && !ended ? () => void flip() : undefined }}
+      self={{
+        mirror: facing === "user",
+        onFlip: cameras > 1 && !ended ? () => void flip() : undefined,
+        effects: effectsSupported() && !ended ? { open: tray === "effects", onToggle: () => toggle("effects") } : undefined,
+      }}
     />
   );
 
@@ -277,7 +303,26 @@ function CallStage({ room }: { room: Room }) {
           </span>
         ))}
       </div>
-      {reacting && !ended && (
+      {tray === "effects" && showLocal && !ended && (
+        <div className="call-tray" role="group" aria-label={t("call.effects.title")} aria-busy={applying}>
+          <button type="button" className="call-tray-emoji" aria-pressed={effect.blur} aria-label={t("call.effects.blur")} onClick={() => choose({ ...effect, blur: !effect.blur })}>
+            🌫️
+          </button>
+          {masks.map((m) => (
+            <button
+              key={m}
+              type="button"
+              className="call-tray-emoji"
+              aria-pressed={effect.mask === m}
+              aria-label={t(`call.effects.${m}`)}
+              onClick={() => choose({ ...effect, mask: effect.mask === m ? undefined : m })}
+            >
+              {maskGlyph[m]}
+            </button>
+          ))}
+        </div>
+      )}
+      {tray === "react" && !ended && (
         <div className="call-tray" role="group" aria-label={t("call.react")}>
           {reactionEmoji.map((e) => (
             <button key={e} type="button" className="call-tray-emoji" aria-label={e} onClick={() => reactions.send(e)}>
@@ -290,8 +335,8 @@ function CallStage({ room }: { room: Room }) {
         room={room}
         ended={ended}
         facing={facing}
-        reacting={others.length > 0 && !homeloom ? reacting : undefined}
-        onReact={() => setReacting((r) => !r)}
+        reacting={others.length > 0 && !homeloom ? tray === "react" : undefined}
+        onReact={() => toggle("react")}
         onAdd={call ? () => setAdding(true) : undefined}
         onHangUp={hangUp}
       />
@@ -316,7 +361,7 @@ function Tile({
 }: {
   participant: Participant;
   person?: Person;
-  self?: { mirror: boolean; onFlip?: () => void };
+  self?: { mirror: boolean; onFlip?: () => void; effects?: { open: boolean; onToggle: () => void } };
   small?: boolean;
   pinned?: boolean;
   onTap?: () => void;
@@ -346,10 +391,19 @@ function Tile({
           {(!audio || audio.isMuted) && <Icon name="micOff" size="sm" label={t("call.muted")} />}
         </span>
       )}
-      {self?.onFlip && (
-        <button type="button" className="call-flip" aria-label={t("call.flip")} onClick={self.onFlip}>
-          <Icon name="flip" size="sm" />
-        </button>
+      {(self?.onFlip || self?.effects) && (
+        <span className="call-self-actions">
+          {self.onFlip && (
+            <button type="button" className="call-self-action" aria-label={t("call.flip")} onClick={self.onFlip}>
+              <Icon name="flip" size="sm" />
+            </button>
+          )}
+          {self.effects && (
+            <button type="button" className="call-self-action" aria-pressed={self.effects.open} aria-label={t("call.effects.title")} onClick={self.effects.onToggle}>
+              <Icon name="sparkle" size="sm" />
+            </button>
+          )}
+        </span>
       )}
     </div>
   );

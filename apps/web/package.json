@@ -14,10 +14,13 @@
   "overrides": {
     "openapi-typescript": {
       "typescript": "$typescript"
-    }
+    },
+    "@mediapipe/tasks-vision": "$@mediapipe/tasks-vision"
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@livekit/track-processors": "^0.8.2",
+    "@mediapipe/tasks-vision": "^0.10.14",
     "i18next": "^26.5.11",
     "livekit-client": "^2.23.0",
     "openapi-fetch": "^0.17.0",
