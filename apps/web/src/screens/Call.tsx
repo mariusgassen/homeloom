@@ -1,11 +1,12 @@
 import { RoomEvent, Track, type LocalVideoTrack, type Participant, type Room } from "livekit-client";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type PointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type PointerEvent, type ReactNode, type RefObject } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../api/client";
 import { AssistantOrb } from "./AssistantOrb";
 import { useCall, type CallState } from "../call";
+import { effectsSupported, maskGlyph, masks, type Effect } from "../masks";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { cx, Icon } from "../ui/Icon";
@@ -197,12 +198,16 @@ function CallStage({ room }: { room: Room }) {
   const { call, invited, homeloom, state, since, hangUp } = useCall();
   const { partners } = usePartners();
   const [adding, setAdding] = useState(false);
-  const [reacting, setReacting] = useState(false);
+  const [tray, setTray] = useState<"react" | "effects">();
+  const [effect, setEffect] = useState<Effect>({ blur: false });
+  const [applying, setApplying] = useState(false);
   const [pinned, setPinned] = useState<string>();
   const [swapped, setSwapped] = useState(false);
   const [facing, setFacing] = useState<Facing>("user");
   const cameras = useCameraCount(room.localParticipant.isCameraEnabled);
   const reactions = useReactions(room);
+  const view = useRef<HTMLDivElement>(null);
+  const photos = usePhotos(room, view, t);
   const others = [...room.remoteParticipants.values()];
   const me = room.localParticipant;
   const localVideo = me.getTrackPublication(Track.Source.Camera);
@@ -216,6 +221,25 @@ function CallStage({ room }: { room: Room }) {
   const waitingFor = others.length === 0 && invited.length === 1 ? partners.find((p) => p.id === invited[0]) : undefined;
   const personOf = (p: Participant) => partners.find((m) => m.id === p.identity);
 
+  // Effects load on first use; a camera without any never loads them.
+  const camera = localVideo?.videoTrack as LocalVideoTrack | undefined;
+  useEffect(() => {
+    if (!camera || (!effect.blur && !effect.mask && !camera.getProcessor())) return;
+    let current = true;
+    import("../effects")
+      .then((m) => m.apply(camera, effect))
+      .catch(() => current && setEffect({ blur: false }))
+      .finally(() => current && setApplying(false));
+    return () => {
+      current = false;
+    };
+  }, [camera, effect]);
+  const choose = (next: Effect) => {
+    setApplying(true);
+    setEffect(next);
+  };
+  const toggle = (which: NonNullable<typeof tray>) => setTray((open) => (open === which ? undefined : which));
+
   const flip = async () => {
     const next = facing === "user" ? "environment" : "user";
     const track = localVideo?.videoTrack as LocalVideoTrack | undefined;
@@ -228,7 +252,11 @@ function CallStage({ room }: { room: Room }) {
   const self = (
     <Tile
       participant={me}
-      self={{ mirror: facing === "user", onFlip: cameras > 1 && !ended ? () => void flip() : undefined }}
+      self={{
+        mirror: facing === "user",
+        onFlip: cameras > 1 && !ended ? () => void flip() : undefined,
+        effects: effectsSupported() && !ended ? { open: tray === "effects", onToggle: () => toggle("effects") } : undefined,
+      }}
     />
   );
 
@@ -238,7 +266,7 @@ function CallStage({ room }: { room: Room }) {
   const grid = swap ? [me] : others;
   const spotlight = others.length > 1 && others.some((p) => p.identity === pinned) ? pinned : undefined;
   return (
-    <div className={cx("call", others.length > 0 && "call-live")}>
+    <div ref={view} className={cx("call", others.length > 0 && "call-live")}>
       {/* Everyone's audio plays apart from their pictures, so moving a picture doesn't cut it. */}
       {others.map((p) => {
         const audio = p.getTrackPublication(Track.Source.Microphone)?.audioTrack;
@@ -268,6 +296,11 @@ function CallStage({ room }: { room: Room }) {
         {waitingFor && <ThreadAvatar name={waitingFor.name} src={waitingFor.avatarUrl} thread={waitingFor.thread} size="lg" />}
         <h1 className="title">{names.join(", ")}</h1>
         <Status state={state} since={since} />
+        {photos.notice && (
+          <p className="callout call-status" role="status">
+            {photos.notice}
+          </p>
+        )}
         {!room.canPlaybackAudio && <HearButton room={room} />}
       </div>
       <div className="call-reactions" aria-hidden="true">
@@ -277,21 +310,49 @@ function CallStage({ room }: { room: Room }) {
           </span>
         ))}
       </div>
-      {reacting && !ended && (
+      {tray === "effects" && showLocal && !ended && (
+        <div className="call-tray" role="group" aria-label={t("call.effects.title")} aria-busy={applying}>
+          <button type="button" className="call-tray-emoji" aria-pressed={effect.blur} aria-label={t("call.effects.blur")} onClick={() => choose({ ...effect, blur: !effect.blur })}>
+            🌫️
+          </button>
+          {masks.map((m) => (
+            <button
+              key={m}
+              type="button"
+              className="call-tray-emoji"
+              aria-pressed={effect.mask === m}
+              aria-label={t(`call.effects.${m}`)}
+              onClick={() => choose({ ...effect, mask: effect.mask === m ? undefined : m })}
+            >
+              {maskGlyph[m]}
+            </button>
+          ))}
+        </div>
+      )}
+      {tray === "react" && !ended && (
         <div className="call-tray" role="group" aria-label={t("call.react")}>
           {reactionEmoji.map((e) => (
             <button key={e} type="button" className="call-tray-emoji" aria-label={e} onClick={() => reactions.send(e)}>
               {e}
             </button>
           ))}
+          <button type="button" className="call-tray-emoji call-tray-shutter" aria-label={t("call.photo.take")} onClick={() => void photos.take()}>
+            <Icon name="camera" />
+          </button>
         </div>
+      )}
+      {photos.flash > 0 && <div key={photos.flash} className="call-flash" aria-hidden="true" />}
+      {photos.taken && (
+        <button type="button" className="call-photo" aria-label={t("call.photo.save")} onClick={() => void photos.save()}>
+          <img src={photos.taken.url} alt="" />
+        </button>
       )}
       <Controls
         room={room}
         ended={ended}
         facing={facing}
-        reacting={others.length > 0 && !homeloom ? reacting : undefined}
-        onReact={() => setReacting((r) => !r)}
+        reacting={others.length > 0 && !homeloom ? tray === "react" : undefined}
+        onReact={() => toggle("react")}
         onAdd={call ? () => setAdding(true) : undefined}
         onHangUp={hangUp}
       />
@@ -316,7 +377,7 @@ function Tile({
 }: {
   participant: Participant;
   person?: Person;
-  self?: { mirror: boolean; onFlip?: () => void };
+  self?: { mirror: boolean; onFlip?: () => void; effects?: { open: boolean; onToggle: () => void } };
   small?: boolean;
   pinned?: boolean;
   onTap?: () => void;
@@ -346,10 +407,19 @@ function Tile({
           {(!audio || audio.isMuted) && <Icon name="micOff" size="sm" label={t("call.muted")} />}
         </span>
       )}
-      {self?.onFlip && (
-        <button type="button" className="call-flip" aria-label={t("call.flip")} onClick={self.onFlip}>
-          <Icon name="flip" size="sm" />
-        </button>
+      {(self?.onFlip || self?.effects) && (
+        <span className="call-self-actions">
+          {self.onFlip && (
+            <button type="button" className="call-self-action" aria-label={t("call.flip")} onClick={self.onFlip}>
+              <Icon name="flip" size="sm" />
+            </button>
+          )}
+          {self.effects && (
+            <button type="button" className="call-self-action" aria-pressed={self.effects.open} aria-label={t("call.effects.title")} onClick={self.effects.onToggle}>
+              <Icon name="sparkle" size="sm" />
+            </button>
+          )}
+        </span>
       )}
     </div>
   );
@@ -446,7 +516,7 @@ function useCameraCount(on: boolean): number {
 }
 
 // The reactions anyone can send; others are ignored, so a guest can't put arbitrary text on screen.
-const reactionEmoji = ["❤️", "😂", "😮", "👏", "🎉", "👍"];
+const reactionEmoji = ["❤️", "😂", "😮", "👏", "🎉"];
 const reactionTopic = "reaction";
 // How long a reaction floats; matches call-rise in app.css.
 const reactionFor = 2_600;
@@ -476,6 +546,101 @@ function useReactions(room: Room) {
     void room.localParticipant.publishData(new TextEncoder().encode(emoji), { reliable: true, topic: reactionTopic }).catch(() => undefined);
   };
   return { shown, send };
+}
+
+const photoTopic = "photo";
+// How long a photo's thumbnail stays to be saved, and the others' notice that it was taken.
+const photoFor = 8_000;
+const noticeFor = 3_000;
+
+// Photos of the call as it's shown. Taking one tells the others, as FaceTime does. The thumbnail
+// saves it on a second tap, because iOS only opens the share sheet straight from a tap.
+function usePhotos(room: Room, view: RefObject<HTMLDivElement | null>, t: TFunction) {
+  const [taken, setTaken] = useState<{ url: string; file: File }>();
+  const [flash, setFlash] = useState(0);
+  const [notice, setNotice] = useState<string>();
+  useEffect(() => {
+    if (!taken) return;
+    const id = setTimeout(() => setTaken(undefined), photoFor);
+    return () => {
+      clearTimeout(id);
+      URL.revokeObjectURL(taken.url);
+    };
+  }, [taken]);
+  useEffect(() => {
+    let id: ReturnType<typeof setTimeout>;
+    const received = (_payload: Uint8Array, from?: Participant, _kind?: unknown, topic?: string) => {
+      if (topic !== photoTopic || !from) return;
+      setNotice(t("call.photo.taken", { name: nameOf(from, t) }));
+      clearTimeout(id);
+      id = setTimeout(() => setNotice(undefined), noticeFor);
+    };
+    room.on(RoomEvent.DataReceived, received);
+    return () => {
+      clearTimeout(id);
+      room.off(RoomEvent.DataReceived, received);
+    };
+  }, [room, t]);
+  const take = async () => {
+    if (!view.current) return;
+    setFlash((n) => n + 1);
+    const blob = await snapshot(view.current);
+    if (!blob) return;
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[T:]/g, "-");
+    setTaken({ url: URL.createObjectURL(blob), file: new File([blob], `homeloom-${stamp}.jpg`, { type: "image/jpeg" }) });
+    void room.localParticipant.publishData(new Uint8Array(), { reliable: true, topic: photoTopic }).catch(() => undefined);
+  };
+  const save = async () => {
+    if (!taken) return;
+    if (navigator.canShare?.({ files: [taken.file] })) {
+      await navigator.share({ files: [taken.file] }).catch(() => undefined);
+    } else {
+      const a = document.createElement("a");
+      a.href = taken.url;
+      a.download = taken.file.name;
+      a.click();
+    }
+    setTaken(undefined);
+  };
+  return { taken, flash, notice, take, save };
+}
+
+// snapshot draws the call's pictures into one image, where and as they're shown: cropped like
+// object-fit: cover, your own mirrored, the floating one with its rounded corners.
+async function snapshot(view: HTMLElement): Promise<Blob | null> {
+  const box = view.getBoundingClientRect();
+  const scale = Math.min(window.devicePixelRatio || 1, 2);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(box.width * scale);
+  canvas.height = Math.round(box.height * scale);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.scale(scale, scale);
+  ctx.fillStyle = getComputedStyle(view).backgroundColor;
+  ctx.fillRect(0, 0, box.width, box.height);
+  for (const video of view.querySelectorAll("video")) {
+    const { videoWidth: vw, videoHeight: vh } = video;
+    if (!vw || !vh) continue;
+    const r = video.getBoundingClientRect();
+    const x = r.left - box.left;
+    const y = r.top - box.top;
+    const fit = Math.max(r.width / vw, r.height / vh);
+    const sw = r.width / fit;
+    const sh = r.height / fit;
+    ctx.save();
+    if (video.closest(".call-float")) {
+      ctx.beginPath();
+      ctx.roundRect(x, y, r.width, r.height, 12);
+      ctx.clip();
+    }
+    if (video.closest(".call-mirror")) {
+      ctx.translate(2 * x + r.width, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(video, (vw - sw) / 2, (vh - sh) / 2, sw, sh, x, y, r.width, r.height);
+    ctx.restore();
+  }
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
 }
 
 // Adds people during a call: members are rung, anyone else gets a guest link.

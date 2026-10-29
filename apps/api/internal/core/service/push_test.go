@@ -91,7 +91,7 @@ func TestRevealNotifiesTheOthers(t *testing.T) {
 	if len(sent) != 1 || sent[0].Subscription.Endpoint != "https://web.push.apple.com/bob" {
 		t.Fatalf("only bob hears about it: %+v", sent)
 	}
-	if n := sent[0].Notification; n.Key != "push.revealed" || n.URL != "/us" || n.Args[1] != "alice" || n.Args[3] != "Coffee or tea?" {
+	if n := sent[0].Notification; n.Key != "push.revealed" || n.URL != "/us?show=questions" || n.Args[1] != "alice" || n.Args[3] != "Coffee or tea?" {
 		t.Fatalf("notification: %+v", n)
 	}
 

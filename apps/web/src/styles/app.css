@@ -113,6 +113,15 @@ h1, h2, h3, p { margin: 0; }
 .note { border: 0; text-align: left; font: inherit; color: inherit; cursor: pointer; }
 .note-text { margin: 0; font: 400 17px/24px var(--font-text); white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 8; -webkit-box-orient: vertical; overflow: hidden; }
 
+.month-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); margin-right: var(--space-1); }
+.month-head .caption { color: var(--ink-muted); }
+.moment-photo { display: block; width: 100%; max-height: 420px; object-fit: cover; border-radius: var(--radius-sm); background: var(--surface-sunken); }
+.moment-photo-actions { display: flex; align-items: center; gap: var(--space-2); }
+.moment-photo-actions label { cursor: pointer; }
+.gratitude-line { display: flex; align-items: center; gap: var(--space-3); margin: 0; font: 400 17px/22px var(--font-text); overflow-wrap: anywhere; }
+.gratitude-mine { width: 100%; padding: 0; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; }
+.gratitude-mine .hl-icon { margin-left: auto; color: var(--ink-muted); }
+
 .sheet-backdrop { position: fixed; inset: 0; z-index: 30; background: var(--scrim); display: flex; align-items: flex-end; justify-content: center; }
 .sheet { width: 100%; max-width: 640px; max-height: calc(100dvh - env(safe-area-inset-top, 0px) - var(--space-4)); overflow-y: auto; overscroll-behavior: contain; background: var(--surface-raised); color: var(--ink); border-radius: 24px 24px 0 0; box-shadow: var(--shadow-sheet); padding: var(--space-2) var(--space-4) max(var(--space-8), env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: var(--space-4); }
 .sheet-grabber { width: 36px; height: 5px; border-radius: var(--radius-pill); background: var(--line); align-self: center; }
@@ -162,17 +171,30 @@ h1, h2, h3, p { margin: 0; }
 .call-mirror .call-tile-video { transform: scaleX(-1); }
 .call-tile[role="button"] { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .call-tile-pinned { grid-column: 1 / -1; grid-row: span 2; order: -1; }
-.call-flip { position: absolute; top: var(--space-2); right: var(--space-2); width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(0, 0, 0, 0.45); color: #ffffff; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-.call-grid .call-flip { top: max(var(--space-4), env(safe-area-inset-top, 0px)); right: auto; left: max(var(--space-4), env(safe-area-inset-left, 0px)); width: 44px; height: 44px; }
+.call-self-actions { position: absolute; top: var(--space-2); right: var(--space-2); display: flex; flex-direction: column; gap: var(--space-2); }
+.call-self-action { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(0, 0, 0, 0.45); color: #ffffff; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.call-self-action[aria-pressed="true"] { background: #ffffff; color: #000000; }
+.call-grid .call-self-actions { top: max(var(--space-4), env(safe-area-inset-top, 0px)); right: auto; left: max(var(--space-4), env(safe-area-inset-left, 0px)); }
+.call-grid .call-self-action { width: 44px; height: 44px; }
 /* Reactions rise from just above the controls and fade out. */
 .call-reactions { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; }
 .call-reaction { position: absolute; bottom: var(--call-bottom); font-size: 44px; line-height: 1; opacity: 0; animation: call-rise 2.6s ease-out forwards; }
 @keyframes call-rise { 0% { opacity: 0; transform: translateY(0) scale(.5); } 12% { opacity: 1; transform: translateY(-6vh) scale(1.15); } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-55vh) scale(1); } }
 @keyframes call-pop { 0%, 100% { opacity: 0; } 10%, 75% { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .call-reaction { animation-name: call-pop; } .call-float { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .call-reaction { animation-name: call-pop; } .call-float { transition: none; } .call-flash { display: none; } .call-photo { animation: none; } }
 .call-tray { position: absolute; z-index: 3; bottom: var(--call-bottom); left: 50%; transform: translateX(-50%); display: flex; gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-pill); background: rgba(0, 0, 0, 0.55); }
 .call-tray-emoji { width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 50%; background: none; font-size: 28px; line-height: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.call-tray-emoji[aria-pressed="true"] { background: rgba(255, 255, 255, 0.3); }
+.call-tray[aria-busy="true"] { animation: call-busy 1s ease-in-out infinite alternate; }
+@keyframes call-busy { to { opacity: 0.6; } }
 .call-tray-emoji:active { background: rgba(255, 255, 255, 0.2); transform: scale(1.15); }
+.call-tray-shutter { color: #ffffff; }
+/* A photo: a white flash, then its thumbnail waits bottom left to be saved. */
+.call-flash { position: absolute; inset: 0; z-index: 4; background: #ffffff; pointer-events: none; animation: call-flash .35s ease-out forwards; }
+@keyframes call-flash { from { opacity: 0.8; } to { opacity: 0; } }
+.call-photo { position: absolute; z-index: 3; left: max(var(--space-4), env(safe-area-inset-left, 0px)); bottom: calc(var(--call-bottom) + 60px); width: 72px; height: 96px; padding: 0; border: 3px solid #ffffff; border-radius: var(--radius-md); overflow: hidden; background: #000000; box-shadow: var(--shadow-sheet); cursor: pointer; animation: call-pop-in .25s ease-out; }
+.call-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+@keyframes call-pop-in { from { transform: scale(.6); opacity: 0; } }
 .call-guest { display: flex; flex-direction: column; gap: var(--space-4); }
 .call-link { margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-sunken); overflow-wrap: anywhere; }
 

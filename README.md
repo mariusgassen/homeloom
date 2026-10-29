@@ -54,12 +54,18 @@ Homeloom grows around how you live together. Features are grouped by what you do
 
 **Around the table**
 - **Taste profiles:** rate meals, get dinner ideas that suit both of you.
-- **Meal memories:** keep photos and notes with the dishes you cook, plus a yearly recap.
+- **Meal memories:** keep photos and notes with the dishes you cook, on your timeline, plus a yearly recap.
 
 **Around the two of you**
 - **Time-capsule letters:** write to each other, sealed until a date or milestone.
-- **Gratitude wall:** one line a day, resurfaced at random.
-- **"Us" timeline:** a shared stream of moments, with a monthly digest and "on this day".
+- **Gratitude wall:** one line a day, resurfaced at random (started).
+- **"Us" timeline:** a shared stream of moments, with a monthly digest and "on this day" (started).
+- **Gratitude on Today:** write today's line right on Today, with an optional nudge in the evening if you haven't yet.
+- **Answers to keep:** put an opened question on your timeline in one tap.
+- **Moment reactions:** a heart or a short reply to each other's moments.
+- **Shared streaks:** how many days in a row you both kept a line, with no guilt for a missed one.
+- **Year in review:** at New Year, a written look back at your moments and thank-yous.
+- **Ask about your memories:** the assistant looks things up on your timeline ("what did we do last May?").
 
 **Going out and staying in**
 - **Date-night generator:** ideas based on weather, local events, budget and mood.

@@ -60,6 +60,13 @@ func TestCalls(t *testing.T) {
 	if err != nil || answer.Room != c.Room || answer.ID != c.ID {
 		t.Fatalf("answer: %+v %v", answer, err)
 	}
+	// Both get the call's encryption key, which no other call has.
+	if c.Key == "" || answer.Key != c.Key {
+		t.Fatalf("keys: %q, %q", c.Key, answer.Key)
+	}
+	if other, err := calls.Start(ctx, alice, h, nil); err != nil || other.Key == c.Key {
+		t.Fatalf("another call's key: %+v %v", other, err)
+	}
 	server.Enter(c.Room, alice.ID.String())
 	server.Enter(c.Room, bob.ID.String())
 
@@ -80,7 +87,7 @@ func TestCalls(t *testing.T) {
 		t.Fatalf("pass: %+v %v", pass, err)
 	}
 	g1, err := calls.JoinAsGuest(ctx, link.Token, "phone", "  Grandma ")
-	if err != nil || g1.Room != c.Room || !strings.HasPrefix(g1.Token, "guest-") || !strings.HasSuffix(g1.Token, "/Grandma@"+c.Room) {
+	if err != nil || g1.Room != c.Room || g1.Key != c.Key || !strings.HasPrefix(g1.Token, "guest-") || !strings.HasSuffix(g1.Token, "/Grandma@"+c.Room) {
 		t.Fatalf("guest: %+v %v", g1, err)
 	}
 	if g2, err := calls.JoinAsGuest(ctx, link.Token, "phone", "Grandma"); err != nil || g2.Token == g1.Token {
@@ -126,7 +133,7 @@ func TestCalls(t *testing.T) {
 		t.Fatalf("voice call: %+v %v", vc, err)
 	}
 	var meta service.VoiceCall
-	if err := json.Unmarshal([]byte(server.Dispatched["homeloom@"+vc.Room]), &meta); err != nil || meta.Lang != "de" || meta.Name != "alice" ||
+	if err := json.Unmarshal([]byte(server.Dispatched["homeloom@"+vc.Room]), &meta); err != nil || meta.Lang != "de" || meta.Name != "alice" || meta.E2EE == "" || meta.E2EE != vc.Key ||
 		meta.Voice != (service.VoiceOfCall{Voice: "marin", Speed: 1.2, Instructions: domain.TonePlayful.Instructions()}) {
 		t.Fatalf("dispatch: %+v %v", meta, err)
 	}

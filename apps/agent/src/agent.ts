@@ -42,7 +42,8 @@ export default defineAgent({
       }),
     });
 
-    await ctx.connect();
+    // Calls are end-to-end encrypted: the agent decrypts with the call's key, which LiveKit never sees.
+    await ctx.connect({ keyProviderOptions: { sharedKey: new TextEncoder().encode(caller.e2ee) } });
     await session.start({
       agent: new voice.Agent({
         instructions: instructions(caller, new Date(), timeZone),
