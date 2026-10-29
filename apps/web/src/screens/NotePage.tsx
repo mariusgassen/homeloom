@@ -7,6 +7,7 @@ import { shrink } from "../moments";
 import { joinNote, splitNote, uploadNotePhoto } from "../notes";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
+import { Segmented } from "../ui/Form";
 import { Icon } from "../ui/Icon";
 import { MarkdownText } from "../ui/Markdown";
 
@@ -17,7 +18,8 @@ const back = "/lists?show=note";
 
 // A note on its own page, like a notes app: a large title, Markdown below it with photos, saved on its
 // own while writing and when leaving. /lists/notes/new starts one; it is made with its first words.
-// A note with text opens to read; Write switches to editing.
+// A note with text opens to read; Write and Preview switch between the text and how it looks.
+// Discard undoes everything since the note was opened, and a new note isn't kept.
 export function NotePage() {
   const { id = "new" } = useParams();
   const { session } = useSession();
@@ -81,7 +83,10 @@ function NoteEditor({ entry, householdId, meId, partner }: { entry?: Entry; hous
   const [busy, setBusy] = useState(false);
   const note = useRef(entry);
   // What was last saved, so only a change saves again; saves run one after another.
-  const saved = useRef(JSON.stringify(fieldsOf(joinNote(initial.title, initial.body), entry?.visibility ?? "shared", entry?.revealAt ? toLocalDate(entry.revealAt) : "")));
+  const opened = JSON.stringify(fieldsOf(joinNote(initial.title, initial.body), entry?.visibility ?? "shared", entry?.revealAt ? toLocalDate(entry.revealAt) : ""));
+  const saved = useRef(opened);
+  // Set once the note is being discarded or deleted, so a pending save doesn't bring it back.
+  const closing = useRef(false);
   const queue = useRef(Promise.resolve(true));
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const titleRef = useRef<HTMLTextAreaElement>(null);
@@ -122,7 +127,7 @@ function NoteEditor({ entry, householdId, meId, partner }: { entry?: Entry; hous
   const json = JSON.stringify(fields);
   useEffect(() => {
     if (!editable) return;
-    const now = () => void save(JSON.parse(json) as EntryFields);
+    const now = () => void (closing.current || save(JSON.parse(json) as EntryFields));
     const hide = () => document.visibilityState === "hidden" && now();
     const timer = window.setTimeout(now, saveAfter);
     document.addEventListener("visibilitychange", hide);
@@ -179,15 +184,30 @@ function NoteEditor({ entry, householdId, meId, partner }: { entry?: Entry; hous
     setMode("write");
   }
 
-  async function remove() {
+  async function remove(ask = true) {
+    if (ask && !window.confirm(t("entries.deleteConfirm"))) return;
+    closing.current = true;
+    await queue.current;
     const current = note.current;
-    if (!window.confirm(t("entries.deleteConfirm"))) return;
     if (current) {
       const res = await api.DELETE("/v1/entries/{entryId}", { params: { path: { entryId: current.id } } }).catch(() => undefined);
       if (!res?.response.ok) {
+        closing.current = false;
         setStatus("failed");
         return;
       }
+    }
+    navigate(back);
+  }
+
+  // Puts the note back as it was when opened; a note made on this page is deleted instead.
+  async function discard() {
+    if (!window.confirm(t("notes.discardConfirm"))) return;
+    if (!entry) return remove(false);
+    closing.current = true;
+    if (!(await save(JSON.parse(opened) as EntryFields))) {
+      closing.current = false;
+      return;
     }
     navigate(back);
   }
@@ -203,48 +223,63 @@ function NoteEditor({ entry, householdId, meId, partner }: { entry?: Entry; hous
         )}
         {editable && (
           <>
-            <button type="button" className="screen-action" aria-label={t(mode === "read" ? "notes.write" : "notes.read")} onClick={() => setMode(mode === "read" ? "write" : "read")}>
-              <Icon name={mode === "read" ? "edit" : "check"} />
-            </button>
             <label className="screen-action note-photo-button" aria-label={t("notes.photo")} aria-disabled={busy}>
               <Icon name="camera" />
               <input className="visually-hidden" type="file" accept="image/*" disabled={busy} onChange={(e) => void addPhoto(e.target.files?.[0])} />
             </label>
-            <button type="button" className="screen-action" aria-label={t("entries.who")} aria-expanded={who} onClick={() => setWho(!who)}>
-              <Icon name={visibility === "private" ? "lock" : visibility} />
+            {author && (
+              <button type="button" className="screen-action" aria-label={t("entries.who")} aria-expanded={who} onClick={() => setWho(!who)}>
+                <Icon name={visibility === "private" ? "lock" : visibility} />
+              </button>
+            )}
+            <button type="button" className="screen-action" aria-label={t("entries.delete")} onClick={() => void remove()}>
+              <Icon name="trash" />
             </button>
           </>
         )}
+        {editable && (
+          <div className="note-modes">
+            <Segmented
+              label={t("notes.mode")}
+              value={mode}
+              options={[
+                { value: "write", label: t("notes.write"), icon: "edit" },
+                { value: "read", label: t("notes.preview"), icon: "eye" },
+              ]}
+              onChange={setMode}
+            />
+            {json !== opened && (
+              <Button variant="plain" size="sm" onClick={() => void discard()}>
+                {t("notes.discard")}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
-      {who && (
+      {who && author && (
         <div className="note-who">
-          {author && (
-            <fieldset className="sheet-fieldset">
-              <legend className="label">{t("entries.who")}</legend>
-              <div className="hl-list sheet-choices">
-                {visibilities.map((v) => (
-                  <label key={v} className="hl-listrow sheet-choice">
-                    <input type="radio" name="visibility" checked={visibility === v} onChange={() => setVisibility(v)} />
-                    <span className="hl-listrow-main">
-                      <span className="hl-listrow-title">{t(`entries.visibility.${v}`)}</span>
-                      <span className="hl-listrow-sub">{t(`entries.visibilityHint.${v}`, { name: partner })}</span>
-                    </span>
-                    <Icon name={v === "private" ? "lock" : v} size="sm" />
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          )}
+          <fieldset className="sheet-fieldset">
+            <legend className="label">{t("entries.who")}</legend>
+            <div className="hl-list sheet-choices">
+              {visibilities.map((v) => (
+                <label key={v} className="hl-listrow sheet-choice">
+                  <input type="radio" name="visibility" checked={visibility === v} onChange={() => setVisibility(v)} />
+                  <span className="hl-listrow-main">
+                    <span className="hl-listrow-title">{t(`entries.visibility.${v}`)}</span>
+                    <span className="hl-listrow-sub">{t(`entries.visibilityHint.${v}`, { name: partner })}</span>
+                  </span>
+                  <Icon name={v === "private" ? "lock" : v} size="sm" />
+                </label>
+              ))}
+            </div>
+          </fieldset>
           {visibility === "reveal" && (
             <label className="field">
               <span className="label">{t("entries.revealAt")}</span>
               <input className="input" type="date" value={revealAt} onChange={(e) => setRevealAt(e.target.value)} required />
             </label>
           )}
-          <Button variant="danger" block onClick={() => void remove()}>
-            {t("entries.delete")}
-          </Button>
         </div>
       )}
 

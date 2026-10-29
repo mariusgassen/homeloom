@@ -3,6 +3,8 @@
 html { -webkit-text-size-adjust: 100%; }
 body { min-height: 100dvh; overscroll-behavior-y: none; }
 h1, h2, h3, p { margin: 0; }
+/* A fieldset is as wide as its widest line by default, which pushes a screen off the right edge. */
+fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .muted { color: var(--ink-muted); }
 .error { color: var(--danger); }
 
@@ -201,10 +203,12 @@ button.form-row { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .note-photo { display: block; max-width: 100%; max-height: 420px; border-radius: var(--radius-sm); background: var(--surface-sunken); }
 /* A note's own page: a bar like the screen toolbar, then the title and text as one open page, no boxes. */
 .note-page { --screen-pad-left: max(var(--space-4), env(safe-area-inset-left, 0px)); --screen-pad-right: max(var(--space-4), env(safe-area-inset-right, 0px)); max-width: 640px; margin: 0 auto; padding: 0 var(--screen-pad-right) var(--space-8) var(--screen-pad-left); display: flex; flex-direction: column; gap: var(--space-3); }
-.note-bar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: var(--space-2); min-height: calc(var(--hit-min) + env(safe-area-inset-top, 0px) + var(--space-2)); margin: 0 calc(-1 * var(--screen-pad-right)) 0 calc(-1 * var(--screen-pad-left)); padding: calc(env(safe-area-inset-top, 0px) + var(--space-2)) var(--screen-pad-right) 0 var(--screen-pad-left); background: var(--surface); }
+.note-bar { position: sticky; top: 0; z-index: 20; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-height: calc(var(--hit-min) + env(safe-area-inset-top, 0px) + var(--space-2)); margin: 0 calc(-1 * var(--screen-pad-right)) 0 calc(-1 * var(--screen-pad-left)); padding: calc(env(safe-area-inset-top, 0px) + var(--space-2)) var(--screen-pad-right) 0 var(--screen-pad-left); background: var(--surface); }
 .note-state { color: var(--ink-muted); }
 .note-state-failed { color: var(--danger); }
 .note-photo-button { cursor: pointer; }
+.note-modes { flex-basis: 100%; display: flex; align-items: center; gap: var(--space-3); padding-bottom: var(--space-2); }
+.note-modes .segmented { flex: 1; }
 .note-who { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-raised); }
 .note-title-input, .note-body-input { width: 100%; padding: 0; border: 0; background: none; color: var(--ink); resize: none; overflow: hidden; outline: none; }
 .note-title-input::placeholder, .note-body-input::placeholder { color: var(--ink-muted); }
@@ -237,10 +241,25 @@ html:has(.sheet-backdrop, .assistant) { overflow: hidden; }
 .sheet-title { flex-grow: 1; text-align: center; }
 .sheet .input { background: var(--surface-sunken); border-color: transparent; width: 100%; }
 .sheet-hint { margin: 0 var(--space-1); }
+.sheet-fieldset { display: flex; flex-direction: column; gap: var(--space-2); }
 .sheet-choices { background: var(--surface-sunken); }
+.sheet-choice .hl-listrow-sub { white-space: normal; }
 .sheet-choice { cursor: pointer; color: var(--ink); }
 .sheet-choice input { width: 20px; height: 20px; accent-color: var(--spruce); flex: none; }
 .hl-list > .sheet-choice + .sheet-choice { box-shadow: inset 0 1px 0 var(--line); }
+/* Swiping a row left shows its actions underneath. */
+.swipe { position: relative; overflow: hidden; }
+.swipe-content { position: relative; background: var(--surface-raised); touch-action: pan-y; transition: transform .22s ease; }
+.swipe-dragging { transition: none; }
+.swipe-actions { position: absolute; top: 0; right: 0; bottom: 0; display: flex; }
+.swipe-actions[hidden] { display: none; }
+.swipe-action { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0; border: 0; background: var(--ink-muted); color: var(--surface-raised); font: 600 12px/16px var(--font-text); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.swipe-action-done { background: var(--spruce); color: var(--on-spruce); }
+.swipe-action-danger { background: var(--danger); color: var(--surface-raised); }
+.hl-list > .swipe + .swipe > .swipe-content { box-shadow: inset 0 1px 0 var(--line); }
+.swipe-card { flex: none; border-radius: var(--radius-md); }
+.swipe-card > .swipe-content { border-radius: inherit; }
+.swipe-card .hl-card { width: 100%; }
 .entry-row .have { color: var(--ink-muted); text-decoration: line-through; font-weight: 400; }
 
 .shopping-add { display: flex; gap: var(--space-2); }
@@ -249,7 +268,7 @@ html:has(.sheet-backdrop, .assistant) { overflow: hidden; }
 .shopping-done .group-title { margin-right: auto; }
 /* Titles used before: the text as written, not shouted like a tag. */
 .suggestions .hl-chip { text-transform: none; letter-spacing: 0; font-size: 14px; }
-.hl-list > .shopping-item + .shopping-item { box-shadow: inset 0 1px 0 var(--line); }
+.hl-list > .shopping-item + .shopping-item, .hl-list > .shopping-item + .shopping-item .swipe-content { box-shadow: inset 0 1px 0 var(--line); }
 .shopping-aisles { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: 0 var(--space-4) var(--space-3); }
 
 /* A call, over everything else: who, how it's going, then the controls at the bottom. */

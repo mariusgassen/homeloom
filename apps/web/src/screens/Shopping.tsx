@@ -7,6 +7,7 @@ import { Button } from "../ui/Button";
 import { Empty } from "../ui/Empty";
 import { cx, Icon } from "../ui/Icon";
 import { ListRow } from "../ui/ListRow";
+import { Swipe } from "../ui/Swipe";
 import { DoneToggle } from "./DoneToggle";
 import { Suggestions } from "./Suggestions";
 
@@ -59,6 +60,8 @@ export function Shopping({ householdId, userId }: { householdId: string; userId:
   const tick = (it: ShoppingItem) =>
     run(it.done ? api.DELETE("/v1/households/{householdId}/shopping-list/items/{itemId}/done", item(it.id)) : api.PUT("/v1/households/{householdId}/shopping-list/items/{itemId}/done", item(it.id)));
 
+  const remove = (it: ShoppingItem) => run(api.DELETE("/v1/households/{householdId}/shopping-list/items/{itemId}", item(it.id)));
+
   const move = async (it: ShoppingItem, aisle: ShoppingAisle) => {
     setMoving(null);
     if (aisle !== it.aisle) await run(api.PATCH("/v1/households/{householdId}/shopping-list/items/{itemId}", { ...item(it.id), body: { aisle } }));
@@ -72,21 +75,28 @@ export function Shopping({ householdId, userId }: { householdId: string; userId:
   const picks = matching(suggestions.filter((s) => !onList.has(s.toLowerCase())), text);
   const row = (it: ShoppingItem) => (
     <div className="shopping-item" key={it.id}>
-    <div className="entry-row">
-      <button type="button" className={it.done ? "tick tick-done" : "tick"} role="checkbox" aria-checked={it.done} aria-label={it.text} onClick={() => tick(it)}>
-        {it.done && <Icon name="check" size="sm" />}
-      </button>
-      <ListRow
-        title={<span className={it.done ? "have" : undefined}>{it.text}</span>}
-        subtitle={it.recipe}
-        onClick={it.done ? undefined : () => setMoving(moving === it.id ? null : it.id)}
-        trailing={
-          <button type="button" className="screen-action" aria-label={t("shopping.remove", { item: it.text })} onClick={() => run(api.DELETE("/v1/households/{householdId}/shopping-list/items/{itemId}", item(it.id)))}>
-            <Icon name="close" size="sm" />
+      <Swipe
+        actions={[
+          { label: t(it.done ? "entries.reopen" : "entries.done"), icon: "check", tone: "done", onAction: () => void tick(it) },
+          { label: t("entries.delete"), icon: "trash", tone: "danger", onAction: () => void remove(it) },
+        ]}
+      >
+        <div className="entry-row">
+          <button type="button" className={it.done ? "tick tick-done" : "tick"} role="checkbox" aria-checked={it.done} aria-label={it.text} onClick={() => tick(it)}>
+            {it.done && <Icon name="check" size="sm" />}
           </button>
-        }
-      />
-    </div>
+          <ListRow
+            title={<span className={it.done ? "have" : undefined}>{it.text}</span>}
+            subtitle={it.recipe}
+            onClick={it.done ? undefined : () => setMoving(moving === it.id ? null : it.id)}
+            trailing={
+              <button type="button" className="screen-action" aria-label={t("shopping.remove", { item: it.text })} onClick={() => remove(it)}>
+                <Icon name="close" size="sm" />
+              </button>
+            }
+          />
+        </div>
+      </Swipe>
       {moving === it.id && (
         <div className="shopping-aisles" role="group" aria-label={t("shopping.moveTo")}>
           {aisles.map((a) => (
