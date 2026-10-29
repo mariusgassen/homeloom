@@ -27,6 +27,7 @@ import (
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/plex"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/postgres"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/redis"
+	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/s3"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/secretbox"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/webpush"
 	"github.com/mariusgassen/homeloom/apps/api/internal/config"
@@ -170,6 +171,13 @@ func run() error {
 			return err
 		}
 	}
+	// Without S3 credentials moment photos stay in Postgres.
+	var photos port.PhotoStore
+	if cfg.S3AccessKeyID != "" {
+		if photos, err = s3.New(cfg.S3Endpoint, cfg.S3Region, cfg.S3Bucket, cfg.S3AccessKeyID, cfg.S3SecretAccessKey); err != nil {
+			return err
+		}
+	}
 	// Homeloom speaks only where it can be called: with the voice agent set up.
 	var speaker port.Speaker
 	if cfg.VoiceAgent != "" {
@@ -183,6 +191,9 @@ func run() error {
 	shopping := service.NewShopping(store, store, grocer)
 	go notifyDue(ctx, entries)
 	moments := service.NewMoments(store, store, store, push, cfg.TimeZone)
+	if photos != nil {
+		moments.WithPhotos(photos)
+	}
 	go notifyDaily(ctx, moments)
 	cook := service.NewCook(store, book, chef, shopping)
 	homeService := service.NewHome(store, homeConnections, sessions, home)

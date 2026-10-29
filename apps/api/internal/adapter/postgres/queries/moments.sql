@@ -68,6 +68,13 @@ WITH photo AS (
 )
 UPDATE moments SET photo_at = now(), updated_at = now() WHERE id = @moment_id;
 
+-- name: MarkMomentPhoto :exec
+-- The photo is kept elsewhere; a copy from before goes.
+WITH photo AS (
+    DELETE FROM moment_photos WHERE moment_id = @moment_id
+)
+UPDATE moments SET photo_at = now(), updated_at = now() WHERE id = @moment_id;
+
 -- name: GetMomentPhoto :one
 SELECT content_type, data FROM moment_photos WHERE moment_id = $1;
 
