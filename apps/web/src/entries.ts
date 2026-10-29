@@ -73,3 +73,50 @@ export function dueToday(e: Entry, now: Date) {
   const end = new Date(e.endsAt ?? e.startsAt);
   return start < tomorrow && (e.allDay ? end >= startOfDay(now) : end >= now);
 }
+
+// Whether a list shows its done items, remembered per person on this device; hidden by default.
+export function useShowDone(userId: string, list: "reminders" | "shopping") {
+  const key = `homeloom.showDone.${userId}.${list}`;
+  const [show, setShow] = useState(() => {
+    try {
+      return localStorage.getItem(key) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggle = useCallback(() => {
+    setShow((s) => {
+      try {
+        if (s) localStorage.removeItem(key);
+        else localStorage.setItem(key, "1");
+      } catch {
+        // Not remembered, but still toggled.
+      }
+      return !s;
+    });
+  }, [key]);
+  return [show, toggle] as const;
+}
+
+// Titles used before, to use again: past reminders or shopping items. A change in generation
+// loads them again. Empty while loading or when they can't be read.
+export function useSuggestions(householdId: string, list: "reminders" | "shopping", generation = 0) {
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  useEffect(() => {
+    let current = true;
+    const params = { params: { path: { householdId } } };
+    const request =
+      list === "reminders" ? api.GET("/v1/households/{householdId}/entries/suggestions", params) : api.GET("/v1/households/{householdId}/shopping-list/suggestions", params);
+    request.then((res) => current && setSuggestions(res.data?.map((s) => s.text) ?? []), () => undefined);
+    return () => {
+      current = false;
+    };
+  }, [householdId, list, generation]);
+  return suggestions;
+}
+
+// The suggestions that fit what's typed so far, at most n; an exact match is left out.
+export function matching(suggestions: string[], typed: string, n = 6) {
+  const q = typed.trim().toLowerCase();
+  return suggestions.filter((s) => s.toLowerCase() !== q && s.toLowerCase().includes(q)).slice(0, n);
+}

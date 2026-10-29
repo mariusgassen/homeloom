@@ -21,3 +21,18 @@ DELETE FROM shopping_items WHERE id = $1 AND household_id = $2;
 
 -- name: ClearDoneShoppingItems :exec
 DELETE FROM shopping_items WHERE household_id = $1 AND done_at IS NOT NULL;
+
+-- name: RecordShoppingHistory :exec
+INSERT INTO shopping_history (household_id, key, text) VALUES (@household_id, lower(@text::text), @text::text)
+ON CONFLICT (household_id, key) DO UPDATE SET text = excluded.text, uses = shopping_history.uses + 1, last_used = now();
+
+-- name: ShoppingSuggestions :many
+-- Most used first, then most recent; what's open on the list is left out.
+SELECT h.text, h.uses FROM shopping_history h
+WHERE h.household_id = @household_id
+  AND NOT EXISTS (
+    SELECT 1 FROM shopping_items i
+    WHERE i.household_id = h.household_id AND lower(i.text) = h.key AND i.done_at IS NULL
+  )
+ORDER BY h.uses DESC, h.last_used DESC
+LIMIT @lim;

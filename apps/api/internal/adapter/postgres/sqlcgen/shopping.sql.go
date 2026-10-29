@@ -111,6 +111,21 @@ func (q *Queries) ListShoppingItems(ctx context.Context, arg ListShoppingItemsPa
 	return items, nil
 }
 
+const recordShoppingHistory = `-- name: RecordShoppingHistory :exec
+INSERT INTO shopping_history (household_id, key, text) VALUES ($1, lower($2::text), $2::text)
+ON CONFLICT (household_id, key) DO UPDATE SET text = excluded.text, uses = shopping_history.uses + 1, last_used = now()
+`
+
+type RecordShoppingHistoryParams struct {
+	HouseholdID uuid.UUID
+	Text        string
+}
+
+func (q *Queries) RecordShoppingHistory(ctx context.Context, arg RecordShoppingHistoryParams) error {
+	_, err := q.db.Exec(ctx, recordShoppingHistory, arg.HouseholdID, arg.Text)
+	return err
+}
+
 const setShoppingItemDone = `-- name: SetShoppingItemDone :one
 UPDATE shopping_items
 SET done_at = CASE WHEN $1::boolean THEN coalesce(done_at, now()) END
@@ -137,4 +152,46 @@ func (q *Queries) SetShoppingItemDone(ctx context.Context, arg SetShoppingItemDo
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const shoppingSuggestions = `-- name: ShoppingSuggestions :many
+SELECT h.text, h.uses FROM shopping_history h
+WHERE h.household_id = $1
+  AND NOT EXISTS (
+    SELECT 1 FROM shopping_items i
+    WHERE i.household_id = h.household_id AND lower(i.text) = h.key AND i.done_at IS NULL
+  )
+ORDER BY h.uses DESC, h.last_used DESC
+LIMIT $2
+`
+
+type ShoppingSuggestionsParams struct {
+	HouseholdID uuid.UUID
+	Lim         int32
+}
+
+type ShoppingSuggestionsRow struct {
+	Text string
+	Uses int32
+}
+
+// Most used first, then most recent; what's open on the list is left out.
+func (q *Queries) ShoppingSuggestions(ctx context.Context, arg ShoppingSuggestionsParams) ([]ShoppingSuggestionsRow, error) {
+	rows, err := q.db.Query(ctx, shoppingSuggestions, arg.HouseholdID, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ShoppingSuggestionsRow
+	for rows.Next() {
+		var i ShoppingSuggestionsRow
+		if err := rows.Scan(&i.Text, &i.Uses); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

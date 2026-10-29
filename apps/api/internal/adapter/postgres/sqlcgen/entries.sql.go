@@ -341,6 +341,51 @@ func (q *Queries) ListEntries(ctx context.Context, arg ListEntriesParams) ([]Ent
 	return items, nil
 }
 
+const reminderSuggestions = `-- name: ReminderSuggestions :many
+SELECT (array_agg(text ORDER BY created_at DESC))[1]::text AS text, count(*)::integer AS uses
+FROM entries
+WHERE household_id = $1
+  AND kind = 'reminder'
+  AND (author_id = $2 OR visibility <> 'private')
+GROUP BY lower(text)
+HAVING bool_and(done_at IS NOT NULL)
+ORDER BY count(*) DESC, max(created_at) DESC
+LIMIT $3
+`
+
+type ReminderSuggestionsParams struct {
+	HouseholdID uuid.UUID
+	Viewer      uuid.UUID
+	Lim         int32
+}
+
+type ReminderSuggestionsRow struct {
+	Text string
+	Uses int32
+}
+
+// Titles of reminders the viewer can see, most used first, then most recent; a title with an
+// open reminder is left out.
+func (q *Queries) ReminderSuggestions(ctx context.Context, arg ReminderSuggestionsParams) ([]ReminderSuggestionsRow, error) {
+	rows, err := q.db.Query(ctx, reminderSuggestions, arg.HouseholdID, arg.Viewer, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReminderSuggestionsRow
+	for rows.Next() {
+		var i ReminderSuggestionsRow
+		if err := rows.Scan(&i.Text, &i.Uses); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const renameEntry = `-- name: RenameEntry :execrows
 UPDATE entries SET ical_name = $2, updated_at = now() WHERE id = $1
 `

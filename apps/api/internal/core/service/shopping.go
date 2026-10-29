@@ -68,3 +68,10 @@ func (s *Shopping) ClearDone(ctx context.Context, actor domain.User, householdID
 	}
 	return s.items.ClearDoneShoppingItems(ctx, householdID)
 }
+
+func (s *Shopping) Suggestions(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.TitleSuggestion, error) {
+	if _, err := s.households.Role(ctx, householdID, actor.ID); err != nil {
+		return nil, err
+	}
+	return s.items.ShoppingSuggestions(ctx, householdID, domain.MaxSuggestions)
+}
