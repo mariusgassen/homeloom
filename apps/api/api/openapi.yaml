@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.19.0
+  version: 0.20.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -353,6 +353,75 @@ paths:
               schema: { $ref: "#/components/schemas/Question" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/questions/suggestions:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [questions]
+      operationId: suggestQuestions
+      summary: Fresh questions to ask, written by Claude (members only)
+      description: |
+        A few new questions in the caller's language, different on every call. Claude sees the
+        household's recent questions so it doesn't repeat them. When Claude can't be reached the
+        answer is 503 and the client offers its own.
+      responses:
+        "200":
+          description: Up to five questions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QuestionSuggestions" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/questions/{questionId}:
+    parameters:
+      - name: questionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      tags: [questions]
+      operationId: updateQuestion
+      summary: Reword your question, until someone else has answered it
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AskQuestion" }
+      responses:
+        "200":
+          description: The question after the change.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Question" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Someone else asked this question (code `not_yours`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Someone else has answered it already, so it can no longer change (code `already_answered`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+    delete:
+      tags: [questions]
+      operationId: deleteQuestion
+      summary: Delete your question and its answers
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Someone else asked this question (code `not_yours`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/questions/{questionId}/answer:
@@ -1036,6 +1105,33 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  /v1/households/{householdId}/watch/suggestions:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [watch]
+      operationId: suggestWatch
+      summary: Ideas for what to watch, picked by Claude (members only)
+      description: |
+        With Plex connected, Claude picks mostly from what the caller hasn't seen in their
+        libraries, taking what they have watched as their taste, and adds one or two titles from
+        outside them. Without Plex, every idea is from outside. Ideas from a library carry `title`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WatchMood" }
+      responses:
+        "200":
+          description: Up to four ideas.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatchIdeas" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
   /v1/households/{householdId}/watch/libraries/{libraryId}/titles:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -1603,6 +1699,12 @@ components:
       properties:
         text: { type: string, minLength: 1, maxLength: 280 }
 
+    QuestionSuggestions:
+      type: object
+      required: [questions]
+      properties:
+        questions: { type: array, items: { type: string } }
+
     AnswerQuestion:
       type: object
       required: [text]
@@ -1944,6 +2046,29 @@ components:
         contentRating: { type: string, description: "Age rating, e.g. de/12 or PG-13." }
         episodes: { type: integer, description: Episodes of a series. }
         watched: { type: boolean, description: "You have seen the movie, or every episode." }
+
+    WatchMood:
+      type: object
+      properties:
+        mood: { type: string, maxLength: 200, description: "In your own words, e.g. \"something light, under two hours\"; may be empty." }
+
+    WatchIdeas:
+      type: object
+      required: [ideas]
+      properties:
+        ideas:
+          type: array
+          items: { $ref: "#/components/schemas/WatchIdea" }
+
+    WatchIdea:
+      type: object
+      required: [name, kind, reason]
+      properties:
+        name: { type: string }
+        year: { type: integer }
+        kind: { $ref: "#/components/schemas/MediaKind" }
+        reason: { type: string, description: One short sentence on why it fits. }
+        title: { $ref: "#/components/schemas/WatchTitle" }
 
     Scene:
       type: object

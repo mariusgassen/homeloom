@@ -81,6 +81,18 @@ func (q *Queries) CreateQuestion(ctx context.Context, arg CreateQuestionParams) 
 	return i, err
 }
 
+const deleteQuestion = `-- name: DeleteQuestion :execrows
+DELETE FROM questions WHERE id = $1
+`
+
+func (q *Queries) DeleteQuestion(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteQuestion, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getQuestion = `-- name: GetQuestion :one
 SELECT id, household_id, asked_by, text, created_at, revealed_at FROM questions WHERE id = $1
 `
@@ -202,6 +214,31 @@ UPDATE questions SET revealed_at = now() WHERE id = $1
 func (q *Queries) RevealQuestion(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, revealQuestion, id)
 	return err
+}
+
+const rewordQuestion = `-- name: RewordQuestion :one
+UPDATE questions q SET text = $2
+WHERE q.id = $1 AND NOT EXISTS (SELECT 1 FROM answers a WHERE a.question_id = q.id AND a.user_id <> q.asked_by)
+RETURNING id, household_id, asked_by, text, created_at, revealed_at
+`
+
+type RewordQuestionParams struct {
+	ID   uuid.UUID
+	Text string
+}
+
+func (q *Queries) RewordQuestion(ctx context.Context, arg RewordQuestionParams) (Question, error) {
+	row := q.db.QueryRow(ctx, rewordQuestion, arg.ID, arg.Text)
+	var i Question
+	err := row.Scan(
+		&i.ID,
+		&i.HouseholdID,
+		&i.AskedBy,
+		&i.Text,
+		&i.CreatedAt,
+		&i.RevealedAt,
+	)
+	return i, err
 }
 
 const upsertAnswer = `-- name: UpsertAnswer :exec

@@ -129,9 +129,13 @@ func run() error {
 		}
 	}
 	var chef port.Chef
+	var muse port.Muse
+	var critic port.Critic
 	var llm port.Assistant
 	if cfg.AnthropicAPIKey != "" {
 		chef = claude.NewChef(cfg.AnthropicAPIKey, cfg.LLMModel)
+		muse = claude.NewMuse(cfg.AnthropicAPIKey, cfg.LLMModel)
+		critic = claude.NewCritic(cfg.AnthropicAPIKey, cfg.LLMModel)
 		llm = claude.NewAssistant(cfg.AnthropicAPIKey, cfg.LLMModel)
 	}
 	// Tokens from signing in to Home Assistant or Plex are sealed with HOMELOOM_SECRET_KEY.
@@ -185,7 +189,7 @@ func run() error {
 	cook := service.NewCook(store, book, chef, shopping)
 	homeService := service.NewHome(store, homeConnections, sessions, home)
 	households := service.NewHousehold(store)
-	watch := service.NewWatch(store, watchConnections, sessions, media)
+	watch := service.NewWatch(store, watchConnections, sessions, media, critic)
 	assistant := service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone)
 	agents := service.NewAgentAccess(store, sessions, store)
 
@@ -195,7 +199,7 @@ func run() error {
 		Identity:       identity,
 		Login:          login,
 		Households:     households,
-		Questions:      service.NewQuestion(store, store, push),
+		Questions:      service.NewQuestion(store, store, push, muse),
 		Entries:        entries,
 		Moments:        moments,
 		Cook:           cook,

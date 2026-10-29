@@ -91,6 +91,11 @@ type QuestionRepository interface {
 	// question once every member of its household (at least two) has answered. It returns
 	// domain.ErrConflict if the question was already revealed.
 	Answer(ctx context.Context, questionID, userID uuid.UUID, text string) (domain.Question, error)
+	// RewordQuestion changes the text. It returns domain.ErrConflict once anyone but the asker has
+	// answered, and domain.ErrNotFound for an unknown id.
+	RewordQuestion(ctx context.Context, questionID uuid.UUID, text string) (domain.Question, error)
+	// DeleteQuestion deletes the question with its answers, or returns domain.ErrNotFound.
+	DeleteQuestion(ctx context.Context, questionID uuid.UUID) error
 }
 
 type EntryRepository interface {
@@ -184,6 +189,22 @@ type Chef interface {
 	// Pick chooses up to n of the candidates that fit the mood and says why, in the language
 	// given as a BCP 47 tag. It returns domain.ErrUnavailable when the LLM can't be asked.
 	Pick(ctx context.Context, mood, lang string, candidates []domain.RecipeSummary, n int) ([]domain.Pick, error)
+}
+
+// Muse is the LLM writing questions for the household to answer together.
+type Muse interface {
+	// Questions writes up to n new questions in the language given as a BCP 47 tag, each in the
+	// spirit of one of themes and unlike any of recent. It returns domain.ErrUnavailable when the
+	// LLM can't be asked.
+	Questions(ctx context.Context, lang string, themes, recent []string, n int) ([]string, error)
+}
+
+// Critic is the LLM's judgement on films and series.
+type Critic interface {
+	// Pick chooses up to n titles that fit the mood (which may be empty): mostly from candidates,
+	// by id, and some from outside them, taking seen as the person's taste. Reasons are in the
+	// language given as a BCP 47 tag. It returns domain.ErrUnavailable when the LLM can't be asked.
+	Pick(ctx context.Context, mood, lang string, candidates, seen []domain.Title, n int) ([]domain.WatchPick, error)
 }
 
 // SmartHome is Home Assistant, narrowed to what Homeloom may do: read scenes, lights, a few

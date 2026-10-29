@@ -48,7 +48,7 @@ func TestAnswersStaySealedUntilBothAnswered(t *testing.T) {
 	ctx := context.Background()
 	store := memory.NewStore()
 	households := service.NewHousehold(store)
-	questions := service.NewQuestion(store, store, service.NewPush(store, nil))
+	questions := service.NewQuestion(store, store, service.NewPush(store, nil), nil)
 	alice, bob := newUser(t, store, "alice"), newUser(t, store, "bob")
 	m, _ := households.Create(ctx, alice, "Home")
 	store.AddMember(m.Household.ID, bob.ID, domain.RoleMember)
@@ -88,7 +88,7 @@ func TestQuestionsAreMembersOnly(t *testing.T) {
 	ctx := context.Background()
 	store := memory.NewStore()
 	households := service.NewHousehold(store)
-	questions := service.NewQuestion(store, store, service.NewPush(store, nil))
+	questions := service.NewQuestion(store, store, service.NewPush(store, nil), nil)
 	alice, eve := newUser(t, store, "alice"), newUser(t, store, "eve")
 	m, _ := households.Create(ctx, alice, "Home")
 	q, _ := questions.Ask(ctx, alice, m.Household.ID, "Secret?")
@@ -112,5 +112,89 @@ func TestQuestionsAreMembersOnly(t *testing.T) {
 	}
 	if _, err := questions.Answer(ctx, alice, q.ID, strings.Repeat("x", domain.MaxAnswerText+1)); !errors.Is(err, domain.ErrInvalid) {
 		t.Errorf("long answer: want ErrInvalid, got %v", err)
+	}
+}
+
+func TestOnlyTheAskerChangesAQuestion(t *testing.T) {
+	ctx := context.Background()
+	store := memory.NewStore()
+	households := service.NewHousehold(store)
+	questions := service.NewQuestion(store, store, service.NewPush(store, nil), nil)
+	alice, bob, eve := newUser(t, store, "alice"), newUser(t, store, "bob"), newUser(t, store, "eve")
+	m, _ := households.Create(ctx, alice, "Home")
+	store.AddMember(m.Household.ID, bob.ID, domain.RoleMember)
+	q, _ := questions.Ask(ctx, alice, m.Household.ID, "Best meal?")
+
+	if _, err := questions.Reword(ctx, bob, q.ID, "Worst meal?"); !errors.Is(err, domain.ErrForbidden) {
+		t.Errorf("partner reword: want ErrForbidden, got %v", err)
+	}
+	if err := questions.Delete(ctx, bob, q.ID); !errors.Is(err, domain.ErrForbidden) {
+		t.Errorf("partner delete: want ErrForbidden, got %v", err)
+	}
+	if err := questions.Delete(ctx, eve, q.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("stranger delete: want ErrNotFound, got %v", err)
+	}
+	if _, err := questions.Reword(ctx, alice, q.ID, " "); !errors.Is(err, domain.ErrInvalid) {
+		t.Errorf("empty reword: want ErrInvalid, got %v", err)
+	}
+	if q, err := questions.Reword(ctx, alice, q.ID, " Best meal ever? "); err != nil || q.Text != "Best meal ever?" {
+		t.Fatalf("reword: %+v, %v", q, err)
+	}
+	if _, err := questions.Answer(ctx, bob, q.ID, "Pasta"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := questions.Reword(ctx, alice, q.ID, "Changed?"); !errors.Is(err, domain.ErrConflict) {
+		t.Errorf("reword after bob answered: want ErrConflict, got %v", err)
+	}
+	if err := questions.Delete(ctx, alice, q.ID); err != nil {
+		t.Fatal(err)
+	}
+	if list, _ := questions.List(ctx, alice, m.Household.ID); len(list) != 0 {
+		t.Errorf("deleted question still listed: %+v", list)
+	}
+}
+
+// muse answers with fixed questions and remembers what it was asked.
+type muse struct {
+	out            []string
+	err            error
+	themes, recent []string
+}
+
+func (m *muse) Questions(_ context.Context, _ string, themes, recent []string, _ int) ([]string, error) {
+	m.themes, m.recent = themes, recent
+	return m.out, m.err
+}
+
+func TestSuggestQuestions(t *testing.T) {
+	ctx := context.Background()
+	store := memory.NewStore()
+	households := service.NewHousehold(store)
+	alice, eve := newUser(t, store, "alice"), newUser(t, store, "eve")
+	m, _ := households.Create(ctx, alice, "Home")
+	hid := m.Household.ID
+	fake := &muse{out: []string{" New one? ", "Old one?", "", "New one?", strings.Repeat("x", domain.MaxQuestionText+1), "Another?"}}
+	questions := service.NewQuestion(store, store, service.NewPush(store, nil), fake)
+	if _, err := questions.Ask(ctx, alice, hid, "Old one?"); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := questions.Suggest(ctx, alice, hid, "en")
+	if err != nil || strings.Join(got, "|") != "New one?|Another?" {
+		t.Fatalf("suggest keeps new, valid, distinct questions: %q, %v", got, err)
+	}
+	if len(fake.themes) != domain.QuestionSuggestionCount || len(fake.recent) != 1 || fake.recent[0] != "Old one?" {
+		t.Errorf("muse asked with themes %q and recent %q", fake.themes, fake.recent)
+	}
+	if _, err := questions.Suggest(ctx, eve, hid, "en"); !errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("stranger: want ErrNotFound, got %v", err)
+	}
+	fake.out = []string{"Old one?"}
+	if _, err := questions.Suggest(ctx, alice, hid, "en"); !errors.Is(err, domain.ErrUnavailable) {
+		t.Errorf("nothing new: want ErrUnavailable, got %v", err)
+	}
+	off := service.NewQuestion(store, store, service.NewPush(store, nil), nil)
+	if _, err := off.Suggest(ctx, alice, hid, "en"); !errors.Is(err, domain.ErrUnavailable) {
+		t.Errorf("without an LLM: want ErrUnavailable, got %v", err)
 	}
 }

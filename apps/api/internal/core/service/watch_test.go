@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/memory"
@@ -40,7 +41,7 @@ func TestWatchConnectsEachPersonThroughTheSignIn(t *testing.T) {
 	alice, bob := newUser(t, store, "alice"), newUser(t, store, "bob")
 	m, _ := service.NewHousehold(store).Create(ctx, alice, "Home")
 	media := mediaLibrary()
-	watch := service.NewWatch(store, store, memory.NewSessions(), media)
+	watch := service.NewWatch(store, store, memory.NewSessions(), media, nil)
 	hid := m.Household.ID
 
 	s, err := watch.Shelf(ctx, alice, hid)
@@ -120,11 +121,71 @@ func TestWatchWithoutPlexIsUnavailable(t *testing.T) {
 	store := memory.NewStore()
 	alice := newUser(t, store, "alice")
 	m, _ := service.NewHousehold(store).Create(ctx, alice, "Home")
-	watch := service.NewWatch(store, store, memory.NewSessions(), nil)
+	watch := service.NewWatch(store, store, memory.NewSessions(), nil, nil)
 	if _, err := watch.Shelf(ctx, alice, m.Household.ID); !errors.Is(err, domain.ErrUnavailable) {
 		t.Fatalf("shelf: %v", err)
 	}
 	if err := watch.CompleteConnect(ctx, alice, "x"); !errors.Is(err, domain.ErrUnavailable) {
 		t.Fatalf("complete: %v", err)
+	}
+}
+
+// critic answers with fixed picks and remembers what it was shown.
+type critic struct {
+	picks            []domain.WatchPick
+	candidates, seen []domain.Title
+}
+
+func (c *critic) Pick(_ context.Context, _, _ string, candidates, seen []domain.Title, _ int) ([]domain.WatchPick, error) {
+	c.candidates, c.seen = candidates, seen
+	return c.picks, nil
+}
+
+func TestWatchIdeas(t *testing.T) {
+	ctx := context.Background()
+	store := memory.NewStore()
+	alice, bob := newUser(t, store, "alice"), newUser(t, store, "bob")
+	m, _ := service.NewHousehold(store).Create(ctx, alice, "Home")
+	hid := m.Household.ID
+	media := memory.NewMediaLibrary(
+		[]domain.Library{{ID: "abc.1", Name: "Movies", Kind: domain.Movies}},
+		map[string][]domain.Title{"abc.1": {{ID: "abc.10", Kind: domain.Movies, Name: "Arrival"}, {ID: "abc.11", Kind: domain.Movies, Name: "Heat", Watched: true}}},
+	)
+	fake := &critic{picks: []domain.WatchPick{
+		{TitleID: "abc.10", Reason: "Quiet and big."},
+		{TitleID: "abc.10", Reason: "Twice."},
+		{TitleID: "abc.99", Name: "Made up"},
+		{Name: " Paddington 2 ", Year: 2017, Kind: "film", Reason: "Pure joy."},
+		{Name: "Dark", Kind: domain.Shows},
+	}}
+	watch := service.NewWatch(store, store, memory.NewSessions(), media, fake)
+
+	// Without Plex connected, ideas come from outside the libraries only.
+	ideas, err := watch.Suggest(ctx, alice, hid, "", "en")
+	if err != nil || len(fake.candidates) != 0 || len(ideas) != 2 || ideas[0].Name != "Paddington 2" || ideas[0].Kind != domain.Movies || ideas[1].Kind != domain.Shows {
+		t.Fatalf("unconnected: %+v, %v", ideas, err)
+	}
+
+	signIn(t, watch, alice, m)
+	ideas, err = watch.Suggest(ctx, alice, hid, "something calm", "en")
+	if err != nil || len(ideas) != 3 || ideas[0].Title == nil || ideas[0].Title.ID != "abc.10" || ideas[0].Reason != "Quiet and big." || ideas[1].Title != nil {
+		t.Fatalf("connected: %+v, %v", ideas, err)
+	}
+	if len(fake.candidates) != 1 || fake.candidates[0].ID != "abc.10" || len(fake.seen) != 1 || fake.seen[0].Name != "Heat" {
+		t.Errorf("critic shown %+v and seen %+v", fake.candidates, fake.seen)
+	}
+
+	if _, err := watch.Suggest(ctx, bob, hid, "", "en"); !errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("stranger: want ErrNotFound, got %v", err)
+	}
+	if _, err := watch.Suggest(ctx, alice, hid, strings.Repeat("x", domain.MaxWatchMood+1), "en"); !errors.Is(err, domain.ErrInvalid) {
+		t.Errorf("long mood: want ErrInvalid, got %v", err)
+	}
+	fake.picks = []domain.WatchPick{{TitleID: "abc.99"}}
+	if _, err := watch.Suggest(ctx, alice, hid, "", "en"); !errors.Is(err, domain.ErrUnavailable) {
+		t.Errorf("only made-up picks: want ErrUnavailable, got %v", err)
+	}
+	if _, err := service.NewWatch(store, store, memory.NewSessions(), media, nil).Suggest(ctx, alice, hid, "", "en"); !errors.Is(err, domain.ErrUnavailable) {
+		t.Errorf("without an LLM: want ErrUnavailable, got %v", err)
 	}
 }
