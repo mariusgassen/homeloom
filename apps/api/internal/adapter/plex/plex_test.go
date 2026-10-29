@@ -2,8 +2,8 @@ package plex
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -61,13 +61,11 @@ func fakePlex(t *testing.T) (*Client, *int) {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			_ = json.NewEncoder(w).Encode([]resource{
-				{Name: "Friend", ClientIdentifier: "f00", Provides: "server", AccessToken: "other", Connections: []connection{{URI: "http://127.0.0.1:1"}}},
-				{Name: "Home", ClientIdentifier: "abc", Provides: "server", Owned: true, AccessToken: "server-token", Connections: []connection{
-					{URI: "http://127.0.0.1:1", Local: true}, {URI: server.URL},
-				}},
-				{Name: "iPhone", ClientIdentifier: "phone", Provides: "client,player"},
-			})
+			_, _ = fmt.Fprintf(w, `[
+				{"name":"Friend","clientIdentifier":"f00","provides":"server","accessToken":"other","connections":[{"uri":"http://127.0.0.1:1"}]},
+				{"name":"Home","clientIdentifier":"abc","provides":"server","owned":true,"accessToken":"server-token","connections":[
+					{"uri":"http://127.0.0.1:1","local":true},{"uri":%q}]},
+				{"name":"iPhone","clientIdentifier":"phone","provides":"client,player"}]`, server.URL)
 		default:
 			w.WriteHeader(http.StatusNotFound)
 		}

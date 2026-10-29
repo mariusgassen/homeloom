@@ -408,10 +408,10 @@ func (c *Client) serverGet(ctx context.Context, s *server, path, accept string) 
 		s.mu.Unlock()
 		return nil, fmt.Errorf("%w: plex server: %w", domain.ErrUnavailable, err)
 	}
-	switch {
-	case resp.StatusCode == http.StatusOK:
+	switch resp.StatusCode {
+	case http.StatusOK:
 		return resp, nil
-	case resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusNotFound:
+	case http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound:
 		_ = resp.Body.Close()
 		return nil, domain.ErrNotFound
 	}
