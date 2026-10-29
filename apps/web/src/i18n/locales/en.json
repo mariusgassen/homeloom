@@ -23,7 +23,7 @@
     "create": "Create household",
     "failed": "That didn't work. Please try again."
   },
-  "settings": { "title": "Settings", "you": "You", "household": "Household", "owner": "Owner", "member": "Member", "open": "Household and settings" },
+  "settings": { "title": "Settings", "you": "You", "household": "Household", "owner": "Owner", "member": "Member", "open": "Household and settings", "photo": "Add photo", "photoChange": "Change photo", "photoRemove": "Remove photo", "photoFailed": "The photo didn't work. Please try another one." },
   "push": { "title": "Notifications", "switch": "Notifications on this device", "hint": "Answers, reminders and events", "install": "To get notifications on your iPhone, add Homeloom to your Home Screen first: tap Share, then “Add to Home Screen”, and open it from there.", "blocked": "Notifications are blocked. Allow them in your phone's Settings under Notifications, then try again.", "failed": "That didn't work. Please try again." },
   "today": {
     "question": { "eyebrow": "Today's question", "title": "No question yet", "body": "Ask one. Answers open once you both replied." },

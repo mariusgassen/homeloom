@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type McpToken, type TokenAccess, type VoiceSettings } from "../api/client";
+import { ownAvatar, removeAvatar, square, uploadAvatar } from "../avatar";
 import { currentSubscription, pushKey, pushSupport, subscribe, unsubscribe } from "../push";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
@@ -20,6 +21,7 @@ export function Settings() {
         <div className="hl-list">
           <ListRow leading={<ThreadAvatar name={user.name} src={user.avatarUrl} />} title={user.name} subtitle={user.email} />
         </div>
+        <Photo url={user.avatarUrl} />
       </section>
       {household && (
         <section className="group">
@@ -47,6 +49,54 @@ export function Settings() {
         {t("auth.signOut")}
       </Button>
     </Screen>
+  );
+}
+
+// Your own picture: one picked here wins over the one the sign-in sends, until it is removed.
+function Photo({ url }: { url?: string }) {
+  const { t } = useTranslation();
+  const { reload } = useSession();
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function run(work: () => Promise<unknown>) {
+    setBusy(true);
+    setFailed(false);
+    const ok = await work().catch(() => undefined);
+    setBusy(false);
+    if (ok) reload();
+    else setFailed(true);
+  }
+
+  return (
+    <>
+      <div className="avatar-actions">
+        <label className="hl-btn hl-btn-secondary hl-btn-sm">
+          {t(url ? "settings.photoChange" : "settings.photo")}
+          <input
+            className="visually-hidden"
+            type="file"
+            accept="image/*"
+            disabled={busy}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) void run(async () => uploadAvatar(await square(file)));
+            }}
+          />
+        </label>
+        {ownAvatar(url) && (
+          <Button variant="plain" size="sm" disabled={busy} onClick={() => void run(removeAvatar)}>
+            {t("settings.photoRemove")}
+          </Button>
+        )}
+      </div>
+      {failed && (
+        <p className="callout error" role="alert">
+          {t("settings.photoFailed")}
+        </p>
+      )}
+    </>
   );
 }
 
