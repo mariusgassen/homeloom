@@ -112,10 +112,11 @@ func run() error {
 	store := postgres.NewStore(pool)
 	sessions := redis.NewSessions(rdb, cfg.SessionTTL)
 	provider := oidc.NewProvider(cfg.OIDCIssuerURL)
+	users := redis.NewUserCache(store, rdb, cfg.UserCacheTTL)
 	identity := service.NewIdentity(
 		oidc.NewVerifier(provider, append([]string{cfg.OIDCClientID}, cfg.OIDCClientIDs...)),
 		sessions,
-		redis.NewUserCache(store, rdb, cfg.UserCacheTTL),
+		users,
 	)
 	login := service.NewLogin(
 		oidc.NewLogin(provider, cfg.OIDCClientID, cfg.OIDCClientSecret, cfg.RedirectURL(), cfg.PostLogoutURL()),
@@ -223,6 +224,7 @@ func run() error {
 		Push:           push,
 		Calls:          service.NewCall(store, sessions, calls, push).WithVoiceAgent(cfg.VoiceAgent, agents).WithVoice(voice),
 		Voice:          voice,
+		Avatars:        service.NewAvatars(users),
 		Assistant:      assistant,
 		Agents:         agents,
 		HealthChecks:   []port.HealthCheck{postgres.HealthCheck{Pool: pool}, redis.HealthCheck{Client: rdb}},

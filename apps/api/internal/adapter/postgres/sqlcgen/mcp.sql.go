@@ -75,7 +75,7 @@ func (q *Queries) DeleteMCPToken(ctx context.Context, arg DeleteMCPTokenParams) 
 }
 
 const getMCPTokenByHash = `-- name: GetMCPTokenByHash :one
-SELECT t.id, t.user_id, t.household_id, t.name, t.access, t.created_at, u.name AS user_name, u.email, u.avatar_url
+SELECT t.id, t.user_id, t.household_id, t.name, t.access, t.created_at, u.name AS user_name, u.email, u.avatar_url, u.avatar_at
 FROM mcp_tokens t JOIN users u ON u.id = t.user_id
 WHERE t.token_hash = $1
 `
@@ -90,6 +90,7 @@ type GetMCPTokenByHashRow struct {
 	UserName    string
 	Email       *string
 	AvatarUrl   *string
+	AvatarAt    *time.Time
 }
 
 func (q *Queries) GetMCPTokenByHash(ctx context.Context, tokenHash []byte) (GetMCPTokenByHashRow, error) {
@@ -105,12 +106,13 @@ func (q *Queries) GetMCPTokenByHash(ctx context.Context, tokenHash []byte) (GetM
 		&i.UserName,
 		&i.Email,
 		&i.AvatarUrl,
+		&i.AvatarAt,
 	)
 	return i, err
 }
 
 const getMCPTokenByID = `-- name: GetMCPTokenByID :one
-SELECT t.id, t.user_id, t.household_id, t.name, t.access, t.created_at, t.token_hash, u.name AS user_name, u.email, u.avatar_url
+SELECT t.id, t.user_id, t.household_id, t.name, t.access, t.created_at, t.token_hash, u.name AS user_name, u.email, u.avatar_url, u.avatar_at
 FROM mcp_tokens t JOIN users u ON u.id = t.user_id
 WHERE t.id = $1
 `
@@ -126,6 +128,7 @@ type GetMCPTokenByIDRow struct {
 	UserName    string
 	Email       *string
 	AvatarUrl   *string
+	AvatarAt    *time.Time
 }
 
 func (q *Queries) GetMCPTokenByID(ctx context.Context, id uuid.UUID) (GetMCPTokenByIDRow, error) {
@@ -142,6 +145,7 @@ func (q *Queries) GetMCPTokenByID(ctx context.Context, id uuid.UUID) (GetMCPToke
 		&i.UserName,
 		&i.Email,
 		&i.AvatarUrl,
+		&i.AvatarAt,
 	)
 	return i, err
 }

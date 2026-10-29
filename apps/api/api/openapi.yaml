@@ -172,6 +172,70 @@ paths:
               schema: { $ref: "#/components/schemas/User" }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /v1/me/avatar:
+    put:
+      tags: [me]
+      operationId: setAvatar
+      summary: Set your own picture
+      description: |
+        A JPEG of at most 5 MB; the app makes it square and small first. It wins over the picture
+        authentik sends.
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+      responses:
+        "200":
+          description: You, with the new picture.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    delete:
+      tags: [me]
+      operationId: deleteAvatar
+      summary: Remove your own picture
+      description: Afterwards you have authentik's picture again, if it sends one.
+      responses:
+        "200":
+          description: You, without it.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/users/{userId}/avatar:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [me]
+      operationId: getAvatar
+      summary: A member's picture
+      description: |
+        Use the user's `avatarUrl`; it changes with the picture, so the answer may be cached. Only
+        you and the people you share a household with can see yours.
+      parameters:
+        - name: v
+          in: query
+          description: The picture's version, part of `avatarUrl`.
+          schema: { type: string, maxLength: 40 }
+      responses:
+        "200":
+          description: The picture.
+          headers:
+            Cache-Control:
+              schema: { type: string }
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/me/voice:
     get:
       tags: [me]
@@ -2314,7 +2378,7 @@ components:
         id: { type: string, format: uuid }
         name: { type: string }
         email: { type: string }
-        avatarUrl: { type: string }
+        avatarUrl: { type: string, description: "The picture they set in Homeloom, else the one authentik sends, if any." }
 
     CreateHousehold:
       type: object

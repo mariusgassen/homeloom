@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { cx } from "./Icon";
 
 // Each person in a household has a thread colour: the first saffron, the second berry.
@@ -18,10 +19,12 @@ function initials(name: string) {
   );
 }
 
+// A picture that doesn't load falls back to the initials.
 export function ThreadAvatar({ name, src, thread, size }: { name: string; src?: string; thread?: Thread; size?: "sm" | "lg" }) {
+  const [broken, setBroken] = useState<string>();
   return (
     <span className={cx("hl-avatar", thread && `hl-avatar-${thread}`, size && `hl-avatar-${size}`)} role="img" aria-label={name}>
-      {src ? <img src={src} alt="" /> : initials(name)}
+      {src && src !== broken ? <img src={src} alt="" onError={() => setBroken(src)} /> : initials(name)}
     </span>
   );
 }

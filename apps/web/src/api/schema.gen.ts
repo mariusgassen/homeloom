@@ -157,6 +157,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set your own picture
+         * @description A JPEG of at most 5 MB; the app makes it square and small first. It wins over the picture
+         *     authentik sends.
+         */
+        put: operations["setAvatar"];
+        post?: never;
+        /**
+         * Remove your own picture
+         * @description Afterwards you have authentik's picture again, if it sends one.
+         */
+        delete: operations["deleteAvatar"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/users/{userId}/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * A member's picture
+         * @description Use the user's `avatarUrl`; it changes with the picture, so the answer may be cached. Only
+         *     you and the people you share a household with can see yours.
+         */
+        get: operations["getAvatar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/voice": {
         parameters: {
             query?: never;
@@ -1852,6 +1900,7 @@ export interface components {
             id: string;
             name: string;
             email?: string;
+            /** @description The picture they set in Homeloom, else the one authentik sends, if any. */
             avatarUrl?: string;
         };
         CreateHousehold: {
@@ -2178,6 +2227,81 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    setAvatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            /** @description You, with the new picture. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    deleteAvatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description You, without it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getAvatar: {
+        parameters: {
+            query?: {
+                /** @description The picture's version, part of `avatarUrl`. */
+                v?: string;
+            };
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The picture. */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     getVoice: {
