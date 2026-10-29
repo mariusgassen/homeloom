@@ -57,7 +57,7 @@ var tools = []domain.Tool{
 		Description: "Add a note. A \"reveal\" note is visible to the others only from reveal_at on (local, YYYY-MM-DDTHH:MM); " +
 			"until then they only see that it exists.",
 		Schema: object(map[string]any{
-			"text":       str("The note, at most 5000 characters."),
+			"text":       str("The note in Markdown, at most 20000 characters; start it with a \"# Title\" line."),
 			"visibility": visibilityEnum("private", "shared", "reveal"),
 			"reveal_at":  str("When a reveal note opens."),
 		}, "text", "visibility"),

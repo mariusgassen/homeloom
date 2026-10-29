@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"fmt"
@@ -130,7 +131,54 @@ func (s *Entry) Update(ctx context.Context, actor domain.User, id uuid.UUID, f d
 	if !sameTime(e.DueAt, due) {
 		s.schedule(&e)
 	}
-	return s.entries.UpdateEntry(ctx, e)
+	if e, err = s.entries.UpdateEntry(ctx, e); err != nil || e.Kind != domain.KindNote {
+		return e, err
+	}
+	return e, s.prunePhotos(ctx, e)
+}
+
+// prunePhotos deletes the note's photos its text no longer links.
+func (s *Entry) prunePhotos(ctx context.Context, e domain.Entry) error {
+	ids, err := s.entries.EntryPhotoIDs(ctx, e.ID)
+	if err != nil {
+		return err
+	}
+	ids = slices.DeleteFunc(ids, func(id uuid.UUID) bool { return strings.Contains(e.Text, id.String()) })
+	if len(ids) == 0 {
+		return nil
+	}
+	return s.entries.DeleteEntryPhotos(ctx, e.ID, ids)
+}
+
+func (s *Entry) AddPhoto(ctx context.Context, actor domain.User, id uuid.UUID, p domain.Photo) (uuid.UUID, error) {
+	e, err := s.editable(ctx, actor, id)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	// The app sends JPEGs; checking the bytes as well keeps anything else from being served as one.
+	if e.Kind != domain.KindNote || p.ContentType != "image/jpeg" || len(p.Data) > domain.MaxPhotoBytes ||
+		!bytes.HasPrefix(p.Data, []byte{0xFF, 0xD8, 0xFF}) {
+		return uuid.Nil, domain.ErrNotePhoto
+	}
+	ids, err := s.entries.EntryPhotoIDs(ctx, id)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if len(ids) >= domain.MaxNotePhotos {
+		return uuid.Nil, domain.ErrNotePhotos
+	}
+	return s.entries.AddEntryPhoto(ctx, id, p)
+}
+
+func (s *Entry) Photo(ctx context.Context, actor domain.User, id, photoID uuid.UUID) (domain.Photo, error) {
+	e, err := s.Get(ctx, actor, id)
+	if err != nil {
+		return domain.Photo{}, err
+	}
+	if e.Sealed {
+		return domain.Photo{}, domain.ErrNotFound
+	}
+	return s.entries.EntryPhoto(ctx, id, photoID)
 }
 
 func (s *Entry) Delete(ctx context.Context, actor domain.User, id uuid.UUID) error {

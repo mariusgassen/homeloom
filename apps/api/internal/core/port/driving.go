@@ -48,6 +48,11 @@ type EntryService interface {
 	Delete(ctx context.Context, actor domain.User, id uuid.UUID) error
 	// SetDone ticks a reminder off (done true) or opens it again.
 	SetDone(ctx context.Context, actor domain.User, id uuid.UUID, done bool) (domain.Entry, error)
+	// AddPhoto stores a photo in a note the actor can change and returns its id. The note's text
+	// links it; a photo the text no longer links goes with the note's next change.
+	AddPhoto(ctx context.Context, actor domain.User, id uuid.UUID, p domain.Photo) (uuid.UUID, error)
+	// Photo returns domain.ErrNotFound unless the actor can read the note the photo is in.
+	Photo(ctx context.Context, actor domain.User, id, photoID uuid.UUID) (domain.Photo, error)
 	// HasCalendarFeed says whether the actor has a calendar subscription link for the household.
 	HasCalendarFeed(ctx context.Context, actor domain.User, householdID uuid.UUID) (bool, error)
 	// CreateCalendarFeed returns a new subscription link token; an earlier link stops working.

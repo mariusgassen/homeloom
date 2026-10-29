@@ -368,3 +368,80 @@ func TestCalendarFeed(t *testing.T) {
 		t.Fatalf("empty token: want ErrNotFound, got %v", err)
 	}
 }
+
+func TestNotePhotos(t *testing.T) {
+	ctx := context.Background()
+	f := newEntryFixture(t)
+	pic := domain.Photo{ContentType: "image/jpeg", Data: []byte{0xFF, 0xD8, 0xFF}}
+	note := f.create(t, f.alice, domain.KindNote, domain.EntryFields{Text: "# Trip", Visibility: domain.VisibilityShared})
+
+	// Anyone who can change the note adds photos; a shared note is everyone's.
+	kept, err := f.entries.AddPhoto(ctx, f.bob, note.ID, pic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dropped, err := f.entries.AddPhoto(ctx, f.alice, note.ID, pic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p, err := f.entries.Photo(ctx, f.bob, note.ID, dropped); err != nil || len(p.Data) != 3 {
+		t.Fatalf("photo: %+v, %v", p, err)
+	}
+	if _, err := f.entries.Photo(ctx, f.eve, note.ID, kept); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("outsider: %v", err)
+	}
+
+	// Changing the note deletes the photos its text no longer links.
+	text := "# Trip\n\n![](/v1/entries/" + note.ID.String() + "/photos/" + kept.String() + ")"
+	if _, err := f.entries.Update(ctx, f.alice, note.ID, domain.EntryFields{Text: text, Visibility: domain.VisibilityShared}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.entries.Photo(ctx, f.alice, note.ID, kept); err != nil {
+		t.Fatalf("linked photo: %v", err)
+	}
+	if _, err := f.entries.Photo(ctx, f.alice, note.ID, dropped); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("unlinked photo: %v", err)
+	}
+
+	// Photos follow the note: private ones and sealed letters stay hidden.
+	secret := f.create(t, f.alice, domain.KindNote, domain.EntryFields{Text: "mine", Visibility: domain.VisibilityPrivate})
+	if _, err := f.entries.AddPhoto(ctx, f.bob, secret.ID, pic); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("add to someone's private note: %v", err)
+	}
+	reveal := f.now.Add(time.Hour)
+	letter := f.create(t, f.alice, domain.KindNote, domain.EntryFields{Text: "later", Visibility: domain.VisibilityReveal, RevealAt: &reveal})
+	inLetter, err := f.entries.AddPhoto(ctx, f.alice, letter.ID, pic)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.entries.Photo(ctx, f.bob, letter.ID, inLetter); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("sealed letter: %v", err)
+	}
+	if _, err := f.entries.AddPhoto(ctx, f.bob, letter.ID, pic); !errors.Is(err, domain.ErrForbidden) {
+		t.Fatalf("add to someone's letter: %v", err)
+	}
+
+	// Only JPEG photos of notes, and only so many.
+	reminder := f.create(t, f.alice, domain.KindReminder, domain.EntryFields{Text: "milk", Visibility: domain.VisibilityShared})
+	for name, c := range map[string]struct {
+		id uuid.UUID
+		p  domain.Photo
+	}{
+		"reminder": {reminder.ID, pic},
+		"png":      {note.ID, domain.Photo{ContentType: "image/png", Data: pic.Data}},
+		"not jpeg": {note.ID, domain.Photo{ContentType: "image/jpeg", Data: []byte("GIF89a")}},
+		"too big":  {note.ID, domain.Photo{ContentType: "image/jpeg", Data: append(pic.Data, make([]byte, domain.MaxPhotoBytes)...)}},
+	} {
+		if _, err := f.entries.AddPhoto(ctx, f.alice, c.id, c.p); !errors.Is(err, domain.ErrNotePhoto) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	for range domain.MaxNotePhotos - 1 {
+		if _, err := f.entries.AddPhoto(ctx, f.alice, note.ID, pic); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := f.entries.AddPhoto(ctx, f.alice, note.ID, pic); !errors.Is(err, domain.ErrNotePhotos) {
+		t.Fatalf("one too many: %v", err)
+	}
+}

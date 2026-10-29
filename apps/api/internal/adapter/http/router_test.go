@@ -1007,3 +1007,59 @@ func TestDAVMethodsReachTheirHandlers(t *testing.T) {
 		}
 	}
 }
+
+func TestNotePhotosFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	id := created["id"].(string)
+	_, inv := do(t, h, "POST", "/v1/households/"+id+"/invites", "token-alice", "")
+	do(t, h, "POST", "/v1/invites/"+inv["code"].(string), "token-bob", "")
+	code, note := do(t, h, "POST", "/v1/households/"+id+"/entries", "token-alice", `{"kind":"note","text":"# **Trip** to Rome\n\nPack light","visibility":"private"}`)
+	if code != 201 || note["title"] != "Trip to Rome" {
+		t.Fatalf("create note: %d %v", code, note)
+	}
+	photos := "/v1/entries/" + note["id"].(string) + "/photos"
+	post := func(token, body string) (int, map[string]any) {
+		t.Helper()
+		req := httptest.NewRequest("POST", photos, strings.NewReader(body))
+		req.Header.Set("Content-Type", "image/jpeg")
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		var out map[string]any
+		_ = json.Unmarshal(rec.Body.Bytes(), &out)
+		return rec.Code, out
+	}
+	jpeg := "\xFF\xD8\xFF\xE0 a photo"
+	if code, body := post("token-bob", jpeg); code != 404 {
+		t.Fatalf("someone else's private note: %d %v", code, body)
+	}
+	if code, body := post("token-alice", "not a jpeg"); code != 400 || body["code"] != "invalid_photo" {
+		t.Fatalf("not a JPEG: %d %v", code, body)
+	}
+	code, photo := post("token-alice", jpeg)
+	url, _ := photo["url"].(string)
+	if code != 201 || url != photos+"/"+photo["id"].(string) {
+		t.Fatalf("add photo: %d %v", code, photo)
+	}
+	get := func(token string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("GET", url, nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	if rec := get("token-alice"); rec.Code != 200 || rec.Body.String() != jpeg || rec.Header().Get("Content-Type") != "image/jpeg" || !strings.Contains(rec.Header().Get("Cache-Control"), "private") {
+		t.Fatalf("get photo: %d %q %v", rec.Code, rec.Body.String(), rec.Header())
+	}
+	if rec := get("token-bob"); rec.Code != 404 {
+		t.Fatalf("photo in someone else's private note: %d", rec.Code)
+	}
+	// A change that drops the link drops the photo.
+	if code, body := do(t, h, "PUT", "/v1/entries/"+note["id"].(string), "token-alice", `{"text":"# Trip","visibility":"private"}`); code != 200 || body["title"] != "Trip" {
+		t.Fatalf("change note: %d %v", code, body)
+	}
+	if rec := get("token-alice"); rec.Code != 404 {
+		t.Fatalf("unlinked photo: %d", rec.Code)
+	}
+}
