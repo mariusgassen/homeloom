@@ -110,6 +110,10 @@ type EntryRepository interface {
 	// UpdateEntry stores the entry's fields, done state and notification time.
 	UpdateEntry(ctx context.Context, e domain.Entry) (domain.Entry, error)
 	DeleteEntry(ctx context.Context, id uuid.UUID) error
+	// ReminderSuggestions returns the titles of the household's reminders the viewer may see
+	// (their own and everyone's non-private ones), case-insensitively grouped, most used first,
+	// then most recent; a title with an open reminder is left out.
+	ReminderSuggestions(ctx context.Context, householdID, viewer uuid.UUID, limit int) ([]domain.TitleSuggestion, error)
 	// ClaimDue sets NotifiedAt to now on up to limit open entries whose DueAt (a reminder's due
 	// time, an event's alert) has passed since their last notification, and returns them. Each due
 	// time is claimed once, also by several API instances at the same time.
@@ -177,6 +181,9 @@ type ShoppingRepository interface {
 	SetShoppingItemDone(ctx context.Context, householdID, id uuid.UUID, done bool) (domain.ShoppingItem, error)
 	DeleteShoppingItem(ctx context.Context, householdID, id uuid.UUID) error
 	ClearDoneShoppingItems(ctx context.Context, householdID uuid.UUID) error
+	// ShoppingSuggestions returns what the household put on the list before, kept after items
+	// are cleared, most used first, then most recent; texts open on the list are left out.
+	ShoppingSuggestions(ctx context.Context, householdID uuid.UUID, limit int) ([]domain.TitleSuggestion, error)
 }
 
 // Chef is the LLM's cooking judgement.

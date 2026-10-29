@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type Entry, type EntryFields, type EntryKind, type HouseholdDetail, type Repeat, type User, type Visibility } from "../api/client";
-import { fromLocal, toLocalDate, toLocalDateTime } from "../entries";
+import { fromLocal, matching, toLocalDate, toLocalDateTime, useSuggestions } from "../entries";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
+import { Suggestions } from "./Suggestions";
 
 const repeats: Repeat[] = ["never", "daily", "weekly", "monthly", "yearly"];
 const alerts = [0, 10, 30, 60, 24 * 60];
@@ -36,6 +37,7 @@ export function EntrySheet({ household, me, entry, kind: initialKind = "reminder
   const textRef = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
   const author = entry ? entry.authorId === me.id : true;
   const partner = household.members.find((m) => m.user.id !== me.id)?.user;
+  const suggestions = useSuggestions(household.id, "reminders");
 
   useEffect(() => textRef.current?.focus(), [kind]);
 
@@ -123,6 +125,15 @@ export function EntrySheet({ household, me, entry, kind: initialKind = "reminder
             <input ref={textRef} className="input" value={text} maxLength={maxText[kind]} onChange={(e) => setText(e.target.value)} placeholder={t(`entries.placeholder.${kind}`)} required />
           )}
         </label>
+        {!entry && kind === "reminder" && (
+          <Suggestions
+            items={matching(suggestions, text)}
+            onPick={(s) => {
+              setText(s);
+              textRef.current?.focus();
+            }}
+          />
+        )}
 
         {kind === "reminder" && (
           <div className="sheet-row">

@@ -185,7 +185,10 @@ h1, h2, h3, p { margin: 0; }
 
 .shopping-add { display: flex; gap: var(--space-2); }
 .shopping-add .input { flex: 1; min-width: 0; }
-.shopping-done { display: flex; align-items: center; justify-content: space-between; }
+.shopping-done { display: flex; align-items: center; gap: var(--space-2); }
+.shopping-done .group-title { margin-right: auto; }
+/* Titles used before: the text as written, not shouted like a tag. */
+.suggestions .hl-chip { text-transform: none; letter-spacing: 0; font-size: 14px; }
 
 /* A call, over everything else: who, how it's going, then the controls at the bottom. */
 .call { --call-bottom: calc(max(var(--space-8), env(safe-area-inset-bottom, 0px)) + 56px + var(--space-4)); position: fixed; inset: 0; z-index: 40; background: var(--spruce); color: var(--on-spruce); display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: max(var(--space-8), env(safe-area-inset-top, 0px)) var(--space-4) max(var(--space-8), env(safe-area-inset-bottom, 0px)); overflow: hidden; }
