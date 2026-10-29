@@ -54,6 +54,9 @@ type Deps struct {
 	Notes http.Handler
 }
 
+// davMethods are the WebDAV (RFC 4918) and CalDAV (RFC 4791) methods beyond HTTP's own.
+var davMethods = []string{"PROPFIND", "PROPPATCH", "MKCOL", "COPY", "MOVE", "LOCK", "UNLOCK", "REPORT", "MKCALENDAR"}
+
 func NewRouter(d Deps) (http.Handler, error) {
 	spec, err := oapi.GetSpec()
 	if err != nil {
@@ -61,6 +64,11 @@ func NewRouter(d Deps) (http.Handler, error) {
 	}
 	spec.Servers = nil
 
+	// chi answers methods it doesn't know with 405, so the WebDAV and CalDAV ones that /dav and
+	// /webdav take must be known before those routes are added.
+	for _, m := range davMethods {
+		chi.RegisterMethod(m)
+	}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, requestLogger, middleware.Recoverer, withLanguage)
 	if len(d.AllowedOrigins) > 0 {
