@@ -3,12 +3,15 @@ import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router";
 import { api, type Entry, type EntryKind, type HouseholdDetail, type User } from "../api/client";
 import { sameDay, setDone, startOfDay, useEntries } from "../entries";
+import { excerpt, firstPhoto } from "../notes";
 import { useSession } from "../session";
 import { Empty } from "../ui/Empty";
 import { Icon } from "../ui/Icon";
 import { ListRow } from "../ui/ListRow";
+import { MarkdownText } from "../ui/Markdown";
 import { ThreadAvatar, threadFor } from "../ui/ThreadAvatar";
 import { EntrySheet } from "./EntrySheet";
+import { NoteSheet } from "./NoteSheet";
 import { Shopping } from "./Shopping";
 import { Screen } from "./Screen";
 
@@ -68,7 +71,19 @@ export function Lists() {
       {entries && entries.length > 0 && tab === "reminder" && <Reminders entries={entries} household={household} me={me} onOpen={(entry) => setSheet({ entry, kind: entry.kind })} onChange={reload} />}
       {entries && entries.length > 0 && tab === "event" && <Agenda entries={entries} onOpen={(entry) => setSheet({ entry, kind: entry.kind })} />}
       {entries && entries.length > 0 && tab === "note" && <Notes entries={entries} household={household} me={me} onOpen={(entry) => setSheet({ entry, kind: entry.kind })} />}
-      {sheet && (
+      {sheet?.kind === "note" && (
+        <NoteSheet
+          household={household}
+          me={me}
+          entry={sheet.entry}
+          onClose={() => setSheet(null)}
+          onSaved={() => {
+            setSheet(null);
+            reload();
+          }}
+        />
+      )}
+      {sheet && sheet.kind !== "note" && (
         <EntrySheet
           household={household}
           me={me}
@@ -209,14 +224,28 @@ function Notes({ entries, household, me, onOpen }: { entries: Entry[]; household
       return (
         <article className="hl-card hl-card-sunken" key={e.id}>
           <div className="hl-eyebrow">{eyebrow}</div>
-          <p className={e.sealed ? "hl-card-body" : "note-text"}>{e.sealed ? t("entries.sealed", { name: author, date: day.format(new Date(e.revealAt ?? e.createdAt)) }) : e.text}</p>
+          {e.sealed ? (
+            <p className="hl-card-body">{t("entries.sealed", { name: author, date: day.format(new Date(e.revealAt ?? e.createdAt)) })}</p>
+          ) : (
+            <div className="bubble-md note-md">
+              <MarkdownText text={e.text ?? ""} photos />
+            </div>
+          )}
         </article>
       );
     }
+    const photo = firstPhoto(e.text ?? "");
+    const more = excerpt(e.text ?? "");
     return (
       <button type="button" className="hl-card note" key={e.id} onClick={() => onOpen(e)}>
         <span className="hl-eyebrow">{eyebrow}</span>
-        <span className="note-text">{e.text}</span>
+        <span className="note-head">
+          <span className="note-head-text">
+            <span className="headline note-title">{e.title || t("notes.untitled")}</span>
+            {more && <span className="note-text">{more}</span>}
+          </span>
+          {photo && <img className="note-thumb" src={photo} alt="" loading="lazy" />}
+        </span>
         {e.visibility === "reveal" && e.revealAt && <span className="caption muted">{t("entries.opens", { date: day.format(new Date(e.revealAt)) })}</span>}
       </button>
     );

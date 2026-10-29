@@ -587,6 +587,28 @@ test("a note for later stays sealed", async () => {
   expect(screen.getByRole("tab", { name: "Notes" })).toHaveAttribute("aria-selected", "true");
 });
 
+test("a note opens to read its Markdown and saves its title as a heading", async () => {
+  const note = entry({ kind: "note", text: "# Trip\n\nPack **light**", title: "Trip" });
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([note])),
+    at("PUT", `/v1/entries/${note.id}`, () => json(note)),
+  );
+  renderApp("/lists?show=note");
+  await userEvent.click(await screen.findByText("Trip"));
+  expect(screen.getByText("Pack light")).toBeInTheDocument();
+  const sheet = screen.getByRole("dialog", { name: "Note" });
+  expect(within(sheet).getByRole("heading", { name: "Trip" })).toBeInTheDocument();
+  expect(within(sheet).getByText("light").tagName).toBe("STRONG");
+  await userEvent.click(within(sheet).getByRole("tab", { name: "Write" }));
+  const title = within(sheet).getByLabelText("Title");
+  await userEvent.clear(title);
+  await userEvent.type(title, "Rome trip");
+  await userEvent.click(within(sheet).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(await calls.find((c) => c.method === "PUT")?.json()).toEqual({ text: "# Rome trip\n\nPack **light**", visibility: "shared", repeat: "never" });
+});
+
 test("today lists what's due and today's events", async () => {
   const now = new Date();
   const soon = new Date(now.getTime() + 60_000).toISOString();
