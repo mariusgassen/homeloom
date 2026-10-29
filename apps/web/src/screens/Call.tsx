@@ -1,5 +1,5 @@
-import { Track, type Participant, type Room } from "livekit-client";
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { RoomEvent, Track, type LocalVideoTrack, type Participant, type Room } from "livekit-client";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type PointerEvent, type ReactNode } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, useSearchParams } from "react-router";
@@ -185,37 +185,116 @@ export function GuestCall({ token }: { token: string }) {
 
 // The call itself, over everything else while it lasts.
 export function CallView() {
+  const { room } = useCall();
+  return room ? <CallStage room={room} /> : null;
+}
+
+type Facing = "user" | "environment";
+
+// One call's view; its layout, camera and reactions start fresh with each call.
+function CallStage({ room }: { room: Room }) {
   const { t } = useTranslation();
-  const { room, call, invited, homeloom, state, since, hangUp } = useCall();
+  const { call, invited, homeloom, state, since, hangUp } = useCall();
   const { partners } = usePartners();
   const [adding, setAdding] = useState(false);
-  if (!room) return null;
+  const [reacting, setReacting] = useState(false);
+  const [pinned, setPinned] = useState<string>();
+  const [swapped, setSwapped] = useState(false);
+  const [facing, setFacing] = useState<Facing>("user");
+  const cameras = useCameraCount(room.localParticipant.isCameraEnabled);
+  const reactions = useReactions(room);
   const others = [...room.remoteParticipants.values()];
-  const localVideo = room.localParticipant.getTrackPublication(Track.Source.Camera);
-  const showLocal = localVideo?.videoTrack && !localVideo.isMuted;
+  const me = room.localParticipant;
+  const localVideo = me.getTrackPublication(Track.Source.Camera);
+  const showLocal = !!localVideo?.videoTrack && !localVideo.isMuted;
+  const ended = isOver(state);
   const names = others.length
     ? others.map((p) => nameOf(p, t))
     : homeloom
       ? [t("call.homeloom")]
       : invited.map((id) => partners.find((p) => p.id === id)?.name).filter((n) => n !== undefined);
   const waitingFor = others.length === 0 && invited.length === 1 ? partners.find((p) => p.id === invited[0]) : undefined;
+  const personOf = (p: Participant) => partners.find((m) => m.id === p.identity);
+
+  const flip = async () => {
+    const next = facing === "user" ? "environment" : "user";
+    const track = localVideo?.videoTrack as LocalVideoTrack | undefined;
+    // iOS lets only one camera run at a time, so the track restarts on the other one.
+    await track
+      ?.restartTrack({ facingMode: next })
+      .then(() => setFacing(next))
+      .catch(() => undefined);
+  };
+  const self = (
+    <Tile
+      participant={me}
+      self={{ mirror: facing === "user", onFlip: cameras > 1 && !ended ? () => void flip() : undefined }}
+    />
+  );
+
+  // With one other person, tapping your own picture swaps it with theirs, as on FaceTime.
+  const one = others.length === 1 ? others[0] : undefined;
+  const swap = !!one && showLocal && swapped;
+  const grid = swap ? [me] : others;
+  const spotlight = others.length > 1 && others.some((p) => p.identity === pinned) ? pinned : undefined;
   return (
     <div className={cx("call", others.length > 0 && "call-live")}>
-      {others.length > 0 && (
-        <div className={cx("call-grid", others.length === 1 && "call-grid-one")}>
-          {others.map((p) => (
-            <Tile key={p.identity} participant={p} person={partners.find((m) => m.id === p.identity)} />
-          ))}
+      {/* Everyone's audio plays apart from their pictures, so moving a picture doesn't cut it. */}
+      {others.map((p) => {
+        const audio = p.getTrackPublication(Track.Source.Microphone)?.audioTrack;
+        return audio && <Media key={p.identity} track={audio} />;
+      })}
+      {grid.length > 0 && (
+        <div className={cx("call-grid", grid.length === 1 && "call-grid-one")}>
+          {swap
+            ? self
+            : others.map((p) => (
+                <Tile
+                  key={p.identity}
+                  participant={p}
+                  person={personOf(p)}
+                  pinned={spotlight === p.identity}
+                  onTap={others.length > 1 ? () => setPinned((id) => (id === p.identity ? undefined : p.identity)) : undefined}
+                />
+              ))}
         </div>
       )}
-      {showLocal && <Media track={localVideo.videoTrack} className="call-self" />}
+      {showLocal && (
+        <Floating label={one && showLocal ? t("call.swap") : undefined} onTap={one && showLocal ? () => setSwapped((s) => !s) : undefined}>
+          {swap && one ? <Tile participant={one} person={personOf(one)} small /> : self}
+        </Floating>
+      )}
       <div className="call-who">
         {waitingFor && <ThreadAvatar name={waitingFor.name} src={waitingFor.avatarUrl} thread={waitingFor.thread} size="lg" />}
         <h1 className="title">{names.join(", ")}</h1>
         <Status state={state} since={since} />
         {!room.canPlaybackAudio && <HearButton room={room} />}
       </div>
-      <Controls room={room} ended={isOver(state)} onAdd={call ? () => setAdding(true) : undefined} onHangUp={hangUp} />
+      <div className="call-reactions" aria-hidden="true">
+        {reactions.shown.map((r) => (
+          <span key={r.id} className="call-reaction" style={{ left: `${r.x}%` }}>
+            {r.emoji}
+          </span>
+        ))}
+      </div>
+      {reacting && !ended && (
+        <div className="call-tray" role="group" aria-label={t("call.react")}>
+          {reactionEmoji.map((e) => (
+            <button key={e} type="button" className="call-tray-emoji" aria-label={e} onClick={() => reactions.send(e)}>
+              {e}
+            </button>
+          ))}
+        </div>
+      )}
+      <Controls
+        room={room}
+        ended={ended}
+        facing={facing}
+        reacting={others.length > 0 && !homeloom ? reacting : undefined}
+        onReact={() => setReacting((r) => !r)}
+        onAdd={call ? () => setAdding(true) : undefined}
+        onHangUp={hangUp}
+      />
       {adding && call && <AddSheet room={room} householdId={call.householdId} callId={call.id} people={partners} onClose={() => setAdding(false)} />}
     </div>
   );
@@ -225,26 +304,178 @@ function nameOf(p: Participant, t: TFunction): string {
   return p.isAgent ? t("call.homeloom") : p.name || t("call.guest.someone");
 }
 
-// One person in the call: their video, or their avatar while the camera is off.
-function Tile({ participant, person }: { participant: Participant; person?: Person }) {
+// One person in the call: their video, or their avatar while the camera is off. Your own picture
+// is mirrored while it shows the front camera, the way a mirror would.
+function Tile({
+  participant,
+  person,
+  self,
+  small,
+  pinned,
+  onTap,
+}: {
+  participant: Participant;
+  person?: Person;
+  self?: { mirror: boolean; onFlip?: () => void };
+  small?: boolean;
+  pinned?: boolean;
+  onTap?: () => void;
+}) {
   const { t } = useTranslation();
   const video = participant.getTrackPublication(Track.Source.Camera);
   const audio = participant.getTrackPublication(Track.Source.Microphone);
   const name = nameOf(participant, t);
   return (
-    <div className="call-tile">
+    <div
+      className={cx("call-tile", pinned && "call-tile-pinned", self?.mirror && "call-mirror")}
+      role={onTap ? "button" : undefined}
+      tabIndex={onTap ? 0 : undefined}
+      aria-pressed={onTap ? !!pinned : undefined}
+      aria-label={onTap ? t("call.spotlight", { name }) : undefined}
+      onClick={onTap}
+      onKeyDown={onTap ? (e) => (e.key === "Enter" || e.key === " ") && onTap() : undefined}
+    >
       {video?.videoTrack && !video.isMuted ? (
         <Media track={video.videoTrack} className="call-tile-video" />
       ) : (
-        participant.isAgent ? <AssistantOrb participant={participant} /> : <ThreadAvatar name={name} src={person?.avatarUrl} thread={person?.thread} size="lg" />
+        participant.isAgent ? <AssistantOrb participant={participant} /> : <ThreadAvatar name={name} src={person?.avatarUrl} thread={person?.thread} size={small ? undefined : "lg"} />
       )}
-      {audio?.audioTrack && <Media track={audio.audioTrack} />}
-      <span className="caption call-tile-name">
-        {name}
-        {(!audio || audio.isMuted) && <Icon name="micOff" size="sm" label={t("call.muted")} />}
-      </span>
+      {!self && !small && (
+        <span className="caption call-tile-name">
+          {name}
+          {(!audio || audio.isMuted) && <Icon name="micOff" size="sm" label={t("call.muted")} />}
+        </span>
+      )}
+      {self?.onFlip && (
+        <button type="button" className="call-flip" aria-label={t("call.flip")} onClick={self.onFlip}>
+          <Icon name="flip" size="sm" />
+        </button>
+      )}
     </div>
   );
+}
+
+type Corner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
+
+// A small picture over the call that can be dragged anywhere and settles in the nearest corner.
+// A tap without a drag is onTap.
+function Floating({ label, onTap, children }: { label?: string; onTap?: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [corner, setCorner] = useState<Corner>("top-right");
+  const [offset, setOffset] = useState<{ x: number; y: number }>();
+  const drag = useRef<{ x: number; y: number; moved: boolean }>(undefined);
+  const settleFrom = useRef<DOMRect>(undefined);
+
+  // After a drag the picture jumps to its corner, then animates there from where it was let go.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const from = settleFrom.current;
+    if (!el || !from) return;
+    settleFrom.current = undefined;
+    const to = el.getBoundingClientRect();
+    el.style.transition = "none";
+    el.style.transform = `translate(${from.left - to.left}px, ${from.top - to.top}px)`;
+    void el.offsetWidth;
+    el.style.transition = "";
+    el.style.transform = "";
+  }, [corner, offset]);
+
+  const down = (e: PointerEvent<HTMLDivElement>) => {
+    if ((e.target as Element).closest("button")) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drag.current = { x: e.clientX, y: e.clientY, moved: false };
+  };
+  const move = (e: PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    const x = e.clientX - d.x;
+    const y = e.clientY - d.y;
+    if (!d.moved && Math.hypot(x, y) < 6) return;
+    d.moved = true;
+    setOffset({ x, y });
+  };
+  const up = () => {
+    const d = drag.current;
+    drag.current = undefined;
+    const el = ref.current;
+    if (!d || !el) return;
+    if (!d.moved) return onTap?.();
+    const r = el.getBoundingClientRect();
+    const parent = el.parentElement?.getBoundingClientRect();
+    if (parent) {
+      const top = r.top + r.height / 2 < parent.top + parent.height / 2;
+      const left = r.left + r.width / 2 < parent.left + parent.width / 2;
+      setCorner(`${top ? "top" : "bottom"}-${left ? "left" : "right"}`);
+    }
+    settleFrom.current = r;
+    setOffset(undefined);
+  };
+  return (
+    <div
+      ref={ref}
+      className={cx("call-float", `call-float-${corner}`, offset && "call-float-dragging")}
+      style={offset && { transform: `translate(${offset.x}px, ${offset.y}px)` }}
+      role={onTap ? "button" : undefined}
+      tabIndex={onTap ? 0 : undefined}
+      aria-label={label}
+      onKeyDown={onTap ? (e) => (e.key === "Enter" || e.key === " ") && onTap() : undefined}
+      onPointerDown={down}
+      onPointerMove={move}
+      onPointerUp={up}
+      onPointerCancel={() => {
+        drag.current = undefined;
+        setOffset(undefined);
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// How many cameras this device has, known once one is on (browsers hide them before that).
+function useCameraCount(on: boolean): number {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!on || !navigator.mediaDevices?.enumerateDevices) return;
+    void navigator.mediaDevices
+      .enumerateDevices()
+      .then((ds) => setCount(ds.filter((d) => d.kind === "videoinput").length))
+      .catch(() => undefined);
+  }, [on]);
+  return count;
+}
+
+// The reactions anyone can send; others are ignored, so a guest can't put arbitrary text on screen.
+const reactionEmoji = ["❤️", "😂", "😮", "👏", "🎉", "👍"];
+const reactionTopic = "reaction";
+// How long a reaction floats; matches call-rise in app.css.
+const reactionFor = 2_600;
+
+type Reaction = { id: number; emoji: string; x: number };
+let reactionId = 0;
+
+// Reactions float up on everyone's screen; they go over the call's data channel, not the server.
+function useReactions(room: Room) {
+  const [shown, setShown] = useState<Reaction[]>([]);
+  const show = useCallback((emoji: string) => {
+    const r = { id: ++reactionId, emoji, x: 10 + Math.random() * 75 };
+    setShown((s) => [...s.slice(-24), r]);
+    setTimeout(() => setShown((s) => s.filter((x) => x !== r)), reactionFor);
+  }, []);
+  useEffect(() => {
+    const received = (payload: Uint8Array, _from?: unknown, _kind?: unknown, topic?: string) => {
+      if (topic !== reactionTopic) return;
+      const emoji = new TextDecoder().decode(payload);
+      if (reactionEmoji.includes(emoji)) show(emoji);
+    };
+    room.on(RoomEvent.DataReceived, received);
+    return () => void room.off(RoomEvent.DataReceived, received);
+  }, [room, show]);
+  const send = (emoji: string) => {
+    show(emoji);
+    void room.localParticipant.publishData(new TextEncoder().encode(emoji), { reliable: true, topic: reactionTopic }).catch(() => undefined);
+  };
+  return { shown, send };
 }
 
 // Adds people during a call: members are rung, anyone else gets a guest link.
@@ -348,7 +579,24 @@ function HearButton({ room }: { room: Room }) {
   );
 }
 
-function Controls({ room, ended, onAdd, onHangUp }: { room: Room; ended: boolean; onAdd?: () => void; onHangUp: () => void }) {
+function Controls({
+  room,
+  ended,
+  facing,
+  reacting,
+  onReact,
+  onAdd,
+  onHangUp,
+}: {
+  room: Room;
+  ended: boolean;
+  facing: Facing;
+  // Whether the reactions are open; undefined when there's nobody to react to.
+  reacting?: boolean;
+  onReact: () => void;
+  onAdd?: () => void;
+  onHangUp: () => void;
+}) {
   const { t } = useTranslation();
   const me = room.localParticipant;
   const mic = me.isMicrophoneEnabled;
@@ -371,10 +619,15 @@ function Controls({ room, ended, onAdd, onHangUp }: { room: Room; ended: boolean
         aria-pressed={cam}
         aria-label={t("call.camera")}
         disabled={ended}
-        onClick={() => void me.setCameraEnabled(!cam, { facingMode: "user" }).catch(() => undefined)}
+        onClick={() => void me.setCameraEnabled(!cam, { facingMode: facing }).catch(() => undefined)}
       >
         <Icon name={cam ? "video" : "videoOff"} />
       </button>
+      {reacting !== undefined && (
+        <button type="button" className="call-control" aria-pressed={reacting} aria-label={t("call.react")} disabled={ended} onClick={onReact}>
+          <Icon name="smile" />
+        </button>
+      )}
       {onAdd && (
         <button type="button" className="call-control" aria-label={t("call.add")} disabled={ended} onClick={onAdd}>
           <Icon name="addPerson" />

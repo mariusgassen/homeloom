@@ -134,13 +134,12 @@ h1, h2, h3, p { margin: 0; }
 .shopping-done { display: flex; align-items: center; justify-content: space-between; }
 
 /* A call, over everything else: who, how it's going, then the controls at the bottom. */
-.call { position: fixed; inset: 0; z-index: 40; background: var(--spruce); color: var(--on-spruce); display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: max(var(--space-8), env(safe-area-inset-top, 0px)) var(--space-4) max(var(--space-8), env(safe-area-inset-bottom, 0px)); overflow: hidden; }
+.call { --call-bottom: calc(max(var(--space-8), env(safe-area-inset-bottom, 0px)) + 56px + var(--space-4)); position: fixed; inset: 0; z-index: 40; background: var(--spruce); color: var(--on-spruce); display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: max(var(--space-8), env(safe-area-inset-top, 0px)) var(--space-4) max(var(--space-8), env(safe-area-inset-bottom, 0px)); overflow: hidden; }
 .call-who { position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--space-3); padding-top: var(--space-8); text-align: center; }
 .call-who h1 { margin: 0; }
 .call-status { margin: 0; opacity: 0.8; font-variant-numeric: tabular-nums; }
-.call-self { position: absolute; z-index: 1; top: max(var(--space-4), env(safe-area-inset-top, 0px)); right: var(--space-4); width: 96px; height: 128px; object-fit: cover; border-radius: var(--radius-md); transform: scaleX(-1); box-shadow: var(--shadow-sheet); }
-.call-controls { position: relative; display: flex; gap: var(--space-4); align-items: center; }
-.call-control { width: 64px; height: 64px; display: grid; place-items: center; border: 0; border-radius: 50%; background: color-mix(in srgb, var(--on-spruce) 18%, transparent); color: var(--on-spruce); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.call-controls { position: relative; display: flex; gap: var(--space-3); align-items: center; }
+.call-control { width: 56px; height: 56px; display: grid; place-items: center; border: 0; border-radius: 50%; background: color-mix(in srgb, var(--on-spruce) 18%, transparent); color: var(--on-spruce); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .call-control[aria-pressed="true"] { background: var(--on-spruce); color: var(--spruce); }
 .call-control:disabled { opacity: 0.4; }
 .call-hangup { background: var(--danger); color: var(--on-spruce); }
@@ -152,6 +151,28 @@ h1, h2, h3, p { margin: 0; }
 .call-grid-one .call-tile-name { display: none; }
 .call-live .call-who { color: #ffffff; text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5); }
 .call-live .call-control:not(.call-hangup, [aria-pressed="true"]) { background: rgba(0, 0, 0, 0.35); color: #ffffff; }
+/* Your own picture (or, swapped, theirs) floats in a corner; drag it to another. */
+.call-float { position: absolute; z-index: 1; width: 96px; height: 128px; border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-sheet); touch-action: none; user-select: none; -webkit-user-select: none; cursor: grab; transition: transform .25s cubic-bezier(.2, .8, .2, 1); }
+.call-float-dragging { transition: none; cursor: grabbing; }
+.call-float-top-left, .call-float-top-right { top: max(var(--space-4), env(safe-area-inset-top, 0px)); }
+.call-float-bottom-left, .call-float-bottom-right { bottom: var(--call-bottom); }
+.call-float-top-left, .call-float-bottom-left { left: max(var(--space-4), env(safe-area-inset-left, 0px)); }
+.call-float-top-right, .call-float-bottom-right { right: max(var(--space-4), env(safe-area-inset-right, 0px)); }
+.call-float .call-tile { width: 100%; height: 100%; }
+.call-mirror .call-tile-video { transform: scaleX(-1); }
+.call-tile[role="button"] { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.call-tile-pinned { grid-column: 1 / -1; grid-row: span 2; order: -1; }
+.call-flip { position: absolute; top: var(--space-2); right: var(--space-2); width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(0, 0, 0, 0.45); color: #ffffff; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.call-grid .call-flip { top: max(var(--space-4), env(safe-area-inset-top, 0px)); right: auto; left: max(var(--space-4), env(safe-area-inset-left, 0px)); width: 44px; height: 44px; }
+/* Reactions rise from just above the controls and fade out. */
+.call-reactions { position: absolute; inset: 0; z-index: 2; overflow: hidden; pointer-events: none; }
+.call-reaction { position: absolute; bottom: var(--call-bottom); font-size: 44px; line-height: 1; opacity: 0; animation: call-rise 2.6s ease-out forwards; }
+@keyframes call-rise { 0% { opacity: 0; transform: translateY(0) scale(.5); } 12% { opacity: 1; transform: translateY(-6vh) scale(1.15); } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-55vh) scale(1); } }
+@keyframes call-pop { 0%, 100% { opacity: 0; } 10%, 75% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .call-reaction { animation-name: call-pop; } .call-float { transition: none; } }
+.call-tray { position: absolute; z-index: 3; bottom: var(--call-bottom); left: 50%; transform: translateX(-50%); display: flex; gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-pill); background: rgba(0, 0, 0, 0.55); }
+.call-tray-emoji { width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 50%; background: none; font-size: 28px; line-height: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.call-tray-emoji:active { background: rgba(255, 255, 255, 0.2); transform: scale(1.15); }
 .call-guest { display: flex; flex-direction: column; gap: var(--space-4); }
 .call-link { margin: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-sunken); overflow-wrap: anywhere; }
 

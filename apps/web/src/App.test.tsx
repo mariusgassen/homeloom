@@ -33,6 +33,7 @@ vi.mock("livekit-client", async () => {
         this.localParticipant.isMicrophoneEnabled = on;
       }),
       setCameraEnabled: vi.fn(),
+      publishData: vi.fn(async () => undefined),
     };
     connect = vi.fn(async () => undefined);
     disconnect = vi.fn(async () => undefined);
@@ -49,7 +50,7 @@ vi.mock("livekit-client", async () => {
   return {
     Room,
     RoomEvent: Object.fromEntries(
-      ["ParticipantConnected", "ParticipantDisconnected", "Reconnecting", "Reconnected", "Disconnected", "TrackSubscribed", "TrackUnsubscribed", "TrackMuted", "TrackUnmuted", "LocalTrackPublished", "LocalTrackUnpublished", "AudioPlaybackStatusChanged"].map((e) => [
+      ["ParticipantConnected", "ParticipantDisconnected", "Reconnecting", "Reconnected", "Disconnected", "TrackSubscribed", "TrackUnsubscribed", "TrackMuted", "TrackUnmuted", "LocalTrackPublished", "LocalTrackUnpublished", "AudioPlaybackStatusChanged", "DataReceived"].map((e) => [
         e,
         e.charAt(0).toLowerCase() + e.slice(1),
       ]),
@@ -585,6 +586,33 @@ test("calling from Us rings and shows the call until hung up", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Hang up" }));
   expect(room.disconnect).toHaveBeenCalled();
   expect(screen.queryByText("0:00")).not.toBeInTheDocument();
+});
+
+test("reactions float up for everyone, and only known ones show", async () => {
+  rooms.length = 0;
+  serve(
+    at("GET", "/v1/me", () => json(marius)),
+    at("GET", "/v1/households", () => json([home])),
+    at("GET", `/v1/households/${home.id}`, household),
+    at("GET", `/v1/households/${home.id}/questions`, () => json([])),
+    at("POST", `/v1/households/${home.id}/calls`, callJoin),
+  );
+  renderApp("/us");
+  await userEvent.click(await screen.findByRole("button", { name: "Call Jo" }));
+  await screen.findByText("Calling…");
+  expect(screen.queryByRole("button", { name: "React" })).not.toBeInTheDocument();
+  const room = rooms[0] as unknown as FakeRoom & { emit: (e: string, ...a: unknown[]) => void; localParticipant: { publishData: ReturnType<typeof vi.fn> } };
+  act(() => room.join(jo.id, "Jo"));
+
+  await userEvent.click(await screen.findByRole("button", { name: "React" }));
+  await userEvent.click(within(screen.getByRole("group", { name: "React" })).getByRole("button", { name: "🎉" }));
+  expect(room.localParticipant.publishData).toHaveBeenCalledWith(new TextEncoder().encode("🎉"), { reliable: true, topic: "reaction" });
+  expect(screen.getByText("🎉", { selector: ".call-reaction" })).toBeInTheDocument();
+
+  act(() => room.emit("dataReceived", new TextEncoder().encode("❤️"), undefined, undefined, "reaction"));
+  act(() => room.emit("dataReceived", new TextEncoder().encode("hello"), undefined, undefined, "reaction"));
+  expect(screen.getByText("❤️", { selector: ".call-reaction" })).toBeInTheDocument();
+  expect(screen.queryByText("hello")).not.toBeInTheDocument();
 });
 
 test("a call notification asks before answering", async () => {
