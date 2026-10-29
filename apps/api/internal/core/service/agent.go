@@ -22,12 +22,12 @@ import (
 // AgentAccess hands out the tokens with which another app or a helper uses the tools as one
 // member of one household: short-lived ones minted for a helper such as the voice agent, and
 // personal ones a member makes for an app. Only a hash of each token is stored: SHA-256 for the
-// keys, which are looked up by it, and bcrypt for calendar passwords.
+// keys, which are looked up by it, and bcrypt for passwords.
 type AgentAccess struct {
 	households port.HouseholdRepository
 	sessions   port.SessionStore
 	tokens     port.MCPTokenRepository
-	// checked remembers the calendar password last checked for each token id.
+	// checked remembers the password last checked for each token id.
 	checked sync.Map
 	now     func() time.Time
 }
@@ -74,14 +74,14 @@ func (s *AgentAccess) Authenticate(ctx context.Context, token string) (domain.Ag
 	return g, nil
 }
 
-// AuthenticateCalendar takes the password a calendar app sends: the prefix, the token's id and a
-// secret kept only as a bcrypt hash. A password that has checked out is remembered in memory, so a
-// syncing phone doesn't pay for bcrypt on every request; the token is still looked up each time,
-// so a removed one stops working at once.
-func (s *AgentAccess) AuthenticateCalendar(ctx context.Context, password string) (domain.AgentGrant, error) {
-	id, secret, ok := splitCalendarPassword(password)
+// AuthenticatePassword takes the password a calendar or notes app sends: the access's prefix, the
+// token's id and a secret kept only as a bcrypt hash. A password that has checked out is
+// remembered in memory, so a syncing app doesn't pay for bcrypt on every request; the token is
+// still looked up each time, so a removed one stops working at once.
+func (s *AgentAccess) AuthenticatePassword(ctx context.Context, access domain.TokenAccess, password string) (domain.AgentGrant, error) {
+	id, secret, ok := splitPassword(access, password)
 	if !ok {
-		return domain.AgentGrant{}, fmt.Errorf("%w: not a calendar password", domain.ErrUnauthenticated)
+		return domain.AgentGrant{}, fmt.Errorf("%w: not a %s password", domain.ErrUnauthenticated, access)
 	}
 	t, owner, hash, err := s.tokens.MCPTokenByID(ctx, id)
 	if errors.Is(err, domain.ErrNotFound) {
@@ -90,7 +90,7 @@ func (s *AgentAccess) AuthenticateCalendar(ctx context.Context, password string)
 	if err != nil {
 		return domain.AgentGrant{}, err
 	}
-	if t.Access != domain.AccessCalendar {
+	if t.Access != access {
 		return domain.AgentGrant{}, fmt.Errorf("%w: token made for %s", domain.ErrUnauthenticated, t.Access)
 	}
 	if known, _ := s.checked.Load(id); known == nil || subtle.ConstantTimeCompare([]byte(known.(string)), []byte(password)) != 1 {
@@ -102,20 +102,21 @@ func (s *AgentAccess) AuthenticateCalendar(ctx context.Context, password string)
 	return domain.AgentGrant{User: owner, HouseholdID: t.HouseholdID}, nil
 }
 
-// calendarIDLen is the length of a token id in a calendar password.
-var calendarIDLen = base64.RawURLEncoding.EncodedLen(len(uuid.UUID{}))
+// passwordIDLen is the length of a token id in a password.
+var passwordIDLen = base64.RawURLEncoding.EncodedLen(len(uuid.UUID{}))
 
-func splitCalendarPassword(password string) (uuid.UUID, string, bool) {
-	rest, ok := strings.CutPrefix(password, domain.CalendarPasswordPrefix)
-	if !ok || len(rest) <= calendarIDLen {
+func splitPassword(access domain.TokenAccess, password string) (uuid.UUID, string, bool) {
+	prefix := access.PasswordPrefix()
+	rest, ok := strings.CutPrefix(password, prefix)
+	if prefix == "" || !ok || len(rest) <= passwordIDLen {
 		return uuid.Nil, "", false
 	}
-	b, err := base64.RawURLEncoding.DecodeString(rest[:calendarIDLen])
+	b, err := base64.RawURLEncoding.DecodeString(rest[:passwordIDLen])
 	if err != nil {
 		return uuid.Nil, "", false
 	}
 	id, err := uuid.FromBytes(b)
-	return id, rest[calendarIDLen:], err == nil
+	return id, rest[passwordIDLen:], err == nil
 }
 
 // personal looks up a personal key for the tools.
@@ -162,8 +163,8 @@ func (s *AgentAccess) CreateToken(ctx context.Context, actor domain.User, househ
 			return domain.MCPToken{}, "", err
 		}
 		hash = hashCode(secret)
-	case domain.AccessCalendar:
-		// A calendar password names its token, so it is checked against that token's bcrypt hash.
+	case domain.AccessCalendar, domain.AccessNotes:
+		// A password names its token, so it is checked against that token's bcrypt hash.
 		t.ID = uuid.New()
 		random, err := newSecret("")
 		if err != nil {
@@ -172,7 +173,7 @@ func (s *AgentAccess) CreateToken(ctx context.Context, actor domain.User, househ
 		if hash, err = bcrypt.GenerateFromPassword([]byte(random), bcrypt.DefaultCost); err != nil {
 			return domain.MCPToken{}, "", err
 		}
-		secret = domain.CalendarPasswordPrefix + base64.RawURLEncoding.EncodeToString(t.ID[:]) + random
+		secret = access.PasswordPrefix() + base64.RawURLEncoding.EncodeToString(t.ID[:]) + random
 	default:
 		return domain.MCPToken{}, "", fmt.Errorf("%w: unknown access %q", domain.ErrInvalid, access)
 	}

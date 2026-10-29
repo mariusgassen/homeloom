@@ -23,8 +23,10 @@ type handlers struct {
 	cook       port.CookService
 	shopping   port.ShoppingService
 	home       port.HomeService
+	watch      port.WatchService
 	push       port.PushService
 	calls      port.CallService
+	voice      port.VoiceService
 	assistant  port.AssistantService
 	agents     port.AgentAccessService
 	login      port.LoginService

@@ -35,6 +35,7 @@ type Store struct {
 	calendarFeeds map[string]domain.CalendarFeed
 
 	homeConnections   map[uuid.UUID]domain.HomeConnection
+	watchConnections  map[uuid.UUID]domain.WatchConnection
 	pushSubscriptions []domain.PushSubscription
 	shopping          []domain.ShoppingItem
 
@@ -46,6 +47,8 @@ type Store struct {
 	moments      []domain.Moment
 	momentPhotos map[uuid.UUID]domain.Photo
 	jobRuns      map[string]bool
+
+	voices map[uuid.UUID]domain.VoiceSettings
 }
 
 func NewStore() *Store {
@@ -59,6 +62,8 @@ func NewStore() *Store {
 
 		momentPhotos: map[uuid.UUID]domain.Photo{},
 		jobRuns:      map[string]bool{},
+
+		voices: map[uuid.UUID]domain.VoiceSettings{},
 	}
 }
 

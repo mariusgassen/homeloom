@@ -57,7 +57,8 @@ type grantKey struct{}
 
 // NewHandler serves CalDAV at Prefix and the redirect at WellKnown.
 func NewHandler(d Deps) http.Handler {
-	h := &caldav.Handler{Backend: &backend{d}, Prefix: Prefix}
+	b := &backend{d}
+	h := &caldav.Handler{Backend: b, Prefix: Prefix}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == WellKnown {
 			http.Redirect(w, r, Prefix+"/", http.StatusMovedPermanently)
@@ -65,7 +66,7 @@ func NewHandler(d Deps) http.Handler {
 		}
 		// The password is a personal token; the user name means nothing.
 		_, token, _ := r.BasicAuth()
-		g, err := d.Agents.AuthenticateCalendar(r.Context(), token)
+		g, err := d.Agents.AuthenticatePassword(r.Context(), domain.AccessCalendar, token)
 		switch {
 		case errors.Is(err, domain.ErrUnauthenticated):
 			w.Header().Set("WWW-Authenticate", `Basic realm="Homeloom", charset="UTF-8"`)
@@ -80,6 +81,9 @@ func NewHandler(d Deps) http.Handler {
 		r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 		if r.Method == "PROPPATCH" {
 			proppatch(w, r)
+			return
+		}
+		if r.Method == "PROPFIND" && b.propfind(w, r) {
 			return
 		}
 		h.ServeHTTP(w, r)

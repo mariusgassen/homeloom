@@ -78,9 +78,10 @@ type MomentService interface {
 	DeletePhoto(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Moment, error)
 }
 
-// EntrySyncService lets a calendar app (over CalDAV) read and change the events and reminders
-// its owner can see, one list at a time. Entries are named as the app names them: by the name the
-// app gave one it made, else by "<id>.ics".
+// EntrySyncService lets a calendar app (over CalDAV) or a notes app (over WebDAV) read and change
+// the events, reminders or notes its owner can see, one list at a time; "later" notes are in none.
+// Entries are named as the app names them: by the name the app gave one it made, else by
+// "<id>.ics".
 type EntrySyncService interface {
 	// SyncEntries returns the entries in the list: shared ones, or the actor's private ones.
 	SyncEntries(ctx context.Context, actor domain.User, householdID uuid.UUID, l domain.SyncList) ([]domain.Entry, error)
@@ -90,6 +91,8 @@ type EntrySyncService interface {
 	SyncPut(ctx context.Context, actor domain.User, householdID uuid.UUID, l domain.SyncList, name string, in domain.SyncEntry) (domain.Entry, bool, error)
 	// SyncDelete deletes the named entry. One that has moved to another list is left alone.
 	SyncDelete(ctx context.Context, actor domain.User, householdID uuid.UUID, l domain.SyncList, name string) error
+	// SyncMove moves the named entry to another list of its kind under a new name.
+	SyncMove(ctx context.Context, actor domain.User, householdID uuid.UUID, from domain.SyncList, name string, to domain.SyncList, newName string) (domain.Entry, error)
 }
 
 type CookService interface {
@@ -126,6 +129,18 @@ type HomeService interface {
 	ToggleLight(ctx context.Context, actor domain.User, householdID uuid.UUID, lightID string) (domain.Light, error)
 }
 
+type WatchService interface {
+	// Connect starts the actor's sign-in at Plex and returns where to send the browser.
+	Connect(ctx context.Context, actor domain.User, householdID uuid.UUID) (string, error)
+	// CompleteConnect finishes it for the person who started it; it returns
+	// domain.ErrUnauthenticated for an unknown state, someone else's sign-in, or one not approved.
+	CompleteConnect(ctx context.Context, actor domain.User, state string) error
+	Disconnect(ctx context.Context, actor domain.User, householdID uuid.UUID) error
+	Shelf(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Shelf, error)
+	Titles(ctx context.Context, actor domain.User, householdID uuid.UUID, libraryID string) ([]domain.Title, error)
+	Poster(ctx context.Context, actor domain.User, householdID uuid.UUID, titleID string) (domain.Poster, error)
+}
+
 type PushService interface {
 	// PublicKey returns domain.ErrUnavailable when push isn't set up.
 	PublicKey(ctx context.Context) (string, error)
@@ -154,6 +169,18 @@ type CallService interface {
 	// acts as the actor and speaks lang. It returns domain.ErrUnavailable when the agent isn't set
 	// up.
 	TalkToHomeloom(ctx context.Context, actor domain.User, householdID uuid.UUID, lang string) (domain.Call, error)
+}
+
+// VoiceService is how Homeloom sounds on each member's own calls with it.
+type VoiceService interface {
+	// Available says whether Homeloom can speak at all: calls with it and previews.
+	Available() bool
+	// Settings returns the actor's settings, or domain.DefaultVoice until they save their own.
+	Settings(ctx context.Context, actor domain.User) (domain.VoiceSettings, error)
+	Save(ctx context.Context, actor domain.User, v domain.VoiceSettings) (domain.VoiceSettings, error)
+	// Preview speaks text with v, which needn't be saved. It returns domain.ErrUnavailable when
+	// speech isn't set up or can't be reached.
+	Preview(ctx context.Context, actor domain.User, v domain.VoiceSettings, text string) ([]byte, error)
 }
 
 // AssistantService is the chat assistant. Each conversation belongs to one person, and the
@@ -187,9 +214,9 @@ type AgentAccessService interface {
 	// Authenticate takes a minted or a personal token for the tools. It returns
 	// domain.ErrUnauthenticated for an unknown, revoked or expired one.
 	Authenticate(ctx context.Context, token string) (domain.AgentGrant, error)
-	// AuthenticateCalendar takes a personal password for calendar apps. It returns
-	// domain.ErrUnauthenticated for anything else.
-	AuthenticateCalendar(ctx context.Context, token string) (domain.AgentGrant, error)
+	// AuthenticatePassword takes a personal password for calendar or notes apps, which opens only
+	// that access. It returns domain.ErrUnauthenticated for anything else.
+	AuthenticatePassword(ctx context.Context, access domain.TokenAccess, password string) (domain.AgentGrant, error)
 	Revoke(ctx context.Context, token string) error
 	// Tokens are the actor's personal tokens in the household.
 	Tokens(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.MCPToken, error)

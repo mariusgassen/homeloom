@@ -161,6 +161,7 @@ export function Us() {
           </button>
         ))}
       </div>
+      <ListRow leading={<Icon name="sparkle" />} title={t("watch.title")} subtitle={t("watch.teaser")} onClick={() => navigate("/watch")} />
       {tab === "moments" ? (
         <Timeline key={generation} household={household} me={me} month={params.get("month") ?? undefined} onOpen={setSheet} />
       ) : (

@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, type McpToken, type TokenAccess } from "../api/client";
+import { api, type McpToken, type TokenAccess, type VoiceSettings } from "../api/client";
 import { currentSubscription, pushKey, pushSupport, subscribe, unsubscribe } from "../push";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
@@ -41,11 +41,127 @@ export function Settings() {
       )}
       {household && <CalendarLink householdId={household.id} />}
       {household && <OtherApps householdId={household.id} />}
+      <Voice />
       <Notifications />
       <Button variant="danger" block onClick={signOut}>
         {t("auth.signOut")}
       </Button>
     </Screen>
+  );
+}
+
+const voices: VoiceSettings["voice"][] = ["marin", "cedar", "coral", "sage", "shimmer", "nova", "alloy", "ash", "ballad", "echo", "fable", "onyx", "verse"];
+const tones: VoiceSettings["tone"][] = ["warm", "calm", "playful", "clear"];
+
+// How Homeloom sounds on this person's calls with it. Each change is saved; Listen plays a short
+// sentence with the settings as they are.
+function Voice() {
+  const { t } = useTranslation();
+  const [voice, setVoice] = useState<VoiceSettings | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const saving = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const audio = useRef<AudioContext>(undefined);
+
+  useEffect(() => {
+    let live = true;
+    api.GET("/v1/me/voice").then(
+      (res) => live && res.data?.available && setVoice(res.data.settings),
+      () => undefined,
+    );
+    return () => {
+      live = false;
+      clearTimeout(saving.current);
+      void audio.current?.close().catch(() => undefined);
+    };
+  }, []);
+
+  // The slider changes often, so a change is saved once it settles.
+  function change(next: VoiceSettings) {
+    setVoice(next);
+    setFailed(false);
+    clearTimeout(saving.current);
+    saving.current = setTimeout(async () => {
+      const res = await api.PUT("/v1/me/voice", { body: next }).catch(() => undefined);
+      if (!res?.data) setFailed(true);
+    }, 400);
+  }
+
+  // iOS plays sound only from a tap: the audio context is resumed in it, before the preview loads.
+  async function listen(v: VoiceSettings) {
+    const ctx = (audio.current ??= new AudioContext());
+    void ctx.resume();
+    setPlaying(true);
+    setFailed(false);
+    try {
+      const res = await api.POST("/v1/me/voice/preview", { body: v, parseAs: "arrayBuffer" });
+      if (!res.data) throw new Error("no preview");
+      const source = ctx.createBufferSource();
+      source.buffer = await ctx.decodeAudioData(res.data);
+      source.connect(ctx.destination);
+      source.onended = () => setPlaying(false);
+      source.start();
+    } catch {
+      setPlaying(false);
+      setFailed(true);
+    }
+  }
+
+  if (!voice) return null;
+  const name = (v: string) => v.charAt(0).toUpperCase() + v.slice(1);
+  return (
+    <section className="group">
+      <h2 className="label group-title">{t("voice.title")}</h2>
+      <div className="hl-card voice">
+        <label className="field">
+          <span className="label">{t("voice.voice")}</span>
+          <select className="input" value={voice.voice} onChange={(e) => change({ ...voice, voice: e.target.value as VoiceSettings["voice"] })}>
+            {voices.map((v) => (
+              <option key={v} value={v}>
+                {name(v)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span className="label">{t("voice.speed")}</span>
+          <input
+            type="range"
+            className="voice-speed"
+            min={0.75}
+            max={1.5}
+            step={0.05}
+            value={voice.speed}
+            aria-valuetext={`${voice.speed.toFixed(2)}×`}
+            onChange={(e) => change({ ...voice, speed: Number(e.target.value) })}
+          />
+          <span className="voice-speed-ends caption" aria-hidden="true">
+            <span>{t("voice.slower")}</span>
+            <span>{t("voice.faster")}</span>
+          </span>
+        </label>
+        <div className="field">
+          <span className="label">{t("voice.tone")}</span>
+          <div className="segmented" role="tablist" aria-label={t("voice.tone")}>
+            {tones.map((tone) => (
+              <button key={tone} type="button" role="tab" aria-selected={voice.tone === tone} onClick={() => change({ ...voice, tone })}>
+                {t(`voice.tones.${tone}`)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="hl-card-footer">
+          <Button size="sm" variant="secondary" disabled={playing} onClick={() => void listen(voice)}>
+            {t("voice.listen")}
+          </Button>
+        </div>
+      </div>
+      {failed && (
+        <p className="callout error" role="alert">
+          {t("voice.failed")}
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -193,8 +309,8 @@ function CalendarLink({ householdId }: { householdId: string }) {
 }
 
 // Keys with which another assistant uses Homeloom's tools at /mcp, and passwords with which a
-// calendar app syncs events and reminders over CalDAV, each as this person. The API keeps only a
-// hash, so a new one is shown once.
+// calendar app syncs events and reminders over CalDAV, or a notes app syncs notes over WebDAV, each
+// as this person. The API keeps only a hash, so a new one is shown once.
 function OtherApps({ householdId }: { householdId: string }) {
   const { t, i18n } = useTranslation();
   const [tokens, setTokens] = useState<McpToken[] | null>(null);
@@ -207,8 +323,9 @@ function OtherApps({ householdId }: { householdId: string }) {
   const [round, setRound] = useState(0);
   const path = { params: { path: { householdId } } };
   const calendar = made?.access === "calendar";
+  const password = made?.access === "calendar" || made?.access === "notes";
   // A calendar app takes the server's name and finds the rest itself.
-  const address = calendar ? window.location.host : `${window.location.origin}/mcp`;
+  const address = calendar ? window.location.host : `${window.location.origin}/${made?.access === "notes" ? "webdav/" : "mcp"}`;
 
   useEffect(() => {
     let live = true;
@@ -260,7 +377,7 @@ function OtherApps({ householdId }: { householdId: string }) {
   if (tokens === null) return null;
   const date = new Intl.DateTimeFormat(i18n.language, { day: "numeric", month: "long", year: "numeric" });
   const addressLabel = t(calendar ? "apps.server" : "apps.address");
-  const secretLabel = t(calendar ? "apps.password" : "apps.key");
+  const secretLabel = t(password ? "apps.password" : "apps.key");
   return (
     <section className="group">
       <h2 className="label group-title">{t("apps.title")}</h2>
@@ -283,10 +400,10 @@ function OtherApps({ householdId }: { householdId: string }) {
       <div className="hl-card">
         {made ? (
           <>
-            <p className="hl-card-body">{t(calendar ? "apps.calendarOnce" : "apps.once")}</p>
+            <p className="hl-card-body">{t(calendar ? "apps.calendarOnce" : made.access === "notes" ? "apps.notesOnce" : "apps.once")}</p>
             <p className="label">{addressLabel}</p>
             <p className="invite-link caption">{address}</p>
-            {calendar && (
+            {password && (
               <>
                 <p className="label">{t("apps.user")}</p>
                 <p className="caption">{t("apps.anyUser")}</p>
@@ -310,16 +427,16 @@ function OtherApps({ householdId }: { householdId: string }) {
           // For a calendar the form posts itself: the API answers with a profile, which iOS offers to install.
           <form method="post" action={`/v1/households/${householdId}/calendar-profile`} onSubmit={access === "calendar" ? profileSent : create}>
             <div className="segmented" role="tablist" aria-label={t("apps.kind")}>
-              {(["calendar", "tools"] as const).map((a) => (
+              {(["calendar", "notes", "tools"] as const).map((a) => (
                 <button key={a} type="button" role="tab" aria-selected={access === a} onClick={() => setAccess(a)}>
                   {t(`apps.for.${a}`)}
                 </button>
               ))}
             </div>
-            <p className="hl-card-body">{t(access === "calendar" ? "apps.calendarBody" : "apps.body")}</p>
+            <p className="hl-card-body">{t(access === "calendar" ? "apps.calendarBody" : access === "notes" ? "apps.notesBody" : "apps.body")}</p>
             <label className="field">
               <span className="label">{t("apps.name")}</span>
-              <input className="input" name="name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder={t(access === "calendar" ? "apps.calendarPlaceholder" : "apps.namePlaceholder")} required />
+              <input className="input" name="name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder={t(access === "tools" ? "apps.namePlaceholder" : "apps.calendarPlaceholder")} required />
             </label>
             <div className="hl-card-footer">
               {access === "calendar" ? (
@@ -333,7 +450,7 @@ function OtherApps({ householdId }: { householdId: string }) {
                 </>
               ) : (
                 <Button type="submit" size="sm" disabled={busy || !name.trim()}>
-                  {t("apps.create")}
+                  {t(access === "notes" ? "apps.createPassword" : "apps.create")}
                 </Button>
               )}
             </div>

@@ -35,8 +35,10 @@ type Deps struct {
 	Cook           port.CookService
 	Shopping       port.ShoppingService
 	Home           port.HomeService
+	Watch          port.WatchService
 	Push           port.PushService
 	Calls          port.CallService
+	Voice          port.VoiceService
 	Assistant      port.AssistantService
 	Agents         port.AgentAccessService
 	HealthChecks   []port.HealthCheck
@@ -49,6 +51,8 @@ type Deps struct {
 	// CalDAV, if set, is served at /dav and /.well-known/caldav, outside the contract; it
 	// authenticates on its own.
 	CalDAV http.Handler
+	// Notes, if set, is served at /webdav, outside the contract; it authenticates on its own.
+	Notes http.Handler
 }
 
 // maxBody bounds a request body to the API: a photo and some room.
@@ -84,6 +88,10 @@ func NewRouter(d Deps) (http.Handler, error) {
 		r.Handle("/dav", d.CalDAV)
 		r.Handle("/dav/*", d.CalDAV)
 	}
+	if d.Notes != nil {
+		r.Handle("/webdav", d.Notes)
+		r.Handle("/webdav/*", d.Notes)
+	}
 	// Only the contract's own paths go through the validator, so other paths are answered here.
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		writeError(r.Context(), w, http.StatusNotFound, "not_found", "")
@@ -106,8 +114,10 @@ func NewRouter(d Deps) (http.Handler, error) {
 		cook:       d.Cook,
 		shopping:   d.Shopping,
 		home:       d.Home,
+		watch:      d.Watch,
 		push:       d.Push,
 		calls:      d.Calls,
+		voice:      d.Voice,
 		assistant:  d.Assistant,
 		agents:     d.Agents,
 		login:      d.Login,

@@ -32,6 +32,7 @@ services:
       LLM_MODEL: ${LLM_MODEL:-claude-opus-5-5}
       HOME_ASSISTANT_URL: ${HOME_ASSISTANT_URL:-}
       HOMELOOM_SECRET_KEY: ${HOMELOOM_SECRET_KEY:-}
+      PLEX_ENABLED: ${PLEX_ENABLED:-true}
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
@@ -39,7 +40,7 @@ services:
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-homeloom}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:?set LIVEKIT_API_SECRET}
       # Calls with Homeloom need speech (OpenAI) and Claude; without either key they're off.
-      # The API only checks that the OpenAI key is set.
+      # The API uses the OpenAI key only for voice previews in Settings.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       TIME_ZONE: ${TIME_ZONE:-Europe/Berlin}
       LOG_LEVEL: ${LOG_LEVEL:-info}
