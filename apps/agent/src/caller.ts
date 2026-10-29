@@ -4,7 +4,19 @@ export type Caller = {
   key: string;
   lang: "de" | "en";
   name: string;
+  voice: Voice;
 };
+
+// How Homeloom speaks to this caller, as they set it up in Settings: a voice of the speech model,
+// its speed and the instructions for its tone.
+export type Voice = {
+  voice: string;
+  speed: number;
+  instructions: string;
+};
+
+// The API sends a voice with every call; these are for an older API.
+export const defaultVoice: Voice = { voice: "coral", speed: 1, instructions: "Speak warmly and naturally, like a friend at home." };
 
 export function parseCaller(metadata: string): Caller {
   const m = JSON.parse(metadata) as Partial<Record<keyof Caller, unknown>>;
@@ -13,6 +25,16 @@ export function parseCaller(metadata: string): Caller {
     key: m.key,
     lang: m.lang === "de" ? "de" : "en",
     name: typeof m.name === "string" ? m.name : "",
+    voice: parseVoice(m.voice),
+  };
+}
+
+function parseVoice(v: unknown): Voice {
+  const m = (typeof v === "object" && v !== null ? v : {}) as Partial<Record<keyof Voice, unknown>>;
+  return {
+    voice: typeof m.voice === "string" && m.voice !== "" ? m.voice : defaultVoice.voice,
+    speed: typeof m.speed === "number" && m.speed > 0 ? m.speed : defaultVoice.speed,
+    instructions: typeof m.instructions === "string" && m.instructions !== "" ? m.instructions : defaultVoice.instructions,
   };
 }
 

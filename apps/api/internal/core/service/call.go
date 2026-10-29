@@ -22,6 +22,7 @@ type Call struct {
 	notify     notifier
 	agent      string
 	keys       agentKeys
+	voice      *Voice
 }
 
 // agentKeys mints the keys the voice agent reaches Homeloom's tools with; *AgentAccess is the real one.
@@ -44,12 +45,27 @@ func (s *Call) WithVoiceAgent(agent string, keys agentKeys) *Call {
 	return s
 }
 
+// WithVoice makes Homeloom sound the way each caller set it up; without it, it uses the defaults.
+func (s *Call) WithVoice(v *Voice) *Call {
+	s.voice = v
+	return s
+}
+
 // VoiceCall is the metadata the voice agent gets with each call: the key it acts as the caller
 // with, and how to talk to them.
 type VoiceCall struct {
-	Key  string `json:"key"`
-	Lang string `json:"lang"`
-	Name string `json:"name"`
+	Key   string      `json:"key"`
+	Lang  string      `json:"lang"`
+	Name  string      `json:"name"`
+	Voice VoiceOfCall `json:"voice"`
+}
+
+// VoiceOfCall is how the agent speaks: a voice of the speech model, its speed and the
+// instructions for its tone.
+type VoiceOfCall struct {
+	Voice        string  `json:"voice"`
+	Speed        float64 `json:"speed"`
+	Instructions string  `json:"instructions"`
 }
 
 func (s *Call) TalkToHomeloom(ctx context.Context, actor domain.User, householdID uuid.UUID, lang string) (domain.Call, error) {
@@ -66,7 +82,8 @@ func (s *Call) TalkToHomeloom(ctx context.Context, actor domain.User, householdI
 	if err != nil {
 		return domain.Call{}, err
 	}
-	meta, err := json.Marshal(VoiceCall{Key: key, Lang: lang, Name: actor.Name})
+	v := s.voice.forCall(ctx, actor)
+	meta, err := json.Marshal(VoiceCall{Key: key, Lang: lang, Name: actor.Name, Voice: VoiceOfCall{Voice: v.Voice, Speed: v.Speed, Instructions: v.Tone.Instructions()}})
 	if err != nil {
 		return domain.Call{}, err
 	}

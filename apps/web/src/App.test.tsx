@@ -10,8 +10,20 @@ import { SessionProvider } from "./session";
 const rooms = vi.hoisted(() => [] as InstanceType<typeof import("node:events").EventEmitter>[]);
 vi.mock("livekit-client", async () => {
   const { EventEmitter } = await import("node:events");
+  class Participant extends EventEmitter {
+    attributes: Record<string, string> = {};
+    audioLevel = 0;
+    constructor(
+      public identity: string,
+      public name: string,
+      public isAgent: boolean,
+    ) {
+      super();
+    }
+    getTrackPublication = () => undefined;
+  }
   class Room extends EventEmitter {
-    remoteParticipants = new Map<string, { identity: string; name: string; isAgent: boolean; getTrackPublication: () => undefined }>();
+    remoteParticipants = new Map<string, Participant>();
     canPlaybackAudio = true;
     localParticipant = {
       isMicrophoneEnabled: false,
@@ -30,7 +42,7 @@ vi.mock("livekit-client", async () => {
       rooms.push(this);
     }
     join(identity: string, name: string, isAgent = false) {
-      this.remoteParticipants.set(identity, { identity, name, isAgent, getTrackPublication: () => undefined });
+      this.remoteParticipants.set(identity, new Participant(identity, name, isAgent));
       this.emit("participantConnected");
     }
   }
@@ -42,7 +54,9 @@ vi.mock("livekit-client", async () => {
         e.charAt(0).toLowerCase() + e.slice(1),
       ]),
     ),
+    ParticipantEvent: { AttributesChanged: "attributesChanged", TrackSubscribed: "trackSubscribed", TrackUnsubscribed: "trackUnsubscribed" },
     Track: { Source: { Camera: "camera", Microphone: "microphone" }, Kind: { Video: "video", Audio: "audio" } },
+    createAudioAnalyser: vi.fn(),
   };
 });
 
@@ -534,7 +548,12 @@ const household = () =>
   json({ ...home, members: [{ user: marius, role: "owner" }, { user: jo, role: "member" }] });
 const callId = "55555555-5555-4555-8555-555555555555";
 const callJoin = () => json({ id: callId, url: "wss://home.example", token: "t", room: `call-${home.id}-${callId}` });
-type FakeRoom = { connect: ReturnType<typeof vi.fn>; disconnect: ReturnType<typeof vi.fn>; join: (id: string, name: string, isAgent?: boolean) => void };
+type FakeRoom = {
+  connect: ReturnType<typeof vi.fn>;
+  disconnect: ReturnType<typeof vi.fn>;
+  join: (id: string, name: string, isAgent?: boolean) => void;
+  remoteParticipants: Map<string, InstanceType<typeof import("node:events").EventEmitter> & { attributes: Record<string, string> }>;
+};
 
 test("calling from Us rings and shows the call until hung up", async () => {
   rooms.length = 0;
@@ -781,6 +800,15 @@ test("the phone in the assistant starts a call with Homeloom", async () => {
   act(() => room.join("agent-1", "", true));
   expect(await screen.findByText("0:00")).toBeInTheDocument();
   expect(screen.getAllByText("Homeloom").length).toBeGreaterThan(0);
+  // The orb follows what the agent is doing.
+  expect(screen.getByText("Joining…")).toBeInTheDocument();
+  const agent = room.remoteParticipants.get("agent-1");
+  if (!agent) throw new Error("no agent");
+  act(() => {
+    agent.attributes = { "lk.agent.state": "thinking" };
+    agent.emit("attributesChanged");
+  });
+  expect(screen.getByText("Thinking…")).toBeInTheDocument();
   // Nobody else can join a call with Homeloom.
   expect(screen.queryByRole("button", { name: "Add people" })).not.toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Hang up" }));
@@ -794,4 +822,25 @@ test("without the assistant the chat says so", async () => {
   expect(await screen.findByText("Not available")).toBeInTheDocument();
   expect(screen.getByLabelText("Message")).toBeDisabled();
   expect(screen.queryByRole("button", { name: "Talk to Homeloom" })).not.toBeInTheDocument();
+});
+
+test("settings saves how Homeloom sounds", async () => {
+  const calls = serve(
+    ...signedIn(),
+    at("GET", "/v1/me/voice", () => json({ available: true, settings: { voice: "coral", speed: 1, tone: "warm" } })),
+    at("PUT", "/v1/me/voice", () => json({ voice: "coral", speed: 1, tone: "calm" })),
+  );
+  renderApp("/settings");
+  await userEvent.click(await screen.findByRole("tab", { name: "Calm" }));
+  expect(screen.getByRole("tab", { name: "Calm" })).toHaveAttribute("aria-selected", "true");
+  await waitFor(() => expect(calls.some((c) => c.method === "PUT" && c.url.endsWith("/v1/me/voice"))).toBe(true));
+  expect(await calls.find((c) => c.method === "PUT")?.json()).toEqual({ voice: "coral", speed: 1, tone: "calm" });
+  expect(screen.getByRole("button", { name: "Listen" })).toBeInTheDocument();
+});
+
+test("settings hides the voice when Homeloom can't speak", async () => {
+  serve(...signedIn(), at("GET", "/v1/me/voice", () => json({ available: false, settings: { voice: "coral", speed: 1, tone: "warm" } })));
+  renderApp("/settings");
+  expect(await screen.findByText("Our place", { exact: false })).toBeInTheDocument();
+  expect(screen.queryByText("Homeloom's voice")).not.toBeInTheDocument();
 });

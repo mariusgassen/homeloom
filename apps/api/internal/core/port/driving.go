@@ -139,6 +139,18 @@ type CallService interface {
 	TalkToHomeloom(ctx context.Context, actor domain.User, householdID uuid.UUID, lang string) (domain.Call, error)
 }
 
+// VoiceService is how Homeloom sounds on each member's own calls with it.
+type VoiceService interface {
+	// Available says whether Homeloom can speak at all: calls with it and previews.
+	Available() bool
+	// Settings returns the actor's settings, or domain.DefaultVoice until they save their own.
+	Settings(ctx context.Context, actor domain.User) (domain.VoiceSettings, error)
+	Save(ctx context.Context, actor domain.User, v domain.VoiceSettings) (domain.VoiceSettings, error)
+	// Preview speaks text with v, which needn't be saved. It returns domain.ErrUnavailable when
+	// speech isn't set up or can't be reached.
+	Preview(ctx context.Context, actor domain.User, v domain.VoiceSettings, text string) ([]byte, error)
+}
+
 // AssistantService is the chat assistant. Each conversation belongs to one person, and the
 // assistant acts only as that person, with the same rules as every other service.
 type AssistantService interface {

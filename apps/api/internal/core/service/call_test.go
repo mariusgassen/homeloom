@@ -116,13 +116,18 @@ func TestCalls(t *testing.T) {
 
 	// Talking to Homeloom: a private room, and the agent gets a key that acts as Alice.
 	agents := service.NewAgentAccess(store, memory.NewSessions(), store)
-	voice := service.NewCall(store, memory.NewSessions(), server, push).WithVoiceAgent("homeloom", agents)
+	voices := service.NewVoice(store, nil)
+	if _, err := voices.Save(ctx, alice, domain.VoiceSettings{Voice: "marin", Speed: 1.2, Tone: domain.TonePlayful}); err != nil {
+		t.Fatal(err)
+	}
+	voice := service.NewCall(store, memory.NewSessions(), server, push).WithVoiceAgent("homeloom", agents).WithVoice(voices)
 	vc, err := voice.TalkToHomeloom(ctx, alice, h, "de")
 	if err != nil || !strings.HasPrefix(vc.Room, "homeloom-") || !strings.Contains(vc.Room, alice.ID.String()) {
 		t.Fatalf("voice call: %+v %v", vc, err)
 	}
 	var meta service.VoiceCall
-	if err := json.Unmarshal([]byte(server.Dispatched["homeloom@"+vc.Room]), &meta); err != nil || meta.Lang != "de" || meta.Name != "alice" {
+	if err := json.Unmarshal([]byte(server.Dispatched["homeloom@"+vc.Room]), &meta); err != nil || meta.Lang != "de" || meta.Name != "alice" ||
+		meta.Voice != (service.VoiceOfCall{Voice: "marin", Speed: 1.2, Instructions: domain.TonePlayful.Instructions()}) {
 		t.Fatalf("dispatch: %+v %v", meta, err)
 	}
 	if grant, err := agents.Authenticate(ctx, meta.Key); err != nil || grant.User.ID != alice.ID || grant.HouseholdID != h {
