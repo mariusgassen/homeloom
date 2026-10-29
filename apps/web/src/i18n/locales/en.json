@@ -88,6 +88,7 @@
     "spotlight": "Show {{name}} large",
     "hangUp": "Hang up",
     "tapToHear": "Tap to hear",
+    "agent": { "initializing": "Joining…", "listening": "Listening", "thinking": "Thinking…", "speaking": "Speaking" },
     "state": { "connecting": "Connecting…", "ringing": "Calling…", "reconnecting": "Reconnecting…", "ended": "Call ended", "noAnswer": "No answer", "failed": "The call didn't go through.", "micBlocked": "Calls need your microphone. Allow it in your phone's Settings.", "linkUsed": "This link is already in use on another device." }
   },
   "us": {
@@ -135,6 +136,7 @@
   },
   "calendar": { "title": "Calendar", "body": "See your events and reminders in your phone's calendar.", "add": "Add to Calendar", "ready": "Open the link on your iPhone to subscribe. It's private, so keep it to yourself.", "open": "Open in Calendar", "on": "Your calendar is subscribed.", "renew": "New link", "off": "Turn off", "failed": "That didn't work. Please try again." },
   "apps": { "title": "Other apps", "body": "Let another assistant use Homeloom as you, with what you can see here. Make a key for each app.", "name": "App", "namePlaceholder": "e.g. Claude on my phone", "create": "Make key", "address": "Address", "key": "Key", "once": "Paste both into the app. The key is shown only now.", "copy": "Copy", "copied": "Copied", "done": "Done", "remove": "Remove", "made": "Made {{date}}", "failed": "That didn't work. Please try again.", "kind": "For", "for": { "calendar": "Calendar", "notes": "Notes", "tools": "Assistant" }, "calendarBody": "See your events and reminders in the Calendar and Reminders apps, and change them there too. Only what you can see here.", "calendarPlaceholder": "e.g. My iPhone", "createPassword": "Make password", "calendarOnce": "On your iPhone: Settings › Apps › Calendar › Calendar Accounts › Add Account › Other › Add CalDAV Account. The password is shown only now.", "server": "Server", "user": "User name", "anyUser": "Anything, e.g. your name", "password": "Password", "addToIPhone": "Add to iPhone", "notesBody": "Keep your notes as files in a notes app that syncs over WebDAV, and change them there too. Only what you can see here.", "notesOnce": "In your notes app, add a WebDAV account with these details. The password is shown only now." },
+  "voice": { "title": "Homeloom's voice", "voice": "Voice", "speed": "Speed", "slower": "Slower", "faster": "Faster", "tone": "Tone", "tones": { "warm": "Warm", "calm": "Calm", "playful": "Playful", "clear": "Clear" }, "listen": "Listen", "failed": "That didn't work. Please try again." },
   "home": {
     "scenes": "Scenes",
     "other": "Other",
@@ -150,6 +152,7 @@
     "failed": "That didn't work. Please try again.",
     "reading": { "window": "Window open", "door": "Door open", "garage_door": "Garage open", "motion": "Motion", "moisture": "Water", "smoke": "Smoke" }
   },
+  "watch": {"title": "Movies & shows", "teaser": "Pick something to watch together", "libraries": "Libraries", "offTitle": "Movies and shows aren't available", "connectTitle": "Connect your movies and shows", "connectBody": "Sign in with your own account. Your libraries and the ones shared with you show up here.", "connect": "Connect", "disconnect": "Disconnect movies and shows", "emptyTitle": "No libraries yet", "emptyBody": "Movie and series libraries you can watch show up here.", "unseen": "Not seen yet", "count_one": "{{count}} title", "count_other": "{{count}} titles", "surprise": "Surprise us", "another": "Something else", "allSeen": "You've seen everything here", "seen": "Seen", "episodes_one": "{{count}} episode", "episodes_other": "{{count}} episodes", "minutes_one": "{{count}} min", "minutes_other": "{{count}} min", "failed": "That didn't work. Please try again.", "error": {"connect_failed": "Connecting didn't work. Please try again.", "watch_unavailable": "Your movies aren't reachable right now. Please try again later."}},
   "questions": {
     "ask": "Ask a question",
     "askPlaceholder": "What would you like to know?",

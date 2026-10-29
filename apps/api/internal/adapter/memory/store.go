@@ -35,6 +35,7 @@ type Store struct {
 	calendarFeeds map[string]domain.CalendarFeed
 
 	homeConnections   map[uuid.UUID]domain.HomeConnection
+	watchConnections  map[uuid.UUID]domain.WatchConnection
 	pushSubscriptions []domain.PushSubscription
 	shopping          []domain.ShoppingItem
 
@@ -42,6 +43,8 @@ type Store struct {
 	chatMessages  []domain.ChatMessage
 
 	mcpTokens []mcpToken
+
+	voices map[uuid.UUID]domain.VoiceSettings
 }
 
 func NewStore() *Store {
@@ -52,6 +55,7 @@ func NewStore() *Store {
 		invites:    map[string]*invite{},
 
 		calendarFeeds: map[string]domain.CalendarFeed{},
+		voices:        map[uuid.UUID]domain.VoiceSettings{},
 	}
 }
 

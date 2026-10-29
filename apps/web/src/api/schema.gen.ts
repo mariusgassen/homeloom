@@ -119,6 +119,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/plex/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Where Plex's sign-in comes back to; connects the caller
+         * @description Always redirects back to `/watch`. On failure it adds `?watch_error=<code>`, where code is
+         *     `connect_failed` or `watch_unavailable`.
+         */
+        get: operations["completeWatchConnection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me": {
         parameters: {
             query?: never;
@@ -130,6 +151,49 @@ export interface paths {
         get: operations["getMe"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/voice": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How Homeloom sounds on the caller's calls with it
+         * @description The caller's voice settings for calls with Homeloom, the defaults until they save their own,
+         *     and whether Homeloom can speak at all on this server.
+         */
+        get: operations["getVoice"];
+        /** Save how Homeloom sounds on the caller's calls with it */
+        put: operations["saveVoice"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/voice/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hear a short sentence spoken with the given settings
+         * @description Speaks a short sentence in the request's language, so settings can be tried before they're
+         *     saved. Answers `503 voice_unavailable` when speech isn't set up.
+         */
+        post: operations["previewVoice"];
         delete?: never;
         options?: never;
         head?: never;
@@ -569,6 +633,98 @@ export interface paths {
         post: operations["connectHome"];
         /** Disconnect your Home Assistant account and revoke its token */
         delete: operations["disconnectHome"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/watch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The movie and series libraries you can watch in Plex (members only)
+         * @description Each member connects their own Plex account and sees the libraries on their own servers and
+         *     on servers friends share with them, with their own watched state. A server that can't be
+         *     reached is left out. Until the caller has connected, `connected` is false and `libraries`
+         *     is empty. Read-only: nothing is played or changed.
+         */
+        get: operations["getWatchShelf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/watch/connection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start connecting your Plex account
+         * @description Returns Plex's sign-in page. Send the browser there (a navigation, not a fetch); once you
+         *     allow Homeloom it comes back through `/auth/plex/callback`.
+         */
+        post: operations["connectWatch"];
+        /** Disconnect your Plex account; Homeloom forgets its token */
+        delete: operations["disconnectWatch"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/watch/libraries/{libraryId}/titles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                libraryId: components["schemas"]["MediaId"];
+            };
+            cookie?: never;
+        };
+        /** Every movie or series in one of your libraries */
+        get: operations["listWatchTitles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/watch/titles/{titleId}/poster": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                titleId: components["schemas"]["MediaId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A title's poster, about 342 by 513 pixels
+         * @description Fetched from Plex through the API, so the Plex token never reaches the client.
+         */
+        get: operations["getWatchPoster"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1199,6 +1355,47 @@ export interface components {
             /** @description Home Assistant's sign-in page. */
             url: string;
         };
+        ConnectURL: {
+            /** @description The sign-in page to send the browser to. */
+            url: string;
+        };
+        /** @description A library or title id from this API; it names the Plex server and the item there. */
+        MediaId: string;
+        WatchShelf: {
+            /** @description Whether you have connected your Plex account. */
+            connected: boolean;
+            /** @description Your own servers' libraries first, then shared ones, each in Plex's order. */
+            libraries: components["schemas"]["WatchLibrary"][];
+        };
+        WatchLibrary: {
+            id: components["schemas"]["MediaId"];
+            name: string;
+            kind: components["schemas"]["MediaKind"];
+            /** @description The Plex server's name. */
+            server: string;
+            /** @description False for a library a friend shares with you. */
+            owned: boolean;
+        };
+        /** @enum {string} */
+        MediaKind: "movie" | "show";
+        WatchTitle: {
+            id: components["schemas"]["MediaId"];
+            kind: components["schemas"]["MediaKind"];
+            name: string;
+            year?: number;
+            summary?: string;
+            /** @description A movie's length, or an episode's for a series. */
+            minutes?: number;
+            genres: string[];
+            /** @description Audience or critic rating out of 10. */
+            rating?: number;
+            /** @description Age rating, e.g. de/12 or PG-13. */
+            contentRating?: string;
+            /** @description Episodes of a series. */
+            episodes?: number;
+            /** @description You have seen the movie, or every episode. */
+            watched: boolean;
+        };
         Scene: {
             /** @description Home Assistant entity id, e.g. scene.dinner. */
             id: string;
@@ -1226,6 +1423,25 @@ export interface components {
             /** @description LiveKit access token for this person and room. */
             token: string;
             room: string;
+        };
+        VoiceSetup: {
+            /** @description Whether Homeloom can speak on this server: calls with it and previews. */
+            available: boolean;
+            settings: components["schemas"]["VoiceSettings"];
+        };
+        VoiceSettings: {
+            /** @enum {string} */
+            voice: "marin" | "cedar" | "coral" | "sage" | "shimmer" | "nova" | "alloy" | "ash" | "ballad" | "echo" | "fable" | "onyx" | "verse";
+            /**
+             * Format: double
+             * @description 1 is the voice's natural pace.
+             */
+            speed: number;
+            /**
+             * @description How Homeloom speaks, turned into instructions for the speech model.
+             * @enum {string}
+             */
+            tone: "warm" | "calm" | "playful" | "clear";
         };
         GuestLink: {
             token: string;
@@ -1564,6 +1780,28 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
+    completeWatchConnection: {
+        parameters: {
+            query?: {
+                state?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Back to the app. */
+            302: {
+                headers: {
+                    Location: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
     getMe: {
         parameters: {
             query?: never;
@@ -1583,6 +1821,80 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+        };
+    };
+    getVoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceSetup"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    saveVoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceSettings"];
+            };
+        };
+        responses: {
+            /** @description The saved settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoiceSettings"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    previewVoice: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoiceSettings"];
+            };
+        };
+        responses: {
+            /** @description The sentence as MP3. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "audio/mpeg": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            503: components["responses"]["Unavailable"];
         };
     };
     listHouseholds: {
@@ -2411,6 +2723,132 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getWatchShelf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The libraries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchShelf"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    connectWatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Where to sign in. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectURL"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    disconnectWatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Disconnected. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    listWatchTitles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                libraryId: components["schemas"]["MediaId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The titles, in the library's order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchTitle"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getWatchPoster: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                titleId: components["schemas"]["MediaId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The poster. */
+            200: {
+                headers: {
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": string;
+                };
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];

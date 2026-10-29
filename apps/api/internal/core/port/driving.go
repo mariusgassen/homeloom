@@ -109,6 +109,18 @@ type HomeService interface {
 	ToggleLight(ctx context.Context, actor domain.User, householdID uuid.UUID, lightID string) (domain.Light, error)
 }
 
+type WatchService interface {
+	// Connect starts the actor's sign-in at Plex and returns where to send the browser.
+	Connect(ctx context.Context, actor domain.User, householdID uuid.UUID) (string, error)
+	// CompleteConnect finishes it for the person who started it; it returns
+	// domain.ErrUnauthenticated for an unknown state, someone else's sign-in, or one not approved.
+	CompleteConnect(ctx context.Context, actor domain.User, state string) error
+	Disconnect(ctx context.Context, actor domain.User, householdID uuid.UUID) error
+	Shelf(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Shelf, error)
+	Titles(ctx context.Context, actor domain.User, householdID uuid.UUID, libraryID string) ([]domain.Title, error)
+	Poster(ctx context.Context, actor domain.User, householdID uuid.UUID, titleID string) (domain.Poster, error)
+}
+
 type PushService interface {
 	// PublicKey returns domain.ErrUnavailable when push isn't set up.
 	PublicKey(ctx context.Context) (string, error)
@@ -137,6 +149,18 @@ type CallService interface {
 	// acts as the actor and speaks lang. It returns domain.ErrUnavailable when the agent isn't set
 	// up.
 	TalkToHomeloom(ctx context.Context, actor domain.User, householdID uuid.UUID, lang string) (domain.Call, error)
+}
+
+// VoiceService is how Homeloom sounds on each member's own calls with it.
+type VoiceService interface {
+	// Available says whether Homeloom can speak at all: calls with it and previews.
+	Available() bool
+	// Settings returns the actor's settings, or domain.DefaultVoice until they save their own.
+	Settings(ctx context.Context, actor domain.User) (domain.VoiceSettings, error)
+	Save(ctx context.Context, actor domain.User, v domain.VoiceSettings) (domain.VoiceSettings, error)
+	// Preview speaks text with v, which needn't be saved. It returns domain.ErrUnavailable when
+	// speech isn't set up or can't be reached.
+	Preview(ctx context.Context, actor domain.User, v domain.VoiceSettings, text string) ([]byte, error)
 }
 
 // AssistantService is the chat assistant. Each conversation belongs to one person, and the

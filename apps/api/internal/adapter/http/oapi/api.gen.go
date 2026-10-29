@@ -63,6 +63,24 @@ func (e EntryKind) Valid() bool {
 	}
 }
 
+// Defines values for MediaKind.
+const (
+	Movie MediaKind = "movie"
+	Show  MediaKind = "show"
+)
+
+// Valid indicates whether the value is a known member of the MediaKind enum.
+func (e MediaKind) Valid() bool {
+	switch e {
+	case Movie:
+		return true
+	case Show:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReadinessStatus.
 const (
 	Degraded ReadinessStatus = "degraded"
@@ -210,6 +228,81 @@ func (e Visibility) Valid() bool {
 	}
 }
 
+// Defines values for VoiceSettingsTone.
+const (
+	Calm    VoiceSettingsTone = "calm"
+	Clear   VoiceSettingsTone = "clear"
+	Playful VoiceSettingsTone = "playful"
+	Warm    VoiceSettingsTone = "warm"
+)
+
+// Valid indicates whether the value is a known member of the VoiceSettingsTone enum.
+func (e VoiceSettingsTone) Valid() bool {
+	switch e {
+	case Calm:
+		return true
+	case Clear:
+		return true
+	case Playful:
+		return true
+	case Warm:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceSettingsVoice.
+const (
+	Alloy   VoiceSettingsVoice = "alloy"
+	Ash     VoiceSettingsVoice = "ash"
+	Ballad  VoiceSettingsVoice = "ballad"
+	Cedar   VoiceSettingsVoice = "cedar"
+	Coral   VoiceSettingsVoice = "coral"
+	Echo    VoiceSettingsVoice = "echo"
+	Fable   VoiceSettingsVoice = "fable"
+	Marin   VoiceSettingsVoice = "marin"
+	Nova    VoiceSettingsVoice = "nova"
+	Onyx    VoiceSettingsVoice = "onyx"
+	Sage    VoiceSettingsVoice = "sage"
+	Shimmer VoiceSettingsVoice = "shimmer"
+	Verse   VoiceSettingsVoice = "verse"
+)
+
+// Valid indicates whether the value is a known member of the VoiceSettingsVoice enum.
+func (e VoiceSettingsVoice) Valid() bool {
+	switch e {
+	case Alloy:
+		return true
+	case Ash:
+		return true
+	case Ballad:
+		return true
+	case Cedar:
+		return true
+	case Coral:
+		return true
+	case Echo:
+		return true
+	case Fable:
+		return true
+	case Marin:
+		return true
+	case Nova:
+		return true
+	case Onyx:
+		return true
+	case Sage:
+		return true
+	case Shimmer:
+		return true
+	case Verse:
+		return true
+	default:
+		return false
+	}
+}
+
 // AddToShoppingList defines model for AddToShoppingList.
 type AddToShoppingList struct {
 	IngredientIds []string `json:"ingredientIds"`
@@ -282,6 +375,12 @@ type ChatRequest struct {
 	// ConversationId Continue this conversation; absent starts a new one.
 	ConversationId *openapi_types.UUID `json:"conversationId,omitempty"`
 	Text           string              `json:"text"`
+}
+
+// ConnectURL defines model for ConnectURL.
+type ConnectURL struct {
+	// Url The sign-in page to send the browser to.
+	Url string `json:"url"`
 }
 
 // Conversation defines model for Conversation.
@@ -557,6 +656,12 @@ type McpTokenRequest struct {
 	Name string `json:"name"`
 }
 
+// MediaId A library or title id from this API; it names the Plex server and the item there.
+type MediaId = string
+
+// MediaKind defines model for MediaKind.
+type MediaKind string
+
 // Member defines model for Member.
 type Member struct {
 	Role Role `json:"role"`
@@ -730,6 +835,78 @@ type User struct {
 // exists, but its text opens only at `revealAt` (notes only).
 type Visibility string
 
+// VoiceSettings defines model for VoiceSettings.
+type VoiceSettings struct {
+	// Speed 1 is the voice's natural pace.
+	Speed float64 `json:"speed"`
+
+	// Tone How Homeloom speaks, turned into instructions for the speech model.
+	Tone  VoiceSettingsTone  `json:"tone"`
+	Voice VoiceSettingsVoice `json:"voice"`
+}
+
+// VoiceSettingsTone How Homeloom speaks, turned into instructions for the speech model.
+type VoiceSettingsTone string
+
+// VoiceSettingsVoice defines model for VoiceSettings.Voice.
+type VoiceSettingsVoice string
+
+// VoiceSetup defines model for VoiceSetup.
+type VoiceSetup struct {
+	// Available Whether Homeloom can speak on this server: calls with it and previews.
+	Available bool          `json:"available"`
+	Settings  VoiceSettings `json:"settings"`
+}
+
+// WatchLibrary defines model for WatchLibrary.
+type WatchLibrary struct {
+	// Id A library or title id from this API; it names the Plex server and the item there.
+	Id   MediaId   `json:"id"`
+	Kind MediaKind `json:"kind"`
+	Name string    `json:"name"`
+
+	// Owned False for a library a friend shares with you.
+	Owned bool `json:"owned"`
+
+	// Server The Plex server's name.
+	Server string `json:"server"`
+}
+
+// WatchShelf defines model for WatchShelf.
+type WatchShelf struct {
+	// Connected Whether you have connected your Plex account.
+	Connected bool `json:"connected"`
+
+	// Libraries Your own servers' libraries first, then shared ones, each in Plex's order.
+	Libraries []WatchLibrary `json:"libraries"`
+}
+
+// WatchTitle defines model for WatchTitle.
+type WatchTitle struct {
+	// ContentRating Age rating, e.g. de/12 or PG-13.
+	ContentRating *string `json:"contentRating,omitempty"`
+
+	// Episodes Episodes of a series.
+	Episodes *int     `json:"episodes,omitempty"`
+	Genres   []string `json:"genres"`
+
+	// Id A library or title id from this API; it names the Plex server and the item there.
+	Id   MediaId   `json:"id"`
+	Kind MediaKind `json:"kind"`
+
+	// Minutes A movie's length, or an episode's for a series.
+	Minutes *int   `json:"minutes,omitempty"`
+	Name    string `json:"name"`
+
+	// Rating Audience or critic rating out of 10.
+	Rating  *float32 `json:"rating,omitempty"`
+	Summary *string  `json:"summary,omitempty"`
+
+	// Watched You have seen the movie, or every episode.
+	Watched bool `json:"watched"`
+	Year    *int `json:"year,omitempty"`
+}
+
 // CallId defines model for CallId.
 type CallId = openapi_types.UUID
 
@@ -782,6 +959,11 @@ type CompleteHomeConnectionParams struct {
 // LogoutParams defines parameters for Logout.
 type LogoutParams struct {
 	HomeloomSession *string `form:"homeloom_session,omitempty" json:"homeloom_session,omitempty"`
+}
+
+// CompleteWatchConnectionParams defines parameters for CompleteWatchConnection.
+type CompleteWatchConnectionParams struct {
+	State *string `form:"state,omitempty" json:"state,omitempty"`
 }
 
 // CreateCalendarProfileFormdataBody defines parameters for CreateCalendarProfile.
@@ -839,6 +1021,12 @@ type AddToShoppingListJSONRequestBody = AddToShoppingList
 // AddShoppingItemJSONRequestBody defines body for AddShoppingItem for application/json ContentType.
 type AddShoppingItemJSONRequestBody = NewShoppingItem
 
+// SaveVoiceJSONRequestBody defines body for SaveVoice for application/json ContentType.
+type SaveVoiceJSONRequestBody = VoiceSettings
+
+// PreviewVoiceJSONRequestBody defines body for PreviewVoice for application/json ContentType.
+type PreviewVoiceJSONRequestBody = VoiceSettings
+
 // SubscribePushJSONRequestBody defines body for SubscribePush for application/json ContentType.
 type SubscribePushJSONRequestBody = PushSubscription
 
@@ -859,6 +1047,9 @@ type ServerInterface interface {
 	// Logout End the session
 	// (POST /auth/logout)
 	Logout(w http.ResponseWriter, r *http.Request, params LogoutParams)
+	// CompleteWatchConnection Where Plex's sign-in comes back to; connects the caller
+	// (GET /auth/plex/callback)
+	CompleteWatchConnection(w http.ResponseWriter, r *http.Request, params CompleteWatchConnectionParams)
 	// GetHealth Liveness probe
 	// (GET /healthz)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -1000,6 +1191,21 @@ type ServerInterface interface {
 	// TickShoppingItem Tick an item off
 	// (PUT /v1/households/{householdId}/shopping-list/items/{itemId}/done)
 	TickShoppingItem(w http.ResponseWriter, r *http.Request, householdId HouseholdId, itemId ShoppingItemId)
+	// GetWatchShelf The movie and series libraries you can watch in Plex (members only)
+	// (GET /v1/households/{householdId}/watch)
+	GetWatchShelf(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
+	// DisconnectWatch Disconnect your Plex account; Homeloom forgets its token
+	// (DELETE /v1/households/{householdId}/watch/connection)
+	DisconnectWatch(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
+	// ConnectWatch Start connecting your Plex account
+	// (POST /v1/households/{householdId}/watch/connection)
+	ConnectWatch(w http.ResponseWriter, r *http.Request, householdId HouseholdId)
+	// ListWatchTitles Every movie or series in one of your libraries
+	// (GET /v1/households/{householdId}/watch/libraries/{libraryId}/titles)
+	ListWatchTitles(w http.ResponseWriter, r *http.Request, householdId HouseholdId, libraryId MediaId)
+	// GetWatchPoster A title's poster, about 342 by 513 pixels
+	// (GET /v1/households/{householdId}/watch/titles/{titleId}/poster)
+	GetWatchPoster(w http.ResponseWriter, r *http.Request, householdId HouseholdId, titleId MediaId)
 	// AcceptInvite Join the household an invite belongs to
 	// (POST /v1/invites/{code})
 	AcceptInvite(w http.ResponseWriter, r *http.Request, code string)
@@ -1009,6 +1215,15 @@ type ServerInterface interface {
 	// GetMe The signed-in user, created on first call
 	// (GET /v1/me)
 	GetMe(w http.ResponseWriter, r *http.Request)
+	// GetVoice How Homeloom sounds on the caller's calls with it
+	// (GET /v1/me/voice)
+	GetVoice(w http.ResponseWriter, r *http.Request)
+	// SaveVoice Save how Homeloom sounds on the caller's calls with it
+	// (PUT /v1/me/voice)
+	SaveVoice(w http.ResponseWriter, r *http.Request)
+	// PreviewVoice Hear a short sentence spoken with the given settings
+	// (POST /v1/me/voice/preview)
+	PreviewVoice(w http.ResponseWriter, r *http.Request)
 	// GetPushConfig The VAPID public key to subscribe with
 	// (GET /v1/push)
 	GetPushConfig(w http.ResponseWriter, r *http.Request)
@@ -1048,6 +1263,12 @@ func (_ Unimplemented) StartLogin(w http.ResponseWriter, r *http.Request) {
 // Logout End the session
 // (POST /auth/logout)
 func (_ Unimplemented) Logout(w http.ResponseWriter, r *http.Request, params LogoutParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CompleteWatchConnection Where Plex's sign-in comes back to; connects the caller
+// (GET /auth/plex/callback)
+func (_ Unimplemented) CompleteWatchConnection(w http.ResponseWriter, r *http.Request, params CompleteWatchConnectionParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1333,6 +1554,36 @@ func (_ Unimplemented) TickShoppingItem(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetWatchShelf The movie and series libraries you can watch in Plex (members only)
+// (GET /v1/households/{householdId}/watch)
+func (_ Unimplemented) GetWatchShelf(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DisconnectWatch Disconnect your Plex account; Homeloom forgets its token
+// (DELETE /v1/households/{householdId}/watch/connection)
+func (_ Unimplemented) DisconnectWatch(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ConnectWatch Start connecting your Plex account
+// (POST /v1/households/{householdId}/watch/connection)
+func (_ Unimplemented) ConnectWatch(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListWatchTitles Every movie or series in one of your libraries
+// (GET /v1/households/{householdId}/watch/libraries/{libraryId}/titles)
+func (_ Unimplemented) ListWatchTitles(w http.ResponseWriter, r *http.Request, householdId HouseholdId, libraryId MediaId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetWatchPoster A title's poster, about 342 by 513 pixels
+// (GET /v1/households/{householdId}/watch/titles/{titleId}/poster)
+func (_ Unimplemented) GetWatchPoster(w http.ResponseWriter, r *http.Request, householdId HouseholdId, titleId MediaId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // AcceptInvite Join the household an invite belongs to
 // (POST /v1/invites/{code})
 func (_ Unimplemented) AcceptInvite(w http.ResponseWriter, r *http.Request, code string) {
@@ -1348,6 +1599,24 @@ func (_ Unimplemented) DeleteMcpToken(w http.ResponseWriter, r *http.Request, to
 // GetMe The signed-in user, created on first call
 // (GET /v1/me)
 func (_ Unimplemented) GetMe(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetVoice How Homeloom sounds on the caller's calls with it
+// (GET /v1/me/voice)
+func (_ Unimplemented) GetVoice(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SaveVoice Save how Homeloom sounds on the caller's calls with it
+// (PUT /v1/me/voice)
+func (_ Unimplemented) SaveVoice(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PreviewVoice Hear a short sentence spoken with the given settings
+// (POST /v1/me/voice/preview)
+func (_ Unimplemented) PreviewVoice(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1557,6 +1826,39 @@ func (siw *ServerInterfaceWrapper) Logout(w http.ResponseWriter, r *http.Request
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.Logout(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CompleteWatchConnection operation middleware
+func (siw *ServerInterfaceWrapper) CompleteWatchConnection(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CompleteWatchConnectionParams
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CompleteWatchConnection(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2837,6 +3139,154 @@ func (siw *ServerInterfaceWrapper) TickShoppingItem(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// GetWatchShelf operation middleware
+func (siw *ServerInterfaceWrapper) GetWatchShelf(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetWatchShelf(w, r, householdId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DisconnectWatch operation middleware
+func (siw *ServerInterfaceWrapper) DisconnectWatch(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DisconnectWatch(w, r, householdId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConnectWatch operation middleware
+func (siw *ServerInterfaceWrapper) ConnectWatch(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConnectWatch(w, r, householdId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListWatchTitles operation middleware
+func (siw *ServerInterfaceWrapper) ListWatchTitles(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "libraryId" -------------
+	var libraryId MediaId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "libraryId", chi.URLParam(r, "libraryId"), &libraryId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "libraryId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListWatchTitles(w, r, householdId, libraryId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetWatchPoster operation middleware
+func (siw *ServerInterfaceWrapper) GetWatchPoster(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "householdId" -------------
+	var householdId HouseholdId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "householdId", chi.URLParam(r, "householdId"), &householdId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "householdId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "titleId" -------------
+	var titleId MediaId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "titleId", chi.URLParam(r, "titleId"), &titleId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "titleId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetWatchPoster(w, r, householdId, titleId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // AcceptInvite operation middleware
 func (siw *ServerInterfaceWrapper) AcceptInvite(w http.ResponseWriter, r *http.Request) {
 
@@ -2894,6 +3344,48 @@ func (siw *ServerInterfaceWrapper) GetMe(w http.ResponseWriter, r *http.Request)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetMe(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetVoice operation middleware
+func (siw *ServerInterfaceWrapper) GetVoice(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetVoice(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SaveVoice operation middleware
+func (siw *ServerInterfaceWrapper) SaveVoice(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SaveVoice(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreviewVoice operation middleware
+func (siw *ServerInterfaceWrapper) PreviewVoice(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewVoice(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -3122,7 +3614,19 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/auth/homeassistant/callback", wrapper.CompleteHomeConnection)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/auth/plex/callback", wrapper.CompleteWatchConnection)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/me", wrapper.GetMe)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/me/voice", wrapper.GetVoice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/me/voice", wrapper.SaveVoice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/me/voice/preview", wrapper.PreviewVoice)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/households", wrapper.ListHouseholds)
@@ -3216,6 +3720,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/households/{householdId}/home/connection", wrapper.ConnectHome)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/households/{householdId}/watch", wrapper.GetWatchShelf)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/households/{householdId}/watch/connection", wrapper.DisconnectWatch)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/households/{householdId}/watch/connection", wrapper.ConnectWatch)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/households/{householdId}/watch/libraries/{libraryId}/titles", wrapper.ListWatchTitles)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/households/{householdId}/watch/titles/{titleId}/poster", wrapper.GetWatchPoster)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/households/{householdId}/home/scenes/{sceneId}", wrapper.ActivateScene)
@@ -3414,6 +3933,42 @@ func (response Logout200JSONResponse) VisitLogoutResponse(w http.ResponseWriter)
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Set-Cookie", fmt.Sprint(response.Headers.SetCookie))
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CompleteWatchConnectionRequestObject struct {
+	Params CompleteWatchConnectionParams
+}
+
+type CompleteWatchConnectionResponseObject interface {
+	VisitCompleteWatchConnectionResponse(w http.ResponseWriter) error
+}
+
+type CompleteWatchConnection302ResponseHeaders struct {
+	Location string
+}
+
+type CompleteWatchConnection302Response struct {
+	Headers CompleteWatchConnection302ResponseHeaders
+}
+
+func (response CompleteWatchConnection302Response) VisitCompleteWatchConnectionResponse(w http.ResponseWriter) error {
+	w.Header().Set("Location", fmt.Sprint(response.Headers.Location))
+	w.WriteHeader(302)
+	return nil
+}
+
+type CompleteWatchConnection401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response CompleteWatchConnection401JSONResponse) VisitCompleteWatchConnectionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -6172,6 +6727,335 @@ func (response TickShoppingItem404JSONResponse) VisitTickShoppingItemResponse(w 
 	return err
 }
 
+type GetWatchShelfRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+}
+
+type GetWatchShelfResponseObject interface {
+	VisitGetWatchShelfResponse(w http.ResponseWriter) error
+}
+
+type GetWatchShelf200JSONResponse WatchShelf
+
+func (response GetWatchShelf200JSONResponse) VisitGetWatchShelfResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetWatchShelf401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetWatchShelf401JSONResponse) VisitGetWatchShelfResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetWatchShelf404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetWatchShelf404JSONResponse) VisitGetWatchShelfResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetWatchShelf503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response GetWatchShelf503JSONResponse) VisitGetWatchShelfResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisconnectWatchRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+}
+
+type DisconnectWatchResponseObject interface {
+	VisitDisconnectWatchResponse(w http.ResponseWriter) error
+}
+
+type DisconnectWatch204Response struct {
+}
+
+func (response DisconnectWatch204Response) VisitDisconnectWatchResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DisconnectWatch401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DisconnectWatch401JSONResponse) VisitDisconnectWatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisconnectWatch404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DisconnectWatch404JSONResponse) VisitDisconnectWatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisconnectWatch503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response DisconnectWatch503JSONResponse) VisitDisconnectWatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConnectWatchRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+}
+
+type ConnectWatchResponseObject interface {
+	VisitConnectWatchResponse(w http.ResponseWriter) error
+}
+
+type ConnectWatch200JSONResponse ConnectURL
+
+func (response ConnectWatch200JSONResponse) VisitConnectWatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConnectWatch401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ConnectWatch401JSONResponse) VisitConnectWatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConnectWatch404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ConnectWatch404JSONResponse) VisitConnectWatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConnectWatch503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response ConnectWatch503JSONResponse) VisitConnectWatchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListWatchTitlesRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+	LibraryId   MediaId     `json:"libraryId"`
+}
+
+type ListWatchTitlesResponseObject interface {
+	VisitListWatchTitlesResponse(w http.ResponseWriter) error
+}
+
+type ListWatchTitles200JSONResponse []WatchTitle
+
+func (response ListWatchTitles200JSONResponse) VisitListWatchTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListWatchTitles401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListWatchTitles401JSONResponse) VisitListWatchTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListWatchTitles404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListWatchTitles404JSONResponse) VisitListWatchTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListWatchTitles503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response ListWatchTitles503JSONResponse) VisitListWatchTitlesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetWatchPosterRequestObject struct {
+	HouseholdId HouseholdId `json:"householdId"`
+	TitleId     MediaId     `json:"titleId"`
+}
+
+type GetWatchPosterResponseObject interface {
+	VisitGetWatchPosterResponse(w http.ResponseWriter) error
+}
+
+type GetWatchPoster200ResponseHeaders struct {
+	CacheControl string
+}
+
+type GetWatchPoster200ImageResponse struct {
+	Body          io.Reader
+	Headers       GetWatchPoster200ResponseHeaders
+	ContentType   string
+	ContentLength int64
+}
+
+func (response GetWatchPoster200ImageResponse) VisitGetWatchPosterResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", response.ContentType)
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.Header().Set("Cache-Control", fmt.Sprint(response.Headers.CacheControl))
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetWatchPoster401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetWatchPoster401JSONResponse) VisitGetWatchPosterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetWatchPoster404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetWatchPoster404JSONResponse) VisitGetWatchPosterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetWatchPoster503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response GetWatchPoster503JSONResponse) VisitGetWatchPosterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type AcceptInviteRequestObject struct {
 	Code string `json:"code"`
 }
@@ -6297,6 +7181,161 @@ func (response GetMe401JSONResponse) VisitGetMeResponse(w http.ResponseWriter) e
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetVoiceRequestObject struct {
+}
+
+type GetVoiceResponseObject interface {
+	VisitGetVoiceResponse(w http.ResponseWriter) error
+}
+
+type GetVoice200JSONResponse VoiceSetup
+
+func (response GetVoice200JSONResponse) VisitGetVoiceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetVoice401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetVoice401JSONResponse) VisitGetVoiceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveVoiceRequestObject struct {
+	Body *SaveVoiceJSONRequestBody
+}
+
+type SaveVoiceResponseObject interface {
+	VisitSaveVoiceResponse(w http.ResponseWriter) error
+}
+
+type SaveVoice200JSONResponse VoiceSettings
+
+func (response SaveVoice200JSONResponse) VisitSaveVoiceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveVoice400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response SaveVoice400JSONResponse) VisitSaveVoiceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveVoice401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response SaveVoice401JSONResponse) VisitSaveVoiceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewVoiceRequestObject struct {
+	Body *PreviewVoiceJSONRequestBody
+}
+
+type PreviewVoiceResponseObject interface {
+	VisitPreviewVoiceResponse(w http.ResponseWriter) error
+}
+
+type PreviewVoice200AudiompegResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response PreviewVoice200AudiompegResponse) VisitPreviewVoiceResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "audio/mpeg")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type PreviewVoice400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response PreviewVoice400JSONResponse) VisitPreviewVoiceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewVoice401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PreviewVoice401JSONResponse) VisitPreviewVoiceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewVoice503JSONResponse struct{ UnavailableJSONResponse }
+
+func (response PreviewVoice503JSONResponse) VisitPreviewVoiceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(503)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -6531,6 +7570,9 @@ type StrictServerInterface interface {
 	// Logout End the session
 	// (POST /auth/logout)
 	Logout(ctx context.Context, request LogoutRequestObject) (LogoutResponseObject, error)
+	// CompleteWatchConnection Where Plex's sign-in comes back to; connects the caller
+	// (GET /auth/plex/callback)
+	CompleteWatchConnection(ctx context.Context, request CompleteWatchConnectionRequestObject) (CompleteWatchConnectionResponseObject, error)
 	// GetHealth Liveness probe
 	// (GET /healthz)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
@@ -6672,6 +7714,21 @@ type StrictServerInterface interface {
 	// TickShoppingItem Tick an item off
 	// (PUT /v1/households/{householdId}/shopping-list/items/{itemId}/done)
 	TickShoppingItem(ctx context.Context, request TickShoppingItemRequestObject) (TickShoppingItemResponseObject, error)
+	// GetWatchShelf The movie and series libraries you can watch in Plex (members only)
+	// (GET /v1/households/{householdId}/watch)
+	GetWatchShelf(ctx context.Context, request GetWatchShelfRequestObject) (GetWatchShelfResponseObject, error)
+	// DisconnectWatch Disconnect your Plex account; Homeloom forgets its token
+	// (DELETE /v1/households/{householdId}/watch/connection)
+	DisconnectWatch(ctx context.Context, request DisconnectWatchRequestObject) (DisconnectWatchResponseObject, error)
+	// ConnectWatch Start connecting your Plex account
+	// (POST /v1/households/{householdId}/watch/connection)
+	ConnectWatch(ctx context.Context, request ConnectWatchRequestObject) (ConnectWatchResponseObject, error)
+	// ListWatchTitles Every movie or series in one of your libraries
+	// (GET /v1/households/{householdId}/watch/libraries/{libraryId}/titles)
+	ListWatchTitles(ctx context.Context, request ListWatchTitlesRequestObject) (ListWatchTitlesResponseObject, error)
+	// GetWatchPoster A title's poster, about 342 by 513 pixels
+	// (GET /v1/households/{householdId}/watch/titles/{titleId}/poster)
+	GetWatchPoster(ctx context.Context, request GetWatchPosterRequestObject) (GetWatchPosterResponseObject, error)
 	// AcceptInvite Join the household an invite belongs to
 	// (POST /v1/invites/{code})
 	AcceptInvite(ctx context.Context, request AcceptInviteRequestObject) (AcceptInviteResponseObject, error)
@@ -6681,6 +7738,15 @@ type StrictServerInterface interface {
 	// GetMe The signed-in user, created on first call
 	// (GET /v1/me)
 	GetMe(ctx context.Context, request GetMeRequestObject) (GetMeResponseObject, error)
+	// GetVoice How Homeloom sounds on the caller's calls with it
+	// (GET /v1/me/voice)
+	GetVoice(ctx context.Context, request GetVoiceRequestObject) (GetVoiceResponseObject, error)
+	// SaveVoice Save how Homeloom sounds on the caller's calls with it
+	// (PUT /v1/me/voice)
+	SaveVoice(ctx context.Context, request SaveVoiceRequestObject) (SaveVoiceResponseObject, error)
+	// PreviewVoice Hear a short sentence spoken with the given settings
+	// (POST /v1/me/voice/preview)
+	PreviewVoice(ctx context.Context, request PreviewVoiceRequestObject) (PreviewVoiceResponseObject, error)
 	// GetPushConfig The VAPID public key to subscribe with
 	// (GET /v1/push)
 	GetPushConfig(ctx context.Context, request GetPushConfigRequestObject) (GetPushConfigResponseObject, error)
@@ -6829,6 +7895,32 @@ func (sh *strictHandler) Logout(w http.ResponseWriter, r *http.Request, params L
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(LogoutResponseObject); ok {
 		if err := validResponse.VisitLogoutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CompleteWatchConnection operation middleware
+func (sh *strictHandler) CompleteWatchConnection(w http.ResponseWriter, r *http.Request, params CompleteWatchConnectionParams) {
+	var request CompleteWatchConnectionRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CompleteWatchConnection(ctx, request.(CompleteWatchConnectionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CompleteWatchConnection")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CompleteWatchConnectionResponseObject); ok {
+		if err := validResponse.VisitCompleteWatchConnectionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -8155,6 +9247,138 @@ func (sh *strictHandler) TickShoppingItem(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// GetWatchShelf operation middleware
+func (sh *strictHandler) GetWatchShelf(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	var request GetWatchShelfRequestObject
+
+	request.HouseholdId = householdId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetWatchShelf(ctx, request.(GetWatchShelfRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetWatchShelf")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetWatchShelfResponseObject); ok {
+		if err := validResponse.VisitGetWatchShelfResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DisconnectWatch operation middleware
+func (sh *strictHandler) DisconnectWatch(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	var request DisconnectWatchRequestObject
+
+	request.HouseholdId = householdId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DisconnectWatch(ctx, request.(DisconnectWatchRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DisconnectWatch")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DisconnectWatchResponseObject); ok {
+		if err := validResponse.VisitDisconnectWatchResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ConnectWatch operation middleware
+func (sh *strictHandler) ConnectWatch(w http.ResponseWriter, r *http.Request, householdId HouseholdId) {
+	var request ConnectWatchRequestObject
+
+	request.HouseholdId = householdId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ConnectWatch(ctx, request.(ConnectWatchRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ConnectWatch")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ConnectWatchResponseObject); ok {
+		if err := validResponse.VisitConnectWatchResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListWatchTitles operation middleware
+func (sh *strictHandler) ListWatchTitles(w http.ResponseWriter, r *http.Request, householdId HouseholdId, libraryId MediaId) {
+	var request ListWatchTitlesRequestObject
+
+	request.HouseholdId = householdId
+	request.LibraryId = libraryId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListWatchTitles(ctx, request.(ListWatchTitlesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListWatchTitles")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListWatchTitlesResponseObject); ok {
+		if err := validResponse.VisitListWatchTitlesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetWatchPoster operation middleware
+func (sh *strictHandler) GetWatchPoster(w http.ResponseWriter, r *http.Request, householdId HouseholdId, titleId MediaId) {
+	var request GetWatchPosterRequestObject
+
+	request.HouseholdId = householdId
+	request.TitleId = titleId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetWatchPoster(ctx, request.(GetWatchPosterRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetWatchPoster")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetWatchPosterResponseObject); ok {
+		if err := validResponse.VisitGetWatchPosterResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // AcceptInvite operation middleware
 func (sh *strictHandler) AcceptInvite(w http.ResponseWriter, r *http.Request, code string) {
 	var request AcceptInviteRequestObject
@@ -8224,6 +9448,92 @@ func (sh *strictHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetMeResponseObject); ok {
 		if err := validResponse.VisitGetMeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetVoice operation middleware
+func (sh *strictHandler) GetVoice(w http.ResponseWriter, r *http.Request) {
+	var request GetVoiceRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetVoice(ctx, request.(GetVoiceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetVoice")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetVoiceResponseObject); ok {
+		if err := validResponse.VisitGetVoiceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SaveVoice operation middleware
+func (sh *strictHandler) SaveVoice(w http.ResponseWriter, r *http.Request) {
+	var request SaveVoiceRequestObject
+
+	var body SaveVoiceJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SaveVoice(ctx, request.(SaveVoiceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SaveVoice")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SaveVoiceResponseObject); ok {
+		if err := validResponse.VisitSaveVoiceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PreviewVoice operation middleware
+func (sh *strictHandler) PreviewVoice(w http.ResponseWriter, r *http.Request) {
+	var request PreviewVoiceRequestObject
+
+	var body PreviewVoiceJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewVoice(ctx, request.(PreviewVoiceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewVoice")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewVoiceResponseObject); ok {
+		if err := validResponse.VisitPreviewVoiceResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -8350,177 +9660,200 @@ func (sh *strictHandler) AnswerQuestion(w http.ResponseWriter, r *http.Request, 
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"/3cA",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

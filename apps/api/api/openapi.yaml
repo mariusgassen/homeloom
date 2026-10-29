@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.15.0
+  version: 0.17.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -29,6 +29,7 @@ tags:
   - name: cook
   - name: shopping
   - name: home
+  - name: watch
   - name: push
   - name: assistant
   - name: calls
@@ -140,6 +141,23 @@ paths:
             Location: { required: true, schema: { type: string } }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /auth/plex/callback:
+    get:
+      tags: [watch]
+      operationId: completeWatchConnection
+      summary: Where Plex's sign-in comes back to; connects the caller
+      description: |
+        Always redirects back to `/watch`. On failure it adds `?watch_error=<code>`, where code is
+        `connect_failed` or `watch_unavailable`.
+      parameters:
+        - { name: state, in: query, schema: { type: string } }
+      responses:
+        "302":
+          description: Back to the app.
+          headers:
+            Location: { required: true, schema: { type: string } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
   /v1/me:
     get:
       tags: [me]
@@ -152,6 +170,62 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/User" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/me/voice:
+    get:
+      tags: [me]
+      operationId: getVoice
+      summary: How Homeloom sounds on the caller's calls with it
+      description: |
+        The caller's voice settings for calls with Homeloom, the defaults until they save their own,
+        and whether Homeloom can speak at all on this server.
+      responses:
+        "200":
+          description: The settings.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VoiceSetup" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    put:
+      tags: [me]
+      operationId: saveVoice
+      summary: Save how Homeloom sounds on the caller's calls with it
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VoiceSettings" }
+      responses:
+        "200":
+          description: The saved settings.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VoiceSettings" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/me/voice/preview:
+    post:
+      tags: [me]
+      operationId: previewVoice
+      summary: Hear a short sentence spoken with the given settings
+      description: |
+        Speaks a short sentence in the request's language, so settings can be tried before they're
+        saved. Answers `503 voice_unavailable` when speech isn't set up.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VoiceSettings" }
+      responses:
+        "200":
+          description: The sentence as MP3.
+          content:
+            audio/mpeg:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/Unavailable" }
 
   /v1/households:
     get:
@@ -720,6 +794,98 @@ paths:
       summary: Disconnect your Home Assistant account and revoke its token
       responses:
         "204": { description: Disconnected. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/watch:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [watch]
+      operationId: getWatchShelf
+      summary: The movie and series libraries you can watch in Plex (members only)
+      description: |
+        Each member connects their own Plex account and sees the libraries on their own servers and
+        on servers friends share with them, with their own watched state. A server that can't be
+        reached is left out. Until the caller has connected, `connected` is false and `libraries`
+        is empty. Read-only: nothing is played or changed.
+      responses:
+        "200":
+          description: The libraries.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatchShelf" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/watch/connection:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [watch]
+      operationId: connectWatch
+      summary: Start connecting your Plex account
+      description: |
+        Returns Plex's sign-in page. Send the browser there (a navigation, not a fetch); once you
+        allow Homeloom it comes back through `/auth/plex/callback`.
+      responses:
+        "200":
+          description: Where to sign in.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConnectURL" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [watch]
+      operationId: disconnectWatch
+      summary: Disconnect your Plex account; Homeloom forgets its token
+      responses:
+        "204": { description: Disconnected. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/watch/libraries/{libraryId}/titles:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - { name: libraryId, in: path, required: true, schema: { $ref: "#/components/schemas/MediaId" } }
+    get:
+      tags: [watch]
+      operationId: listWatchTitles
+      summary: Every movie or series in one of your libraries
+      responses:
+        "200":
+          description: The titles, in the library's order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WatchTitle" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/watch/titles/{titleId}/poster:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - { name: titleId, in: path, required: true, schema: { $ref: "#/components/schemas/MediaId" } }
+    get:
+      tags: [watch]
+      operationId: getWatchPoster
+      summary: A title's poster, about 342 by 513 pixels
+      description: Fetched from Plex through the API, so the Plex token never reaches the client.
+      responses:
+        "200":
+          description: The poster.
+          headers:
+            Cache-Control: { required: true, schema: { type: string } }
+          content:
+            image/*:
+              schema: { type: string, format: binary }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
@@ -1475,6 +1641,57 @@ components:
       properties:
         url: { type: string, description: "Home Assistant's sign-in page." }
 
+    ConnectURL:
+      type: object
+      required: [url]
+      properties:
+        url: { type: string, description: The sign-in page to send the browser to. }
+
+    MediaId:
+      type: string
+      pattern: "^[A-Za-z0-9-]{1,64}\\.[0-9]{1,20}$"
+      description: A library or title id from this API; it names the Plex server and the item there.
+
+    WatchShelf:
+      type: object
+      required: [connected, libraries]
+      properties:
+        connected: { type: boolean, description: Whether you have connected your Plex account. }
+        libraries:
+          type: array
+          description: Your own servers' libraries first, then shared ones, each in Plex's order.
+          items: { $ref: "#/components/schemas/WatchLibrary" }
+
+    WatchLibrary:
+      type: object
+      required: [id, name, kind, server, owned]
+      properties:
+        id: { $ref: "#/components/schemas/MediaId" }
+        name: { type: string }
+        kind: { $ref: "#/components/schemas/MediaKind" }
+        server: { type: string, description: The Plex server's name. }
+        owned: { type: boolean, description: False for a library a friend shares with you. }
+
+    MediaKind:
+      type: string
+      enum: [movie, show]
+
+    WatchTitle:
+      type: object
+      required: [id, kind, name, genres, watched]
+      properties:
+        id: { $ref: "#/components/schemas/MediaId" }
+        kind: { $ref: "#/components/schemas/MediaKind" }
+        name: { type: string }
+        year: { type: integer }
+        summary: { type: string }
+        minutes: { type: integer, description: "A movie's length, or an episode's for a series." }
+        genres: { type: array, items: { type: string } }
+        rating: { type: number, description: Audience or critic rating out of 10. }
+        contentRating: { type: string, description: "Age rating, e.g. de/12 or PG-13." }
+        episodes: { type: integer, description: Episodes of a series. }
+        watched: { type: boolean, description: "You have seen the movie, or every episode." }
+
     Scene:
       type: object
       required: [id, name]
@@ -1511,6 +1728,26 @@ components:
         url: { type: string, description: "The LiveKit server to connect to (wss://)." }
         token: { type: string, description: "LiveKit access token for this person and room." }
         room: { type: string }
+
+    VoiceSetup:
+      type: object
+      required: [available, settings]
+      properties:
+        available: { type: boolean, description: "Whether Homeloom can speak on this server: calls with it and previews." }
+        settings: { $ref: "#/components/schemas/VoiceSettings" }
+
+    VoiceSettings:
+      type: object
+      required: [voice, speed, tone]
+      properties:
+        voice:
+          type: string
+          enum: [marin, cedar, coral, sage, shimmer, nova, alloy, ash, ballad, echo, fable, onyx, verse]
+        speed: { type: number, format: double, minimum: 0.75, maximum: 1.5, description: "1 is the voice's natural pace." }
+        tone:
+          type: string
+          enum: [warm, calm, playful, clear]
+          description: How Homeloom speaks, turned into instructions for the speech model.
 
     GuestLink:
       type: object

@@ -23,6 +23,8 @@
   "error.not_yours": "Nur wer das geschrieben hat, kann es ändern.",
   "error.push_unavailable": "Mitteilungen sind auf diesem Server nicht eingerichtet.",
   "error.unauthenticated": "Bitte melde dich erneut an.",
+  "error.voice_unavailable": "Homeloom kann gerade nicht sprechen.",
+  "error.watch_unavailable": "Filme und Serien sind gerade nicht erreichbar. Ist Plex verbunden und dein Server online?",
   "push.call.body": "Tippe, um ranzugehen.",
   "push.call.title": "{name} ruft an",
   "push.event.body": "Beginnt um {time}.",
@@ -35,5 +37,6 @@
   "push.reminder.title": "Erinnerung",
   "push.revealed.body": "Eure Antworten auf „{question}“ sind jetzt offen.",
   "push.revealed.title": "{name} hat auch geantwortet",
-  "shopping.list": "Einkaufsliste"
+  "shopping.list": "Einkaufsliste",
+  "voice.preview": "Hi, ich bin Homeloom. So klinge ich, wenn wir reden."
 }

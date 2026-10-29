@@ -58,6 +58,20 @@ h1, h2, h3, p { margin: 0; }
 .scene:disabled { cursor: default; }
 .scene .caption { color: var(--ink-muted); }
 .home-disconnect { align-self: flex-start; }
+.watch-libraries { display: flex; gap: var(--space-2); overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--space-4)); padding: 0 var(--space-4); }
+.watch-libraries::-webkit-scrollbar { display: none; }
+.watch-library { flex: none; text-transform: none; letter-spacing: 0; font-size: 13px; border-radius: var(--radius-pill); }
+.watch-library[aria-selected="true"], .watch-filter[aria-pressed="true"] { background: var(--spruce-tint); color: var(--spruce); }
+.watch-bar { display: flex; align-items: center; gap: var(--space-2); }
+.watch-bar .caption { flex-grow: 1; }
+.watch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: var(--space-4) var(--space-3); }
+.watch-title { display: flex; flex-direction: column; gap: 2px; padding: 0; border: 0; background: none; color: var(--ink); text-align: left; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; min-width: 0; }
+.watch-title:active { transform: scale(.98); }
+.watch-name { font: 600 13px/17px var(--font-text); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin-top: var(--space-1); }
+.watch-poster { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: var(--radius-sm); background: var(--surface-sunken); display: block; }
+.watch-poster-none { display: flex; align-items: center; justify-content: center; color: var(--ink-muted); font: 600 28px/1 var(--font-display); }
+.watch-detail { display: grid; grid-template-columns: 112px 1fr; gap: var(--space-4); align-items: start; }
+.watch-facts { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); }
 .room { background: var(--surface-raised); border-radius: var(--radius-lg); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
 .room-header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
 .room-readings { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
@@ -230,3 +244,26 @@ h1, h2, h3, p { margin: 0; }
 @keyframes hl-fade { from { opacity: 0; } }
 @keyframes hl-slide-up { from { transform: translateY(100%); } }
 @keyframes hl-pop { 40% { transform: scale(1.15); } }
+
+/* Homeloom on a call: the mark in a deep orb whose halo follows the voice it hears or speaks (--level,
+   0 to 1). The disc and threads keep the same colours in both themes, so the threads stay legible. */
+.orb-wrap { display: flex; flex-direction: column; align-items: center; gap: var(--space-4); }
+.orb { --level: 0; --glow: #7cc3b8; position: relative; width: 168px; height: 168px; display: grid; place-items: center; }
+.orb-halo { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--glow) 55%, transparent) 40%, transparent 70%); opacity: calc(.45 + var(--level) * .55); transform: scale(calc(1 + var(--level) * .35)); will-change: transform, opacity; }
+.orb-disc { position: relative; width: 128px; height: 128px; display: grid; place-items: center; border-radius: 50%; background: #10231f; box-shadow: 0 0 0 3px color-mix(in srgb, var(--glow) 70%, transparent), 0 12px 32px rgba(0, 0, 0, .35); transform: scale(calc(1 + var(--level) * .06)); }
+.orb .hl-mark-a { stroke: #f0b93d; }
+.orb .hl-mark-b { stroke: #e5809f; }
+.orb-initializing { --glow: #9fb3ae; }
+.orb-initializing .orb-disc { opacity: .75; }
+.orb-thinking { --glow: #f0b93d; }
+.orb-speaking { --glow: #e5809f; }
+.orb-state { margin: 0; padding: 2px var(--space-3); border-radius: var(--radius-pill); background: rgba(0, 0, 0, .45); color: #ffffff; }
+@media (prefers-reduced-motion: no-preference) {
+  .orb-halo, .orb-disc { transition: background .4s ease, box-shadow .4s ease; }
+  .orb-thinking .orb-halo { animation: hl-breathe 1.6s ease-in-out infinite; }
+}
+
+/* Homeloom's voice in Settings. */
+.voice { display: flex; flex-direction: column; gap: var(--space-4); }
+.voice-speed { width: 100%; min-height: var(--hit-min); margin: 0; accent-color: var(--spruce); }
+.voice-speed-ends { display: flex; justify-content: space-between; color: var(--ink-muted); }

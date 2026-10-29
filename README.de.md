@@ -22,6 +22,7 @@ cp .env.example .env   # POSTGRES_PASSWORD, PUBLIC_URL=http://localhost:3000, di
                        # optional: MEALIE_MCP_URL + MEALIE_MCP_TOKEN zum Kochen, ANTHROPIC_API_KEY für Claude und den Assistenten
                        # optional: OPENAI_API_KEY (mit ANTHROPIC_API_KEY), um im Anruf mit Homeloom zu sprechen
                        # optional: HOME_ASSISTANT_URL + HOMELOOM_SECRET_KEY für Szenen und Licht
+                       # optional: HOMELOOM_SECRET_KEY allein, damit ihr euch für Filme und Serien bei Plex anmelden könnt
                        # optional: VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY für Mitteilungen (siehe .env.example)
                        # optional: TIME_ZONE für Erinnerungen und Kalender (Standard: Europe/Berlin)
                        # optional: OIDC_CLIENT_IDS, damit ein MCP-Client wie Claude PUBLIC_URL/mcp nutzen kann
@@ -36,6 +37,10 @@ Termine und Erinnerungen aus Homeloom gleichen sich über CalDAV in beide Richtu
 ## Notizen in anderen Apps
 
 Die Notizen aus Homeloom gibt es auch als Markdown-Dateien über WebDAV. So kann eine Notizen-App oder ein Dateimanager, der einen WebDAV-Ordner synchronisiert, sie lesen und ändern (Apple Notizen kann das nicht). Erstelle unter Einstellungen › Andere Apps › Notizen ein Passwort und füg in der App einen WebDAV-Account mit der angezeigten Adresse, einem beliebigen Benutzernamen und dem Passwort hinzu. Du bekommst einen Ordner „Shared“ und einen Ordner „Private“ nur für dich; Notizen für später bleiben draußen. Verschiebst du eine Datei in den anderen Ordner, teilst du sie oder machst sie privat.
+
+## Filme und Serien
+
+Unter Wir › Filme & Serien meldet ihr euch jeweils mit eurem eigenen Plex-Konto an. Homeloom zeigt dann die Film- und Serien-Mediatheken auf euren eigenen Servern und auf Servern, die Freunde mit euch teilen, mit dem, was ihr noch nicht gesehen habt, und einem Zufallsvorschlag. Homeloom liest nur: Nichts wird abgespielt oder geändert, und das Plex-Token bleibt verschlüsselt mit `HOMELOOM_SECRET_KEY` auf dem Server. Die API muss deinen Plex-Server erreichen können (im selben Netz oder über Plex' Fernzugriff).
 
 ## Roadmap
 
@@ -58,7 +63,14 @@ Homeloom wächst mit eurem gemeinsamen Alltag. Die Funktionen sind danach sortie
 
 **Ausgehen und Daheimbleiben**
 - **Date-Night-Ideen:** Vorschläge nach Wetter, Veranstaltungen in der Nähe, Budget und Laune.
-- **Film- und Spieleabend:** ihr wischt beide, die Schnittmenge gewinnt, der Raum stellt sich passend ein.
+- **Film- und Spieleabend:** ihr wischt beide durch eure Plex-Mediatheken, die Schnittmenge gewinnt, der Raum stellt sich passend ein.
+
+**Verbundene Apps**
+- **Plex:** eure eigenen und geteilten Film- und Serien-Mediatheken (begonnen, siehe oben).
+- **Fotos:** Fotos vom iPhone zu Momenten und Gerichten hinzufügen, auch übers Teilen-Menü mit einem Kurzbefehl. iCloud hat keine API; öffentliche geteilte Alben ließen sich lesen, aber nur, wenn sie öffentlich sind.
+- **Gemeinsam lesen:** was ihr gerade lest und wie weit, aus einem selbst gehosteten BookOrbit.
+- **Gemeinsame Ausgaben:** Salden und letzte Ausgaben aus Tricount, nur lesend. Tricount hat keine offizielle API, das kann also kaputtgehen.
+- **Ausgehende Hooks und App-Tokens:** andere Apps reagieren auf Homeloom (Film gewählt, Buch fertig) und schicken mit einem Token, das nur genau das darf, etwas herein.
 
 ### Später
 

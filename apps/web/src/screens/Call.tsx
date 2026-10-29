@@ -4,6 +4,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { api } from "../api/client";
+import { AssistantOrb } from "./AssistantOrb";
 import { useCall, type CallState } from "../call";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
@@ -337,7 +338,7 @@ function Tile({
       {video?.videoTrack && !video.isMuted ? (
         <Media track={video.videoTrack} className="call-tile-video" />
       ) : (
-        <ThreadAvatar name={name} src={person?.avatarUrl} thread={person?.thread} size={small ? undefined : "lg"} />
+        participant.isAgent ? <AssistantOrb participant={participant} /> : <ThreadAvatar name={name} src={person?.avatarUrl} thread={person?.thread} size={small ? undefined : "lg"} />
       )}
       {!self && !small && (
         <span className="caption call-tile-name">
