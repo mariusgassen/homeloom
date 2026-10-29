@@ -1,5 +1,5 @@
 import { RoomEvent, Track, type LocalVideoTrack, type Participant, type Room } from "livekit-client";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type PointerEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FormEvent, type PointerEvent, type ReactNode, type RefObject } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams, useSearchParams } from "react-router";
@@ -206,6 +206,8 @@ function CallStage({ room }: { room: Room }) {
   const [facing, setFacing] = useState<Facing>("user");
   const cameras = useCameraCount(room.localParticipant.isCameraEnabled);
   const reactions = useReactions(room);
+  const view = useRef<HTMLDivElement>(null);
+  const photos = usePhotos(room, view, t);
   const others = [...room.remoteParticipants.values()];
   const me = room.localParticipant;
   const localVideo = me.getTrackPublication(Track.Source.Camera);
@@ -264,7 +266,7 @@ function CallStage({ room }: { room: Room }) {
   const grid = swap ? [me] : others;
   const spotlight = others.length > 1 && others.some((p) => p.identity === pinned) ? pinned : undefined;
   return (
-    <div className={cx("call", others.length > 0 && "call-live")}>
+    <div ref={view} className={cx("call", others.length > 0 && "call-live")}>
       {/* Everyone's audio plays apart from their pictures, so moving a picture doesn't cut it. */}
       {others.map((p) => {
         const audio = p.getTrackPublication(Track.Source.Microphone)?.audioTrack;
@@ -294,6 +296,11 @@ function CallStage({ room }: { room: Room }) {
         {waitingFor && <ThreadAvatar name={waitingFor.name} src={waitingFor.avatarUrl} thread={waitingFor.thread} size="lg" />}
         <h1 className="title">{names.join(", ")}</h1>
         <Status state={state} since={since} />
+        {photos.notice && (
+          <p className="callout call-status" role="status">
+            {photos.notice}
+          </p>
+        )}
         {!room.canPlaybackAudio && <HearButton room={room} />}
       </div>
       <div className="call-reactions" aria-hidden="true">
@@ -329,7 +336,16 @@ function CallStage({ room }: { room: Room }) {
               {e}
             </button>
           ))}
+          <button type="button" className="call-tray-emoji call-tray-shutter" aria-label={t("call.photo.take")} onClick={() => void photos.take()}>
+            <Icon name="camera" />
+          </button>
         </div>
+      )}
+      {photos.flash > 0 && <div key={photos.flash} className="call-flash" aria-hidden="true" />}
+      {photos.taken && (
+        <button type="button" className="call-photo" aria-label={t("call.photo.save")} onClick={() => void photos.save()}>
+          <img src={photos.taken.url} alt="" />
+        </button>
       )}
       <Controls
         room={room}
@@ -500,7 +516,7 @@ function useCameraCount(on: boolean): number {
 }
 
 // The reactions anyone can send; others are ignored, so a guest can't put arbitrary text on screen.
-const reactionEmoji = ["❤️", "😂", "😮", "👏", "🎉", "👍"];
+const reactionEmoji = ["❤️", "😂", "😮", "👏", "🎉"];
 const reactionTopic = "reaction";
 // How long a reaction floats; matches call-rise in app.css.
 const reactionFor = 2_600;
@@ -530,6 +546,101 @@ function useReactions(room: Room) {
     void room.localParticipant.publishData(new TextEncoder().encode(emoji), { reliable: true, topic: reactionTopic }).catch(() => undefined);
   };
   return { shown, send };
+}
+
+const photoTopic = "photo";
+// How long a photo's thumbnail stays to be saved, and the others' notice that it was taken.
+const photoFor = 8_000;
+const noticeFor = 3_000;
+
+// Photos of the call as it's shown. Taking one tells the others, as FaceTime does. The thumbnail
+// saves it on a second tap, because iOS only opens the share sheet straight from a tap.
+function usePhotos(room: Room, view: RefObject<HTMLDivElement | null>, t: TFunction) {
+  const [taken, setTaken] = useState<{ url: string; file: File }>();
+  const [flash, setFlash] = useState(0);
+  const [notice, setNotice] = useState<string>();
+  useEffect(() => {
+    if (!taken) return;
+    const id = setTimeout(() => setTaken(undefined), photoFor);
+    return () => {
+      clearTimeout(id);
+      URL.revokeObjectURL(taken.url);
+    };
+  }, [taken]);
+  useEffect(() => {
+    let id: ReturnType<typeof setTimeout>;
+    const received = (_payload: Uint8Array, from?: Participant, _kind?: unknown, topic?: string) => {
+      if (topic !== photoTopic || !from) return;
+      setNotice(t("call.photo.taken", { name: nameOf(from, t) }));
+      clearTimeout(id);
+      id = setTimeout(() => setNotice(undefined), noticeFor);
+    };
+    room.on(RoomEvent.DataReceived, received);
+    return () => {
+      clearTimeout(id);
+      room.off(RoomEvent.DataReceived, received);
+    };
+  }, [room, t]);
+  const take = async () => {
+    if (!view.current) return;
+    setFlash((n) => n + 1);
+    const blob = await snapshot(view.current);
+    if (!blob) return;
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[T:]/g, "-");
+    setTaken({ url: URL.createObjectURL(blob), file: new File([blob], `homeloom-${stamp}.jpg`, { type: "image/jpeg" }) });
+    void room.localParticipant.publishData(new Uint8Array(), { reliable: true, topic: photoTopic }).catch(() => undefined);
+  };
+  const save = async () => {
+    if (!taken) return;
+    if (navigator.canShare?.({ files: [taken.file] })) {
+      await navigator.share({ files: [taken.file] }).catch(() => undefined);
+    } else {
+      const a = document.createElement("a");
+      a.href = taken.url;
+      a.download = taken.file.name;
+      a.click();
+    }
+    setTaken(undefined);
+  };
+  return { taken, flash, notice, take, save };
+}
+
+// snapshot draws the call's pictures into one image, where and as they're shown: cropped like
+// object-fit: cover, your own mirrored, the floating one with its rounded corners.
+async function snapshot(view: HTMLElement): Promise<Blob | null> {
+  const box = view.getBoundingClientRect();
+  const scale = Math.min(window.devicePixelRatio || 1, 2);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(box.width * scale);
+  canvas.height = Math.round(box.height * scale);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.scale(scale, scale);
+  ctx.fillStyle = getComputedStyle(view).backgroundColor;
+  ctx.fillRect(0, 0, box.width, box.height);
+  for (const video of view.querySelectorAll("video")) {
+    const { videoWidth: vw, videoHeight: vh } = video;
+    if (!vw || !vh) continue;
+    const r = video.getBoundingClientRect();
+    const x = r.left - box.left;
+    const y = r.top - box.top;
+    const fit = Math.max(r.width / vw, r.height / vh);
+    const sw = r.width / fit;
+    const sh = r.height / fit;
+    ctx.save();
+    if (video.closest(".call-float")) {
+      ctx.beginPath();
+      ctx.roundRect(x, y, r.width, r.height, 12);
+      ctx.clip();
+    }
+    if (video.closest(".call-mirror")) {
+      ctx.translate(2 * x + r.width, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(video, (vw - sw) / 2, (vh - sh) / 2, sw, sh, x, y, r.width, r.height);
+    ctx.restore();
+  }
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
 }
 
 // Adds people during a call: members are rung, anyone else gets a guest link.

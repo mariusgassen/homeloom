@@ -672,6 +672,11 @@ test("reactions float up for everyone, and only known ones show", async () => {
   act(() => room.emit("dataReceived", new TextEncoder().encode("hello"), undefined, undefined, "reaction"));
   expect(screen.getByText("❤️", { selector: ".call-reaction" })).toBeInTheDocument();
   expect(screen.queryByText("hello")).not.toBeInTheDocument();
+
+  // Someone taking a photo says so.
+  expect(screen.getByRole("button", { name: "Take a photo" })).toBeInTheDocument();
+  act(() => room.emit("dataReceived", new Uint8Array(), { identity: jo.id, name: "Jo", isAgent: false }, undefined, "photo"));
+  expect(screen.getByText("Jo took a photo")).toBeInTheDocument();
 });
 
 test("a call notification asks before answering", async () => {
