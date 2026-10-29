@@ -9,7 +9,6 @@ import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Empty } from "../ui/Empty";
 import { Icon } from "../ui/Icon";
-import { ListRow } from "../ui/ListRow";
 import { CallButton } from "./Call";
 import { EntrySheet } from "./EntrySheet";
 import { useWhen } from "./Lists";
@@ -67,6 +66,7 @@ export function Today() {
       <NextUp key={generation} household={household} />
       <TodayQuestion household={household} me={me} />
       <Dinner />
+      <Watch />
       <TodayMoment household={household} me={me} />
       {adding && (
         <EntrySheet
@@ -180,6 +180,24 @@ function Dinner() {
   );
 }
 
+// A film or a show for tonight, one tap from the libraries and a surprise pick.
+function Watch() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  return (
+    <button type="button" className="today-tile today-watch" onClick={() => navigate("/watch")}>
+      <span className="today-tile-icon">
+        <Icon name="film" />
+      </span>
+      <span className="today-tile-text">
+        <span className="label">{t("today.watch.eyebrow")}</span>
+        <span className="headline">{t("today.watch.title")}</span>
+      </span>
+      <Icon name="chevron" size="sm" />
+    </button>
+  );
+}
+
 // Something shared from your story: this day in an earlier year, a thank-you from a while ago,
 // or else a nudge to write today's.
 function TodayMoment({ household, me }: { household: HouseholdDetail; me: User }) {
@@ -272,7 +290,6 @@ export function Us() {
           </button>
         ))}
       </div>
-      <ListRow leading={<Icon name="sparkle" />} title={t("watch.title")} subtitle={t("watch.teaser")} onClick={() => navigate("/watch")} />
       {tab === "moments" ? (
         <Timeline key={generation} household={household} me={me} month={params.get("month") ?? undefined} onOpen={setSheet} />
       ) : (

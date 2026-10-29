@@ -83,6 +83,7 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 
 - One shared list per household (`shopping_items`), in the Lists tab. Every member sees, adds, ticks off and removes the same items; ticked items stay until someone clears them. Mealie's shopping lists are not used.
 - The service checks membership, and every query is scoped to the household, so an item id from another household is `404`.
+- **Aisles:** each item sits in an aisle (produce, bakery, meat, dairy, frozen, pantry, drinks, household, other) and the list shows them in that order. A new item goes where the household put the same text before (`shopping_aisles`, by lower-cased text, outliving the items), else where Claude says (`adapter/claude`, port `Grocer`, one call per addition for all unknown items, bounded to 8 s), else `other`. Moving an item (`PATCH …/items/{id}`) also updates that memory, so a correction sticks.
 
 ## Smart home
 
@@ -104,7 +105,7 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 apps/web/
   src/api/            typed client; schema.gen.ts is generated from the OpenAPI contract
   src/ui/, styles/    the design system's tokens and components, ported to React
-  src/screens/        one file per screen; tabs: Today, Cook, Us, Lists, Home
+  src/screens/        one file per screen; tabs: Today, Us, Lists, Home; dinner and movies open from Today
   src/i18n/           German and English copy
   Caddyfile           static files plus the reverse proxy to the API
 ```

@@ -70,11 +70,11 @@ export function Watch() {
   }
 
   const back = (
-    <Button variant="plain" size="sm" className="back" onClick={() => navigate("/us")}>
+    <Button variant="plain" size="sm" className="back" onClick={() => navigate("/")}>
       <span className="back-icon">
         <Icon name="chevron" size="sm" />
       </span>
-      {t("tabs.us")}
+      {t("tabs.today")}
     </Button>
   );
 

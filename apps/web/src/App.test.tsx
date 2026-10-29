@@ -153,7 +153,7 @@ test("signed in with a household shows the tabs and both people", async () => {
   renderApp();
   expect(await screen.findByRole("heading", { level: 1, name: "Today" })).toBeInTheDocument();
   const nav = screen.getByRole("navigation", { name: "Main" });
-  expect(nav).toHaveTextContent("TodayCookUsListsHome");
+  expect(nav).toHaveTextContent("TodayUsListsHome");
   expect(screen.getByRole("link", { name: "Today" })).toHaveAttribute("aria-current", "page");
   expect(screen.getByRole("img", { name: "Jo" })).toHaveClass("hl-avatar-berry");
 });
@@ -560,8 +560,8 @@ test("pulling down from the top loads the list again", async () => {
 
 test("the shopping list adds, ticks and clears items", async () => {
   const list = `/v1/households/${home.id}/shopping-list`;
-  const milk = { id: "44444444-4444-4444-8444-444444444444", text: "Milk", done: false, createdAt: "2026-10-28T08:00:00Z" };
-  const lime = { id: "55555555-5555-4555-8555-555555555555", text: "Lime", recipe: "Green curry", done: true, createdAt: "2026-10-28T08:00:00Z" };
+  const milk = { id: "44444444-4444-4444-8444-444444444444", text: "Milk", aisle: "dairy", done: false, createdAt: "2026-10-28T08:00:00Z" };
+  const lime = { id: "55555555-5555-4555-8555-555555555555", text: "Lime", aisle: "produce", recipe: "Green curry", done: true, createdAt: "2026-10-28T08:00:00Z" };
   const calls = serve(
     ...signedIn(),
     at("GET", list, () => json([milk, lime])),
@@ -569,9 +569,14 @@ test("the shopping list adds, ticks and clears items", async () => {
     at("POST", `${list}/items`, () => json({ ...milk, text: "Bread" }, 201)),
     at("PUT", `${list}/items/${milk.id}/done`, () => json({ ...milk, done: true })),
     at("DELETE", `${list}/done`, () => new Response(null, { status: 204 })),
+    at("PATCH", `${list}/items/${milk.id}`, () => json({ ...milk, aisle: "drinks" })),
   );
   renderApp("/lists?show=shopping");
   expect(await screen.findByText("Milk")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Dairy & eggs" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /^Milk/ }));
+  await userEvent.click(screen.getByRole("button", { name: "Drinks" }));
+  await waitFor(() => expect(calls.find((c) => c.method === "PATCH")?.json()).resolves.toEqual({ aisle: "drinks" }));
   expect(screen.queryByRole("button", { name: "Add" })).toBeInTheDocument();
   expect(calls.some((c) => c.url.includes("/entries"))).toBe(false);
 

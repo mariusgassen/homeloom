@@ -1,6 +1,6 @@
 {
   "app": { "tagline": "Essen, Momente und euer Zuhause, gemeinsam." },
-  "tabs": { "label": "Hauptmenü", "today": "Heute", "cook": "Kochen", "us": "Wir", "lists": "Listen", "home": "Zuhause" },
+  "tabs": { "label": "Hauptmenü", "today": "Heute", "us": "Wir", "lists": "Listen", "home": "Zuhause" },
   "auth": {
     "signIn": "Anmelden",
     "signOut": "Abmelden",
@@ -30,9 +30,11 @@
     "hello": { "morning": "Guten Morgen, {{name}}", "afternoon": "Hallo, {{name}}", "evening": "Guten Abend, {{name}}", "night": "Noch wach, {{name}}?", "together": "Du und {{name}}" },
     "next": { "eyebrow": "Als Nächstes", "clear": "Heute steht nichts an. Zeit für euch.", "more_one": "Noch {{count}} heute", "more_other": "Noch {{count}} heute" },
     "dinner": { "eyebrow": "Heute Abend", "title": "Worauf habt ihr Lust?" },
+    "watch": { "eyebrow": "Heute schauen", "title": "Lust auf einen Film?" },
     "thanks": "Was hat dich heute zum Lächeln gebracht?"
   },
   "cook": {
+    "title": "Abendessen",
     "question": "Worauf habt ihr heute Lust?",
     "moodLabel": "Stimmung",
     "mood": { "cozy": "Gemütlich", "light": "Leicht", "spicy": "Würzig", "comfort": "Soulfood", "new": "Mal was Neues" },
@@ -179,7 +181,7 @@
     "failed": "Das hat nicht geklappt. Versuch es bitte noch mal.",
     "reading": { "window": "Fenster offen", "door": "Tür offen", "garage_door": "Garage offen", "motion": "Bewegung", "moisture": "Wasser", "smoke": "Rauch" }
   },
-  "watch": {"title": "Filme & Serien", "teaser": "Sucht euch was zum Schauen aus", "libraries": "Mediatheken", "offTitle": "Filme und Serien sind nicht verfügbar", "connectTitle": "Verbinde deine Filme und Serien", "connectBody": "Melde dich mit deinem eigenen Konto an. Deine Mediatheken und die mit dir geteilten erscheinen hier.", "connect": "Verbinden", "disconnect": "Filme und Serien trennen", "emptyTitle": "Noch keine Mediatheken", "emptyBody": "Film- und Serien-Mediatheken, die du schauen kannst, erscheinen hier.", "unseen": "Noch nicht gesehen", "count_one": "{{count}} Titel", "count_other": "{{count}} Titel", "surprise": "Überrasch uns", "another": "Was anderes", "allSeen": "Hier hast du schon alles gesehen", "seen": "Gesehen", "episodes_one": "{{count}} Folge", "episodes_other": "{{count}} Folgen", "minutes_one": "{{count}} Min.", "minutes_other": "{{count}} Min.", "failed": "Das hat nicht geklappt. Versuch es bitte nochmal.", "error": {"connect_failed": "Verbinden hat nicht geklappt. Versuch es bitte nochmal.", "watch_unavailable": "Deine Filme sind gerade nicht erreichbar. Versuch es später nochmal."}},
+  "watch": {"title": "Filme & Serien", "libraries": "Mediatheken", "offTitle": "Filme und Serien sind nicht verfügbar", "connectTitle": "Verbinde deine Filme und Serien", "connectBody": "Melde dich mit deinem eigenen Konto an. Deine Mediatheken und die mit dir geteilten erscheinen hier.", "connect": "Verbinden", "disconnect": "Filme und Serien trennen", "emptyTitle": "Noch keine Mediatheken", "emptyBody": "Film- und Serien-Mediatheken, die du schauen kannst, erscheinen hier.", "unseen": "Noch nicht gesehen", "count_one": "{{count}} Titel", "count_other": "{{count}} Titel", "surprise": "Überrasch uns", "another": "Was anderes", "allSeen": "Hier hast du schon alles gesehen", "seen": "Gesehen", "episodes_one": "{{count}} Folge", "episodes_other": "{{count}} Folgen", "minutes_one": "{{count}} Min.", "minutes_other": "{{count}} Min.", "failed": "Das hat nicht geklappt. Versuch es bitte nochmal.", "error": {"connect_failed": "Verbinden hat nicht geklappt. Versuch es bitte nochmal.", "watch_unavailable": "Deine Filme sind gerade nicht erreichbar. Versuch es später nochmal."}},
   "questions": {
     "ask": "Stell eine Frage",
     "askPlaceholder": "Was möchtest du wissen?",
@@ -207,7 +209,7 @@
       "Welcher Song gehört auf unsere gemeinsame Playlist?"
     ]
   },
-  "shopping": { "tab": "Einkauf", "placeholder": "Was fehlt?", "add": "Hinzufügen", "remove": "{{item}} entfernen", "clear": "Leeren", "emptyTitle": "Nichts zu kaufen", "emptyBody": "Schreib auf, was fehlt.", "open": "Zur Liste" },
+  "shopping": { "tab": "Einkauf", "placeholder": "Was fehlt?", "add": "Hinzufügen", "remove": "{{item}} entfernen", "clear": "Leeren", "emptyTitle": "Nichts zu kaufen", "emptyBody": "Schreib auf, was fehlt.", "moveTo": "Verschieben nach", "aisle": { "produce": "Obst & Gemüse", "bakery": "Brot & Backwaren", "meat": "Fleisch & Fisch", "dairy": "Milch & Eier", "frozen": "Tiefkühl", "pantry": "Vorrat", "drinks": "Getränke", "household": "Haushalt", "other": "Sonstiges" }, "open": "Zur Liste" },
   "invite": {
     "create": "Jemanden einladen",
     "body": "Schick diesen Link an deinen Schatz. Er gilt einmal und bis {{date}}.",

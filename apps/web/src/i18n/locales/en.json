@@ -1,6 +1,6 @@
 {
   "app": { "tagline": "Meals, moments and your home, together." },
-  "tabs": { "label": "Main", "today": "Today", "cook": "Cook", "us": "Us", "lists": "Lists", "home": "Home" },
+  "tabs": { "label": "Main", "today": "Today", "us": "Us", "lists": "Lists", "home": "Home" },
   "auth": {
     "signIn": "Sign in",
     "signOut": "Sign out",
@@ -30,9 +30,11 @@
     "hello": { "morning": "Good morning, {{name}}", "afternoon": "Good afternoon, {{name}}", "evening": "Good evening, {{name}}", "night": "Still up, {{name}}?", "together": "You and {{name}}" },
     "next": { "eyebrow": "Next up", "clear": "Nothing planned today. Time for each other.", "more_one": "{{count}} more today", "more_other": "{{count}} more today" },
     "dinner": { "eyebrow": "Dinner tonight", "title": "What do you feel like?" },
+    "watch": { "eyebrow": "Watch tonight", "title": "Something to watch?" },
     "thanks": "What made you smile today?"
   },
   "cook": {
+    "title": "Dinner",
     "question": "What do you feel like tonight?",
     "moodLabel": "Mood",
     "mood": { "cozy": "Cozy", "light": "Light", "spicy": "Spicy", "comfort": "Comfort", "new": "Something new" },
@@ -179,7 +181,7 @@
     "failed": "That didn't work. Please try again.",
     "reading": { "window": "Window open", "door": "Door open", "garage_door": "Garage open", "motion": "Motion", "moisture": "Water", "smoke": "Smoke" }
   },
-  "watch": {"title": "Movies & shows", "teaser": "Pick something to watch together", "libraries": "Libraries", "offTitle": "Movies and shows aren't available", "connectTitle": "Connect your movies and shows", "connectBody": "Sign in with your own account. Your libraries and the ones shared with you show up here.", "connect": "Connect", "disconnect": "Disconnect movies and shows", "emptyTitle": "No libraries yet", "emptyBody": "Movie and series libraries you can watch show up here.", "unseen": "Not seen yet", "count_one": "{{count}} title", "count_other": "{{count}} titles", "surprise": "Surprise us", "another": "Something else", "allSeen": "You've seen everything here", "seen": "Seen", "episodes_one": "{{count}} episode", "episodes_other": "{{count}} episodes", "minutes_one": "{{count}} min", "minutes_other": "{{count}} min", "failed": "That didn't work. Please try again.", "error": {"connect_failed": "Connecting didn't work. Please try again.", "watch_unavailable": "Your movies aren't reachable right now. Please try again later."}},
+  "watch": {"title": "Movies & shows", "libraries": "Libraries", "offTitle": "Movies and shows aren't available", "connectTitle": "Connect your movies and shows", "connectBody": "Sign in with your own account. Your libraries and the ones shared with you show up here.", "connect": "Connect", "disconnect": "Disconnect movies and shows", "emptyTitle": "No libraries yet", "emptyBody": "Movie and series libraries you can watch show up here.", "unseen": "Not seen yet", "count_one": "{{count}} title", "count_other": "{{count}} titles", "surprise": "Surprise us", "another": "Something else", "allSeen": "You've seen everything here", "seen": "Seen", "episodes_one": "{{count}} episode", "episodes_other": "{{count}} episodes", "minutes_one": "{{count}} min", "minutes_other": "{{count}} min", "failed": "That didn't work. Please try again.", "error": {"connect_failed": "Connecting didn't work. Please try again.", "watch_unavailable": "Your movies aren't reachable right now. Please try again later."}},
   "questions": {
     "ask": "Ask a question",
     "askPlaceholder": "What would you like to know?",
@@ -207,7 +209,7 @@
       "Which song should be on our shared playlist?"
     ]
   },
-  "shopping": { "tab": "Shopping", "placeholder": "Add an item", "add": "Add", "remove": "Remove {{item}}", "clear": "Clear", "emptyTitle": "Nothing to buy", "emptyBody": "Add what you need.", "open": "Open list" },
+  "shopping": { "tab": "Shopping", "placeholder": "Add an item", "add": "Add", "remove": "Remove {{item}}", "clear": "Clear", "emptyTitle": "Nothing to buy", "emptyBody": "Add what you need.", "moveTo": "Move to", "aisle": { "produce": "Fruit & veg", "bakery": "Bakery", "meat": "Meat & fish", "dairy": "Dairy & eggs", "frozen": "Frozen", "pantry": "Pantry", "drinks": "Drinks", "household": "Household", "other": "Other" }, "open": "Open list" },
   "invite": {
     "create": "Invite someone",
     "body": "Send this link to your partner. It works once and until {{date}}.",

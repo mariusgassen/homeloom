@@ -39,6 +39,7 @@ function useHouseholdId() {
 
 export function Cook() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const householdId = useHouseholdId();
   const [picked, setPicked] = useState<string[]>([]);
   const [time, setTime] = useState<string | null>(null);
@@ -75,7 +76,18 @@ export function Cook() {
   const toggle = (m: string) => setPicked((p) => (p.includes(m) ? p.filter((x) => x !== m) : [...p, m]));
 
   return (
-    <Screen title={t("tabs.cook")} refreshable={false}>
+    <Screen
+      title={t("cook.title")}
+      refreshable={false}
+      back={
+        <Button variant="plain" size="sm" className="back" onClick={() => navigate("/")}>
+          <span className="back-icon">
+            <Icon name="chevron" size="sm" />
+          </span>
+          {t("tabs.today")}
+        </Button>
+      }
+    >
       <form className="cook-form" onSubmit={submit}>
         <h2 className="title">{t("cook.question")}</h2>
         <div className="cook-group" role="group" aria-label={t("cook.moodLabel")}>
@@ -187,7 +199,7 @@ export function RecipeScreen() {
           <span className="back-icon">
             <Icon name="chevron" size="sm" />
           </span>
-          {t("tabs.cook")}
+          {t("cook.title")}
         </Button>
       }
     >
