@@ -179,6 +179,51 @@ func TestLetterStaysSealedUntilItOpens(t *testing.T) {
 	}
 }
 
+func TestPhotosInAStore(t *testing.T) {
+	ctx := context.Background()
+	f := newMomentFixture(t)
+	jpeg := domain.Photo{ContentType: "image/jpeg", Data: []byte{0xFF, 0xD8, 0xFF, 1}}
+	// A photo from before the store was set up stays in the repository and is still served.
+	old := f.create(t, f.alice, domain.KindMoment, domain.MomentFields{Text: "Before", Visibility: domain.VisibilityShared})
+	if _, err := f.moments.SetPhoto(ctx, f.alice, old.ID, jpeg); err != nil {
+		t.Fatal(err)
+	}
+	photos := memory.NewPhotos()
+	f.moments.WithPhotos(photos)
+	if p, err := f.moments.Photo(ctx, f.bob, old.ID); err != nil || len(p.Data) != 4 {
+		t.Fatalf("photo from before: %+v, %v", p, err)
+	}
+
+	lake := f.create(t, f.alice, domain.KindMoment, domain.MomentFields{Text: "Lake", Visibility: domain.VisibilityShared})
+	got, err := f.moments.SetPhoto(ctx, f.alice, lake.ID, jpeg)
+	if err != nil || got.PhotoAt == nil {
+		t.Fatalf("set photo: %+v, %v", got, err)
+	}
+	if photos.Len() != 1 {
+		t.Fatalf("store holds %d photos, want 1", photos.Len())
+	}
+	if _, err := f.store.MomentPhoto(ctx, lake.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("photo also in the repository: %v", err)
+	}
+	if p, err := f.moments.Photo(ctx, f.bob, lake.ID); err != nil || len(p.Data) != 4 {
+		t.Fatalf("photo from the store: %+v, %v", p, err)
+	}
+	// Replacing the old photo moves it to the store.
+	if _, err := f.moments.SetPhoto(ctx, f.alice, old.ID, jpeg); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.store.MomentPhoto(ctx, old.ID); !errors.Is(err, domain.ErrNotFound) || photos.Len() != 2 {
+		t.Fatalf("replaced photo not moved: %v, %d in the store", err, photos.Len())
+	}
+
+	if got, err := f.moments.DeletePhoto(ctx, f.alice, lake.ID); err != nil || got.PhotoAt != nil || photos.Len() != 1 {
+		t.Fatalf("delete photo: %+v, %v, %d in the store", got, err, photos.Len())
+	}
+	if err := f.moments.Delete(ctx, f.alice, old.ID); err != nil || photos.Len() != 0 {
+		t.Fatalf("delete moment: %v, %d in the store", err, photos.Len())
+	}
+}
+
 func TestResurfacedAndDailyNotifications(t *testing.T) {
 	ctx := context.Background()
 	f := newMomentFixture(t)

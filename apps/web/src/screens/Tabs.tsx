@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
-import type { HouseholdDetail, Moment, Question, User } from "../api/client";
+import type { Entry, HouseholdDetail, Moment, Question, User } from "../api/client";
 import { dueToday, useEntries } from "../entries";
+import { dayOf, useResurfaced } from "../moments";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
@@ -55,18 +56,13 @@ export function Today() {
   const [adding, setAdding] = useState(false);
   const [generation, setGeneration] = useState(0);
   const date = new Intl.DateTimeFormat(i18n.language, { weekday: "long", day: "numeric", month: "long" }).format(new Date());
-  const add = (
-    <button type="button" className="screen-action screen-add" aria-label={t("entries.add")} onClick={() => setAdding(true)}>
-      <Icon name="plus" />
-    </button>
-  );
   return (
-    <Screen title={t("tabs.today")} overline={date} action={add}>
+    <Screen title={t("tabs.today")} overline={date} add={{ label: t("entries.add"), onClick: () => setAdding(true) }}>
+      <Greeting household={household} me={me} />
+      <NextUp key={generation} household={household} />
       <TodayQuestion household={household} me={me} />
-      <Card eyebrow={<span>{t("today.dinner.eyebrow")}</span>} title={t("today.dinner.title")}>
-        {t("today.dinner.body")}
-      </Card>
-      <DueToday key={generation} household={household} />
+      <Dinner />
+      <TodayMoment household={household} me={me} />
       {adding && (
         <EntrySheet
           household={household}
@@ -82,37 +78,147 @@ export function Today() {
   );
 }
 
-// Open reminders due by tonight (overdue ones too) and today's events; each opens in Lists.
-function DueToday({ household }: { household: HouseholdDetail }) {
+// The part of the day, for the greeting.
+function partOfDay(hour: number) {
+  if (hour < 5) return "night";
+  if (hour < 12) return "morning";
+  if (hour < 18) return "afternoon";
+  return hour < 22 ? "evening" : "night";
+}
+
+// A warm hello to the two of you, rather than a heading over a list.
+function Greeting({ household, me }: { household: HouseholdDetail; me: User }) {
+  const { t } = useTranslation();
+  const first = me.name.trim().split(/\s+/)[0] ?? me.name;
+  const partner = household.members.find((m) => m.user.id !== me.id)?.user;
+  return (
+    <section className="today-hello">
+      <h2 className="title">{t(`today.hello.${partOfDay(new Date().getHours())}`, { name: first })}</h2>
+      {partner && <p className="callout muted">{t("today.hello.together", { name: partner.name })}</p>}
+    </section>
+  );
+}
+
+// When an entry happens today, for ordering: events by their start, reminders by when they're due.
+const happensAt = (e: Entry) => new Date((e.kind === "event" ? e.startsAt : e.dueAt) ?? 0).getTime();
+
+// The next thing today, large, and the rest of the day small beneath it. Each opens in Lists.
+function NextUp({ household }: { household: HouseholdDetail }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { entries } = useEntries(household.id);
   const { span, moment } = useWhen();
   if (!entries) return null;
   const now = new Date();
-  const due = entries.filter((e) => dueToday(e, now));
-  if (due.length === 0) {
+  const [next, ...rest] = entries.filter((e) => dueToday(e, now)).sort((a, b) => happensAt(a) - happensAt(b));
+  if (!next) {
     return (
-      <Card eyebrow={<span>{t("today.due.eyebrow")}</span>} title={t("today.due.title")}>
-        {t("today.due.body")}
-      </Card>
+      <div className="today-clear">
+        <Icon name="check" />
+        <span className="callout">{t("today.next.clear")}</span>
+      </div>
+    );
+  }
+  const when = (e: Entry) => (e.kind === "event" ? span(e) : e.dueAt && moment(e.dueAt));
+  const open = (e: Entry) => navigate(`/lists?entry=${e.id}`);
+  const shown = rest.slice(0, 3);
+  return (
+    <section className="today-next" aria-label={t("today.next.eyebrow")}>
+      <button type="button" className="today-next-main" onClick={() => open(next)}>
+        <span className="today-next-icon">
+          <Icon name={next.kind === "event" ? "calendar" : "bell"} />
+        </span>
+        <span className="today-next-text">
+          <span className="label today-next-eyebrow">{t("today.next.eyebrow")}</span>
+          <span className="headline">{next.text}</span>
+          <span className="caption">{when(next)}</span>
+        </span>
+      </button>
+      {shown.length > 0 && (
+        <ul className="today-later">
+          {shown.map((e) => (
+            <li key={e.id}>
+              <button type="button" onClick={() => open(e)}>
+                <span className="today-later-text">{e.text}</span>
+                <span className="caption">{when(e)}</span>
+              </button>
+            </li>
+          ))}
+          {rest.length > shown.length && (
+            <li>
+              <button type="button" className="today-later-more" onClick={() => navigate("/lists")}>
+                {t("today.next.more", { count: rest.length - shown.length })}
+              </button>
+            </li>
+          )}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+// Dinner is an invitation to pick something together, one tap from ideas.
+function Dinner() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  return (
+    <button type="button" className="today-tile today-dinner" onClick={() => navigate("/cook")}>
+      <span className="today-tile-icon">
+        <Icon name="cook" />
+      </span>
+      <span className="today-tile-text">
+        <span className="label">{t("today.dinner.eyebrow")}</span>
+        <span className="headline">{t("today.dinner.title")}</span>
+      </span>
+      <Icon name="chevron" size="sm" />
+    </button>
+  );
+}
+
+// Something shared from your story: this day in an earlier year, a thank-you from a while ago,
+// or else a nudge to write today's.
+function TodayMoment({ household, me }: { household: HouseholdDetail; me: User }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const resurfaced = useResurfaced(household.id, 0);
+  const memory = resurfaced?.onThisDay.find((m) => !m.sealed);
+  const thanks = resurfaced?.gratitude;
+  const author = (id: string) => household.members.find((m) => m.user.id === id)?.user.name ?? "";
+  if (memory) {
+    return (
+      <button type="button" className="today-memory" onClick={() => navigate("/us")}>
+        {memory.photoUrl && <img src={memory.photoUrl} alt="" loading="lazy" />}
+        <span className="today-memory-text">
+          <span className="label">{t("moments.onThisDay", { year: dayOf(memory).getFullYear() })}</span>
+          {memory.text && <span className="body">{memory.text}</span>}
+        </span>
+      </button>
+    );
+  }
+  if (thanks?.text) {
+    return (
+      <button type="button" className="today-tile today-thanks" onClick={() => navigate("/us")}>
+        <span className="today-tile-icon">
+          <Icon name="heart" />
+        </span>
+        <span className="today-tile-text">
+          <span className="label">{t(thanks.authorId === me.id ? "moments.gratefulMe" : "moments.grateful", { name: author(thanks.authorId) })}</span>
+          <span className="body">{thanks.text}</span>
+        </span>
+      </button>
     );
   }
   return (
-    <section className="group">
-      <h2 className="label group-title">{t("today.due.eyebrow")}</h2>
-      <div className="hl-list">
-        {due.map((e) => (
-          <ListRow
-            key={e.id}
-            leading={<Icon name={e.kind === "event" ? "calendar" : "bell"} />}
-            title={e.text}
-            subtitle={e.kind === "event" ? span(e) : e.dueAt && moment(e.dueAt)}
-            onClick={() => navigate(`/lists?entry=${e.id}`)}
-          />
-        ))}
-      </div>
-    </section>
+    <button type="button" className="today-tile today-thanks" onClick={() => navigate("/us")}>
+      <span className="today-tile-icon">
+        <Icon name="heart" />
+      </span>
+      <span className="today-tile-text">
+        <span className="label">{t("moments.gratitude.eyebrow")}</span>
+        <span className="headline">{t("today.thanks")}</span>
+      </span>
+      <Icon name="chevron" size="sm" />
+    </button>
   );
 }
 
@@ -126,21 +232,8 @@ export function Us() {
   const [sheet, setSheet] = useState<Moment | "new" | null>(null);
   const [generation, setGeneration] = useState(0);
   const tab = usTabs.find((k) => k === params.get("show")) ?? "moments";
-  const add = (
-    <button type="button" className="screen-action screen-add" aria-label={t("moments.add")} onClick={() => setSheet("new")}>
-      <Icon name="plus" />
-    </button>
-  );
   return (
-    <Screen
-      title={t("tabs.us")}
-      action={
-        <>
-          {tab === "moments" && add}
-          <CallButton />
-        </>
-      }
-    >
+    <Screen title={t("tabs.us")} action={<CallButton />} add={tab === "moments" ? { label: t("moments.add"), onClick: () => setSheet("new") } : undefined}>
       {household.members.length < 2 && (
         <Card
           tone="sunken"

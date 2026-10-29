@@ -104,6 +104,29 @@ func (h *handlers) ClearShoppingItems(ctx context.Context, req oapi.ClearShoppin
 	return oapi.ClearShoppingItems204Response{}, nil
 }
 
+func (h *handlers) ListShoppingSuggestions(ctx context.Context, req oapi.ListShoppingSuggestionsRequestObject) (oapi.ListShoppingSuggestionsResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ss, err := h.shopping.Suggestions(ctx, u, req.HouseholdId)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.ListShoppingSuggestions404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case err != nil:
+		return nil, err
+	}
+	return oapi.ListShoppingSuggestions200JSONResponse(toTitleSuggestions(ss)), nil
+}
+
+func toTitleSuggestions(ss []domain.TitleSuggestion) []oapi.TitleSuggestion {
+	out := make([]oapi.TitleSuggestion, len(ss))
+	for i, s := range ss {
+		out[i] = oapi.TitleSuggestion{Text: s.Text, Uses: s.Uses}
+	}
+	return out
+}
+
 func toShoppingItem(it domain.ShoppingItem) oapi.ShoppingItem {
 	return oapi.ShoppingItem{
 		Id: it.ID, Text: it.Text, Recipe: optional(it.Recipe), AddedBy: it.AddedBy,

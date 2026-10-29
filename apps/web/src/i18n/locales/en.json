@@ -27,8 +27,10 @@
   "push": { "title": "Notifications", "switch": "Notifications on this device", "hint": "Answers, reminders and events", "install": "To get notifications on your iPhone, add Homeloom to your Home Screen first: tap Share, then “Add to Home Screen”, and open it from there.", "blocked": "Notifications are blocked. Allow them in your phone's Settings under Notifications, then try again.", "failed": "That didn't work. Please try again." },
   "today": {
     "question": { "eyebrow": "Today's question", "title": "No question yet", "body": "Ask one. Answers open once you both replied." },
-    "dinner": { "eyebrow": "Dinner tonight", "title": "Nothing planned yet", "body": "Pick something under Cook." },
-    "due": { "eyebrow": "Due today", "title": "All clear", "body": "Nothing due." }
+    "hello": { "morning": "Good morning, {{name}}", "afternoon": "Good afternoon, {{name}}", "evening": "Good evening, {{name}}", "night": "Still up, {{name}}?", "together": "You and {{name}}" },
+    "next": { "eyebrow": "Next up", "clear": "Nothing planned today. Time for each other.", "more_one": "{{count}} more today", "more_other": "{{count}} more today" },
+    "dinner": { "eyebrow": "Dinner tonight", "title": "What do you feel like?" },
+    "thanks": "What made you smile today?"
   },
   "cook": {
     "question": "What do you feel like tonight?",
@@ -145,6 +147,9 @@
     "delete": "Delete",
     "deleteConfirm": "Delete this for good?",
     "done": "Done",
+    "showDone": "Show {{count}}",
+    "hideDone": "Hide",
+    "suggestions": "Used before",
     "byMe": "You",
     "today": "Today",
     "tomorrow": "Tomorrow",
@@ -162,6 +167,11 @@
     "other": "Other",
     "on": "On",
     "off": "Off",
+    "lightsOn_one": "{{count}} light on",
+    "lightsOn_other": "{{count}} lights on",
+    "lightsOff": "All lights off",
+    "allOff": "All off",
+    "roomOn": "{{count}} on",
     "offTitle": "Smart home isn't available",
     "connectTitle": "Connect your smart home",
     "connectBody": "Sign in with your own account.",

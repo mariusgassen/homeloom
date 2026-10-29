@@ -1,8 +1,8 @@
 # Deployed by Coolify as a Docker Compose resource. Service names carry the homeloom- prefix
 # so the containers are easy to find in Coolify. Assign the public domain to homeloom-web in
 # the Coolify UI: it serves the PWA and forwards /auth, /v1 and the health checks to
-# homeloom-api, and /rtc (call signalling) to homeloom-livekit. The API, Postgres and Redis stay
-# on the internal network; LiveKit publishes its media ports, which the firewall must let through.
+# homeloom-api, and /rtc (call signalling) to homeloom-livekit. The API, Postgres, Redis and
+# Garage stay on the internal network; LiveKit publishes its media ports, which the firewall must let through.
 services:
   homeloom-web:
     build: ./apps/web
@@ -42,6 +42,13 @@ services:
       # Calls with Homeloom need speech (OpenAI) and Claude; without either key they're off.
       # The API uses the OpenAI key only for voice previews in Settings.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # With an S3 key pair new moment photos go to homeloom-garage (or another S3 store at
+      # S3_ENDPOINT); without one they stay in Postgres.
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://homeloom-garage:3900}
+      S3_REGION: ${S3_REGION:-garage}
+      S3_BUCKET: ${S3_BUCKET:-homeloom}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
       TIME_ZONE: ${TIME_ZONE:-Europe/Berlin}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     expose:
@@ -94,12 +101,35 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       VOICE_LLM_MODEL: ${VOICE_LLM_MODEL:-claude-sonnet-5-5}
+      VOICE_NOISE_CANCELLATION: ${VOICE_NOISE_CANCELLATION:-dtln}
       HOMELOOM_MCP_URL: http://homeloom-api:8080/mcp
       TIME_ZONE: ${TIME_ZONE:-Europe/Berlin}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     depends_on:
       - homeloom-livekit
       - homeloom-api
+
+  # S3 storage (Garage, one node) for photos and other files. It sets itself up on start: the
+  # bucket S3_BUCKET and the key S3_ACCESS_KEY_ID / S3_SECRET_ACCESS_KEY with access to it.
+  # Without the key it runs empty. Only the API reaches it, on the internal network.
+  homeloom-garage:
+    build: ./apps/garage
+    restart: unless-stopped
+    environment:
+      S3_BUCKET: ${S3_BUCKET:-homeloom}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+    volumes:
+      - homeloom-garage-data:/var/lib/garage
+    expose:
+      - "3900"
+    # /health answers once the node has its layout; the S3 port must be listening too.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3903/health >/dev/null && nc -z 127.0.0.1 3900"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   homeloom-postgres:
     image: postgres:18-alpine
@@ -131,3 +161,4 @@ services:
 volumes:
   homeloom-postgres-data:
   homeloom-redis-data:
+  homeloom-garage-data:

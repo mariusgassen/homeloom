@@ -116,6 +116,7 @@ function renderApp(path = "/") {
 beforeEach(() => i18n.changeLanguage("en"));
 afterEach(() => {
   vi.unstubAllGlobals();
+  localStorage.clear();
   delete (navigator as { serviceWorker?: unknown }).serviceWorker;
 });
 
@@ -297,7 +298,7 @@ function stubPush(permission: NotificationPermission) {
   };
   vi.stubGlobal("PushManager", function PushManager() {});
   vi.stubGlobal("Notification", { permission, requestPermission: vi.fn(async () => permission) });
-  Object.defineProperty(navigator, "serviceWorker", { configurable: true, value: { ready: Promise.resolve({ pushManager }) } });
+  Object.defineProperty(navigator, "serviceWorker", { configurable: true, value: Object.assign(new EventTarget(), { ready: Promise.resolve({ pushManager }) }) });
   return pushManager;
 }
 
@@ -453,6 +454,34 @@ test("home switches live scenes and lights, room by room", async () => {
   ]);
 });
 
+test("home turns all lights off at once", async () => {
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/home`, () =>
+      json({
+        connected: true,
+        rooms: [{ id: "living", name: "Living room" }],
+        scenes: [],
+        lights: [
+          { id: "light.sofa", name: "Sofa", room: "living", on: true },
+          { id: "light.desk", name: "Desk", room: "living", on: true },
+          { id: "light.hall", name: "Hall", on: false },
+        ],
+        readings: [],
+      }),
+    ),
+    at("POST", `/v1/households/${home.id}/home/lights/light.sofa/toggle`, () => json({ id: "light.sofa", name: "Sofa", on: false })),
+    at("POST", `/v1/households/${home.id}/home/lights/light.desk/toggle`, () => json({ id: "light.desk", name: "Desk", on: false })),
+  );
+  renderApp("/home");
+  expect(await screen.findByText("2 lights on")).toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "Living room" })).toHaveTextContent("2 on");
+  await userEvent.click(screen.getByRole("button", { name: "All off" }));
+  expect(await screen.findByText("All lights off")).toBeInTheDocument();
+  expect(screen.getByRole("switch", { name: "Sofa" })).toHaveAttribute("aria-checked", "false");
+  expect(calls.filter((c) => c.method === "POST").map((c) => new URL(c.url).pathname.split("/").at(-2))).toEqual(["light.sofa", "light.desk"]);
+});
+
 test("home asks you to connect your own Home Assistant", async () => {
   const assign = vi.fn();
   vi.stubGlobal("location", { ...window.location, assign });
@@ -536,25 +565,74 @@ test("the shopping list adds, ticks and clears items", async () => {
   const calls = serve(
     ...signedIn(),
     at("GET", list, () => json([milk, lime])),
+    at("GET", `${list}/suggestions`, () => json([{ text: "Eggs", uses: 3 }, { text: "milk", uses: 2 }])),
     at("POST", `${list}/items`, () => json({ ...milk, text: "Bread" }, 201)),
     at("PUT", `${list}/items/${milk.id}/done`, () => json({ ...milk, done: true })),
     at("DELETE", `${list}/done`, () => new Response(null, { status: 204 })),
   );
   renderApp("/lists?show=shopping");
-  expect(await screen.findByText("Green curry")).toBeInTheDocument();
+  expect(await screen.findByText("Milk")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Add" })).toBeInTheDocument();
   expect(calls.some((c) => c.url.includes("/entries"))).toBe(false);
 
+  // Done items are hidden until asked for, and the choice is remembered.
+  expect(screen.queryByText("Green curry")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Show 1" }));
+  expect(screen.getByText("Green curry")).toBeInTheDocument();
+  expect(localStorage.getItem(`homeloom.showDone.${marius.id}.shopping`)).toBe("1");
+
+  // What was bought before is suggested, except what's on the list already.
+  const chips = await screen.findByRole("group", { name: "Used before" });
+  expect(within(chips).getAllByRole("button").map((b) => b.textContent)).toEqual(["Eggs"]);
+  await userEvent.click(within(chips).getByRole("button", { name: "Eggs" }));
+  await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+  expect(await calls.find((c) => c.method === "POST")?.json()).toEqual({ text: "Eggs" });
+
   await userEvent.type(screen.getByLabelText("Add an item"), "Bread");
   await userEvent.click(screen.getByRole("button", { name: "Add" }));
-  await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
-  expect(await calls.find((c) => c.method === "POST")?.json()).toEqual({ text: "Bread" });
+  await waitFor(() => expect(calls.filter((c) => c.method === "POST")).toHaveLength(2));
+  expect(await calls.filter((c) => c.method === "POST")[1]?.json()).toEqual({ text: "Bread" });
   await waitFor(() => expect(screen.getByLabelText("Add an item")).toHaveValue(""));
 
   await userEvent.click(screen.getByRole("checkbox", { name: "Milk" }));
   await waitFor(() => expect(calls.some((c) => c.method === "PUT")).toBe(true));
   await userEvent.click(screen.getByRole("button", { name: "Clear" }));
   await waitFor(() => expect(calls.some((c) => c.method === "DELETE" && c.url.endsWith("/done"))).toBe(true));
+});
+
+test("done reminders stay hidden until shown", async () => {
+  serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([entry({ text: "Bins out" }), entry({ id: "66666666-6666-4666-8666-666666666666", text: "Pay rent", doneAt: "2026-10-28T08:00:00Z" })])),
+  );
+  renderApp("/lists");
+  expect(await screen.findByText("Bins out")).toBeInTheDocument();
+  expect(screen.queryByText("Pay rent")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Show 1" }));
+  expect(screen.getByText("Pay rent")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Hide" }));
+  expect(screen.queryByText("Pay rent")).not.toBeInTheDocument();
+});
+
+test("the quick-add sheet suggests reminders set before", async () => {
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([])),
+    at("GET", `/v1/households/${home.id}/entries/suggestions`, () => json([{ text: "Water the plants", uses: 4 }, { text: "Call mum", uses: 1 }])),
+    at("POST", `/v1/households/${home.id}/entries`, () => json(entry({ text: "Water the plants" }), 201)),
+  );
+  renderApp("/lists");
+  await screen.findByText("Nothing to remember");
+  await userEvent.click(screen.getByRole("button", { name: "New reminder" }));
+  const sheet = screen.getByRole("dialog", { name: "New reminder" });
+  await userEvent.type(within(sheet).getByLabelText("Remind about"), "wat");
+  const chips = await within(sheet).findByRole("group", { name: "Used before" });
+  expect(within(chips).getAllByRole("button").map((b) => b.textContent)).toEqual(["Water the plants"]);
+  await userEvent.click(within(chips).getByRole("button", { name: "Water the plants" }));
+  expect(within(sheet).getByLabelText("Remind about")).toHaveValue("Water the plants");
+  await userEvent.click(within(sheet).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+  expect(await calls.find((c) => c.method === "POST")?.json()).toMatchObject({ text: "Water the plants" });
 });
 
 test("the quick-add sheet sets a shared reminder for both", async () => {
@@ -565,8 +643,9 @@ test("the quick-add sheet sets a shared reminder for both", async () => {
   );
   renderApp("/lists");
   expect(await screen.findByText("Nothing to remember")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  await userEvent.click(screen.getByRole("button", { name: "New reminder" }));
   const sheet = screen.getByRole("dialog", { name: "New reminder" });
+  expect(within(sheet).queryByRole("radiogroup", { name: "What to add" })).not.toBeInTheDocument();
   await userEvent.type(within(sheet).getByLabelText("Remind about"), "Call the landlord");
   expect(within(within(sheet).getByRole("radiogroup", { name: "Who can see this" })).getByRole("radio", { name: /Both of us/ })).toBeChecked();
   expect(within(sheet).getByText("Jo sees it right away.")).toBeInTheDocument();
@@ -583,7 +662,7 @@ test("the quick-add sheet picks time, repeat and who with taps, not dropdowns", 
   );
   renderApp("/lists");
   expect(await screen.findByText("Nothing to remember")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  await userEvent.click(screen.getByRole("button", { name: "New reminder" }));
   const sheet = screen.getByRole("dialog", { name: "New reminder" });
   expect(within(sheet).queryByRole("combobox")).not.toBeInTheDocument();
   await userEvent.type(within(sheet).getByLabelText("Remind about"), "Bins");
@@ -601,10 +680,25 @@ test("a sheet closes on Escape", async () => {
   serve(...signedIn(), at("GET", `/v1/households/${home.id}/entries`, () => json([])));
   renderApp("/lists");
   expect(await screen.findByText("Nothing to remember")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  await userEvent.click(screen.getByRole("button", { name: "New reminder" }));
   expect(screen.getByRole("dialog", { name: "New reminder" })).toBeInTheDocument();
   await userEvent.keyboard("{Escape}");
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+test("add follows the list you're in, and only Today asks what to add", async () => {
+  serve(...signedIn(), at("GET", `/v1/households/${home.id}/entries`, () => json([])));
+  renderApp("/lists?show=note");
+  await userEvent.click(await screen.findByRole("button", { name: "New note" }));
+  const note = screen.getByRole("dialog", { name: "New note" });
+  expect(within(note).queryByRole("radiogroup", { name: "What to add" })).not.toBeInTheDocument();
+  await userEvent.click(within(note).getByRole("button", { name: "Cancel" }));
+
+  await userEvent.click(screen.getByRole("link", { name: "Today" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Add" }));
+  const sheet = screen.getByRole("dialog", { name: "New reminder" });
+  await userEvent.click(within(sheet).getByRole("radio", { name: "Note" }));
+  expect(screen.getByRole("dialog", { name: "New note" })).toBeInTheDocument();
 });
 
 test("a note for later stays sealed", async () => {
@@ -633,9 +727,25 @@ test("today lists what's due and today's events", async () => {
     ),
   );
   renderApp("/");
-  expect(await screen.findByText("Water the plants")).toBeInTheDocument();
-  expect(screen.getByText("Dinner with Jo")).toBeInTheDocument();
+  const next = await screen.findByRole("region", { name: "Next up" });
+  expect(within(next).getByText("Water the plants")).toBeInTheDocument();
+  expect(within(next).getByText("Dinner with Jo")).toBeInTheDocument();
   expect(screen.queryByText("Next year")).not.toBeInTheDocument();
+});
+
+test("today greets you and brings back a thank-you", async () => {
+  serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([])),
+    at("GET", `/v1/households/${home.id}/moments/resurfaced`, () =>
+      json({ onThisDay: [], gratitude: { id: "88888888-8888-4888-8888-888888888888", kind: "gratitude", authorId: jo.id, day: "2026-01-02", visibility: "shared", sealed: false, text: "Pancakes", createdAt: "2026-01-02T08:00:00Z", updatedAt: "2026-01-02T08:00:00Z" } }),
+    ),
+  );
+  renderApp("/");
+  expect(await screen.findByRole("heading", { level: 2, name: /Marius/ })).toBeInTheDocument();
+  expect(screen.getByText("You and Jo")).toBeInTheDocument();
+  expect(await screen.findByText("Nothing planned today. Time for each other.")).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: /Jo was grateful.*Pancakes/ })).toBeInTheDocument();
 });
 
 test("settings makes a calendar subscription link", async () => {
@@ -744,6 +854,45 @@ test("a call notification asks before answering", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Answer" }));
   await waitFor(() => expect(rooms).toHaveLength(1));
   expect(calls.some((c) => c.url.endsWith(`/calls/${callId}/join`))).toBe(true);
+});
+
+test("answering a call that's already over says so", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  rooms.length = 0;
+  serve(
+    at("GET", "/v1/me", () => json(marius)),
+    at("GET", "/v1/households", () => json([home])),
+    at("GET", `/v1/households/${home.id}`, household),
+    at("GET", `/v1/households/${home.id}/questions`, () => json([])),
+    at("POST", `/v1/households/${home.id}/calls/${callId}/join`, callJoin),
+  );
+  try {
+    renderApp(`/call/${callId}?from=${jo.id}`);
+    await userEvent.click(await screen.findByRole("button", { name: "Answer" }));
+    await waitFor(() => expect((rooms[0] as unknown as FakeRoom | undefined)?.connect).toHaveBeenCalled());
+    await act(() => vi.advanceTimersByTimeAsync(5_000));
+    expect(await screen.findByText("Call ended")).toBeInTheDocument();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("a tapped notification opens its screen in the open app", async () => {
+  const sw = new EventTarget();
+  Object.defineProperty(navigator, "serviceWorker", { value: sw, configurable: true });
+  serve(
+    at("GET", "/v1/me", () => json(marius)),
+    at("GET", "/v1/households", () => json([home])),
+    at("GET", `/v1/households/${home.id}`, household),
+    at("GET", `/v1/households/${home.id}/questions`, () => json([])),
+  );
+  renderApp("/");
+  await screen.findByRole("link", { name: "Lists" });
+  act(() => {
+    sw.dispatchEvent(new MessageEvent("message", { data: { type: "homeloom:open", path: "https://evil.example/" } }));
+    sw.dispatchEvent(new MessageEvent("message", { data: { type: "homeloom:open", path: `/call/${callId}?from=${jo.id}` } }));
+  });
+  expect(await screen.findByRole("heading", { name: "Jo is calling" })).toBeInTheDocument();
 });
 
 test("with more than one other person, you pick who to call", async () => {
