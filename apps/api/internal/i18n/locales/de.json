@@ -24,6 +24,7 @@
   "error.push_unavailable": "Mitteilungen sind auf diesem Server nicht eingerichtet.",
   "error.unauthenticated": "Bitte melde dich erneut an.",
   "error.voice_unavailable": "Homeloom kann gerade nicht sprechen.",
+  "error.watch_unavailable": "Filme und Serien sind gerade nicht erreichbar. Ist Plex verbunden und dein Server online?",
   "push.call.body": "Tippe, um ranzugehen.",
   "push.call.title": "{name} ruft an",
   "push.event.body": "Beginnt um {time}.",

@@ -36,6 +36,9 @@ type Config struct {
 	// connects it by signing in there; SecretKey encrypts the token that sign-in gives.
 	HomeAssistantURL string
 	SecretKey        string
+	// Plex is on when HOMELOOM_SECRET_KEY is set, unless PLEX_ENABLED is false: each member signs
+	// in at plex.tv, so there is nothing else to configure. The key encrypts their tokens.
+	Plex bool
 	// Web Push is optional: without the VAPID key pair notifications are switched off. VAPIDSubject
 	// tells the push services who sends them (an https URL or e-mail address; PUBLIC_URL by default).
 	VAPIDPublicKey  string
@@ -102,6 +105,7 @@ func Load() (Config, error) {
 		VoiceAgent:       env("VOICE_AGENT", "homeloom"),
 		OpenAIAPIKey:     os.Getenv("OPENAI_API_KEY"),
 	}
+	c.Plex = c.SecretKey != "" && env("PLEX_ENABLED", "true") != "false"
 	if c.AnthropicAPIKey == "" || c.OpenAIAPIKey == "" {
 		c.VoiceAgent = ""
 	}

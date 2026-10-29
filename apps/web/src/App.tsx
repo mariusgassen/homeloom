@@ -13,6 +13,7 @@ import { Cook, RecipeScreen } from "./screens/Cook";
 import { Home } from "./screens/Home";
 import { Lists } from "./screens/Lists";
 import { Today, Us } from "./screens/Tabs";
+import { Watch } from "./screens/Watch";
 import { Loading, Unavailable, Welcome } from "./screens/Welcome";
 import { useSession } from "./session";
 import { TabBar } from "./ui/TabBar";
@@ -63,6 +64,7 @@ export function App() {
               <Route path="/cook" element={<Cook />} />
               <Route path="/cook/:slug" element={<RecipeScreen />} />
               <Route path="/us" element={<Us />} />
+              <Route path="/watch" element={<Watch />} />
               <Route path="/lists" element={<Lists />} />
               <Route path="/home" element={<Home />} />
               <Route path="/settings" element={<Settings />} />

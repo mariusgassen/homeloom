@@ -109,6 +109,18 @@ type HomeService interface {
 	ToggleLight(ctx context.Context, actor domain.User, householdID uuid.UUID, lightID string) (domain.Light, error)
 }
 
+type WatchService interface {
+	// Connect starts the actor's sign-in at Plex and returns where to send the browser.
+	Connect(ctx context.Context, actor domain.User, householdID uuid.UUID) (string, error)
+	// CompleteConnect finishes it for the person who started it; it returns
+	// domain.ErrUnauthenticated for an unknown state, someone else's sign-in, or one not approved.
+	CompleteConnect(ctx context.Context, actor domain.User, state string) error
+	Disconnect(ctx context.Context, actor domain.User, householdID uuid.UUID) error
+	Shelf(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Shelf, error)
+	Titles(ctx context.Context, actor domain.User, householdID uuid.UUID, libraryID string) ([]domain.Title, error)
+	Poster(ctx context.Context, actor domain.User, householdID uuid.UUID, titleID string) (domain.Poster, error)
+}
+
 type PushService interface {
 	// PublicKey returns domain.ErrUnavailable when push isn't set up.
 	PublicKey(ctx context.Context) (string, error)

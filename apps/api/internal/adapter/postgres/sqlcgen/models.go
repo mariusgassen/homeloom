@@ -193,3 +193,9 @@ type VoiceSetting struct {
 	Tone      string
 	UpdatedAt time.Time
 }
+
+type WatchConnection struct {
+	UserID    uuid.UUID
+	Token     string
+	CreatedAt time.Time
+}

@@ -37,3 +37,32 @@ func HomeConnections(t *testing.T, s interface {
 		t.Fatalf("after delete: %v", err)
 	}
 }
+
+// WatchConnections: one per person, saving replaces it, deleting a missing one is fine.
+func WatchConnections(t *testing.T, s interface {
+	Store
+	port.WatchConnectionRepository
+}) {
+	ctx := context.Background()
+	alice := user(t, s, "Alice")
+
+	if _, err := s.WatchConnection(ctx, alice.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("none yet: %v", err)
+	}
+	for _, token := range []string{"first", "second"} {
+		if err := s.SaveWatchConnection(ctx, domain.WatchConnection{UserID: alice.ID, Token: token}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if c, err := s.WatchConnection(ctx, alice.ID); err != nil || c.Token != "second" || c.UserID != alice.ID {
+		t.Fatalf("got %+v, %v", c, err)
+	}
+	for range 2 {
+		if err := s.DeleteWatchConnection(ctx, alice.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := s.WatchConnection(ctx, alice.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("after delete: %v", err)
+	}
+}

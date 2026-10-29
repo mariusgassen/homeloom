@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.16.0
+  version: 0.17.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -29,6 +29,7 @@ tags:
   - name: cook
   - name: shopping
   - name: home
+  - name: watch
   - name: push
   - name: assistant
   - name: calls
@@ -133,6 +134,23 @@ paths:
         - { name: code, in: query, schema: { type: string } }
         - { name: state, in: query, schema: { type: string } }
         - { name: error, in: query, schema: { type: string }, description: Set when the sign-in was cancelled or denied. }
+      responses:
+        "302":
+          description: Back to the app.
+          headers:
+            Location: { required: true, schema: { type: string } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /auth/plex/callback:
+    get:
+      tags: [watch]
+      operationId: completeWatchConnection
+      summary: Where Plex's sign-in comes back to; connects the caller
+      description: |
+        Always redirects back to `/watch`. On failure it adds `?watch_error=<code>`, where code is
+        `connect_failed` or `watch_unavailable`.
+      parameters:
+        - { name: state, in: query, schema: { type: string } }
       responses:
         "302":
           description: Back to the app.
@@ -776,6 +794,98 @@ paths:
       summary: Disconnect your Home Assistant account and revoke its token
       responses:
         "204": { description: Disconnected. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/watch:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [watch]
+      operationId: getWatchShelf
+      summary: The movie and series libraries you can watch in Plex (members only)
+      description: |
+        Each member connects their own Plex account and sees the libraries on their own servers and
+        on servers friends share with them, with their own watched state. A server that can't be
+        reached is left out. Until the caller has connected, `connected` is false and `libraries`
+        is empty. Read-only: nothing is played or changed.
+      responses:
+        "200":
+          description: The libraries.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatchShelf" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/watch/connection:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [watch]
+      operationId: connectWatch
+      summary: Start connecting your Plex account
+      description: |
+        Returns Plex's sign-in page. Send the browser there (a navigation, not a fetch); once you
+        allow Homeloom it comes back through `/auth/plex/callback`.
+      responses:
+        "200":
+          description: Where to sign in.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ConnectURL" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [watch]
+      operationId: disconnectWatch
+      summary: Disconnect your Plex account; Homeloom forgets its token
+      responses:
+        "204": { description: Disconnected. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/watch/libraries/{libraryId}/titles:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - { name: libraryId, in: path, required: true, schema: { $ref: "#/components/schemas/MediaId" } }
+    get:
+      tags: [watch]
+      operationId: listWatchTitles
+      summary: Every movie or series in one of your libraries
+      responses:
+        "200":
+          description: The titles, in the library's order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WatchTitle" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/watch/titles/{titleId}/poster:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - { name: titleId, in: path, required: true, schema: { $ref: "#/components/schemas/MediaId" } }
+    get:
+      tags: [watch]
+      operationId: getWatchPoster
+      summary: A title's poster, about 342 by 513 pixels
+      description: Fetched from Plex through the API, so the Plex token never reaches the client.
+      responses:
+        "200":
+          description: The poster.
+          headers:
+            Cache-Control: { required: true, schema: { type: string } }
+          content:
+            image/*:
+              schema: { type: string, format: binary }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
@@ -1530,6 +1640,57 @@ components:
       required: [url]
       properties:
         url: { type: string, description: "Home Assistant's sign-in page." }
+
+    ConnectURL:
+      type: object
+      required: [url]
+      properties:
+        url: { type: string, description: The sign-in page to send the browser to. }
+
+    MediaId:
+      type: string
+      pattern: "^[A-Za-z0-9-]{1,64}\\.[0-9]{1,20}$"
+      description: A library or title id from this API; it names the Plex server and the item there.
+
+    WatchShelf:
+      type: object
+      required: [connected, libraries]
+      properties:
+        connected: { type: boolean, description: Whether you have connected your Plex account. }
+        libraries:
+          type: array
+          description: Your own servers' libraries first, then shared ones, each in Plex's order.
+          items: { $ref: "#/components/schemas/WatchLibrary" }
+
+    WatchLibrary:
+      type: object
+      required: [id, name, kind, server, owned]
+      properties:
+        id: { $ref: "#/components/schemas/MediaId" }
+        name: { type: string }
+        kind: { $ref: "#/components/schemas/MediaKind" }
+        server: { type: string, description: The Plex server's name. }
+        owned: { type: boolean, description: False for a library a friend shares with you. }
+
+    MediaKind:
+      type: string
+      enum: [movie, show]
+
+    WatchTitle:
+      type: object
+      required: [id, kind, name, genres, watched]
+      properties:
+        id: { $ref: "#/components/schemas/MediaId" }
+        kind: { $ref: "#/components/schemas/MediaKind" }
+        name: { type: string }
+        year: { type: integer }
+        summary: { type: string }
+        minutes: { type: integer, description: "A movie's length, or an episode's for a series." }
+        genres: { type: array, items: { type: string } }
+        rating: { type: number, description: Audience or critic rating out of 10. }
+        contentRating: { type: string, description: "Age rating, e.g. de/12 or PG-13." }
+        episodes: { type: integer, description: Episodes of a series. }
+        watched: { type: boolean, description: "You have seen the movie, or every episode." }
 
     Scene:
       type: object

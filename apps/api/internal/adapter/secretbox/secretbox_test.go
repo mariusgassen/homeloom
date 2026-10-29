@@ -58,3 +58,31 @@ func TestHomeConnectionsAreStoredSealed(t *testing.T) {
 		}
 	}
 }
+
+func TestWatchConnectionsAreStoredSealed(t *testing.T) {
+	ctx := context.Background()
+	box, err := secretbox.New(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inner := memory.NewStore()
+	sealed := secretbox.NewWatchConnections(inner, box)
+	uid := uuid.New()
+
+	if err := sealed.SaveWatchConnection(ctx, domain.WatchConnection{UserID: uid, Token: "plex-token"}); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := inner.WatchConnection(ctx, uid)
+	if raw.Token == "plex-token" || raw.Token == "" {
+		t.Fatalf("stored in the clear: %q", raw.Token)
+	}
+	if c, err := sealed.WatchConnection(ctx, uid); err != nil || c.Token != "plex-token" {
+		t.Fatalf("open: %+v, %v", c, err)
+	}
+
+	// A sealed Plex token doesn't open as a Home Assistant one.
+	_ = inner.SaveHomeConnection(ctx, domain.HomeConnection{UserID: uid, RefreshToken: raw.Token})
+	if _, err := secretbox.NewHomeConnections(inner, box).HomeConnection(ctx, uid); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("opened as a home token: %v", err)
+	}
+}
