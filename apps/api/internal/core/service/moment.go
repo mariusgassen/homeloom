@@ -43,11 +43,20 @@ type Moments struct {
 	loc        *time.Location
 	now        func() time.Time
 	chance     func() float64
+	// photos is where photos go; nil keeps them in the moment repository.
+	photos port.PhotoStore
 }
 
 // NewMoments counts days in loc, the household's time zone.
 func NewMoments(households port.HouseholdRepository, moments port.MomentRepository, jobs port.JobRepository, notify notifier, loc *time.Location) *Moments {
 	return &Moments{households: households, moments: moments, jobs: jobs, notify: notify, loc: loc, now: time.Now, chance: rand.Float64}
+}
+
+// WithPhotos keeps new photos in photos instead of the moment repository. Photos from before
+// stay where they are and are still served from there.
+func (s *Moments) WithPhotos(photos port.PhotoStore) *Moments {
+	s.photos = photos
+	return s
 }
 
 func (s *Moments) Month(ctx context.Context, actor domain.User, householdID uuid.UUID, day time.Time) (domain.MomentMonth, error) {
@@ -121,8 +130,15 @@ func (s *Moments) Update(ctx context.Context, actor domain.User, id uuid.UUID, f
 }
 
 func (s *Moments) Delete(ctx context.Context, actor domain.User, id uuid.UUID) error {
-	if _, err := s.own(ctx, actor, id); err != nil {
+	m, err := s.own(ctx, actor, id)
+	if err != nil {
 		return err
+	}
+	// The photo goes first, so a deleted moment never leaves its photo behind.
+	if s.photos != nil && m.PhotoAt != nil {
+		if err := s.photos.DeletePhoto(ctx, photoKey(id)); err != nil {
+			return err
+		}
 	}
 	return s.moments.DeleteMoment(ctx, id)
 }
@@ -153,6 +169,15 @@ func (s *Moments) SetPhoto(ctx context.Context, actor domain.User, id uuid.UUID,
 		!bytes.HasPrefix(p.Data, []byte{0xFF, 0xD8, 0xFF}) {
 		return domain.Moment{}, domain.ErrPhoto
 	}
+	if s.photos != nil {
+		if err := s.photos.PutPhoto(ctx, photoKey(id), p); err != nil {
+			return domain.Moment{}, err
+		}
+		if err := s.moments.MarkMomentPhoto(ctx, id); err != nil {
+			return domain.Moment{}, err
+		}
+		return s.moments.GetMoment(ctx, id)
+	}
 	if err := s.moments.SetMomentPhoto(ctx, id, p); err != nil {
 		return domain.Moment{}, err
 	}
@@ -167,12 +192,24 @@ func (s *Moments) Photo(ctx context.Context, actor domain.User, id uuid.UUID) (d
 	if m.Sealed || m.PhotoAt == nil {
 		return domain.Photo{}, domain.ErrNotFound
 	}
+	if s.photos != nil {
+		// A photo set before the store was there is still in the repository.
+		p, err := s.photos.GetPhoto(ctx, photoKey(id))
+		if !errors.Is(err, domain.ErrNotFound) {
+			return p, err
+		}
+	}
 	return s.moments.MomentPhoto(ctx, id)
 }
 
 func (s *Moments) DeletePhoto(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Moment, error) {
 	if _, err := s.own(ctx, actor, id); err != nil {
 		return domain.Moment{}, err
+	}
+	if s.photos != nil {
+		if err := s.photos.DeletePhoto(ctx, photoKey(id)); err != nil {
+			return domain.Moment{}, err
+		}
 	}
 	if err := s.moments.DeleteMomentPhoto(ctx, id); err != nil {
 		return domain.Moment{}, err
@@ -368,6 +405,9 @@ func (s *Moments) today() time.Time {
 	y, m, d := s.now().In(s.loc).Date()
 	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
 }
+
+// photoKey is where a moment's photo is kept in the PhotoStore.
+func photoKey(id uuid.UUID) string { return "moments/" + id.String() + ".jpg" }
 
 func visibleMoment(m domain.Moment, viewer uuid.UUID) bool {
 	return m.AuthorID == viewer || m.Visibility != domain.VisibilityPrivate

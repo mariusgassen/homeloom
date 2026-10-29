@@ -57,6 +57,13 @@ type Config struct {
 	OpenAIAPIKey string
 	// TimeZone is where the household lives; repeating reminders keep their time of day in it.
 	TimeZone *time.Location
+	// S3 is optional: with a key pair, new moment photos go to the bucket (the bundled Garage by
+	// default) instead of Postgres.
+	S3Endpoint        string
+	S3Region          string
+	S3Bucket          string
+	S3AccessKeyID     string
+	S3SecretAccessKey string
 }
 
 // RedirectURL is the login callback to register in authentik.
@@ -105,6 +112,8 @@ func Load() (Config, error) {
 		VoiceAgent:       env("VOICE_AGENT", "homeloom"),
 		OpenAIAPIKey:     os.Getenv("OPENAI_API_KEY"),
 	}
+	c.S3Endpoint, c.S3Region, c.S3Bucket = env("S3_ENDPOINT", "http://homeloom-garage:3900"), env("S3_REGION", "garage"), env("S3_BUCKET", "homeloom")
+	c.S3AccessKeyID, c.S3SecretAccessKey = os.Getenv("S3_ACCESS_KEY_ID"), os.Getenv("S3_SECRET_ACCESS_KEY")
 	c.Plex = c.SecretKey != "" && env("PLEX_ENABLED", "true") != "false"
 	if c.AnthropicAPIKey == "" || c.OpenAIAPIKey == "" {
 		c.VoiceAgent = ""
@@ -150,6 +159,12 @@ func Load() (Config, error) {
 	}
 	if c.LiveKitAPIKey != "" && c.LiveKitAPISecret == "" {
 		missing = append(missing, "LIVEKIT_API_SECRET")
+	}
+	if c.S3AccessKeyID != "" && c.S3SecretAccessKey == "" {
+		missing = append(missing, "S3_SECRET_ACCESS_KEY")
+	}
+	if c.S3SecretAccessKey != "" && c.S3AccessKeyID == "" {
+		missing = append(missing, "S3_ACCESS_KEY_ID")
 	}
 	if len(missing) > 0 {
 		return c, errors.New("missing required env: " + strings.Join(missing, ", "))
