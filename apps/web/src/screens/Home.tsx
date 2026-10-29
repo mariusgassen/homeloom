@@ -7,7 +7,7 @@ import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Empty } from "../ui/Empty";
-import { cx, Icon } from "../ui/Icon";
+import { cx, Icon, type IconName } from "../ui/Icon";
 import { Mark } from "../ui/Mark";
 import { Screen } from "./Screen";
 
@@ -88,6 +88,17 @@ export function Home() {
       }
       return res;
     });
+  // All off switches the lit lights one after another, so each shows off as soon as it is.
+  const allOff = () =>
+    run("all", async () => {
+      for (const l of home?.lights.filter((x) => x.on) ?? []) {
+        const res = await api.POST("/v1/households/{householdId}/home/lights/{lightId}/toggle", { params: { path: { householdId, lightId: l.id } } });
+        if (!res.data) return res;
+        const next = res.data;
+        setHome((h) => h && { ...h, lights: h.lights.map((x) => (x.id === next.id ? { ...x, on: next.on } : x)) });
+      }
+      return {};
+    });
 
   if (unavailable) {
     return (
@@ -107,20 +118,32 @@ export function Home() {
     if (!room && lights.length === 0 && readings.length === 0) return null;
     if (lights.length + readings.length + scenes.length === 0) return null;
     const title = room?.name ?? (home?.rooms.length ? t("home.other") : undefined);
+    const lit = lights.filter((l) => l.on).length;
     return (
-      <section key={id ?? ""} className="room" aria-label={title ?? t("tabs.home")}>
-        {(title || readings.length > 0) && (
+      <section key={id ?? ""} className={cx("room", lit > 0 && "room-lit")} aria-label={title ?? t("tabs.home")}>
+        {title && (
           <header className="room-header">
-            {title && <h2 className="headline">{title}</h2>}
-            <Readings readings={readings} />
+            <span className="room-icon">
+              <Icon name={roomIcon(title)} />
+            </span>
+            <span className="room-title">
+              <h2 className="headline">{title}</h2>
+              {lit > 0 && <span className="caption room-lit-count">{t("home.roomOn", { count: lit })}</span>}
+            </span>
           </header>
         )}
+        <Readings readings={readings} />
         {lights.length > 0 && (
           <div className="room-lights">
             {lights.map((l) => (
               <button key={l.id} type="button" className={cx("light", l.on && "light-on")} role="switch" aria-checked={l.on} aria-label={l.name} disabled={disabled} onClick={() => toggle(l)}>
-                <span className="light-name">{l.name}</span>
-                <span className="caption">{l.on ? t("home.on") : t("home.off")}</span>
+                <span className="light-bulb">
+                  <Icon name="bulb" />
+                </span>
+                <span className="light-text">
+                  <span className="light-name">{l.name}</span>
+                  <span className="caption">{l.on ? t("home.on") : t("home.off")}</span>
+                </span>
               </button>
             ))}
           </div>
@@ -132,12 +155,26 @@ export function Home() {
 
   const loose = home?.scenes.filter((s) => !s.room) ?? [];
   const empty = home?.connected && home.scenes.length + home.lights.length + home.readings.length === 0;
+  const lit = home?.lights.filter((l) => l.on).length ?? 0;
   return (
     <Screen title={t("tabs.home")}>
       {error && (
         <p className="callout error" role="alert">
           {error}
         </p>
+      )}
+      {home && home.lights.length > 0 && (
+        <div className={cx("home-summary", lit > 0 && "home-summary-lit")}>
+          <span className="home-summary-bulb">
+            <Icon name="bulb" />
+          </span>
+          <span className="headline">{lit > 0 ? t("home.lightsOn", { count: lit }) : t("home.lightsOff")}</span>
+          {lit > 0 && (
+            <Button size="sm" variant="secondary" disabled={disabled} onClick={allOff}>
+              {t("home.allOff")}
+            </Button>
+          )}
+        </div>
       )}
       {!home && (
         <div className="loading-inline">
@@ -150,7 +187,9 @@ export function Home() {
           <div className="scene-grid">
             {loose.map((s) => (
               <button key={s.id} type="button" className="scene" disabled={disabled} onClick={() => scene(s.id)} aria-pressed={active === s.id}>
-                <Icon name="sparkle" />
+                <span className="scene-icon">
+                  <Icon name="sparkle" />
+                </span>
                 <span className="headline">{s.name}</span>
                 {active === s.id && <span className="caption">{t("home.on")}</span>}
               </button>
@@ -196,6 +235,27 @@ function Scenes({ scenes, active, disabled, onPick }: { scenes: Scene[]; active:
   );
 }
 
+// A room's icon, guessed from its name in English or German.
+const roomIcons: [RegExp, IconName][] = [
+  [/kitchen|küche|kueche|dining|essen/i, "cook"],
+  [/living|wohn|lounge/i, "sofa"],
+  [/bed|schlaf|kinder|nursery|guest|gäste|gaeste/i, "bed"],
+  [/bath|bad|wc|toilet|dusch|shower/i, "bath"],
+  [/office|study|büro|buero|arbeit/i, "desk"],
+  [/garden|garten|balcon|balkon|terrace|terrasse|patio|outside|außen|aussen/i, "leaf"],
+  [/hall|flur|diele|entr|eingang|stair|treppe/i, "door"],
+];
+function roomIcon(name: string): IconName {
+  return roomIcons.find(([re]) => re.test(name))?.[1] ?? "today";
+}
+
+const readingIcons: Partial<Record<Reading["kind"], IconName>> = { temperature: "thermometer", humidity: "drop", window: "window", door: "door", garage_door: "door" };
+
+function ReadingIcon({ kind }: { kind: Reading["kind"] }) {
+  const name = readingIcons[kind];
+  return name ? <Icon name={name} size="sm" /> : null;
+}
+
 // Readings shows one value per measurement (the first by name) and only the windows, doors and
 // alarms that are open or detected, so a quiet room stays quiet.
 function Readings({ readings }: { readings: Reading[] }) {
@@ -210,11 +270,13 @@ function Readings({ readings }: { readings: Reading[] }) {
     <div className="room-readings">
       {values.map((r) => (
         <span key={r.id} className="room-value" title={r.name}>
+          <ReadingIcon kind={r.kind} />
           {number(r)}
         </span>
       ))}
       {alerts.map((r) => (
-        <span key={r.id} className={cx("hl-chip", r.kind === "smoke" || r.kind === "moisture" ? "room-alarm" : "room-alert")} title={r.name}>
+        <span key={r.id} className={cx("room-value", r.kind === "smoke" || r.kind === "moisture" ? "room-alarm" : "room-alert")} title={r.name}>
+          <ReadingIcon kind={r.kind} />
           {t(`home.reading.${r.kind}`)}
         </span>
       ))}
