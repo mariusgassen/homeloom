@@ -151,9 +151,19 @@ type MomentRepository interface {
 	RandomGratitude(ctx context.Context, householdID, viewer uuid.UUID, before time.Time) (domain.Moment, error)
 	// SetMomentPhoto replaces the moment's photo and sets its PhotoAt.
 	SetMomentPhoto(ctx context.Context, id uuid.UUID, p domain.Photo) error
+	// MarkMomentPhoto sets PhotoAt for a photo kept in a PhotoStore and drops any copy held here.
+	MarkMomentPhoto(ctx context.Context, id uuid.UUID) error
 	// MomentPhoto returns domain.ErrNotFound when the moment has none.
 	MomentPhoto(ctx context.Context, id uuid.UUID) (domain.Photo, error)
 	DeleteMomentPhoto(ctx context.Context, id uuid.UUID) error
+}
+
+// PhotoStore keeps photos outside the database (S3), under keys the service chooses. GetPhoto
+// returns domain.ErrNotFound for a key it doesn't hold; deleting a missing key is no error.
+type PhotoStore interface {
+	PutPhoto(ctx context.Context, key string, p domain.Photo) error
+	GetPhoto(ctx context.Context, key string) (domain.Photo, error)
+	DeletePhoto(ctx context.Context, key string) error
 }
 
 // JobRepository lets a daily job run once per day across all API instances.
