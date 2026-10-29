@@ -630,7 +630,7 @@ test("the quick-add sheet suggests reminders set before", async () => {
   );
   renderApp("/lists");
   await screen.findByText("Nothing to remember");
-  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  await userEvent.click(screen.getByRole("button", { name: "New reminder" }));
   const sheet = screen.getByRole("dialog", { name: "New reminder" });
   await userEvent.type(within(sheet).getByLabelText("Remind about"), "wat");
   const chips = await within(sheet).findByRole("group", { name: "Used before" });
