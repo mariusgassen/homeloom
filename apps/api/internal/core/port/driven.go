@@ -118,6 +118,13 @@ type EntryRepository interface {
 	// time, an event's alert) has passed since their last notification, and returns them. Each due
 	// time is claimed once, also by several API instances at the same time.
 	ClaimDue(ctx context.Context, now time.Time, limit int) ([]domain.Entry, error)
+	// AddEntryPhoto stores a photo in the entry and returns its id.
+	AddEntryPhoto(ctx context.Context, entryID uuid.UUID, p domain.Photo) (uuid.UUID, error)
+	// EntryPhoto returns domain.ErrNotFound unless the photo is in the entry.
+	EntryPhoto(ctx context.Context, entryID, photoID uuid.UUID) (domain.Photo, error)
+	// EntryPhotoIDs returns the ids of the entry's photos, oldest first.
+	EntryPhotoIDs(ctx context.Context, entryID uuid.UUID) ([]uuid.UUID, error)
+	DeleteEntryPhotos(ctx context.Context, entryID uuid.UUID, ids []uuid.UUID) error
 }
 
 type CalendarFeedRepository interface {

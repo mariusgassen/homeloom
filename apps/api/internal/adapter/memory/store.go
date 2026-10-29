@@ -47,6 +47,7 @@ type Store struct {
 
 	moments      []domain.Moment
 	momentPhotos map[uuid.UUID]domain.Photo
+	entryPhotos  []entryPhoto
 	jobRuns      map[string]bool
 
 	voices map[uuid.UUID]domain.VoiceSettings

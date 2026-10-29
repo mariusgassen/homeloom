@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"time"
 
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/http/oapi"
@@ -157,6 +159,51 @@ func (h *handlers) ReopenEntry(ctx context.Context, req oapi.ReopenEntryRequestO
 	return oapi.ReopenEntry200JSONResponse(toEntry(e)), nil
 }
 
+func (h *handlers) AddNotePhoto(ctx context.Context, req oapi.AddNotePhotoRequestObject) (oapi.AddNotePhotoResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// One byte more than allowed is enough to tell the photo is too big.
+	data, err := io.ReadAll(io.LimitReader(req.Body, domain.MaxPhotoBytes+1))
+	if err != nil {
+		return oapi.AddNotePhoto400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "invalid_photo", err.Error(), "max", domain.MaxPhotoBytes>>20))}, nil
+	}
+	id, err := h.entries.AddPhoto(ctx, u, req.EntryId, domain.Photo{ContentType: "image/jpeg", Data: data})
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.AddNotePhoto404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.Is(err, domain.ErrForbidden):
+		return oapi.AddNotePhoto403JSONResponse(errorBody(ctx, "not_yours", err.Error())), nil
+	case errors.Is(err, domain.ErrNotePhotos):
+		return oapi.AddNotePhoto400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "too_many_photos", err.Error(), "max", domain.MaxNotePhotos))}, nil
+	case errors.Is(err, domain.ErrInvalid):
+		return oapi.AddNotePhoto400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "invalid_photo", err.Error(), "max", domain.MaxPhotoBytes>>20))}, nil
+	case err != nil:
+		return nil, err
+	}
+	return oapi.AddNotePhoto201JSONResponse{Id: id, Url: fmt.Sprintf("/v1/entries/%s/photos/%s", req.EntryId, id)}, nil
+}
+
+func (h *handlers) GetNotePhoto(ctx context.Context, req oapi.GetNotePhotoRequestObject) (oapi.GetNotePhotoResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	p, err := h.entries.Photo(ctx, u, req.EntryId, req.PhotoId)
+	if errors.Is(err, domain.ErrNotFound) {
+		return oapi.GetNotePhoto404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	// A photo never changes, so the browser may keep it; it is private to the viewer.
+	cache := "private, max-age=31536000, immutable"
+	return oapi.GetNotePhoto200ImagejpegResponse{
+		Body: bytes.NewReader(p.Data), ContentLength: int64(len(p.Data)), Headers: oapi.GetNotePhoto200ResponseHeaders{CacheControl: &cache},
+	}, nil
+}
+
 // invalidEntry names what is wrong with an entry, so the app can say it in the user's language.
 func invalidEntry(ctx context.Context, err error) oapi.Error {
 	var te domain.TextError
@@ -193,6 +240,10 @@ func toEntry(e domain.Entry) oapi.Entry {
 	}
 	if !e.Sealed {
 		out.Text = &e.Text
+		if e.Kind == domain.KindNote {
+			title := domain.NoteTitle(e.Text)
+			out.Title = &title
+		}
 	}
 	return out
 }

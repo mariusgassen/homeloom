@@ -623,7 +623,7 @@ test("the quick-add sheet suggests reminders set before", async () => {
   );
   renderApp("/lists");
   await screen.findByText("Nothing to remember");
-  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  await userEvent.click(screen.getByRole("button", { name: "New reminder" }));
   const sheet = screen.getByRole("dialog", { name: "New reminder" });
   await userEvent.type(within(sheet).getByLabelText("Remind about"), "wat");
   const chips = await within(sheet).findByRole("group", { name: "Used before" });
@@ -657,10 +657,11 @@ test("the quick-add sheet sets a shared reminder for both", async () => {
 test("add follows the list you're in, and only Today asks what to add", async () => {
   serve(...signedIn(), at("GET", `/v1/households/${home.id}/entries`, () => json([])));
   renderApp("/lists?show=note");
+  // A note opens on its own page, with no choice of what to add.
   await userEvent.click(await screen.findByRole("button", { name: "New note" }));
-  const note = screen.getByRole("dialog", { name: "New note" });
-  expect(within(note).queryByRole("radiogroup", { name: "What to add" })).not.toBeInTheDocument();
-  await userEvent.click(within(note).getByRole("button", { name: "Cancel" }));
+  expect(await screen.findByLabelText("Title")).toBeInTheDocument();
+  expect(screen.queryByRole("radiogroup", { name: "What to add" })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Notes" }));
 
   await userEvent.click(screen.getByRole("link", { name: "Today" }));
   await userEvent.click(await screen.findByRole("button", { name: "Add" }));
@@ -679,6 +680,50 @@ test("a note for later stays sealed", async () => {
   renderApp("/lists?show=note");
   expect(await screen.findByText(/Jo wrote you something\. It opens on/)).toBeInTheDocument();
   expect(screen.getByRole("tab", { name: "Notes" })).toHaveAttribute("aria-selected", "true");
+});
+
+test("a note opens as its own page to read, and saves its title as a heading on the way back", async () => {
+  const note = entry({ kind: "note", text: "# Trip\n\nPack **light**", title: "Trip" });
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([note])),
+    at("GET", `/v1/entries/${note.id}`, () => json(note)),
+    at("PUT", `/v1/entries/${note.id}`, () => json(note)),
+  );
+  renderApp("/lists?show=note");
+  expect(await screen.findByText("Pack light")).toBeInTheDocument();
+  await userEvent.click(screen.getByText("Trip"));
+  expect(await screen.findByRole("heading", { name: "Trip" })).toBeInTheDocument();
+  expect(screen.getByText("light").tagName).toBe("STRONG");
+  await userEvent.click(screen.getByRole("button", { name: "Write" }));
+  const title = screen.getByLabelText("Title");
+  await userEvent.clear(title);
+  await userEvent.type(title, "Rome trip");
+  await userEvent.click(screen.getByRole("button", { name: "Notes" }));
+  expect(await screen.findByRole("tab", { name: "Notes" })).toHaveAttribute("aria-selected", "true");
+  expect(await calls.find((c) => c.method === "PUT")?.json()).toEqual({ text: "# Rome trip\n\nPack **light**", visibility: "shared", repeat: "never" });
+});
+
+test("an empty new note is never saved", async () => {
+  const calls = serve(...signedIn(), at("GET", `/v1/households/${home.id}/entries`, () => json([])));
+  renderApp("/lists/notes/new");
+  await userEvent.click(await screen.findByRole("button", { name: "Notes" }));
+  await screen.findByText("No notes yet");
+  expect(calls.some((c) => c.method === "POST")).toBe(false);
+});
+
+test("a new note is made with its first words", async () => {
+  const made = entry({ id: "99999999-9999-4999-8999-999999999999", kind: "note", text: "# Groceries" });
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([made])),
+    at("POST", `/v1/households/${home.id}/entries`, () => json(made, 201)),
+  );
+  renderApp("/lists/notes/new");
+  await userEvent.type(await screen.findByLabelText("Title"), "Groceries");
+  await userEvent.click(screen.getByRole("button", { name: "Notes" }));
+  await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+  expect(await calls.find((c) => c.method === "POST")?.json()).toEqual({ kind: "note", text: "# Groceries", visibility: "shared", repeat: "never" });
 });
 
 test("today lists what's due and today's events", async () => {

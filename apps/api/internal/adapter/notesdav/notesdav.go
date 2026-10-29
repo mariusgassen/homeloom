@@ -32,7 +32,7 @@ const (
 	Prefix = "/webdav"
 	// maxBody bounds one file an app sends; a note holds at most domain.MaxNoteText characters.
 	maxBody = 4 * domain.MaxNoteText
-	// maxTitle is how much of a note's first line names its file.
+	// maxTitle is how much of a note's title names its file.
 	maxTitle = 60
 	mimeType = "text/markdown; charset=utf-8"
 )
@@ -136,7 +136,7 @@ func fileOf(folder, name string, e domain.Entry) file {
 }
 
 // files lists a folder. A note an app made keeps the name the app gave it; one made in Homeloom is
-// named after its first line, numbered when two would share a name.
+// named after its title, numbered when two would share a name.
 func (f *fs) files(ctx context.Context, w where) ([]file, error) {
 	g := grant(ctx)
 	es, err := f.Entries.SyncEntries(ctx, g.User, g.HouseholdID, w.list)
@@ -161,16 +161,14 @@ func (f *fs) files(ctx context.Context, w where) ([]file, error) {
 	return out, nil
 }
 
-// title makes a file name from a note's first line.
+// title makes a file name from a note's title.
 func title(text string) string {
-	line, _, _ := strings.Cut(strings.TrimSpace(text), "\n")
-	line = strings.TrimLeft(line, "# ")
-	line = strings.Map(func(r rune) rune {
+	line := strings.Map(func(r rune) rune {
 		if unicode.IsControl(r) || strings.ContainsRune(`/\:*?"<>|`, r) {
 			return ' '
 		}
 		return r
-	}, line)
+	}, domain.NoteTitle(text))
 	line = strings.Join(strings.Fields(line), " ")
 	if utf8.RuneCountInString(line) > maxTitle {
 		line = strings.TrimSpace(string([]rune(line)[:maxTitle]))
@@ -304,7 +302,7 @@ func (f *fs) put(ctx context.Context, w where, existing file, exists bool, b []b
 		return nil, false, httpError(ctx, err)
 	}
 	if e.ICalName == "" {
-		// A note named after its first line keeps its name once an app writes it, so the app
+		// A note named after its title keeps its name once an app writes it, so the app
 		// finds it where it put it.
 		if e, err = f.Entries.SyncMove(ctx, g.User, g.HouseholdID, w.list, syncName, w.list, w.file); err != nil {
 			return nil, false, httpError(ctx, err)
