@@ -53,6 +53,8 @@ type EntryService interface {
 	List(ctx context.Context, actor domain.User, householdID uuid.UUID, kind domain.EntryKind) ([]domain.Entry, error)
 	Create(ctx context.Context, actor domain.User, householdID uuid.UUID, kind domain.EntryKind, f domain.EntryFields) (domain.Entry, error)
 	Get(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Entry, error)
+	// Suggestions returns titles of reminders the actor set before, to set again.
+	Suggestions(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.TitleSuggestion, error)
 	Update(ctx context.Context, actor domain.User, id uuid.UUID, f domain.EntryFields) (domain.Entry, error)
 	Delete(ctx context.Context, actor domain.User, id uuid.UUID) error
 	// SetDone ticks a reminder off (done true) or opens it again.
@@ -124,6 +126,8 @@ type ShoppingService interface {
 	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
 	// ClearDone removes the ticked items.
 	ClearDone(ctx context.Context, actor domain.User, householdID uuid.UUID) error
+	// Suggestions returns what was on the list before, to put on it again.
+	Suggestions(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.TitleSuggestion, error)
 }
 
 type HomeService interface {

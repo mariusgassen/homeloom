@@ -5,6 +5,7 @@ import (
 	"context"
 	"maps"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -74,6 +75,57 @@ func (s *Store) ListEntries(_ context.Context, householdID, viewer uuid.UUID, ki
 		)
 	})
 	return out[:min(limit, len(out))], nil
+}
+
+func (s *Store) ReminderSuggestions(_ context.Context, householdID, viewer uuid.UUID, limit int) ([]domain.TitleSuggestion, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	byKey := map[string]suggestion{}
+	open := map[string]bool{}
+	for _, e := range s.entries {
+		if e.HouseholdID != householdID || e.Kind != domain.KindReminder || (e.AuthorID != viewer && e.Visibility == domain.VisibilityPrivate) {
+			continue
+		}
+		key := strings.ToLower(e.Text)
+		open[key] = open[key] || e.DoneAt == nil
+		h := byKey[key]
+		h.Uses++
+		if !e.CreatedAt.Before(h.LastUsed) {
+			h.Text, h.LastUsed = e.Text, e.CreatedAt
+		}
+		byKey[key] = h
+	}
+	var out []suggestion
+	for key, h := range byKey {
+		if !open[key] {
+			out = append(out, h)
+		}
+	}
+	return rankSuggestions(out, limit), nil
+}
+
+// suggestion is a title used before, with when it was last used.
+type suggestion struct {
+	Text     string
+	Uses     int
+	LastUsed time.Time
+}
+
+type historyKey struct {
+	household uuid.UUID
+	text      string
+}
+
+// rankSuggestions orders them as the Postgres queries do: most used first, then most recent.
+func rankSuggestions(in []suggestion, limit int) []domain.TitleSuggestion {
+	slices.SortFunc(in, func(a, b suggestion) int {
+		return cmp.Or(cmp.Compare(b.Uses, a.Uses), b.LastUsed.Compare(a.LastUsed))
+	})
+	out := make([]domain.TitleSuggestion, 0, min(limit, len(in)))
+	for _, h := range in[:min(limit, len(in))] {
+		out = append(out, domain.TitleSuggestion{Text: h.Text, Uses: h.Uses})
+	}
+	return out
 }
 
 func (s *Store) UpdateEntry(_ context.Context, e domain.Entry) (domain.Entry, error) {

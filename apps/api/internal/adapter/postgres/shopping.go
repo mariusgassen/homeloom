@@ -39,6 +39,9 @@ func (s *Store) AddShoppingItems(ctx context.Context, items []domain.ShoppingIte
 				return err
 			}
 			out[i] = toShoppingItem(row)
+			if err := q.RecordShoppingHistory(ctx, sqlcgen.RecordShoppingHistoryParams{HouseholdID: it.HouseholdID, Text: it.Text}); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -72,6 +75,20 @@ func (s *Store) DeleteShoppingItem(ctx context.Context, householdID, id uuid.UUI
 
 func (s *Store) ClearDoneShoppingItems(ctx context.Context, householdID uuid.UUID) error {
 	return s.q.ClearDoneShoppingItems(ctx, householdID)
+}
+
+func (s *Store) ShoppingSuggestions(ctx context.Context, householdID uuid.UUID, limit int) ([]domain.TitleSuggestion, error) {
+	rows, err := s.q.ShoppingSuggestions(ctx, sqlcgen.ShoppingSuggestionsParams{
+		HouseholdID: householdID, Lim: int32(min(limit, 1000)), //nolint:gosec // bounded above
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.TitleSuggestion, len(rows))
+	for i, r := range rows {
+		out[i] = domain.TitleSuggestion{Text: r.Text, Uses: int(r.Uses)}
+	}
+	return out, nil
 }
 
 func toShoppingItem(r sqlcgen.ShoppingItem) domain.ShoppingItem {

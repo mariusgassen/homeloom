@@ -141,8 +141,11 @@ h1, h2, h3, p { margin: 0; }
 .switch-on::after { transform: translateX(20px); }
 
 .screen-action { min-width: var(--hit-min); min-height: var(--hit-min); display: grid; place-items: center; border: 0; border-radius: var(--radius-pill); background: none; color: var(--spruce); cursor: pointer; -webkit-tap-highlight-color: transparent; }
-/* Add is the one filled button in the bar, so it never reads like the assistant's sparkle next to it. */
-.screen-add .hl-icon { width: 32px; height: 32px; padding: 5px; border-radius: var(--radius-pill); background: var(--spruce); color: var(--on-spruce); stroke-width: 2.25; }
+/* Add floats above the tab bar on the right, where the thumb is, inside the screen's column on wide windows. */
+.screen-add { position: fixed; z-index: 15; right: max(var(--space-4), env(safe-area-inset-right, 0px), calc((100vw - 640px) / 2 + var(--space-4))); bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px) + var(--space-4)); width: 56px; height: 56px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-pill); background: var(--spruce); color: var(--on-spruce); box-shadow: 0 6px 20px rgba(22, 32, 30, 0.25); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.screen-add:active { transform: scale(.94); }
+.screen-add .hl-icon { width: 28px; height: 28px; stroke-width: 2.25; }
+.screen-with-add .screen-main { padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom, 0px) + 56px + var(--space-4) + var(--space-8)); }
 /* Segments share the width by label length, so a long German label still fits on a 375pt phone; ellipsis is the last resort. */
 .segmented { display: flex; gap: 2px; padding: var(--space-1); background: var(--surface-sunken); border-radius: var(--radius-md); }
 .segmented button { flex: 1 1 auto; min-width: 0; min-height: 36px; padding: 0 var(--space-2); border: 0; border-radius: 10px; background: none; color: var(--ink-muted); font: 600 13px/18px var(--font-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
@@ -187,7 +190,10 @@ h1, h2, h3, p { margin: 0; }
 
 .shopping-add { display: flex; gap: var(--space-2); }
 .shopping-add .input { flex: 1; min-width: 0; }
-.shopping-done { display: flex; align-items: center; justify-content: space-between; }
+.shopping-done { display: flex; align-items: center; gap: var(--space-2); }
+.shopping-done .group-title { margin-right: auto; }
+/* Titles used before: the text as written, not shouted like a tag. */
+.suggestions .hl-chip { text-transform: none; letter-spacing: 0; font-size: 14px; }
 
 /* A call, over everything else: who, how it's going, then the controls at the bottom. */
 .call { --call-bottom: calc(max(var(--space-8), env(safe-area-inset-bottom, 0px)) + 56px + var(--space-4)); position: fixed; inset: 0; z-index: 40; background: var(--spruce); color: var(--on-spruce); display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: max(var(--space-8), env(safe-area-inset-top, 0px)) var(--space-4) max(var(--space-8), env(safe-area-inset-bottom, 0px)); overflow: hidden; }

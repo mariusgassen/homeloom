@@ -28,6 +28,8 @@ const CallContext = createContext<Value | null>(null);
 
 // Nobody answering within this long ends the call.
 const ringFor = 45_000;
+// Answering finds the caller already in the room; if nobody comes within this long, the call is over.
+const answerWithin = 5_000;
 // How long "Call ended" and the like stay up before the call view closes.
 const lingerFor = 1_500;
 
@@ -66,7 +68,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
   // enter connects to the call that ask returns, once per tap.
   const enter = useCallback(
-    (ask: () => Promise<Call | "linkUsed" | undefined>, householdId: string | undefined, invite: string[], withHomeloom = false) => {
+    (ask: () => Promise<Call | "linkUsed" | undefined>, householdId: string | undefined, invite: string[], withHomeloom = false, answering = false) => {
       if (current.current) return;
       // Every call is end-to-end encrypted with the key the API hands out; LiveKit never has it.
       const keyProvider = new ExternalE2EEKeyProvider();
@@ -127,7 +129,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
           return finish(r, "micBlocked");
         }
         sync();
-        setTimeout(() => !joined && finish(r, "noAnswer"), ringFor);
+        if (answering) setTimeout(() => !joined && finish(r, "ended"), answerWithin);
+        else setTimeout(() => !joined && finish(r, "noAnswer"), ringFor);
       })();
     },
     [finish],
@@ -148,6 +151,8 @@ export function CallProvider({ children }: { children: ReactNode }) {
         async () => (await api.POST("/v1/households/{householdId}/calls/{callId}/join", { params: { path: { householdId, callId } } })).data,
         householdId,
         [],
+        false,
+        true,
       ),
     [enter],
   );

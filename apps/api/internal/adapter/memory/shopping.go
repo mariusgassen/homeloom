@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -43,6 +44,9 @@ func (s *Store) AddShoppingItems(_ context.Context, items []domain.ShoppingItem)
 		it.ID, it.Created, it.DoneAt = uuid.New(), time.Now(), nil
 		s.shopping = append(s.shopping, it)
 		out[i] = it
+		key := historyKey{it.HouseholdID, strings.ToLower(it.Text)}
+		h := s.shoppingHistory[key]
+		s.shoppingHistory[key] = suggestion{Text: it.Text, Uses: h.Uses + 1, LastUsed: it.Created}
 	}
 	return out, nil
 }
@@ -83,4 +87,22 @@ func (s *Store) ClearDoneShoppingItems(_ context.Context, householdID uuid.UUID)
 	defer s.mu.Unlock()
 	s.shopping = slices.DeleteFunc(s.shopping, func(it domain.ShoppingItem) bool { return it.HouseholdID == householdID && it.DoneAt != nil })
 	return nil
+}
+
+func (s *Store) ShoppingSuggestions(_ context.Context, householdID uuid.UUID, limit int) ([]domain.TitleSuggestion, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	open := map[string]bool{}
+	for _, it := range s.shopping {
+		if it.HouseholdID == householdID && it.DoneAt == nil {
+			open[strings.ToLower(it.Text)] = true
+		}
+	}
+	var out []suggestion
+	for k, h := range s.shoppingHistory {
+		if k.household == householdID && !open[k.text] {
+			out = append(out, h)
+		}
+	}
+	return rankSuggestions(out, limit), nil
 }

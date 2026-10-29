@@ -39,6 +39,7 @@ type Store struct {
 	watchConnections  map[uuid.UUID]domain.WatchConnection
 	pushSubscriptions []domain.PushSubscription
 	shopping          []domain.ShoppingItem
+	shoppingHistory   map[historyKey]suggestion
 
 	conversations []domain.Conversation
 	chatMessages  []domain.ChatMessage
@@ -61,6 +62,8 @@ func NewStore() *Store {
 		invites:    map[string]*invite{},
 
 		calendarFeeds: map[string]domain.CalendarFeed{},
+
+		shoppingHistory: map[historyKey]suggestion{},
 
 		momentPhotos: map[uuid.UUID]domain.Photo{},
 		jobRuns:      map[string]bool{},

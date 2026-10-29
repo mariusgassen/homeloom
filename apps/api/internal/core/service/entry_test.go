@@ -138,6 +138,9 @@ func TestEntryVisibility(t *testing.T) {
 	if _, err := f.entries.List(ctx, f.eve, f.household, ""); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("non-member list: want ErrNotFound, got %v", err)
 	}
+	if _, err := f.entries.Suggestions(ctx, f.eve, f.household); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("non-member suggestions: want ErrNotFound, got %v", err)
+	}
 	if _, err := f.entries.Get(ctx, f.eve, letter.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("non-member get: want ErrNotFound, got %v", err)
 	}

@@ -111,6 +111,13 @@ func (s *Entry) Get(ctx context.Context, actor domain.User, id uuid.UUID) (domai
 	return sealEntry(e, actor.ID, s.now()), nil
 }
 
+func (s *Entry) Suggestions(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.TitleSuggestion, error) {
+	if _, err := s.households.Role(ctx, householdID, actor.ID); err != nil {
+		return nil, err
+	}
+	return s.entries.ReminderSuggestions(ctx, householdID, actor.ID, domain.MaxSuggestions)
+}
+
 func (s *Entry) Update(ctx context.Context, actor domain.User, id uuid.UUID, f domain.EntryFields) (domain.Entry, error) {
 	e, err := s.editable(ctx, actor, id)
 	if err != nil {

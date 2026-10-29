@@ -12,6 +12,15 @@ const (
 	MaxShoppingItems = 500
 )
 
+// MaxSuggestions is how many past titles a suggestion list holds.
+const MaxSuggestions = 20
+
+// TitleSuggestion is a title used before, to use again, and how often it was used.
+type TitleSuggestion struct {
+	Text string
+	Uses int
+}
+
 // ShoppingItem is one line on the household's shared shopping list.
 type ShoppingItem struct {
 	ID          uuid.UUID

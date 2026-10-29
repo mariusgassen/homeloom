@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type Entry, type EntryFields, type EntryKind, type HouseholdDetail, type Repeat, type User, type Visibility } from "../api/client";
-import { fromLocal, toLocalDate, toLocalDateTime } from "../entries";
+import { fromLocal, matching, toLocalDate, toLocalDateTime, useSuggestions } from "../entries";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
+import { Suggestions } from "./Suggestions";
 
 const repeats: Repeat[] = ["never", "daily", "weekly", "monthly", "yearly"];
 const alerts = [0, 10, 30, 60, 24 * 60];
 const maxText: Record<EntryKind, number> = { note: 5000, reminder: 200, event: 200 };
 
 // The quick-add sheet from the design: what it is, the text, its time, and who can see it.
+// Given a kind, as from that list's add, it makes just that; without one it offers the choice.
 // With an entry it edits that entry instead, and the kind is fixed.
-export function EntrySheet({ household, me, entry, kind: initialKind = "reminder", onClose, onSaved }: {
+export function EntrySheet({ household, me, entry, kind: fixedKind, onClose, onSaved }: {
   household: HouseholdDetail;
   me: User;
   entry?: Entry;
@@ -20,7 +22,7 @@ export function EntrySheet({ household, me, entry, kind: initialKind = "reminder
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
-  const [kind, setKind] = useState<EntryKind>(entry?.kind ?? initialKind);
+  const [kind, setKind] = useState<EntryKind>(entry?.kind ?? fixedKind ?? "reminder");
   const [text, setText] = useState(entry?.text ?? "");
   const [visibility, setVisibility] = useState<Visibility>(entry?.visibility ?? "shared");
   const [revealAt, setRevealAt] = useState(entry?.revealAt ? toLocalDate(entry.revealAt) : "");
@@ -36,6 +38,7 @@ export function EntrySheet({ household, me, entry, kind: initialKind = "reminder
   const textRef = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
   const author = entry ? entry.authorId === me.id : true;
   const partner = household.members.find((m) => m.user.id !== me.id)?.user;
+  const suggestions = useSuggestions(household.id, "reminders");
 
   useEffect(() => textRef.current?.focus(), [kind]);
 
@@ -102,7 +105,7 @@ export function EntrySheet({ household, me, entry, kind: initialKind = "reminder
           </Button>
         </div>
 
-        {!entry && (
+        {!entry && !fixedKind && (
           <div className="cook-chips" role="radiogroup" aria-label={t("entries.kind")}>
             {(["reminder", "event", "note"] as const).map((k) => (
               <button key={k} type="button" role="radio" aria-checked={kind === k} className={kind === k ? "hl-chip hl-chip-shared" : "hl-chip"} onClick={() => {
@@ -123,6 +126,15 @@ export function EntrySheet({ household, me, entry, kind: initialKind = "reminder
             <input ref={textRef} className="input" value={text} maxLength={maxText[kind]} onChange={(e) => setText(e.target.value)} placeholder={t(`entries.placeholder.${kind}`)} required />
           )}
         </label>
+        {!entry && kind === "reminder" && (
+          <Suggestions
+            items={matching(suggestions, text)}
+            onPick={(s) => {
+              setText(s);
+              textRef.current?.focus();
+            }}
+          />
+        )}
 
         {kind === "reminder" && (
           <div className="sheet-row">
