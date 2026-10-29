@@ -297,7 +297,7 @@ function stubPush(permission: NotificationPermission) {
   };
   vi.stubGlobal("PushManager", function PushManager() {});
   vi.stubGlobal("Notification", { permission, requestPermission: vi.fn(async () => permission) });
-  Object.defineProperty(navigator, "serviceWorker", { configurable: true, value: { ready: Promise.resolve({ pushManager }) } });
+  Object.defineProperty(navigator, "serviceWorker", { configurable: true, value: Object.assign(new EventTarget(), { ready: Promise.resolve({ pushManager }) }) });
   return pushManager;
 }
 
@@ -756,6 +756,45 @@ test("a call notification asks before answering", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Answer" }));
   await waitFor(() => expect(rooms).toHaveLength(1));
   expect(calls.some((c) => c.url.endsWith(`/calls/${callId}/join`))).toBe(true);
+});
+
+test("answering a call that's already over says so", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  rooms.length = 0;
+  serve(
+    at("GET", "/v1/me", () => json(marius)),
+    at("GET", "/v1/households", () => json([home])),
+    at("GET", `/v1/households/${home.id}`, household),
+    at("GET", `/v1/households/${home.id}/questions`, () => json([])),
+    at("POST", `/v1/households/${home.id}/calls/${callId}/join`, callJoin),
+  );
+  try {
+    renderApp(`/call/${callId}?from=${jo.id}`);
+    await userEvent.click(await screen.findByRole("button", { name: "Answer" }));
+    await waitFor(() => expect((rooms[0] as unknown as FakeRoom | undefined)?.connect).toHaveBeenCalled());
+    await act(() => vi.advanceTimersByTimeAsync(5_000));
+    expect(await screen.findByText("Call ended")).toBeInTheDocument();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("a tapped notification opens its screen in the open app", async () => {
+  const sw = new EventTarget();
+  Object.defineProperty(navigator, "serviceWorker", { value: sw, configurable: true });
+  serve(
+    at("GET", "/v1/me", () => json(marius)),
+    at("GET", "/v1/households", () => json([home])),
+    at("GET", `/v1/households/${home.id}`, household),
+    at("GET", `/v1/households/${home.id}/questions`, () => json([])),
+  );
+  renderApp("/");
+  await screen.findByRole("link", { name: "Lists" });
+  act(() => {
+    sw.dispatchEvent(new MessageEvent("message", { data: { type: "homeloom:open", path: "https://evil.example/" } }));
+    sw.dispatchEvent(new MessageEvent("message", { data: { type: "homeloom:open", path: `/call/${callId}?from=${jo.id}` } }));
+  });
+  expect(await screen.findByRole("heading", { name: "Jo is calling" })).toBeInTheDocument();
 });
 
 test("with more than one other person, you pick who to call", async () => {
