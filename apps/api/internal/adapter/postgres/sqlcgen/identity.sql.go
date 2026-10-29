@@ -7,6 +7,7 @@ package sqlcgen
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -37,6 +38,30 @@ func (q *Queries) CreateHousehold(ctx context.Context, name string) (Household, 
 	return i, err
 }
 
+const deleteUserAvatar = `-- name: DeleteUserAvatar :one
+WITH avatar AS (
+    DELETE FROM user_avatars WHERE user_id = $1
+)
+UPDATE users SET avatar_at = NULL, updated_at = now() WHERE id = $1
+RETURNING id, authentik_sub, name, email, avatar_url, created_at, updated_at, avatar_at
+`
+
+func (q *Queries) DeleteUserAvatar(ctx context.Context, userID uuid.UUID) (User, error) {
+	row := q.db.QueryRow(ctx, deleteUserAvatar, userID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.AuthentikSub,
+		&i.Name,
+		&i.Email,
+		&i.AvatarUrl,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AvatarAt,
+	)
+	return i, err
+}
+
 const getHousehold = `-- name: GetHousehold :one
 SELECT id, name, created_at FROM households WHERE id = $1
 `
@@ -62,6 +87,42 @@ func (q *Queries) GetMembershipRole(ctx context.Context, arg GetMembershipRolePa
 	var role HouseholdRole
 	err := row.Scan(&role)
 	return role, err
+}
+
+const getUser = `-- name: GetUser :one
+SELECT id, authentik_sub, name, email, avatar_url, created_at, updated_at, avatar_at FROM users WHERE id = $1
+`
+
+func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
+	row := q.db.QueryRow(ctx, getUser, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.AuthentikSub,
+		&i.Name,
+		&i.Email,
+		&i.AvatarUrl,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AvatarAt,
+	)
+	return i, err
+}
+
+const getUserAvatar = `-- name: GetUserAvatar :one
+SELECT content_type, data FROM user_avatars WHERE user_id = $1
+`
+
+type GetUserAvatarRow struct {
+	ContentType string
+	Data        []byte
+}
+
+func (q *Queries) GetUserAvatar(ctx context.Context, userID uuid.UUID) (GetUserAvatarRow, error) {
+	row := q.db.QueryRow(ctx, getUserAvatar, userID)
+	var i GetUserAvatarRow
+	err := row.Scan(&i.ContentType, &i.Data)
+	return i, err
 }
 
 const listHouseholdsForUser = `-- name: ListHouseholdsForUser :many
@@ -99,7 +160,7 @@ func (q *Queries) ListHouseholdsForUser(ctx context.Context, userID uuid.UUID) (
 }
 
 const listMembers = `-- name: ListMembers :many
-SELECT u.id, u.name, u.email, u.avatar_url, m.role
+SELECT u.id, u.name, u.email, u.avatar_url, u.avatar_at, m.role
 FROM memberships m
 JOIN users u ON u.id = m.user_id
 WHERE m.household_id = $1
@@ -111,6 +172,7 @@ type ListMembersRow struct {
 	Name      string
 	Email     *string
 	AvatarUrl *string
+	AvatarAt  *time.Time
 	Role      HouseholdRole
 }
 
@@ -128,6 +190,7 @@ func (q *Queries) ListMembers(ctx context.Context, householdID uuid.UUID) ([]Lis
 			&i.Name,
 			&i.Email,
 			&i.AvatarUrl,
+			&i.AvatarAt,
 			&i.Role,
 		); err != nil {
 			return nil, err
@@ -140,6 +203,57 @@ func (q *Queries) ListMembers(ctx context.Context, householdID uuid.UUID) ([]Lis
 	return items, nil
 }
 
+const setUserAvatar = `-- name: SetUserAvatar :one
+WITH avatar AS (
+    INSERT INTO user_avatars (user_id, content_type, data) VALUES ($1, $2, $3)
+    ON CONFLICT (user_id) DO UPDATE SET content_type = EXCLUDED.content_type, data = EXCLUDED.data
+)
+UPDATE users SET avatar_at = now(), updated_at = now() WHERE id = $1
+RETURNING id, authentik_sub, name, email, avatar_url, created_at, updated_at, avatar_at
+`
+
+type SetUserAvatarParams struct {
+	UserID      uuid.UUID
+	ContentType string
+	Data        []byte
+}
+
+func (q *Queries) SetUserAvatar(ctx context.Context, arg SetUserAvatarParams) (User, error) {
+	row := q.db.QueryRow(ctx, setUserAvatar, arg.UserID, arg.ContentType, arg.Data)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.AuthentikSub,
+		&i.Name,
+		&i.Email,
+		&i.AvatarUrl,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AvatarAt,
+	)
+	return i, err
+}
+
+const sharesHousehold = `-- name: SharesHousehold :one
+SELECT EXISTS (
+    SELECT 1 FROM memberships a
+    JOIN memberships b ON b.household_id = a.household_id
+    WHERE a.user_id = $1 AND b.user_id = $2
+)
+`
+
+type SharesHouseholdParams struct {
+	A uuid.UUID
+	B uuid.UUID
+}
+
+func (q *Queries) SharesHousehold(ctx context.Context, arg SharesHouseholdParams) (bool, error) {
+	row := q.db.QueryRow(ctx, sharesHousehold, arg.A, arg.B)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const upsertUser = `-- name: UpsertUser :one
 INSERT INTO users (authentik_sub, name, email, avatar_url)
 VALUES ($1, $2, $3, $4)
@@ -148,7 +262,7 @@ SET name = EXCLUDED.name,
     email = EXCLUDED.email,
     avatar_url = EXCLUDED.avatar_url,
     updated_at = now()
-RETURNING id, authentik_sub, name, email, avatar_url, created_at, updated_at
+RETURNING id, authentik_sub, name, email, avatar_url, created_at, updated_at, avatar_at
 `
 
 type UpsertUserParams struct {
@@ -174,6 +288,7 @@ func (q *Queries) UpsertUser(ctx context.Context, arg UpsertUserParams) (User, e
 		&i.AvatarUrl,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AvatarAt,
 	)
 	return i, err
 }

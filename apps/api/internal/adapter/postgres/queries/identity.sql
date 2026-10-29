@@ -27,8 +27,33 @@ JOIN memberships m ON m.household_id = h.id
 WHERE m.user_id = $1
 ORDER BY h.created_at, h.id;
 
+-- name: SetUserAvatar :one
+WITH avatar AS (
+    INSERT INTO user_avatars (user_id, content_type, data) VALUES (@user_id, @content_type, @data)
+    ON CONFLICT (user_id) DO UPDATE SET content_type = EXCLUDED.content_type, data = EXCLUDED.data
+)
+UPDATE users SET avatar_at = now(), updated_at = now() WHERE id = @user_id
+RETURNING *;
+
+-- name: GetUserAvatar :one
+SELECT content_type, data FROM user_avatars WHERE user_id = $1;
+
+-- name: DeleteUserAvatar :one
+WITH avatar AS (
+    DELETE FROM user_avatars WHERE user_id = @user_id
+)
+UPDATE users SET avatar_at = NULL, updated_at = now() WHERE id = @user_id
+RETURNING *;
+
+-- name: SharesHousehold :one
+SELECT EXISTS (
+    SELECT 1 FROM memberships a
+    JOIN memberships b ON b.household_id = a.household_id
+    WHERE a.user_id = @a AND b.user_id = @b
+);
+
 -- name: ListMembers :many
-SELECT u.id, u.name, u.email, u.avatar_url, m.role
+SELECT u.id, u.name, u.email, u.avatar_url, u.avatar_at, m.role
 FROM memberships m
 JOIN users u ON u.id = m.user_id
 WHERE m.household_id = $1

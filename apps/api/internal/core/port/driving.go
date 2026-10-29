@@ -16,6 +16,15 @@ type IdentityService interface {
 	AuthenticateSession(ctx context.Context, sessionID string) (domain.User, error)
 }
 
+// AvatarService keeps the pictures members set for themselves.
+type AvatarService interface {
+	Set(ctx context.Context, actor domain.User, p domain.Photo) (domain.User, error)
+	Delete(ctx context.Context, actor domain.User) (domain.User, error)
+	// Get returns domain.ErrNotFound unless the user is the actor or shares a household with
+	// them, and has set a picture.
+	Get(ctx context.Context, actor domain.User, userID uuid.UUID) (domain.Photo, error)
+}
+
 type LoginService interface {
 	// Begin starts a sign-in: state is to be bound to the browser, url is where to send it.
 	Begin(ctx context.Context) (state, url string, err error)

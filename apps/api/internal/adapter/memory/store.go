@@ -26,6 +26,7 @@ type Store struct {
 	mu          sync.Mutex
 	usersBySub  map[string]domain.User
 	users       map[uuid.UUID]domain.User
+	avatars     map[uuid.UUID]domain.Photo
 	households  map[uuid.UUID]domain.Household
 	memberships []membership
 	invites     map[string]*invite
@@ -55,6 +56,7 @@ func NewStore() *Store {
 	return &Store{
 		usersBySub: map[string]domain.User{},
 		users:      map[uuid.UUID]domain.User{},
+		avatars:    map[uuid.UUID]domain.Photo{},
 		households: map[uuid.UUID]domain.Household{},
 		invites:    map[string]*invite{},
 

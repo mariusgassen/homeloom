@@ -209,6 +209,13 @@ type User struct {
 	AvatarUrl    *string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
+	AvatarAt     *time.Time
+}
+
+type UserAvatar struct {
+	UserID      uuid.UUID
+	ContentType string
+	Data        []byte
 }
 
 type VoiceSetting struct {

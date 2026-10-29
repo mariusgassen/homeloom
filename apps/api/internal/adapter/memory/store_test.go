@@ -8,6 +8,7 @@ import (
 )
 
 func TestInvites(t *testing.T)           { storetest.Invites(t, memory.NewStore()) }
+func TestAvatars(t *testing.T)           { storetest.Avatars(t, memory.NewStore()) }
 func TestQuestions(t *testing.T)         { storetest.Questions(t, memory.NewStore()) }
 func TestHomeConnections(t *testing.T)   { storetest.HomeConnections(t, memory.NewStore()) }
 func TestWatchConnections(t *testing.T)  { storetest.WatchConnections(t, memory.NewStore()) }
