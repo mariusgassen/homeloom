@@ -31,6 +31,7 @@
     "next": { "eyebrow": "Next up", "clear": "Nothing planned today. Time for each other.", "more_one": "{{count}} more today", "more_other": "{{count}} more today" },
     "dinner": { "eyebrow": "Dinner tonight", "title": "What do you feel like?" },
     "watch": { "eyebrow": "Watch tonight", "title": "Something to watch?" },
+    "chores": { "eyebrow": "Chores today", "all": "All", "more_one": "{{count}} more", "more_other": "{{count}} more", "setUp": "Share the housework" },
     "thanks": "What made you smile today?"
   },
   "cook": {
@@ -222,6 +223,7 @@
     ]
   },
   "shopping": { "tab": "Shopping", "placeholder": "Add an item", "add": "Add", "remove": "Remove {{item}}", "clear": "Clear", "emptyTitle": "Nothing to buy", "emptyBody": "Add what you need.", "moveTo": "Move to", "aisle": { "produce": "Fruit & veg", "bakery": "Bakery", "meat": "Meat & fish", "dairy": "Dairy & eggs", "frozen": "Frozen", "pantry": "Pantry", "drinks": "Drinks", "household": "Household", "other": "Other" }, "open": "Open list" },
+  "chores": { "title": "Chores", "new": "New chore", "edit": "Edit chore", "what": "What needs doing", "placeholder": "Take the bins out", "size": "How big", "sizes": { "1": "Small", "2": "Medium", "3": "Big" }, "once": "Once", "from": "Starts", "next": "Next time", "rotate": "Take turns", "turn": "Whose turn", "for": "For", "anyone": "Anyone", "me": "You", "turnOf": "{{name}}'s turn", "overdue": "Since {{day}}", "today": "Today", "later": "Coming up", "history": "Done lately", "fairness": "Who did what", "week": "This week", "month": "This month", "points_one": "{{count}} point", "points_other": "{{count}} points", "thank": "Thank {{name}}", "thanked": "{{name}} hears your thanks.", "thankedWall": "{{name}} hears your thanks, and it's on your gratitude wall.", "thankedBy": "Thanks from {{names}}", "thanksLine": "Thank you, {{name}}, for “{{chore}}”.", "undo": "Undo", "delete": "Delete chore", "deleteConfirm": "Delete this chore? What was done stays in the history.", "failed": "That didn't work. Try again?", "emptyTitle": "No chores yet", "emptyBody": "Add what comes back again and again. Take turns, and see who did what." },
   "invite": {
     "create": "Invite someone",
     "body": "Send this link to your partner. It works once and until {{date}}.",

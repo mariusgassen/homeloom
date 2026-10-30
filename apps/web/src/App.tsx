@@ -10,6 +10,7 @@ import { Join, pendingInvite } from "./screens/Join";
 import { Onboarding } from "./screens/Onboarding";
 import { Settings } from "./screens/Settings";
 import { RefreshProvider } from "./refresh";
+import { Chores } from "./screens/Chores";
 import { Cook, RecipeScreen } from "./screens/Cook";
 import { Home } from "./screens/Home";
 import { Lists } from "./screens/Lists";
@@ -70,6 +71,7 @@ export function App() {
               <Route path="/watch" element={<Watch />} />
               <Route path="/lists" element={<Lists />} />
               <Route path="/lists/notes/:id" element={<NotePage />} />
+              <Route path="/chores" element={<Chores />} />
               <Route path="/home" element={<Home />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/call/:callId" element={<IncomingCall />} />
