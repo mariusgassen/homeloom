@@ -127,12 +127,26 @@ type CookService interface {
 	// Find returns up to n recipes whose name, tags or description hold the query's words, best
 	// first; an empty query returns n at random.
 	Find(ctx context.Context, actor domain.User, householdID uuid.UUID, query string, n int) ([]domain.RecipeSummary, error)
+	// Plan returns the household's dinners on the days from from (a date) on, by day. It works
+	// without Mealie.
+	Plan(ctx context.Context, actor domain.User, householdID uuid.UUID, from time.Time, days int) ([]domain.PlannedMeal, error)
+	// PlanMeal makes the recipe the day's dinner, replacing what was planned.
+	PlanMeal(ctx context.Context, actor domain.User, householdID uuid.UUID, day time.Time, slug string) (domain.PlannedMeal, error)
+	// UnplanMeal takes the day's dinner off the plan; nothing planned is fine.
+	UnplanMeal(ctx context.Context, actor domain.User, householdID uuid.UUID, day time.Time) error
+	// SuggestPlan has an idea for each of the days without a dinner, favouring what the wish
+	// (which may be empty) and the ticked-off shopping list say is on hand.
+	SuggestPlan(ctx context.Context, actor domain.User, householdID uuid.UUID, from time.Time, days int, wish, lang string) (domain.MealIdeas, error)
+	// AddMealsToShoppingList is AddToShoppingList for several recipes at once.
+	AddMealsToShoppingList(ctx context.Context, actor domain.User, householdID uuid.UUID, recipes []domain.RecipeIngredients) (int, error)
 }
 
 type ShoppingService interface {
 	Items(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.ShoppingItem, error)
 	// Add puts the texts on the list, noting the recipe they came from ("" for none).
 	Add(ctx context.Context, actor domain.User, householdID uuid.UUID, texts []string, recipe string) ([]domain.ShoppingItem, error)
+	// AddItems puts several items on the list at once; only their Text and Recipe are read.
+	AddItems(ctx context.Context, actor domain.User, householdID uuid.UUID, items []domain.ShoppingItem) ([]domain.ShoppingItem, error)
 	SetDone(ctx context.Context, actor domain.User, householdID, id uuid.UUID, done bool) (domain.ShoppingItem, error)
 	// SetAisle moves an item to another aisle; things with the same text go there from now on.
 	SetAisle(ctx context.Context, actor domain.User, householdID, id uuid.UUID, aisle domain.Aisle) (domain.ShoppingItem, error)
