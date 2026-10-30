@@ -14,7 +14,8 @@ const apiPaths = ["/auth", "/v1", "/healthz", "/readyz"];
 // no camera frame or request goes to a CDN; its models are in public/mediapipe/.
 function mediapipe(): Plugin {
   const dir = fileURLToPath(new URL("node_modules/@mediapipe/tasks-vision/wasm/", import.meta.url));
-  const files = readdirSync(dir);
+  // The "module" build is only loaded with forVisionTasks(path, true), which nothing here asks for.
+  const files = readdirSync(dir).filter((file) => !file.includes("_module_"));
   return {
     name: "homeloom-mediapipe",
     configureServer(server) {
