@@ -92,6 +92,22 @@ func (m *MediaLibrary) Poster(_ context.Context, token, titleID string) (domain.
 	return domain.Poster{}, domain.ErrNotFound
 }
 
+func (m *MediaLibrary) Title(_ context.Context, token, titleID string) (domain.Title, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if err := m.check(token); err != nil {
+		return domain.Title{}, err
+	}
+	for _, ts := range m.titles {
+		for _, t := range ts {
+			if t.ID == titleID {
+				return t, nil
+			}
+		}
+	}
+	return domain.Title{}, domain.ErrNotFound
+}
+
 // check must be called with mu held.
 func (m *MediaLibrary) check(token string) error {
 	if m.Down {
@@ -112,6 +128,8 @@ func (s *Store) SaveWatchConnection(_ context.Context, c domain.WatchConnection)
 	if s.watchConnections == nil {
 		s.watchConnections = map[uuid.UUID]domain.WatchConnection{}
 	}
+	// Signing in again keeps the libraries the person left out, as in Postgres.
+	c.Hidden = s.watchConnections[c.UserID].Hidden
 	s.watchConnections[c.UserID] = c
 	return nil
 }
@@ -123,12 +141,55 @@ func (s *Store) WatchConnection(_ context.Context, userID uuid.UUID) (domain.Wat
 	if !ok {
 		return domain.WatchConnection{}, domain.ErrNotFound
 	}
+	c.Hidden = slices.Clone(c.Hidden)
 	return c, nil
+}
+
+func (s *Store) SetWatchLibraryHidden(_ context.Context, userID uuid.UUID, libraryID string, hidden bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, ok := s.watchConnections[userID]
+	if !ok {
+		return domain.ErrNotFound
+	}
+	c.Hidden = slices.DeleteFunc(slices.Clone(c.Hidden), func(id string) bool { return id == libraryID })
+	if hidden {
+		c.Hidden = append(c.Hidden, libraryID)
+	}
+	s.watchConnections[userID] = c
+	return nil
 }
 
 func (s *Store) DeleteWatchConnection(_ context.Context, userID uuid.UUID) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.watchConnections, userID)
+	return nil
+}
+
+func (s *Store) SaveTonight(_ context.Context, p domain.TonightPick) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.tonight == nil {
+		s.tonight = map[uuid.UUID]domain.TonightPick{}
+	}
+	s.tonight[p.HouseholdID] = p
+	return nil
+}
+
+func (s *Store) Tonight(_ context.Context, householdID uuid.UUID) (domain.TonightPick, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p, ok := s.tonight[householdID]
+	if !ok {
+		return domain.TonightPick{}, domain.ErrNotFound
+	}
+	return p, nil
+}
+
+func (s *Store) DeleteTonight(_ context.Context, householdID uuid.UUID) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.tonight, householdID)
 	return nil
 }

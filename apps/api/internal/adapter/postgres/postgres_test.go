@@ -33,9 +33,11 @@ func store(t *testing.T) *postgres.Store {
 }
 
 func TestInvites(t *testing.T)             { storetest.Invites(t, store(t)) }
+func TestAvatars(t *testing.T)             { storetest.Avatars(t, store(t)) }
 func TestQuestions(t *testing.T)           { storetest.Questions(t, store(t)) }
 func TestHomeConnections(t *testing.T)     { storetest.HomeConnections(t, store(t)) }
 func TestWatchConnections(t *testing.T)    { storetest.WatchConnections(t, store(t)) }
+func TestTonight(t *testing.T)             { storetest.Tonight(t, store(t)) }
 func TestPushSubscriptions(t *testing.T)   { storetest.PushSubscriptions(t, store(t)) }
 func TestEntries(t *testing.T)             { storetest.Entries(t, store(t)) }
 func TestCalendarFeeds(t *testing.T)       { storetest.CalendarFeeds(t, store(t)) }

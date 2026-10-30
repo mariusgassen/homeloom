@@ -16,10 +16,13 @@ type Identity struct {
 }
 
 type User struct {
-	ID        uuid.UUID
-	Name      string
-	Email     string
+	ID    uuid.UUID
+	Name  string
+	Email string
+	// AvatarURL is the picture authentik sends; AvatarAt is when the user last set their own,
+	// which wins. It is nil when they have none.
 	AvatarURL string
+	AvatarAt  *time.Time
 }
 
 type Role string

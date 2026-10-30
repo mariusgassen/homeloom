@@ -153,7 +153,7 @@ test("signed in with a household shows the tabs and both people", async () => {
   renderApp();
   expect(await screen.findByRole("heading", { level: 1, name: "Today" })).toBeInTheDocument();
   const nav = screen.getByRole("navigation", { name: "Main" });
-  expect(nav).toHaveTextContent("TodayCookUsListsHome");
+  expect(nav).toHaveTextContent("TodayUsListsHome");
   expect(screen.getByRole("link", { name: "Today" })).toHaveAttribute("aria-current", "page");
   expect(screen.getByRole("img", { name: "Jo" })).toHaveClass("hl-avatar-berry");
 });
@@ -216,6 +216,107 @@ test("a question stays sealed until both have answered", async () => {
   expect(await screen.findByText("Lisbon")).toBeInTheDocument();
   expect(screen.getByText("Porto")).toBeInTheDocument();
   expect(await calls.find((c) => c.method === "PUT")?.json()).toEqual({ text: "Porto" });
+});
+
+test("suggest asks for fresh questions and your own can be reworded or deleted", async () => {
+  const q = { id: "44444444-4444-4444-8444-444444444445", text: "Bset trip?", askedBy: marius.id, createdAt: "2026-10-27T18:00:00Z", revealed: false, answers: [] };
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/questions`, () => json([q])),
+    at("GET", `/v1/households/${home.id}/questions/suggestions`, () => json({ questions: ["Which smell means home?", "What made you laugh?"] })),
+    at("PUT", `/v1/questions/${q.id}`, () => json({ ...q, text: "Best trip?" })),
+    at("DELETE", `/v1/questions/${q.id}`, () => new Response(null, { status: 204 })),
+  );
+  renderApp("/us?show=questions");
+  await userEvent.click(await screen.findByRole("button", { name: "Suggest one" }));
+  expect(await screen.findByDisplayValue("Which smell means home?")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Suggest one" }));
+  expect(await screen.findByDisplayValue("What made you laugh?")).toBeInTheDocument();
+  expect(calls.filter((c) => c.url.endsWith("/questions/suggestions"))).toHaveLength(1);
+
+  await userEvent.click(screen.getByRole("button", { name: "Edit question" }));
+  const field = screen.getByLabelText("Your question");
+  await userEvent.clear(field);
+  await userEvent.type(field, "Best trip?");
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  expect(await screen.findByText("Best trip?")).toBeInTheDocument();
+  expect(await calls.find((c) => c.method === "PUT")?.json()).toEqual({ text: "Best trip?" });
+
+  await userEvent.click(screen.getByRole("button", { name: "Edit question" }));
+  await userEvent.click(screen.getByRole("button", { name: "Delete" }));
+  await userEvent.click(screen.getByRole("button", { name: "Really delete?" }));
+  await waitFor(() => expect(calls.some((c) => c.method === "DELETE")).toBe(true));
+});
+
+test("watch ideas come from the assistant, with or without a library", async () => {
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/watch`, () => json({ connected: false, libraries: [] })),
+    at("POST", `/v1/households/${home.id}/watch/suggestions`, () =>
+      json({ ideas: [{ name: "Paddington 2", year: 2017, kind: "movie", reason: "Pure joy." }] }),
+    ),
+  );
+  renderApp("/watch");
+  await userEvent.type(await screen.findByRole("textbox", { name: "Ideas for tonight" }), "something light");
+  await userEvent.click(screen.getByRole("button", { name: "Get ideas" }));
+  expect(await screen.findByText("Paddington 2")).toBeInTheDocument();
+  expect(screen.getByText("Pure joy.")).toBeInTheDocument();
+  expect(screen.getByText(/Not in your library/)).toBeInTheDocument();
+  expect(await calls.find((c) => c.url.endsWith("/watch/suggestions"))?.json()).toEqual({ mood: "something light" });
+});
+
+test("watch filters a library, opens a title and leaves out the libraries you turn off", async () => {
+  const movies = { id: "a.1", name: "Movies", kind: "movie", server: "Home", owned: true, included: true };
+  const kids = { id: "a.2", name: "Kids", kind: "movie", server: "Home", owned: true, included: false };
+  const shared = { id: "b.1", name: "Films", kind: "movie", server: "Jo's", owned: false, included: true };
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/watch`, () => json({ connected: true, libraries: [movies, kids, shared] })),
+    at("GET", `/v1/households/${home.id}/watch/libraries/a.1/titles`, () =>
+      json([
+        { id: "a.10", kind: "movie", name: "Amélie", genres: ["Comedy", "Romance"], minutes: 122, watched: false, summary: "Paris, gently." },
+        { id: "a.11", kind: "movie", name: "Heat", genres: ["Crime"], minutes: 170, watched: true },
+        { id: "a.12", kind: "movie", name: "Paddington 2", genres: ["Comedy"], minutes: 103, watched: false, url: "https://app.plex.tv/p2" },
+      ]),
+    ),
+    at("PUT", `/v1/households/${home.id}/watch/libraries/b.1`, () => new Response(null, { status: 204 })),
+    at("GET", `/v1/households/${home.id}/watch/tonight`, () => json({})),
+    at("PUT", `/v1/households/${home.id}/watch/tonight`, () =>
+      json({ titleId: "a.12", kind: "movie", name: "Paddington 2", url: "https://app.plex.tv/p2", pickedBy: marius.id, pickedAt: "2026-10-30T19:00:00Z" }),
+    ),
+  );
+  renderApp("/watch");
+  expect(await screen.findByText("Amélie")).toBeInTheDocument();
+  expect(screen.queryByRole("tab", { name: /Kids/ })).not.toBeInTheDocument();
+
+  await userEvent.type(screen.getByRole("searchbox", { name: "Search" }), "amelie");
+  expect(screen.queryByText("Paddington 2")).not.toBeInTheDocument();
+  await userEvent.clear(screen.getByRole("searchbox", { name: "Search" }));
+
+  await userEvent.click(screen.getByRole("button", { name: "Filter" }));
+  const filters = screen.getByRole("dialog", { name: "Filter" });
+  await userEvent.click(within(filters).getByRole("switch", { name: "Not seen yet" }));
+  await userEvent.click(within(filters).getByRole("radio", { name: "Up to 2 h" }));
+  await userEvent.click(within(filters).getByRole("button", { name: "Done" }));
+  expect(screen.getByText("1 title")).toBeInTheDocument();
+  expect(screen.queryByText("Heat")).not.toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: /Paddington 2/ }));
+  const sheet = screen.getByRole("dialog", { name: "Paddington 2" });
+  expect(within(sheet).getByRole("link", { name: "Open in Plex" })).toHaveAttribute("href", "https://app.plex.tv/p2");
+  await userEvent.click(within(sheet).getByRole("button", { name: "Watch tonight" }));
+  const tonight = await screen.findByRole("region", { name: "Tonight" });
+  expect(within(tonight).getByText("You picked this")).toBeInTheDocument();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(await calls.find((c) => c.method === "PUT" && c.url.endsWith("/watch/tonight"))?.json()).toEqual({ titleId: "a.12" });
+
+  await userEvent.click(screen.getByRole("button", { name: "Choose" }));
+  const choose = screen.getByRole("dialog", { name: "Libraries" });
+  expect(within(choose).getByRole("switch", { name: "Kids" })).toHaveAttribute("aria-checked", "false");
+  await userEvent.click(within(choose).getByRole("switch", { name: "Films · Jo's" }));
+  await waitFor(() => expect(calls.some((c) => c.method === "PUT" && c.url.endsWith("/b.1"))).toBe(true));
+  expect(await calls.find((c) => c.method === "PUT" && c.url.endsWith("/b.1"))?.json()).toEqual({ included: false });
+  expect(screen.queryByRole("tab", { name: /Films/ })).not.toBeInTheDocument();
 });
 
 // A local date as the API writes it, days from today.
@@ -376,7 +477,7 @@ test("a used invite says so and lets you go on", async () => {
 
 test("cook by mood suggests recipes and puts what's missing on the list", async () => {
   sessionStorage.clear();
-  const curry = { slug: "green-curry", name: "Green curry", tags: ["Thai"], totalTime: "30 min" };
+  const curry = { slug: "green-curry", name: "Green curry", tags: ["Thai"], totalTime: "30 min", imageUrl: `/v1/households/${home.id}/recipes/green-curry/image?v=1` };
   const calls = serve(
     ...signedIn(),
     at("POST", `/v1/households/${home.id}/cook/suggestions`, () =>
@@ -394,8 +495,10 @@ test("cook by mood suggests recipes and puts what's missing on the list", async 
   await userEvent.click(screen.getByRole("button", { name: "Suggest dinner" }));
   expect(await calls.find((c) => c.url.endsWith("/cook/suggestions"))?.json()).toEqual({ mood: "Cozy; Time: 20 min; Use up: lime" });
 
+  expect(document.querySelector(".recipe-thumb")).toHaveAttribute("src", curry.imageUrl);
   await userEvent.click(await screen.findByText("Warm and a little spicy."));
   await userEvent.click(await screen.findByLabelText("Rice"));
+  expect(document.querySelector(".recipe-hero")).toHaveAttribute("src", curry.imageUrl);
   await userEvent.click(screen.getByRole("button", { name: "Put 2 missing items on the list" }));
   expect(await screen.findByRole("status")).toHaveTextContent("2 items are on “Shopping list” now.");
   expect(await calls.find((c) => c.url.endsWith("/shopping-list"))?.json()).toEqual({ recipe: "green-curry", ingredientIds: ["i1", "i3"] });
@@ -560,8 +663,8 @@ test("pulling down from the top loads the list again", async () => {
 
 test("the shopping list adds, ticks and clears items", async () => {
   const list = `/v1/households/${home.id}/shopping-list`;
-  const milk = { id: "44444444-4444-4444-8444-444444444444", text: "Milk", done: false, createdAt: "2026-10-28T08:00:00Z" };
-  const lime = { id: "55555555-5555-4555-8555-555555555555", text: "Lime", recipe: "Green curry", done: true, createdAt: "2026-10-28T08:00:00Z" };
+  const milk = { id: "44444444-4444-4444-8444-444444444444", text: "Milk", aisle: "dairy", done: false, createdAt: "2026-10-28T08:00:00Z" };
+  const lime = { id: "55555555-5555-4555-8555-555555555555", text: "Lime", aisle: "produce", recipe: "Green curry", done: true, createdAt: "2026-10-28T08:00:00Z" };
   const calls = serve(
     ...signedIn(),
     at("GET", list, () => json([milk, lime])),
@@ -569,9 +672,14 @@ test("the shopping list adds, ticks and clears items", async () => {
     at("POST", `${list}/items`, () => json({ ...milk, text: "Bread" }, 201)),
     at("PUT", `${list}/items/${milk.id}/done`, () => json({ ...milk, done: true })),
     at("DELETE", `${list}/done`, () => new Response(null, { status: 204 })),
+    at("PATCH", `${list}/items/${milk.id}`, () => json({ ...milk, aisle: "drinks" })),
   );
   renderApp("/lists?show=shopping");
   expect(await screen.findByText("Milk")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Dairy & eggs" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /^Milk/ }));
+  await userEvent.click(screen.getByRole("button", { name: "Drinks" }));
+  await waitFor(() => expect(calls.find((c) => c.method === "PATCH")?.json()).resolves.toEqual({ aisle: "drinks" }));
   expect(screen.queryByRole("button", { name: "Add" })).toBeInTheDocument();
   expect(calls.some((c) => c.url.includes("/entries"))).toBe(false);
 
@@ -623,7 +731,7 @@ test("the quick-add sheet suggests reminders set before", async () => {
   );
   renderApp("/lists");
   await screen.findByText("Nothing to remember");
-  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  await userEvent.click(screen.getByRole("button", { name: "New reminder" }));
   const sheet = screen.getByRole("dialog", { name: "New reminder" });
   await userEvent.type(within(sheet).getByLabelText("Remind about"), "wat");
   const chips = await within(sheet).findByRole("group", { name: "Used before" });
@@ -647,20 +755,53 @@ test("the quick-add sheet sets a shared reminder for both", async () => {
   const sheet = screen.getByRole("dialog", { name: "New reminder" });
   expect(within(sheet).queryByRole("radiogroup", { name: "What to add" })).not.toBeInTheDocument();
   await userEvent.type(within(sheet).getByLabelText("Remind about"), "Call the landlord");
-  expect(within(sheet).getByRole("radio", { name: /Both of us/ })).toBeChecked();
+  expect(within(within(sheet).getByRole("radiogroup", { name: "Who can see this" })).getByRole("radio", { name: /Both of us/ })).toBeChecked();
   expect(within(sheet).getByText("Jo sees it right away.")).toBeInTheDocument();
   await userEvent.click(within(sheet).getByRole("button", { name: "Save" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   expect(await calls.find((c) => c.method === "POST")?.json()).toEqual({ kind: "reminder", text: "Call the landlord", visibility: "shared", repeat: "never" });
 });
 
+test("the quick-add sheet picks time, repeat and who with taps, not dropdowns", async () => {
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([])),
+    at("POST", `/v1/households/${home.id}/entries`, () => json(entry({ text: "Bins" }), 201)),
+  );
+  renderApp("/lists");
+  expect(await screen.findByText("Nothing to remember")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "New reminder" }));
+  const sheet = screen.getByRole("dialog", { name: "New reminder" });
+  expect(within(sheet).queryByRole("combobox")).not.toBeInTheDocument();
+  await userEvent.type(within(sheet).getByLabelText("Remind about"), "Bins");
+  expect(within(sheet).queryByRole("radiogroup", { name: "Repeat" })).not.toBeInTheDocument();
+  fireEvent.change(within(sheet).getByLabelText("When"), { target: { value: "2030-05-06T19:30" } });
+  await userEvent.click(within(within(sheet).getByRole("radiogroup", { name: "Repeat" })).getByRole("radio", { name: "Every week" }));
+  await userEvent.click(within(within(sheet).getByRole("radiogroup", { name: "For" })).getByRole("radio", { name: "Me" }));
+  await userEvent.click(within(sheet).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  const body = await calls.find((c) => c.method === "POST")?.json();
+  expect(body).toMatchObject({ text: "Bins", repeat: "weekly", assigneeId: expect.any(String), dueAt: new Date("2030-05-06T19:30").toISOString() });
+});
+
+test("a sheet closes on Escape", async () => {
+  serve(...signedIn(), at("GET", `/v1/households/${home.id}/entries`, () => json([])));
+  renderApp("/lists");
+  expect(await screen.findByText("Nothing to remember")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "New reminder" }));
+  expect(screen.getByRole("dialog", { name: "New reminder" })).toBeInTheDocument();
+  await userEvent.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
 test("add follows the list you're in, and only Today asks what to add", async () => {
   serve(...signedIn(), at("GET", `/v1/households/${home.id}/entries`, () => json([])));
   renderApp("/lists?show=note");
+  // A note opens on its own page, with no choice of what to add.
   await userEvent.click(await screen.findByRole("button", { name: "New note" }));
-  const note = screen.getByRole("dialog", { name: "New note" });
-  expect(within(note).queryByRole("radiogroup", { name: "What to add" })).not.toBeInTheDocument();
-  await userEvent.click(within(note).getByRole("button", { name: "Cancel" }));
+  expect(await screen.findByLabelText("Title")).toBeInTheDocument();
+  expect(screen.queryByRole("radiogroup", { name: "What to add" })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Notes" }));
 
   await userEvent.click(screen.getByRole("link", { name: "Today" }));
   await userEvent.click(await screen.findByRole("button", { name: "Add" }));
@@ -679,6 +820,84 @@ test("a note for later stays sealed", async () => {
   renderApp("/lists?show=note");
   expect(await screen.findByText(/Jo wrote you something\. It opens on/)).toBeInTheDocument();
   expect(screen.getByRole("tab", { name: "Notes" })).toHaveAttribute("aria-selected", "true");
+});
+
+test("a note opens as its own page to read, and saves its title as a heading on the way back", async () => {
+  const note = entry({ kind: "note", text: "# Trip\n\nPack **light**", title: "Trip" });
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([note])),
+    at("GET", `/v1/entries/${note.id}`, () => json(note)),
+    at("PUT", `/v1/entries/${note.id}`, () => json(note)),
+  );
+  renderApp("/lists?show=note");
+  expect(await screen.findByText("Pack light")).toBeInTheDocument();
+  await userEvent.click(screen.getByText("Trip"));
+  expect(await screen.findByRole("heading", { name: "Trip" })).toBeInTheDocument();
+  expect(screen.getByText("light").tagName).toBe("STRONG");
+  await userEvent.click(screen.getByRole("radio", { name: "Write" }));
+  const title = screen.getByLabelText("Title");
+  await userEvent.clear(title);
+  await userEvent.type(title, "Rome trip");
+  await userEvent.click(screen.getByRole("button", { name: "Notes" }));
+  expect(await screen.findByRole("tab", { name: "Notes" })).toHaveAttribute("aria-selected", "true");
+  expect(await calls.find((c) => c.method === "PUT")?.json()).toEqual({ text: "# Rome trip\n\nPack **light**", visibility: "shared", repeat: "never" });
+});
+
+test("discarding a note puts back what it said when opened", async () => {
+  const note = entry({ kind: "note", text: "# Trip\n\nPack light", title: "Trip" });
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([note])),
+    at("GET", `/v1/entries/${note.id}`, () => json(note)),
+    at("PUT", `/v1/entries/${note.id}`, () => json(note)),
+  );
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  renderApp(`/lists/notes/${note.id}`);
+  await userEvent.click(await screen.findByRole("radio", { name: "Write" }));
+  expect(screen.queryByRole("button", { name: "Discard" })).not.toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText("Title"), " to Rome");
+  await userEvent.click(screen.getByRole("button", { name: "Discard" }));
+  expect(await screen.findByRole("tab", { name: "Notes" })).toHaveAttribute("aria-selected", "true");
+  // Nothing had been saved yet, so nothing is written back.
+  expect(calls.some((c) => c.method === "PUT")).toBe(false);
+});
+
+test("a note is deleted from its page", async () => {
+  const note = entry({ kind: "note", text: "# Trip", title: "Trip" });
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([])),
+    at("GET", `/v1/entries/${note.id}`, () => json(note)),
+    at("DELETE", `/v1/entries/${note.id}`, () => new Response(null, { status: 204 })),
+  );
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  renderApp(`/lists/notes/${note.id}`);
+  await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+  await screen.findByText("No notes yet");
+  expect(calls.some((c) => c.method === "DELETE")).toBe(true);
+});
+
+test("an empty new note is never saved", async () => {
+  const calls = serve(...signedIn(), at("GET", `/v1/households/${home.id}/entries`, () => json([])));
+  renderApp("/lists/notes/new");
+  await userEvent.click(await screen.findByRole("button", { name: "Notes" }));
+  await screen.findByText("No notes yet");
+  expect(calls.some((c) => c.method === "POST")).toBe(false);
+});
+
+test("a new note is made with its first words", async () => {
+  const made = entry({ id: "99999999-9999-4999-8999-999999999999", kind: "note", text: "# Groceries" });
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([made])),
+    at("POST", `/v1/households/${home.id}/entries`, () => json(made, 201)),
+  );
+  renderApp("/lists/notes/new");
+  await userEvent.type(await screen.findByLabelText("Title"), "Groceries");
+  await userEvent.click(screen.getByRole("button", { name: "Notes" }));
+  await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+  expect(await calls.find((c) => c.method === "POST")?.json()).toEqual({ kind: "note", text: "# Groceries", visibility: "shared", repeat: "never" });
 });
 
 test("today lists what's due and today's events", async () => {

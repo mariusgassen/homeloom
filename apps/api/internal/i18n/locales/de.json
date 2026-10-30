@@ -1,6 +1,7 @@
 {
   "dav.private": "Homeloom · nur ich",
   "dav.shared": "Homeloom",
+  "error.already_answered": "Es gibt schon eine Antwort, deshalb lässt sich die Frage nicht mehr ändern.",
   "error.already_revealed": "Die Antworten sind schon offen und lassen sich nicht mehr ändern.",
   "error.assistant_unavailable": "Der Assistent ist gerade nicht erreichbar.",
   "error.auth_unavailable": "Die Anmeldung ist gerade nicht erreichbar. Versuch es in einer Minute noch einmal.",
@@ -8,8 +9,10 @@
   "error.cooking_unavailable": "Kochen geht gerade nicht.",
   "error.guest_link_used": "Dieser Link wird schon auf einem anderen Gerät benutzt.",
   "error.home_unavailable": "Dein Zuhause ist gerade nicht erreichbar. Ist Home Assistant eingerichtet und läuft?",
+  "error.ideas_unavailable": "Gerade keine Ideen. Versuch es gleich noch einmal.",
   "error.internal": "Bei uns ist etwas schiefgelaufen.",
   "error.invalid": "Die Anfrage ist ungültig.",
+  "error.invalid_aisle": "Wähl einen der Bereiche.",
   "error.invalid_assignee": "Wähle jemanden aus deinem Haushalt. Dafür muss die Erinnerung geteilt sein.",
   "error.invalid_entry": "Das passt nicht zu dieser Art von Eintrag.",
   "error.invalid_event_time": "Prüf die Zeit: Ein Termin braucht einen Beginn und kann nicht vor ihm enden.",
@@ -17,6 +20,7 @@
   "error.invalid_ingredients": "Wähl mindestens eine Zutat aus diesem Rezept.",
   "error.invalid_moment_day": "Ein Moment kann nicht in der Zukunft liegen.",
   "error.invalid_photo": "Wähl ein Foto mit höchstens {max} MB.",
+  "error.too_many_photos": "Eine Notiz hat Platz für höchstens {max} Fotos.",
   "error.invalid_reveal": "Wähl, wann es sich öffnet. Nur Notizen und Momente können sich später öffnen.",
   "error.invalid_text": "Schreib bitte zwischen 1 und {max} Zeichen.",
   "error.invite_invalid": "Dieser Einladungslink gilt nicht mehr. Lass dir einen neuen schicken.",
@@ -47,6 +51,8 @@
   "push.reminder.title": "Erinnerung",
   "push.revealed.body": "Eure Antworten auf „{question}“ sind jetzt offen.",
   "push.revealed.title": "{name} hat auch geantwortet",
+  "push.watch_tonight.body": "{title}",
+  "push.watch_tonight.title": "{name} hat was für heute Abend ausgesucht",
   "shopping.list": "Einkaufsliste",
   "voice.preview": "Hi, ich bin Homeloom. So klinge ich, wenn wir reden."
 }

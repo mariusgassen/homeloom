@@ -137,6 +137,37 @@ func Questions(t *testing.T, s Store) {
 	if q, err := s.GetQuestion(ctx, race.ID); err != nil || !q.Revealed() {
 		t.Fatalf("simultaneous answers must reveal: %+v, %v", q, err)
 	}
+
+	// Rewording: fine while only the asker has answered, refused once someone else has.
+	edit, err := s.CreateQuestion(ctx, m.Household.ID, alice.ID, "Frist try?")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Answer(ctx, edit.ID, alice.ID, "mine"); err != nil {
+		t.Fatal(err)
+	}
+	if q, err := s.RewordQuestion(ctx, edit.ID, "First try?"); err != nil || q.Text != "First try?" || len(q.Answers) != 1 {
+		t.Fatalf("reword: %+v, %v", q, err)
+	}
+	if _, err := s.Answer(ctx, edit.ID, bob.ID, "his"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.RewordQuestion(ctx, edit.ID, "Changed"); !errors.Is(err, domain.ErrConflict) {
+		t.Fatalf("reword after another answer: want ErrConflict, got %v", err)
+	}
+	if _, err := s.RewordQuestion(ctx, uuid.New(), "x"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("reword unknown: want ErrNotFound, got %v", err)
+	}
+
+	if err := s.DeleteQuestion(ctx, edit.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.GetQuestion(ctx, edit.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("deleted question: want ErrNotFound, got %v", err)
+	}
+	if err := s.DeleteQuestion(ctx, edit.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("delete twice: want ErrNotFound, got %v", err)
+	}
 }
 
 func join(t *testing.T, s Store, householdID uuid.UUID, inviter, joiner domain.User) {
@@ -147,5 +178,60 @@ func join(t *testing.T, s Store, householdID uuid.UUID, inviter, joiner domain.U
 	}
 	if _, err := s.AcceptInvite(context.Background(), hash(code), joiner.ID); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Avatars: a picture a user sets survives signing in again, members of one household share,
+// strangers don't, and removing it leaves authentik's picture.
+func Avatars(t *testing.T, s Store) {
+	ctx := context.Background()
+	aliceSub := "sub-" + uuid.NewString()
+	alice, err := s.UpsertByIdentity(ctx, domain.Identity{Subject: aliceSub, Name: "Alice"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	bob, eve := user(t, s, "Bob"), user(t, s, "Eve")
+	m, err := s.Create(ctx, "Home", alice.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := uuid.NewString()
+	if err := s.CreateInvite(ctx, m.Household.ID, alice.ID, hash(code), time.Now().Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AcceptInvite(ctx, hash(code), bob.ID); err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := s.SharesHousehold(ctx, bob.ID, alice.ID); err != nil || !ok {
+		t.Fatalf("bob and alice: %v %v", ok, err)
+	}
+	if ok, err := s.SharesHousehold(ctx, eve.ID, alice.ID); err != nil || ok {
+		t.Fatalf("eve and alice: %v %v", ok, err)
+	}
+
+	if _, err := s.Avatar(ctx, alice.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("no avatar yet: want ErrNotFound, got %v", err)
+	}
+	u, err := s.SetAvatar(ctx, alice.ID, domain.Photo{ContentType: "image/jpeg", Data: []byte{1, 2, 3}})
+	if err != nil || u.AvatarAt == nil || u.ID != alice.ID {
+		t.Fatalf("set avatar: %+v, %v", u, err)
+	}
+	if p, err := s.Avatar(ctx, alice.ID); err != nil || len(p.Data) != 3 || p.ContentType != "image/jpeg" {
+		t.Fatalf("avatar: %+v, %v", p, err)
+	}
+	again, err := s.UpsertByIdentity(ctx, domain.Identity{Subject: aliceSub, Name: "Alice", AvatarURL: "https://id.example.com/a.png"})
+	if err != nil || again.AvatarAt == nil || again.AvatarURL != "https://id.example.com/a.png" {
+		t.Fatalf("signing in again: %+v, %v", again, err)
+	}
+	members, _ := s.Members(ctx, m.Household.ID)
+	if len(members) != 2 || members[0].User.AvatarAt == nil {
+		t.Fatalf("members without alice's avatar: %+v", members)
+	}
+	u, err = s.DeleteAvatar(ctx, alice.ID)
+	if err != nil || u.AvatarAt != nil {
+		t.Fatalf("delete avatar: %+v, %v", u, err)
+	}
+	if _, err := s.Avatar(ctx, alice.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("deleted avatar: want ErrNotFound, got %v", err)
 	}
 }

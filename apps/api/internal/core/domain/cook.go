@@ -12,6 +12,14 @@ type RecipeSummary struct {
 	Description string
 	TotalTime   string
 	Tags        []string
+	// Image is the version of the recipe's picture; "" when it has none.
+	Image string
+}
+
+// RecipeImage is a recipe's picture, a few hundred pixels wide.
+type RecipeImage struct {
+	ContentType string
+	Body        []byte
 }
 
 type Recipe struct {

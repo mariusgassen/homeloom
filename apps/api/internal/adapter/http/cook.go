@@ -1,9 +1,14 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"net/url"
+
+	"github.com/google/uuid"
 
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/http/oapi"
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/domain"
@@ -28,7 +33,7 @@ func (h *handlers) SuggestRecipes(ctx context.Context, req oapi.SuggestRecipesRe
 	}
 	out := oapi.SuggestRecipes200JSONResponse{Chef: s.Chef, Suggestions: make([]oapi.Suggestion, len(s.Recipes))}
 	for i, r := range s.Recipes {
-		out.Suggestions[i] = oapi.Suggestion{Recipe: toRecipeSummary(r.Recipe), Reason: optional(r.Reason)}
+		out.Suggestions[i] = oapi.Suggestion{Recipe: toRecipeSummary(req.HouseholdId, r.Recipe), Reason: optional(r.Reason)}
 	}
 	return out, nil
 }
@@ -47,9 +52,9 @@ func (h *handlers) GetRecipe(ctx context.Context, req oapi.GetRecipeRequestObjec
 	case err != nil:
 		return nil, err
 	}
-	sum := toRecipeSummary(r.RecipeSummary)
+	sum := toRecipeSummary(req.HouseholdId, r.RecipeSummary)
 	out := oapi.GetRecipe200JSONResponse{
-		Slug: sum.Slug, Name: sum.Name, Description: sum.Description, TotalTime: sum.TotalTime, Tags: sum.Tags,
+		Slug: sum.Slug, Name: sum.Name, Description: sum.Description, TotalTime: sum.TotalTime, Tags: sum.Tags, ImageUrl: sum.ImageUrl,
 		Servings: optional(r.Servings), MealieUrl: optional(r.URL),
 		Ingredients: make([]oapi.Ingredient, len(r.Ingredients)), Steps: r.Steps,
 	}
@@ -81,12 +86,38 @@ func (h *handlers) AddToShoppingList(ctx context.Context, req oapi.AddToShopping
 	return oapi.AddToShoppingList200JSONResponse{Added: added, List: i18n.T(i18n.FromContext(ctx), "shopping.list")}, nil
 }
 
-func toRecipeSummary(r domain.RecipeSummary) oapi.RecipeSummary {
+func (h *handlers) GetRecipeImage(ctx context.Context, req oapi.GetRecipeImageRequestObject) (oapi.GetRecipeImageResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	img, err := h.cook.Image(ctx, u, req.HouseholdId, req.Slug)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.GetRecipeImage404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.Is(err, domain.ErrUnavailable):
+		return oapi.GetRecipeImage503JSONResponse{UnavailableJSONResponse: cookingUnavailable(ctx, err)}, nil
+	case err != nil:
+		return nil, err
+	}
+	return oapi.GetRecipeImage200ImageResponse{
+		Body: bytes.NewReader(img.Body), ContentType: img.ContentType, ContentLength: int64(len(img.Body)),
+		// The URL carries the picture's version, so it can be kept for a long while.
+		Headers: oapi.GetRecipeImage200ResponseHeaders{CacheControl: "private, max-age=604800"},
+	}, nil
+}
+
+func toRecipeSummary(householdID uuid.UUID, r domain.RecipeSummary) oapi.RecipeSummary {
 	tags := r.Tags
 	if tags == nil {
 		tags = []string{}
 	}
-	return oapi.RecipeSummary{Slug: r.Slug, Name: r.Name, Description: optional(r.Description), TotalTime: optional(r.TotalTime), Tags: tags}
+	out := oapi.RecipeSummary{Slug: r.Slug, Name: r.Name, Description: optional(r.Description), TotalTime: optional(r.TotalTime), Tags: tags}
+	if r.Image != "" {
+		u := fmt.Sprintf("/v1/households/%s/recipes/%s/image?v=%s", householdID, url.PathEscape(r.Slug), url.QueryEscape(r.Image))
+		out.ImageUrl = &u
+	}
+	return out
 }
 
 // cookingUnavailable answers when Mealie is down or not set up; the cause is logged, not sent.

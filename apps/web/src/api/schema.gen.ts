@@ -157,6 +157,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set your own picture
+         * @description A JPEG of at most 5 MB; the app makes it square and small first. It wins over the picture
+         *     authentik sends.
+         */
+        put: operations["setAvatar"];
+        post?: never;
+        /**
+         * Remove your own picture
+         * @description Afterwards you have authentik's picture again, if it sends one.
+         */
+        delete: operations["deleteAvatar"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/users/{userId}/avatar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * A member's picture
+         * @description Use the user's `avatarUrl`; it changes with the picture, so the answer may be cached. Only
+         *     you and the people you share a household with can see yours.
+         */
+        get: operations["getAvatar"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/voice": {
         parameters: {
             query?: never;
@@ -293,6 +341,50 @@ export interface paths {
         /** Ask the household a question */
         post: operations["askQuestion"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/questions/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Fresh questions to ask, written by Claude (members only)
+         * @description A few new questions in the caller's language, different on every call. Claude sees the
+         *     household's recent questions so it doesn't repeat them. When Claude can't be reached the
+         *     answer is 503 and the client offers its own.
+         */
+        get: operations["suggestQuestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/questions/{questionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Reword your question, until someone else has answered it */
+        put: operations["updateQuestion"];
+        post?: never;
+        /** Delete your question and its answers */
+        delete: operations["deleteQuestion"];
         options?: never;
         head?: never;
         patch?: never;
@@ -464,6 +556,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/entries/{entryId}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryId: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a photo to a note you can change
+         * @description A JPEG of at most 5 MB; the app makes photos smaller first. A note holds at most 50. Put
+         *     `![](url)` in the note's text to show it: a photo the text no longer links is deleted with
+         *     the note's next change.
+         */
+        post: operations["addNotePhoto"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/entries/{entryId}/photos/{photoId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryId: components["parameters"]["EntryId"];
+                photoId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * A photo in a note you can read
+         * @description A photo never changes, so the answer may be cached.
+         */
+        get: operations["getNotePhoto"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/moments": {
         parameters: {
             query?: never;
@@ -611,6 +750,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/recipes/{slug}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                slug: components["parameters"]["RecipeSlug"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A recipe's picture, about 600 pixels wide (members only)
+         * @description Fetched from Mealie through the API, like everything else from Mealie. 404 when the recipe has none.
+         */
+        get: operations["getRecipeImage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/shopping-list": {
         parameters: {
             query?: never;
@@ -670,7 +832,11 @@ export interface paths {
         delete: operations["deleteShoppingItem"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Move an item to another aisle
+         * @description The household remembers it, so the same thing goes to that aisle from now on.
+         */
+        patch: operations["updateShoppingItem"];
         trace?: never;
     };
     "/v1/households/{householdId}/shopping-list/items/{itemId}/done": {
@@ -802,7 +968,8 @@ export interface paths {
          * @description Each member connects their own Plex account and sees the libraries on their own servers and
          *     on servers friends share with them, with their own watched state. A server that can't be
          *     reached is left out. Until the caller has connected, `connected` is false and `libraries`
-         *     is empty. Read-only: nothing is played or changed.
+         *     is empty. Libraries the caller left out are listed with `included: false`. Read-only:
+         *     nothing is played or changed in Plex.
          */
         get: operations["getWatchShelf"];
         put?: never;
@@ -832,6 +999,80 @@ export interface paths {
         post: operations["connectWatch"];
         /** Disconnect your Plex account; Homeloom forgets its token */
         delete: operations["disconnectWatch"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/watch/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ideas for what to watch, picked by Claude (members only)
+         * @description With Plex connected, Claude picks mostly from what the caller hasn't seen in their
+         *     libraries, taking what they have watched as their taste, and adds one or two titles from
+         *     outside them. Without Plex, every idea is from outside. Ideas from a library carry `title`.
+         */
+        post: operations["suggestWatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/watch/tonight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * What the household picked to watch tonight (members only)
+         * @description A pick lasts until 5 a.m. the morning after, in the household's time zone. Members who
+         *     haven't connected Plex, or can't reach the title, still see it.
+         */
+        get: operations["getWatchTonight"];
+        /** Pick one of your titles for tonight; the other members are told */
+        put: operations["pickWatchTonight"];
+        post?: never;
+        /** Forget tonight's pick */
+        delete: operations["clearWatchTonight"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/watch/libraries/{libraryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                libraryId: components["schemas"]["MediaId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Include one of your libraries, or leave it out
+         * @description Your own choice: a library you leave out isn't offered on your shelf or used for ideas.
+         *     Every library is included until you leave it out, so new ones show up on their own.
+         *     Nothing changes in Plex. Disconnecting forgets the choice.
+         */
+        put: operations["setWatchLibrary"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1299,6 +1540,9 @@ export interface components {
         AskQuestion: {
             text: string;
         };
+        QuestionSuggestions: {
+            questions: string[];
+        };
         AnswerQuestion: {
             text: string;
         };
@@ -1338,7 +1582,7 @@ export interface components {
         /** @enum {string} */
         Repeat: "never" | "daily" | "weekly" | "monthly" | "yearly";
         EntryFields: {
-            /** @description A note's text, or a reminder's or event's title (at most 200 characters). */
+            /** @description A note's Markdown text, or a reminder's or event's title (at most 200 characters). A note's title is its first line, usually a `# Heading`. */
             text: string;
             visibility: components["schemas"]["Visibility"];
             /**
@@ -1387,6 +1631,8 @@ export interface components {
             /** @description True while you may not read the text yet; `text` is then absent. */
             sealed: boolean;
             text?: string;
+            /** @description Notes only: the first line of the text without its Markdown, such as a `# Heading`'s words. Absent while `sealed`. */
+            title?: string;
             /**
              * Format: date-time
              * @description A reminder's due time, or when an event's next alert goes out.
@@ -1409,6 +1655,12 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        NotePhoto: {
+            /** Format: uuid */
+            id: string;
+            /** @description Where the photo is, to link in the note's text as `![](url)`. */
+            url: string;
         };
         /** @enum {string} */
         MomentKind: "moment" | "gratitude";
@@ -1491,12 +1743,16 @@ export interface components {
             /** @description As written in Mealie */
             totalTime?: string;
             tags: string[];
+            /** @description The recipe's picture (getRecipeImage), versioned; absent when it has none. */
+            imageUrl?: string;
         };
         Recipe: {
             slug: string;
             name: string;
             description?: string;
             totalTime?: string;
+            /** @description The recipe's picture (getRecipeImage), versioned; absent when it has none. */
+            imageUrl?: string;
             servings?: string;
             tags: string[];
             ingredients: components["schemas"]["Ingredient"][];
@@ -1523,10 +1779,19 @@ export interface components {
         NewShoppingItem: {
             text: string;
         };
+        /**
+         * @description Where in the shop the item is, listed in this order. New items go where the household put the same thing before, else where Claude says, else `other`.
+         * @enum {string}
+         */
+        ShoppingAisle: "produce" | "bakery" | "meat" | "dairy" | "frozen" | "pantry" | "drinks" | "household" | "other";
+        ShoppingItemUpdate: {
+            aisle: components["schemas"]["ShoppingAisle"];
+        };
         ShoppingItem: {
             /** Format: uuid */
             id: string;
             text: string;
+            aisle: components["schemas"]["ShoppingAisle"];
             /** @description The recipe the item came from, if any. */
             recipe?: string;
             /**
@@ -1584,6 +1849,11 @@ export interface components {
             server: string;
             /** @description False for a library a friend shares with you. */
             owned: boolean;
+            /** @description False for a library you left out. */
+            included: boolean;
+        };
+        WatchLibrarySetting: {
+            included: boolean;
         };
         /** @enum {string} */
         MediaKind: "movie" | "show";
@@ -1604,6 +1874,50 @@ export interface components {
             episodes?: number;
             /** @description You have seen the movie, or every episode. */
             watched: boolean;
+            /**
+             * Format: uri
+             * @description Opens the title in Plex.
+             */
+            url?: string;
+        };
+        WatchTonight: {
+            pick?: components["schemas"]["TonightPick"];
+        };
+        WatchTonightChoice: {
+            titleId: components["schemas"]["MediaId"];
+        };
+        TonightPick: {
+            titleId: components["schemas"]["MediaId"];
+            kind: components["schemas"]["MediaKind"];
+            name: string;
+            year?: number;
+            /**
+             * Format: uri
+             * @description Opens the title in Plex.
+             */
+            url?: string;
+            /**
+             * Format: uuid
+             * @description The member who picked it.
+             */
+            pickedBy: string;
+            /** Format: date-time */
+            pickedAt: string;
+        };
+        WatchMood: {
+            /** @description In your own words, e.g. "something light, under two hours"; may be empty. */
+            mood?: string;
+        };
+        WatchIdeas: {
+            ideas: components["schemas"]["WatchIdea"][];
+        };
+        WatchIdea: {
+            name: string;
+            year?: number;
+            kind: components["schemas"]["MediaKind"];
+            /** @description One short sentence on why it fits. */
+            reason: string;
+            title?: components["schemas"]["WatchTitle"];
         };
         Scene: {
             /** @description Home Assistant entity id, e.g. scene.dinner. */
@@ -1711,6 +2025,7 @@ export interface components {
             id: string;
             name: string;
             email?: string;
+            /** @description The picture they set in Homeloom, else the one authentik sends, if any. */
             avatarUrl?: string;
         };
         CreateHousehold: {
@@ -2039,6 +2354,81 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
         };
     };
+    setAvatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            /** @description You, with the new picture. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    deleteAvatar: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description You, without it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["User"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getAvatar: {
+        parameters: {
+            query?: {
+                /** @description The picture's version, part of `avatarUrl`. */
+                v?: string;
+            };
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The picture. */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getVoice: {
         parameters: {
             query?: never;
@@ -2290,6 +2680,109 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    suggestQuestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Up to five questions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionSuggestions"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    updateQuestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskQuestion"];
+            };
+        };
+        responses: {
+            /** @description The question after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Question"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description Someone else asked this question (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description Someone else has answered it already, so it can no longer change (code `already_answered`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteQuestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                questionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Someone else asked this question (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
             404: components["responses"]["NotFound"];
         };
     };
@@ -2662,6 +3155,70 @@ export interface operations {
             };
         };
     };
+    addNotePhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryId: components["parameters"]["EntryId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            /** @description The photo, ready to link. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotePhoto"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description You can see this note but not change it (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getNotePhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryId: components["parameters"]["EntryId"];
+                photoId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The photo. */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     listMoments: {
         parameters: {
             query?: {
@@ -2991,6 +3548,33 @@ export interface operations {
             503: components["responses"]["Unavailable"];
         };
     };
+    getRecipeImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                slug: components["parameters"]["RecipeSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The picture. */
+            200: {
+                headers: {
+                    "Cache-Control": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/*": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
     listShoppingItems: {
         parameters: {
             query?: never;
@@ -3093,6 +3677,36 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateShoppingItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                itemId: components["parameters"]["ShoppingItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShoppingItemUpdate"];
+            };
+        };
+        responses: {
+            /** @description The item, moved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingItem"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };
@@ -3328,6 +3942,139 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Disconnected. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    suggestWatch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WatchMood"];
+            };
+        };
+        responses: {
+            /** @description Up to four ideas. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchIdeas"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getWatchTonight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tonight's pick, if there is one. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchTonight"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    pickWatchTonight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WatchTonightChoice"];
+            };
+        };
+        responses: {
+            /** @description The pick. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TonightPick"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    clearWatchTonight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cleared. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setWatchLibrary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                libraryId: components["schemas"]["MediaId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WatchLibrarySetting"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
             204: {
                 headers: {
                     [name: string]: unknown;

@@ -1,6 +1,6 @@
 {
   "app": { "tagline": "Meals, moments and your home, together." },
-  "tabs": { "label": "Main", "today": "Today", "cook": "Cook", "us": "Us", "lists": "Lists", "home": "Home" },
+  "tabs": { "label": "Main", "today": "Today", "us": "Us", "lists": "Lists", "home": "Home" },
   "auth": {
     "signIn": "Sign in",
     "signOut": "Sign out",
@@ -23,16 +23,18 @@
     "create": "Create household",
     "failed": "That didn't work. Please try again."
   },
-  "settings": { "title": "Settings", "you": "You", "household": "Household", "owner": "Owner", "member": "Member", "open": "Household and settings" },
+  "settings": { "title": "Settings", "you": "You", "household": "Household", "owner": "Owner", "member": "Member", "open": "Household and settings", "photo": "Add photo", "photoChange": "Change photo", "photoRemove": "Remove photo", "photoFailed": "The photo didn't work. Please try another one." },
   "push": { "title": "Notifications", "switch": "Notifications on this device", "hint": "Answers, reminders and events", "install": "To get notifications on your iPhone, add Homeloom to your Home Screen first: tap Share, then “Add to Home Screen”, and open it from there.", "blocked": "Notifications are blocked. Allow them in your phone's Settings under Notifications, then try again.", "failed": "That didn't work. Please try again." },
   "today": {
     "question": { "eyebrow": "Today's question", "title": "No question yet", "body": "Ask one. Answers open once you both replied." },
     "hello": { "morning": "Good morning, {{name}}", "afternoon": "Good afternoon, {{name}}", "evening": "Good evening, {{name}}", "night": "Still up, {{name}}?", "together": "You and {{name}}" },
     "next": { "eyebrow": "Next up", "clear": "Nothing planned today. Time for each other.", "more_one": "{{count}} more today", "more_other": "{{count}} more today" },
     "dinner": { "eyebrow": "Dinner tonight", "title": "What do you feel like?" },
+    "watch": { "eyebrow": "Watch tonight", "title": "Something to watch?" },
     "thanks": "What made you smile today?"
   },
   "cook": {
+    "title": "Dinner",
     "question": "What do you feel like tonight?",
     "moodLabel": "Mood",
     "mood": { "cozy": "Cozy", "light": "Light", "spicy": "Spicy", "comfort": "Comfort", "new": "Something new" },
@@ -130,6 +132,8 @@
     "allDay": "All day",
     "starts": "Starts",
     "ends": "Ends",
+    "noTime": "None",
+    "pick": "Pick",
     "alert": "Alert",
     "alerts": { "none": "None", "0": "At the start", "10": "10 minutes before", "30": "30 minutes before", "60": "1 hour before", "1440": "1 day before" },
     "who": "Who can see this",
@@ -141,9 +145,11 @@
     "forMe": "Me",
     "save": "Save",
     "cancel": "Cancel",
+    "clear": "Clear",
     "delete": "Delete",
     "deleteConfirm": "Delete this for good?",
     "done": "Done",
+    "reopen": "Undo",
     "showDone": "Show {{count}}",
     "hideDone": "Hide",
     "suggestions": "Used before",
@@ -156,6 +162,7 @@
     "failed": "That didn't work. Please try again.",
     "empty": { "reminder": { "title": "Nothing to remember", "body": "Tap + to add a reminder." }, "event": { "title": "Nothing coming up", "body": "Tap + to add an event." }, "note": { "title": "No notes yet", "body": "Tap + to write one." } }
   },
+  "notes": { "title": "Title", "body": "Write something. Markdown works: # headings, **bold**, - lists.", "write": "Write", "preview": "Preview", "mode": "Write or preview", "discard": "Discard", "discardConfirm": "Discard your changes since you opened this note?", "photo": "Add photo", "untitled": "Note", "saving": "Saving…", "failed": "Not saved", "leaveUnsaved": "Your last changes aren't saved yet. Leave anyway?", "missing": "This note isn't here anymore." },
   "calendar": { "title": "Calendar", "body": "See your events and reminders in your phone's calendar.", "add": "Add to Calendar", "ready": "Open the link on your iPhone to subscribe. It's private, so keep it to yourself.", "open": "Open in Calendar", "on": "Your calendar is subscribed.", "renew": "New link", "off": "Turn off", "failed": "That didn't work. Please try again." },
   "apps": { "title": "Other apps", "body": "Let another assistant use Homeloom as you, with what you can see here. Make a key for each app.", "name": "App", "namePlaceholder": "e.g. Claude on my phone", "create": "Make key", "address": "Address", "key": "Key", "once": "Paste both into the app. The key is shown only now.", "copy": "Copy", "copied": "Copied", "done": "Done", "remove": "Remove", "made": "Made {{date}}", "failed": "That didn't work. Please try again.", "kind": "For", "for": { "calendar": "Calendar", "notes": "Notes", "tools": "Assistant" }, "calendarBody": "See your events and reminders in the Calendar and Reminders apps, and change them there too. Only what you can see here.", "calendarPlaceholder": "e.g. My iPhone", "createPassword": "Make password", "calendarOnce": "On your iPhone: Settings › Apps › Calendar › Calendar Accounts › Add Account › Other › Add CalDAV Account. The password is shown only now.", "server": "Server", "user": "User name", "anyUser": "Anything, e.g. your name", "password": "Password", "addToIPhone": "Add to iPhone", "notesBody": "Keep your notes as files in a notes app that syncs over WebDAV, and change them there too. Only what you can see here.", "notesOnce": "In your notes app, add a WebDAV account with these details. The password is shown only now." },
   "voice": { "title": "Homeloom's voice", "voice": "Voice", "speed": "Speed", "slower": "Slower", "faster": "Faster", "tone": "Tone", "tones": { "warm": "Warm", "calm": "Calm", "playful": "Playful", "clear": "Clear" }, "listen": "Listen", "failed": "That didn't work. Please try again." },
@@ -179,7 +186,7 @@
     "failed": "That didn't work. Please try again.",
     "reading": { "window": "Window open", "door": "Door open", "garage_door": "Garage open", "motion": "Motion", "moisture": "Water", "smoke": "Smoke" }
   },
-  "watch": {"title": "Movies & shows", "teaser": "Pick something to watch together", "libraries": "Libraries", "offTitle": "Movies and shows aren't available", "connectTitle": "Connect your movies and shows", "connectBody": "Sign in with your own account. Your libraries and the ones shared with you show up here.", "connect": "Connect", "disconnect": "Disconnect movies and shows", "emptyTitle": "No libraries yet", "emptyBody": "Movie and series libraries you can watch show up here.", "unseen": "Not seen yet", "count_one": "{{count}} title", "count_other": "{{count}} titles", "surprise": "Surprise us", "another": "Something else", "allSeen": "You've seen everything here", "seen": "Seen", "episodes_one": "{{count}} episode", "episodes_other": "{{count}} episodes", "minutes_one": "{{count}} min", "minutes_other": "{{count}} min", "failed": "That didn't work. Please try again.", "error": {"connect_failed": "Connecting didn't work. Please try again.", "watch_unavailable": "Your movies aren't reachable right now. Please try again later."}},
+  "watch": {"title": "Movies & shows", "libraries": "Libraries", "offTitle": "Movies and shows aren't available", "connectTitle": "Connect your movies and shows", "connectBody": "Sign in with your own account. Your libraries and the ones shared with you show up here.", "connect": "Connect", "disconnect": "Disconnect movies and shows", "emptyTitle": "No libraries yet", "emptyBody": "Movie and series libraries you can watch show up here.", "unseen": "Not seen yet", "choose": "Choose", "chooseHint": "Only the libraries you turn on show up here and in ideas. New ones are on until you turn them off.", "noneChosenTitle": "No libraries turned on", "search": "Search", "filter": "Filter", "filtered_one": "Filter · {{count}}", "filtered_other": "Filter · {{count}}", "reset": "Reset", "noMatch": "Nothing matches", "length": "Length", "lengths": {"any": "Any", "90": "Up to 1½ h", "120": "Up to 2 h"}, "genre": "Genre", "allGenres": "All", "openInPlex": "Open in Plex", "tonight": {"eyebrow": "Tonight", "pick": "Watch tonight", "picked": "Tonight's pick", "by": "Picked by {{name}}", "byYou": "You picked this", "clear": "Pick again"}, "count_one": "{{count}} title", "count_other": "{{count}} titles", "surprise": "Surprise us", "another": "Something else", "allSeen": "You've seen everything here", "seen": "Seen", "episodes_one": "{{count}} episode", "episodes_other": "{{count}} episodes", "minutes_one": "{{count}} min", "minutes_other": "{{count}} min", "ideas": {"title": "Ideas for tonight", "placeholder": "In the mood for… (optional)", "ask": "Get ideas", "more": "New ideas", "thinking": "Thinking…", "elsewhere": "Not in your library", "kind": {"movie": "Movie", "show": "Series"}}, "failed": "That didn't work. Please try again.", "error": {"connect_failed": "Connecting didn't work. Please try again.", "watch_unavailable": "Your movies aren't reachable right now. Please try again later."}},
   "questions": {
     "ask": "Ask a question",
     "askPlaceholder": "What would you like to know?",
@@ -196,6 +203,13 @@
     "theyAnswered": "{{name}} has answered",
     "waiting": "Waiting for {{name}}",
     "failed": "That didn't work. Please try again.",
+    "manage": "Edit question",
+    "reword": "Your question",
+    "answeredAlready": "Already answered, so it can't be reworded any more. You can still delete it.",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleteConfirm": "Really delete?",
+    "thinking": "Thinking…",
     "suggestions": [
       "What made you smile this week?",
       "Which trip together would you take again tomorrow?",
@@ -207,7 +221,7 @@
       "Which song should be on our shared playlist?"
     ]
   },
-  "shopping": { "tab": "Shopping", "placeholder": "Add an item", "add": "Add", "remove": "Remove {{item}}", "clear": "Clear", "emptyTitle": "Nothing to buy", "emptyBody": "Add what you need.", "open": "Open list" },
+  "shopping": { "tab": "Shopping", "placeholder": "Add an item", "add": "Add", "remove": "Remove {{item}}", "clear": "Clear", "emptyTitle": "Nothing to buy", "emptyBody": "Add what you need.", "moveTo": "Move to", "aisle": { "produce": "Fruit & veg", "bakery": "Bakery", "meat": "Meat & fish", "dairy": "Dairy & eggs", "frozen": "Frozen", "pantry": "Pantry", "drinks": "Drinks", "household": "Household", "other": "Other" }, "open": "Open list" },
   "invite": {
     "create": "Invite someone",
     "body": "Send this link to your partner. It works once and until {{date}}.",

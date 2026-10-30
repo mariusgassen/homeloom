@@ -39,6 +39,7 @@ function useHouseholdId() {
 
 export function Cook() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const householdId = useHouseholdId();
   const [picked, setPicked] = useState<string[]>([]);
   const [time, setTime] = useState<string | null>(null);
@@ -75,7 +76,18 @@ export function Cook() {
   const toggle = (m: string) => setPicked((p) => (p.includes(m) ? p.filter((x) => x !== m) : [...p, m]));
 
   return (
-    <Screen title={t("tabs.cook")} refreshable={false}>
+    <Screen
+      title={t("cook.title")}
+      refreshable={false}
+      back={
+        <Button variant="plain" size="sm" className="back" onClick={() => navigate("/")}>
+          <span className="back-icon">
+            <Icon name="chevron" size="sm" />
+          </span>
+          {t("tabs.today")}
+        </Button>
+      }
+    >
       <form className="cook-form" onSubmit={submit}>
         <h2 className="title">{t("cook.question")}</h2>
         <div className="cook-group" role="group" aria-label={t("cook.moodLabel")}>
@@ -120,7 +132,8 @@ export function Cook() {
             <Empty title={t("cook.emptyTitle")}>{t("cook.emptyBody")}</Empty>
           )}
           {result.suggestions.map(({ recipe, reason }) => (
-            <Link key={recipe.slug} to={`/cook/${recipe.slug}`} className="card-link">
+            <Link key={recipe.slug} to={`/cook/${recipe.slug}`} className="card-link recipe-card">
+              <RecipePhoto src={recipe.imageUrl} className="recipe-thumb" />
               <Card
                 eyebrow={<span>{[recipe.totalTime, ...recipe.tags.slice(0, 2)].filter(Boolean).join(" · ")}</span>}
                 title={recipe.name}
@@ -187,7 +200,7 @@ export function RecipeScreen() {
           <span className="back-icon">
             <Icon name="chevron" size="sm" />
           </span>
-          {t("tabs.cook")}
+          {t("cook.title")}
         </Button>
       }
     >
@@ -198,6 +211,7 @@ export function RecipeScreen() {
       )}
       {recipe && (
         <>
+          <RecipePhoto src={recipe.imageUrl} className="recipe-hero" />
           {(recipe.description ?? recipe.totalTime ?? recipe.servings) && (
             <p className="body muted recipe-intro">
               {[recipe.totalTime, recipe.servings && t("cook.servings", { servings: recipe.servings })].filter(Boolean).join(" · ")}
@@ -254,4 +268,11 @@ export function RecipeScreen() {
       )}
     </Screen>
   );
+}
+
+// A recipe's picture; nothing at all when it has none or it doesn't load.
+function RecipePhoto({ src, className }: { src?: string; className: string }) {
+  const [failed, setFailed] = useState(false);
+  if (!src || failed) return null;
+  return <img className={className} src={src} alt="" loading="lazy" onError={() => setFailed(true)} />;
 }

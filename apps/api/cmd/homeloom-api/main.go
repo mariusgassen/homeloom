@@ -112,10 +112,11 @@ func run() error {
 	store := postgres.NewStore(pool)
 	sessions := redis.NewSessions(rdb, cfg.SessionTTL)
 	provider := oidc.NewProvider(cfg.OIDCIssuerURL)
+	users := redis.NewUserCache(store, rdb, cfg.UserCacheTTL)
 	identity := service.NewIdentity(
 		oidc.NewVerifier(provider, append([]string{cfg.OIDCClientID}, cfg.OIDCClientIDs...)),
 		sessions,
-		redis.NewUserCache(store, rdb, cfg.UserCacheTTL),
+		users,
 	)
 	login := service.NewLogin(
 		oidc.NewLogin(provider, cfg.OIDCClientID, cfg.OIDCClientSecret, cfg.RedirectURL(), cfg.PostLogoutURL()),
@@ -130,9 +131,15 @@ func run() error {
 		}
 	}
 	var chef port.Chef
+	var grocer port.Grocer
+	var muse port.Muse
+	var critic port.Critic
 	var llm port.Assistant
 	if cfg.AnthropicAPIKey != "" {
 		chef = claude.NewChef(cfg.AnthropicAPIKey, cfg.LLMModel)
+		grocer = claude.NewGrocer(cfg.AnthropicAPIKey, cfg.LLMModel)
+		muse = claude.NewMuse(cfg.AnthropicAPIKey, cfg.LLMModel)
+		critic = claude.NewCritic(cfg.AnthropicAPIKey, cfg.LLMModel)
 		llm = claude.NewAssistant(cfg.AnthropicAPIKey, cfg.LLMModel)
 	}
 	// Tokens from signing in to Home Assistant or Plex are sealed with HOMELOOM_SECRET_KEY.
@@ -169,7 +176,7 @@ func run() error {
 			return err
 		}
 	}
-	// Without S3 credentials moment photos stay in Postgres.
+	// Without S3 credentials moment and note photos stay in Postgres.
 	var photos port.PhotoStore
 	if cfg.S3AccessKeyID != "" {
 		if photos, err = s3.New(cfg.S3Endpoint, cfg.S3Region, cfg.S3Bucket, cfg.S3AccessKeyID, cfg.S3SecretAccessKey); err != nil {
@@ -186,7 +193,10 @@ func run() error {
 	defer push.Wait()
 
 	entries := service.NewEntry(store, store, store, push, cfg.TimeZone)
-	shopping := service.NewShopping(store, store)
+	if photos != nil {
+		entries.WithPhotos(photos)
+	}
+	shopping := service.NewShopping(store, store, grocer)
 	go notifyDue(ctx, entries)
 	moments := service.NewMoments(store, store, store, push, cfg.TimeZone)
 	if photos != nil {
@@ -196,7 +206,7 @@ func run() error {
 	cook := service.NewCook(store, book, chef, shopping)
 	homeService := service.NewHome(store, homeConnections, sessions, home)
 	households := service.NewHousehold(store)
-	watch := service.NewWatch(store, watchConnections, sessions, media)
+	watch := service.NewWatch(store, watchConnections, sessions, media, critic).WithTonight(store, push, cfg.TimeZone)
 	assistant := service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone)
 	agents := service.NewAgentAccess(store, sessions, store)
 
@@ -206,7 +216,7 @@ func run() error {
 		Identity:       identity,
 		Login:          login,
 		Households:     households,
-		Questions:      service.NewQuestion(store, store, push),
+		Questions:      service.NewQuestion(store, store, push, muse),
 		Entries:        entries,
 		Moments:        moments,
 		Cook:           cook,
@@ -216,6 +226,7 @@ func run() error {
 		Push:           push,
 		Calls:          service.NewCall(store, sessions, calls, push).WithVoiceAgent(cfg.VoiceAgent, agents).WithVoice(voice),
 		Voice:          voice,
+		Avatars:        service.NewAvatars(users),
 		Assistant:      assistant,
 		Agents:         agents,
 		HealthChecks:   []port.HealthCheck{postgres.HealthCheck{Pool: pool}, redis.HealthCheck{Client: rdb}},

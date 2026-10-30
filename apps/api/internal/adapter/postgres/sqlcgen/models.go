@@ -109,6 +109,14 @@ type Entry struct {
 	IcalName     *string
 }
 
+type EntryPhoto struct {
+	ID          uuid.UUID
+	EntryID     uuid.UUID
+	ContentType string
+	Data        []byte
+	CreatedAt   time.Time
+}
+
 type HomeConnection struct {
 	UserID       uuid.UUID
 	RefreshToken string
@@ -191,6 +199,12 @@ type Question struct {
 	RevealedAt  *time.Time
 }
 
+type ShoppingAisle struct {
+	HouseholdID uuid.UUID
+	Name        string
+	Aisle       string
+}
+
 type ShoppingHistory struct {
 	HouseholdID uuid.UUID
 	Key         string
@@ -207,6 +221,7 @@ type ShoppingItem struct {
 	AddedBy     *uuid.UUID
 	DoneAt      *time.Time
 	CreatedAt   time.Time
+	Aisle       string
 }
 
 type User struct {
@@ -217,6 +232,13 @@ type User struct {
 	AvatarUrl    *string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
+	AvatarAt     *time.Time
+}
+
+type UserAvatar struct {
+	UserID      uuid.UUID
+	ContentType string
+	Data        []byte
 }
 
 type VoiceSetting struct {
@@ -228,7 +250,19 @@ type VoiceSetting struct {
 }
 
 type WatchConnection struct {
-	UserID    uuid.UUID
-	Token     string
-	CreatedAt time.Time
+	UserID          uuid.UUID
+	Token           string
+	CreatedAt       time.Time
+	HiddenLibraries []string
+}
+
+type WatchTonight struct {
+	HouseholdID uuid.UUID
+	TitleID     string
+	Kind        string
+	Name        string
+	Year        int32
+	Url         string
+	PickedBy    uuid.UUID
+	PickedAt    time.Time
 }

@@ -1,20 +1,69 @@
-import { useEffect, useMemo, useState } from "react";
+import { createContext, use, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
-import { api, type WatchLibrary, type WatchShelf, type WatchTitle } from "../api/client";
+import { api, type TonightPick, type WatchLibrary, type WatchShelf, type WatchTitle } from "../api/client";
 import { useRefresh } from "../refresh";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Empty } from "../ui/Empty";
+import { FormBlock, FormGroup, Pills, Segmented, SwitchRow } from "../ui/Form";
 import { cx, Icon } from "../ui/Icon";
 import { Mark } from "../ui/Mark";
+import { Sheet } from "../ui/Sheet";
 import { Screen } from "./Screen";
+import { WatchIdeas } from "./WatchIdeas";
 
 function useHouseholdId() {
   const { session } = useSession();
   if (session.state !== "signedIn" || !session.household) throw new Error("watch without a household");
   return session.household.id;
+}
+
+// Tonight's pick for the household: whatever anyone picked, until the next morning. undefined
+// while loading, null when nothing is picked.
+export function useTonight(householdId: string) {
+  const [pick, setPick] = useState<TonightPick | null>();
+  const { generation } = useRefresh();
+  useEffect(() => {
+    let current = true;
+    api
+      .GET("/v1/households/{householdId}/watch/tonight", { params: { path: { householdId } } })
+      .catch(() => undefined)
+      .then((res) => current && setPick(res?.data?.pick ?? null));
+    return () => {
+      current = false;
+    };
+  }, [householdId, generation]);
+
+  // Returns whether it worked; the others are told by the API.
+  const choose = useCallback(
+    async (title: WatchTitle) => {
+      const res = await api
+        .PUT("/v1/households/{householdId}/watch/tonight", { params: { path: { householdId } }, body: { titleId: title.id } })
+        .catch(() => undefined);
+      if (res?.data) setPick(res.data);
+      return Boolean(res?.data);
+    },
+    [householdId],
+  );
+  const clear = useCallback(async () => {
+    setPick(null);
+    await api.DELETE("/v1/households/{householdId}/watch/tonight", { params: { path: { householdId } } }).catch(() => undefined);
+  }, [householdId]);
+  return { pick, choose, clear };
+}
+
+const TonightContext = createContext<ReturnType<typeof useTonight> | null>(null);
+
+// Who picked it, as a short line: you, or the member by name.
+export function usePickedBy(pick: TonightPick) {
+  const { t } = useTranslation();
+  const { session } = useSession();
+  if (session.state !== "signedIn") return "";
+  if (pick.pickedBy === session.user.id) return t("watch.tonight.byYou");
+  const name = session.household?.members.find((m) => m.user.id === pick.pickedBy)?.user.name;
+  return name ? t("watch.tonight.by", { name }) : "";
 }
 
 const posterURL = (householdId: string, titleId: string) =>
@@ -33,6 +82,8 @@ export function Watch() {
   const [error, setError] = useState<string | null>(connectError && t(`watch.error.${connectError}`, { defaultValue: t("watch.failed") }));
   const [busy, setBusy] = useState(false);
   const [library, setLibrary] = useState<string | null>(null);
+  const [choosing, setChoosing] = useState(false);
+  const tonight = useTonight(householdId);
   const { generation: refreshed, track } = useRefresh();
 
   useEffect(() => {
@@ -69,63 +120,122 @@ export function Watch() {
     setShelf({ connected: false, libraries: [] });
   }
 
+  // Shown right away; put back if it couldn't be saved.
+  async function include(l: WatchLibrary, included: boolean) {
+    const set = (v: boolean) => setShelf((s) => s && { ...s, libraries: s.libraries.map((x) => (x.id === l.id ? { ...x, included: v } : x)) });
+    set(included);
+    setError(null);
+    const res = await api
+      .PUT("/v1/households/{householdId}/watch/libraries/{libraryId}", { params: { path: { householdId, libraryId: l.id } }, body: { included } })
+      .catch(() => undefined);
+    if (res?.response.ok) return;
+    set(!included);
+    setError(res?.error?.message ?? t("watch.failed"));
+  }
+
   const back = (
-    <Button variant="plain" size="sm" className="back" onClick={() => navigate("/us")}>
+    <Button variant="plain" size="sm" className="back" onClick={() => navigate("/")}>
       <span className="back-icon">
         <Icon name="chevron" size="sm" />
       </span>
-      {t("tabs.us")}
+      {t("tabs.today")}
     </Button>
   );
 
   if (unavailable) {
     return (
-      <Screen title={t("watch.title")} back={back}>
-        <Empty title={t("watch.offTitle")}>{unavailable}</Empty>
-      </Screen>
+      <TonightContext value={tonight}>
+        <Screen title={t("watch.title")} back={back}>
+          {tonight.pick && <Tonight householdId={householdId} pick={tonight.pick} onClear={tonight.clear} />}
+          <WatchIdeas householdId={householdId} />
+          <Empty title={t("watch.offTitle")}>{unavailable}</Empty>
+        </Screen>
+      </TonightContext>
     );
   }
 
-  const libraries = shelf?.libraries ?? [];
+  const all = shelf?.libraries ?? [];
+  const libraries = all.filter((l) => l.included);
   const chosen = libraries.find((l) => l.id === library) ?? libraries[0];
   return (
-    <Screen title={t("watch.title")} back={back}>
-      {error && (
-        <p className="callout error" role="alert">
-          {error}
-        </p>
-      )}
-      {!shelf && (
-        <div className="loading-inline">
-          <Mark size={40} weaving label={t("refresh.loading")} />
-        </div>
-      )}
-      {shelf && !shelf.connected && (
-        <Card
-          tone="sunken"
-          title={t("watch.connectTitle")}
-          footer={
-            <Button size="sm" disabled={busy} onClick={connect}>
-              {t("watch.connect")}
-            </Button>
-          }
-        >
-          {t("watch.connectBody")}
-        </Card>
-      )}
-      {shelf?.connected && libraries.length === 0 && <Empty title={t("watch.emptyTitle")}>{t("watch.emptyBody")}</Empty>}
-      {libraries.length > 1 && <LibraryPicker libraries={libraries} chosen={chosen} onPick={setLibrary} />}
-      {chosen && <Library key={chosen.id} householdId={householdId} library={chosen} />}
-      {shelf?.connected && (
-        <Button variant="plain" size="sm" className="home-disconnect" disabled={busy} onClick={disconnect}>
-          {t("watch.disconnect")}
-        </Button>
-      )}
-    </Screen>
+    <TonightContext value={tonight}>
+      <Screen title={t("watch.title")} back={back}>
+        {tonight.pick && <Tonight householdId={householdId} pick={tonight.pick} onClear={tonight.clear} />}
+        {error && (
+          <p className="callout error" role="alert">
+            {error}
+          </p>
+        )}
+        {!shelf && (
+          <div className="loading-inline">
+            <Mark size={40} weaving label={t("refresh.loading")} />
+          </div>
+        )}
+        {shelf && !shelf.connected && (
+          <Card
+            tone="sunken"
+            title={t("watch.connectTitle")}
+            footer={
+              <Button size="sm" disabled={busy} onClick={connect}>
+                {t("watch.connect")}
+              </Button>
+            }
+          >
+            {t("watch.connectBody")}
+          </Card>
+        )}
+        {shelf && <WatchIdeas householdId={householdId} />}
+        {shelf?.connected && all.length === 0 && <Empty title={t("watch.emptyTitle")}>{t("watch.emptyBody")}</Empty>}
+        {all.length > 0 && libraries.length === 0 && (
+          <Empty
+            title={t("watch.noneChosenTitle")}
+            action={
+              <Button variant="secondary" size="sm" onClick={() => setChoosing(true)}>
+                {t("watch.choose")}
+              </Button>
+            }
+          />
+        )}
+        {libraries.length > 0 && <LibraryPicker libraries={libraries} chosen={chosen} onPick={setLibrary} onChoose={() => setChoosing(true)} />}
+        {chosen && <Library key={chosen.id} householdId={householdId} library={chosen} />}
+        {shelf?.connected && (
+          <Button variant="plain" size="sm" className="home-disconnect" disabled={busy} onClick={disconnect}>
+            {t("watch.disconnect")}
+          </Button>
+        )}
+        {choosing && <ChooseLibraries libraries={all} onInclude={include} onClose={() => setChoosing(false)} />}
+      </Screen>
+    </TonightContext>
   );
 }
 
-function LibraryPicker({ libraries, chosen, onPick }: { libraries: WatchLibrary[]; chosen?: WatchLibrary; onPick: (id: string) => void }) {
+// What you're watching tonight, at the top: open it in Plex, or pick again.
+function Tonight({ householdId, pick, onClear }: { householdId: string; pick: TonightPick; onClear: () => void }) {
+  const { t } = useTranslation();
+  const by = usePickedBy(pick);
+  return (
+    <section className="watch-tonight hl-card" aria-label={t("watch.tonight.eyebrow")}>
+      <Poster householdId={householdId} title={{ id: pick.titleId, name: pick.name }} />
+      <div className="watch-tonight-text">
+        <span className="hl-eyebrow">{t("watch.tonight.eyebrow")}</span>
+        <h2 className="headline">{pick.name}</h2>
+        <span className="caption muted">{[pick.year, by].filter(Boolean).join(" · ")}</span>
+        <div className="watch-tonight-actions">
+          {pick.url && (
+            <a className="hl-btn hl-btn-primary hl-btn-sm" href={pick.url} target="_blank" rel="noreferrer">
+              {t("watch.openInPlex")}
+            </a>
+          )}
+          <Button variant="plain" size="sm" onClick={onClear}>
+            {t("watch.tonight.clear")}
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function LibraryPicker({ libraries, chosen, onPick, onChoose }: { libraries: WatchLibrary[]; chosen?: WatchLibrary; onPick: (id: string) => void; onChoose: () => void }) {
   const { t } = useTranslation();
   return (
     <div className="watch-libraries" role="tablist" aria-label={t("watch.libraries")}>
@@ -135,8 +245,56 @@ function LibraryPicker({ libraries, chosen, onPick }: { libraries: WatchLibrary[
           {!l.owned && <span className="caption"> · {l.server}</span>}
         </button>
       ))}
+      <button type="button" className={cx("hl-chip", "watch-library", "watch-choose")} onClick={onChoose}>
+        {t("watch.choose")}
+      </button>
     </div>
   );
+}
+
+// Which libraries count: your own choice, saved as you flip each one. New ones are on until you turn them off.
+function ChooseLibraries({ libraries, onInclude, onClose }: { libraries: WatchLibrary[]; onInclude: (l: WatchLibrary, included: boolean) => void; onClose: () => void }) {
+  const { t } = useTranslation();
+  const groups = [libraries.filter((l) => l.owned), libraries.filter((l) => !l.owned)].filter((g) => g.length > 0);
+  return (
+    <Sheet
+      title={t("watch.libraries")}
+      onClose={onClose}
+      trailing={
+        <Button variant="plain" onClick={onClose}>
+          {t("entries.done")}
+        </Button>
+      }
+    >
+      <p className="caption muted sheet-hint">{t("watch.chooseHint")}</p>
+      {groups.map((g) => (
+        <FormGroup key={g[0]?.owned ? "own" : "shared"}>
+          {g.map((l) => (
+            <SwitchRow
+              key={l.id}
+              label={l.owned ? l.name : `${l.name} · ${l.server}`}
+              checked={l.included}
+              onChange={(v) => onInclude(l, v)}
+            />
+          ))}
+        </FormGroup>
+      ))}
+    </Sheet>
+  );
+}
+
+type Filters = { query: string; unseen: boolean; genre: string; length: Length };
+type Length = "" | "90" | "120";
+const noFilters: Filters = { query: "", unseen: false, genre: "", length: "" };
+
+// Case and accents don't matter when searching: "amelie" finds "Amélie".
+const fold = (s: string) => s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase();
+
+function matches(x: WatchTitle, f: Filters) {
+  if (f.unseen && x.watched) return false;
+  if (f.genre && !x.genres.includes(f.genre)) return false;
+  if (f.length && !(x.minutes && x.minutes <= Number(f.length))) return false;
+  return !f.query.trim() || fold(x.name).includes(fold(f.query.trim()));
 }
 
 // One library: its titles as posters, the unseen ones only if asked, and a random pick from them.
@@ -144,7 +302,8 @@ function Library({ householdId, library }: { householdId: string; library: Watch
   const { t } = useTranslation();
   const [titles, setTitles] = useState<WatchTitle[] | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
-  const [unseen, setUnseen] = useState(false);
+  const [filters, setFilters] = useState<Filters>(noFilters);
+  const [filtering, setFiltering] = useState(false);
   const [open, setOpen] = useState<WatchTitle | null>(null);
 
   useEffect(() => {
@@ -162,7 +321,14 @@ function Library({ householdId, library }: { householdId: string; library: Watch
     };
   }, [householdId, library.id, t]);
 
-  const shown = useMemo(() => (unseen ? titles?.filter((x) => !x.watched) : titles) ?? [], [titles, unseen]);
+  const shown = useMemo(() => titles?.filter((x) => matches(x, filters)) ?? [], [titles, filters]);
+  // The library's genres, most common first.
+  const genres = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const x of titles ?? []) for (const g of x.genres) counts.set(g, (counts.get(g) ?? 0) + 1);
+    return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([g]) => g);
+  }, [titles]);
+  const active = [filters.unseen, filters.genre, filters.length].filter(Boolean).length;
   const surprise = () => setOpen(shown[Math.floor(Math.random() * shown.length)] ?? null);
 
   if (failed) {
@@ -182,9 +348,20 @@ function Library({ householdId, library }: { householdId: string; library: Watch
   return (
     <section className="group" aria-label={library.name}>
       <div className="watch-bar">
-        <button type="button" className="hl-chip watch-filter" aria-pressed={unseen} onClick={() => setUnseen((u) => !u)}>
-          {t("watch.unseen")}
+        <input
+          className="input watch-search"
+          type="search"
+          value={filters.query}
+          onChange={(e) => setFilters((f) => ({ ...f, query: e.target.value }))}
+          placeholder={t("watch.search")}
+          aria-label={t("watch.search")}
+          enterKeyHint="search"
+        />
+        <button type="button" className="hl-chip watch-filter" aria-pressed={active > 0} onClick={() => setFiltering(true)}>
+          {active > 0 ? t("watch.filtered", { count: active }) : t("watch.filter")}
         </button>
+      </div>
+      <div className="watch-bar">
         <span className="caption muted">{t("watch.count", { count: shown.length })}</span>
         <Button size="sm" disabled={shown.length === 0} onClick={surprise}>
           <Icon name="sparkle" size="sm" />
@@ -192,7 +369,16 @@ function Library({ householdId, library }: { householdId: string; library: Watch
         </Button>
       </div>
       {shown.length === 0 ? (
-        <Empty title={t("watch.allSeen")} />
+        <Empty
+          title={t(filters.query.trim() || filters.genre || filters.length ? "watch.noMatch" : "watch.allSeen")}
+          action={
+            (filters.query || active > 0) && (
+              <Button variant="secondary" size="sm" onClick={() => setFilters(noFilters)}>
+                {t("watch.reset")}
+              </Button>
+            )
+          }
+        />
       ) : (
         <div className="watch-grid">
           {shown.map((x) => (
@@ -205,18 +391,69 @@ function Library({ householdId, library }: { householdId: string; library: Watch
         </div>
       )}
       {open && <TitleSheet householdId={householdId} title={open} onClose={() => setOpen(null)} onAnother={shown.length > 1 ? surprise : undefined} />}
+      {filtering && <FilterSheet kind={library.kind} genres={genres} filters={filters} onChange={setFilters} onClose={() => setFiltering(false)} />}
     </section>
   );
 }
 
-function Poster({ householdId, title }: { householdId: string; title: WatchTitle }) {
+// Narrow a library down; each choice applies right away, so the count behind the sheet follows.
+function FilterSheet({ kind, genres, filters, onChange, onClose }: { kind: WatchLibrary["kind"]; genres: string[]; filters: Filters; onChange: (f: Filters) => void; onClose: () => void }) {
+  const { t } = useTranslation();
+  const set = (patch: Partial<Filters>) => onChange({ ...filters, ...patch });
+  return (
+    <Sheet
+      title={t("watch.filter")}
+      onClose={onClose}
+      leading={
+        <Button variant="plain" onClick={() => onChange({ ...noFilters, query: filters.query })}>
+          {t("watch.reset")}
+        </Button>
+      }
+      trailing={
+        <Button variant="plain" onClick={onClose}>
+          {t("entries.done")}
+        </Button>
+      }
+    >
+      <FormGroup>
+        <SwitchRow label={t("watch.unseen")} checked={filters.unseen} onChange={(unseen) => set({ unseen })} />
+        {kind === "movie" && (
+          <FormBlock label={t("watch.length")}>
+            <Segmented
+              label={t("watch.length")}
+              value={filters.length}
+              options={(["", "90", "120"] as const).map((v) => ({ value: v, label: t(`watch.lengths.${v || "any"}`) }))}
+              onChange={(length) => set({ length })}
+            />
+          </FormBlock>
+        )}
+        {genres.length > 0 && (
+          <FormBlock label={t("watch.genre")}>
+            <Pills label={t("watch.genre")} value={filters.genre} options={[{ value: "", label: t("watch.allGenres") }, ...genres.map((g) => ({ value: g, label: g }))]} onChange={(genre) => set({ genre })} />
+          </FormBlock>
+        )}
+      </FormGroup>
+    </Sheet>
+  );
+}
+
+export function Poster({ householdId, title }: { householdId: string; title: { id: string; name: string } }) {
   const [missing, setMissing] = useState(false);
   if (missing) return <span className="watch-poster watch-poster-none" aria-hidden="true">{title.name.slice(0, 1)}</span>;
   return <img className="watch-poster" src={posterURL(householdId, title.id)} alt="" loading="lazy" onError={() => setMissing(true)} />;
 }
 
-function TitleSheet({ householdId, title, onClose, onAnother }: { householdId: string; title: WatchTitle; onClose: () => void; onAnother?: () => void }) {
+export function TitleSheet({ householdId, title, onClose, onAnother }: { householdId: string; title: WatchTitle; onClose: () => void; onAnother?: () => void }) {
   const { t, i18n } = useTranslation();
+  const tonight = use(TonightContext);
+  const [failed, setFailed] = useState(false);
+  const picked = tonight?.pick?.titleId === title.id;
+  async function choose() {
+    if (!tonight) return;
+    setFailed(false);
+    if (await tonight.choose(title)) onClose();
+    else setFailed(true);
+  }
   const facts = [
     title.year,
     title.kind === "show" && title.episodes ? t("watch.episodes", { count: title.episodes }) : title.minutes && t("watch.minutes", { count: title.minutes }),
@@ -224,30 +461,44 @@ function TitleSheet({ householdId, title, onClose, onAnother }: { householdId: s
     title.contentRating,
   ].filter(Boolean);
   return (
-    <div className="sheet-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={title.name}>
-        <div className="sheet-grabber" aria-hidden="true" />
-        <div className="sheet-bar">
-          <Button variant="plain" onClick={onClose}>
-            {t("entries.done")}
-          </Button>
-          <h2 className="headline sheet-title">{title.name}</h2>
+    <Sheet
+      title={title.name}
+      onClose={onClose}
+      leading={
+        <Button variant="plain" onClick={onClose}>
+          {t("entries.done")}
+        </Button>
+      }
+    >
+      <div className="watch-detail">
+        <Poster householdId={householdId} title={title} />
+        <div className="watch-facts">
+          {facts.length > 0 && <p className="caption muted">{facts.join(" · ")}</p>}
+          {title.genres.length > 0 && <p className="caption">{title.genres.join(", ")}</p>}
+          {title.watched && <span className="hl-chip">{t("watch.seen")}</span>}
         </div>
-        <div className="watch-detail">
-          <Poster householdId={householdId} title={title} />
-          <div className="watch-facts">
-            {facts.length > 0 && <p className="caption muted">{facts.join(" · ")}</p>}
-            {title.genres.length > 0 && <p className="caption">{title.genres.join(", ")}</p>}
-            {title.watched && <span className="hl-chip">{t("watch.seen")}</span>}
-          </div>
-        </div>
-        {title.summary && <p className="callout">{title.summary}</p>}
-        {onAnother && (
-          <Button variant="secondary" block onClick={onAnother}>
-            {t("watch.another")}
-          </Button>
-        )}
       </div>
-    </div>
+      {title.summary && <p className="callout">{title.summary}</p>}
+      {failed && (
+        <p className="callout error" role="alert">
+          {t("watch.failed")}
+        </p>
+      )}
+      {tonight && (
+        <Button block icon={picked ? "check" : "film"} disabled={picked} onClick={choose}>
+          {t(picked ? "watch.tonight.picked" : "watch.tonight.pick")}
+        </Button>
+      )}
+      {title.url && (
+        <a className="hl-btn hl-btn-secondary hl-btn-block" href={title.url} target="_blank" rel="noreferrer">
+          {t("watch.openInPlex")}
+        </a>
+      )}
+      {onAnother && (
+        <Button variant="plain" block onClick={onAnother}>
+          {t("watch.another")}
+        </Button>
+      )}
+    </Sheet>
   );
 }

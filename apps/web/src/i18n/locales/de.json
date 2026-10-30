@@ -1,6 +1,6 @@
 {
   "app": { "tagline": "Essen, Momente und euer Zuhause, gemeinsam." },
-  "tabs": { "label": "Hauptmenü", "today": "Heute", "cook": "Kochen", "us": "Wir", "lists": "Listen", "home": "Zuhause" },
+  "tabs": { "label": "Hauptmenü", "today": "Heute", "us": "Wir", "lists": "Listen", "home": "Zuhause" },
   "auth": {
     "signIn": "Anmelden",
     "signOut": "Abmelden",
@@ -23,16 +23,18 @@
     "create": "Haushalt anlegen",
     "failed": "Das hat nicht geklappt. Versuch es bitte noch mal."
   },
-  "settings": { "title": "Einstellungen", "you": "Du", "household": "Haushalt", "owner": "Inhaber:in", "member": "Mitglied", "open": "Haushalt und Einstellungen" },
+  "settings": { "title": "Einstellungen", "you": "Du", "household": "Haushalt", "owner": "Inhaber:in", "member": "Mitglied", "open": "Haushalt und Einstellungen", "photo": "Foto hinzufügen", "photoChange": "Foto ändern", "photoRemove": "Foto entfernen", "photoFailed": "Das Foto hat nicht geklappt. Probier ein anderes." },
   "push": { "title": "Mitteilungen", "switch": "Mitteilungen auf diesem Gerät", "hint": "Antworten, Erinnerungen und Termine", "install": "Für Mitteilungen auf dem iPhone leg Homeloom zuerst auf deinen Home-Bildschirm: Tipp auf Teilen, dann „Zum Home-Bildschirm“, und öffne es von dort.", "blocked": "Mitteilungen sind blockiert. Erlaube sie in den Einstellungen deines Handys unter Mitteilungen und versuch es nochmal.", "failed": "Das hat nicht geklappt. Versuch es bitte nochmal." },
   "today": {
     "question": { "eyebrow": "Frage des Tages", "title": "Noch keine Frage", "body": "Stell eine. Die Antworten öffnen sich, wenn ihr beide geantwortet habt." },
     "hello": { "morning": "Guten Morgen, {{name}}", "afternoon": "Hallo, {{name}}", "evening": "Guten Abend, {{name}}", "night": "Noch wach, {{name}}?", "together": "Du und {{name}}" },
     "next": { "eyebrow": "Als Nächstes", "clear": "Heute steht nichts an. Zeit für euch.", "more_one": "Noch {{count}} heute", "more_other": "Noch {{count}} heute" },
     "dinner": { "eyebrow": "Heute Abend", "title": "Worauf habt ihr Lust?" },
+    "watch": { "eyebrow": "Heute schauen", "title": "Lust auf einen Film?" },
     "thanks": "Was hat dich heute zum Lächeln gebracht?"
   },
   "cook": {
+    "title": "Abendessen",
     "question": "Worauf habt ihr heute Lust?",
     "moodLabel": "Stimmung",
     "mood": { "cozy": "Gemütlich", "light": "Leicht", "spicy": "Würzig", "comfort": "Soulfood", "new": "Mal was Neues" },
@@ -130,6 +132,8 @@
     "allDay": "Ganztägig",
     "starts": "Beginn",
     "ends": "Ende",
+    "noTime": "Keine",
+    "pick": "Wählen",
     "alert": "Hinweis",
     "alerts": { "none": "Keiner", "0": "Zum Beginn", "10": "10 Minuten vorher", "30": "30 Minuten vorher", "60": "1 Stunde vorher", "1440": "1 Tag vorher" },
     "who": "Wer das sieht",
@@ -141,9 +145,11 @@
     "forMe": "Mich",
     "save": "Sichern",
     "cancel": "Abbrechen",
+    "clear": "Leeren",
     "delete": "Löschen",
     "deleteConfirm": "Endgültig löschen?",
     "done": "Erledigt",
+    "reopen": "Wieder offen",
     "showDone": "{{count}} zeigen",
     "hideDone": "Ausblenden",
     "suggestions": "Schon mal genutzt",
@@ -156,6 +162,7 @@
     "failed": "Das hat nicht geklappt. Versuch es bitte nochmal.",
     "empty": { "reminder": { "title": "Nichts zu erinnern", "body": "Tipp auf +, um eine Erinnerung anzulegen." }, "event": { "title": "Nichts geplant", "body": "Tipp auf +, um einen Termin anzulegen." }, "note": { "title": "Noch keine Notizen", "body": "Tipp auf +, um eine zu schreiben." } }
   },
+  "notes": { "title": "Titel", "body": "Schreib los. Markdown geht: # Überschriften, **fett**, - Listen.", "write": "Schreiben", "preview": "Vorschau", "mode": "Schreiben oder Vorschau", "discard": "Verwerfen", "discardConfirm": "Deine Änderungen seit dem Öffnen verwerfen?", "photo": "Foto hinzufügen", "untitled": "Notiz", "saving": "Speichert…", "failed": "Nicht gespeichert", "leaveUnsaved": "Deine letzten Änderungen sind noch nicht gespeichert. Trotzdem gehen?", "missing": "Diese Notiz gibt es nicht mehr." },
   "calendar": { "title": "Kalender", "body": "Sieh deine Termine und Erinnerungen im Kalender deines Handys.", "add": "Zum Kalender hinzufügen", "ready": "Öffne den Link auf deinem iPhone, um ihn zu abonnieren. Er ist privat, behalte ihn für dich.", "open": "Im Kalender öffnen", "on": "Dein Kalender ist abonniert.", "renew": "Neuer Link", "off": "Ausschalten", "failed": "Das hat nicht geklappt. Versuch es bitte nochmal." },
   "apps": { "title": "Andere Apps", "body": "Lass einen anderen Assistenten Homeloom als du nutzen, mit allem, was du hier siehst. Mach für jede App einen eigenen Schlüssel.", "name": "App", "namePlaceholder": "z. B. Claude auf meinem Handy", "create": "Schlüssel machen", "address": "Adresse", "key": "Schlüssel", "once": "Füg beides in der App ein. Den Schlüssel siehst du nur jetzt.", "copy": "Kopieren", "copied": "Kopiert", "done": "Fertig", "remove": "Entfernen", "made": "Erstellt am {{date}}", "failed": "Das hat nicht geklappt. Versuch es bitte nochmal.", "kind": "Für", "for": { "calendar": "Kalender", "notes": "Notizen", "tools": "Assistent" }, "calendarBody": "Sieh deine Termine und Erinnerungen in den Apps Kalender und Erinnerungen und ändere sie auch dort. Nur was du hier auch siehst.", "calendarPlaceholder": "z. B. Mein iPhone", "createPassword": "Passwort erstellen", "calendarOnce": "Auf deinem iPhone: Einstellungen › Apps › Kalender › Kalenderaccounts › Account hinzufügen › Andere › CalDAV-Account hinzufügen. Das Passwort siehst du nur jetzt.", "server": "Server", "user": "Benutzername", "anyUser": "Beliebig, z. B. dein Name", "password": "Passwort", "addToIPhone": "Zum iPhone hinzufügen", "notesBody": "Hab deine Notizen als Dateien in einer Notizen-App, die über WebDAV synchronisiert, und ändere sie auch dort. Nur was du hier auch siehst.", "notesOnce": "Füg in deiner Notizen-App einen WebDAV-Account mit diesen Angaben hinzu. Das Passwort siehst du nur jetzt." },
   "voice": { "title": "Stimme von Homeloom", "voice": "Stimme", "speed": "Tempo", "slower": "Langsamer", "faster": "Schneller", "tone": "Ton", "tones": { "warm": "Herzlich", "calm": "Ruhig", "playful": "Verspielt", "clear": "Klar" }, "listen": "Anhören", "failed": "Das hat nicht geklappt. Versuch es bitte nochmal." },
@@ -179,7 +186,7 @@
     "failed": "Das hat nicht geklappt. Versuch es bitte noch mal.",
     "reading": { "window": "Fenster offen", "door": "Tür offen", "garage_door": "Garage offen", "motion": "Bewegung", "moisture": "Wasser", "smoke": "Rauch" }
   },
-  "watch": {"title": "Filme & Serien", "teaser": "Sucht euch was zum Schauen aus", "libraries": "Mediatheken", "offTitle": "Filme und Serien sind nicht verfügbar", "connectTitle": "Verbinde deine Filme und Serien", "connectBody": "Melde dich mit deinem eigenen Konto an. Deine Mediatheken und die mit dir geteilten erscheinen hier.", "connect": "Verbinden", "disconnect": "Filme und Serien trennen", "emptyTitle": "Noch keine Mediatheken", "emptyBody": "Film- und Serien-Mediatheken, die du schauen kannst, erscheinen hier.", "unseen": "Noch nicht gesehen", "count_one": "{{count}} Titel", "count_other": "{{count}} Titel", "surprise": "Überrasch uns", "another": "Was anderes", "allSeen": "Hier hast du schon alles gesehen", "seen": "Gesehen", "episodes_one": "{{count}} Folge", "episodes_other": "{{count}} Folgen", "minutes_one": "{{count}} Min.", "minutes_other": "{{count}} Min.", "failed": "Das hat nicht geklappt. Versuch es bitte nochmal.", "error": {"connect_failed": "Verbinden hat nicht geklappt. Versuch es bitte nochmal.", "watch_unavailable": "Deine Filme sind gerade nicht erreichbar. Versuch es später nochmal."}},
+  "watch": {"title": "Filme & Serien", "libraries": "Mediatheken", "offTitle": "Filme und Serien sind nicht verfügbar", "connectTitle": "Verbinde deine Filme und Serien", "connectBody": "Melde dich mit deinem eigenen Konto an. Deine Mediatheken und die mit dir geteilten erscheinen hier.", "connect": "Verbinden", "disconnect": "Filme und Serien trennen", "emptyTitle": "Noch keine Mediatheken", "emptyBody": "Film- und Serien-Mediatheken, die du schauen kannst, erscheinen hier.", "unseen": "Noch nicht gesehen", "choose": "Auswählen", "chooseHint": "Nur die Mediatheken, die du einschaltest, erscheinen hier und in den Ideen. Neue sind an, bis du sie ausschaltest.", "noneChosenTitle": "Keine Mediathek eingeschaltet", "search": "Suchen", "filter": "Filter", "filtered_one": "Filter · {{count}}", "filtered_other": "Filter · {{count}}", "reset": "Zurücksetzen", "noMatch": "Nichts gefunden", "length": "Länge", "lengths": {"any": "Egal", "90": "Bis 1½ Std.", "120": "Bis 2 Std."}, "genre": "Genre", "allGenres": "Alle", "openInPlex": "In Plex öffnen", "tonight": {"eyebrow": "Heute Abend", "pick": "Heute Abend schauen", "picked": "Heute Abend dran", "by": "Ausgesucht von {{name}}", "byYou": "Von dir ausgesucht", "clear": "Neu aussuchen"}, "count_one": "{{count}} Titel", "count_other": "{{count}} Titel", "surprise": "Überrasch uns", "another": "Was anderes", "allSeen": "Hier hast du schon alles gesehen", "seen": "Gesehen", "episodes_one": "{{count}} Folge", "episodes_other": "{{count}} Folgen", "minutes_one": "{{count}} Min.", "minutes_other": "{{count}} Min.", "ideas": {"title": "Ideen für heute Abend", "placeholder": "Lust auf… (optional)", "ask": "Ideen holen", "more": "Neue Ideen", "thinking": "Denke nach…", "elsewhere": "Nicht in deiner Mediathek", "kind": {"movie": "Film", "show": "Serie"}}, "failed": "Das hat nicht geklappt. Versuch es bitte nochmal.", "error": {"connect_failed": "Verbinden hat nicht geklappt. Versuch es bitte nochmal.", "watch_unavailable": "Deine Filme sind gerade nicht erreichbar. Versuch es später nochmal."}},
   "questions": {
     "ask": "Stell eine Frage",
     "askPlaceholder": "Was möchtest du wissen?",
@@ -196,6 +203,13 @@
     "theyAnswered": "{{name}} hat geantwortet",
     "waiting": "Warte auf {{name}}",
     "failed": "Das hat nicht geklappt. Versuch es bitte nochmal.",
+    "manage": "Frage bearbeiten",
+    "reword": "Deine Frage",
+    "answeredAlready": "Schon beantwortet, deshalb lässt sie sich nicht mehr umformulieren. Löschen geht noch.",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "deleteConfirm": "Wirklich löschen?",
+    "thinking": "Denke nach…",
     "suggestions": [
       "Was hat dich diese Woche zum Lächeln gebracht?",
       "Welche gemeinsame Reise würdest du morgen wieder machen?",
@@ -207,7 +221,7 @@
       "Welcher Song gehört auf unsere gemeinsame Playlist?"
     ]
   },
-  "shopping": { "tab": "Einkauf", "placeholder": "Was fehlt?", "add": "Hinzufügen", "remove": "{{item}} entfernen", "clear": "Leeren", "emptyTitle": "Nichts zu kaufen", "emptyBody": "Schreib auf, was fehlt.", "open": "Zur Liste" },
+  "shopping": { "tab": "Einkauf", "placeholder": "Was fehlt?", "add": "Hinzufügen", "remove": "{{item}} entfernen", "clear": "Leeren", "emptyTitle": "Nichts zu kaufen", "emptyBody": "Schreib auf, was fehlt.", "moveTo": "Verschieben nach", "aisle": { "produce": "Obst & Gemüse", "bakery": "Brot & Backwaren", "meat": "Fleisch & Fisch", "dairy": "Milch & Eier", "frozen": "Tiefkühl", "pantry": "Vorrat", "drinks": "Getränke", "household": "Haushalt", "other": "Sonstiges" }, "open": "Zur Liste" },
   "invite": {
     "create": "Jemanden einladen",
     "body": "Schick diesen Link an deinen Schatz. Er gilt einmal und bis {{date}}.",

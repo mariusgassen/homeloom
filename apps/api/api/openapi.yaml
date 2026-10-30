@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.20.0
+  version: 0.26.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -171,6 +171,70 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/User" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/me/avatar:
+    put:
+      tags: [me]
+      operationId: setAvatar
+      summary: Set your own picture
+      description: |
+        A JPEG of at most 5 MB; the app makes it square and small first. It wins over the picture
+        authentik sends.
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+      responses:
+        "200":
+          description: You, with the new picture.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    delete:
+      tags: [me]
+      operationId: deleteAvatar
+      summary: Remove your own picture
+      description: Afterwards you have authentik's picture again, if it sends one.
+      responses:
+        "200":
+          description: You, without it.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/users/{userId}/avatar:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [me]
+      operationId: getAvatar
+      summary: A member's picture
+      description: |
+        Use the user's `avatarUrl`; it changes with the picture, so the answer may be cached. Only
+        you and the people you share a household with can see yours.
+      parameters:
+        - name: v
+          in: query
+          description: The picture's version, part of `avatarUrl`.
+          schema: { type: string, maxLength: 40 }
+      responses:
+        "200":
+          description: The picture.
+          headers:
+            Cache-Control:
+              schema: { type: string }
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/me/voice:
     get:
@@ -353,6 +417,75 @@ paths:
               schema: { $ref: "#/components/schemas/Question" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/questions/suggestions:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [questions]
+      operationId: suggestQuestions
+      summary: Fresh questions to ask, written by Claude (members only)
+      description: |
+        A few new questions in the caller's language, different on every call. Claude sees the
+        household's recent questions so it doesn't repeat them. When Claude can't be reached the
+        answer is 503 and the client offers its own.
+      responses:
+        "200":
+          description: Up to five questions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/QuestionSuggestions" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/questions/{questionId}:
+    parameters:
+      - name: questionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      tags: [questions]
+      operationId: updateQuestion
+      summary: Reword your question, until someone else has answered it
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AskQuestion" }
+      responses:
+        "200":
+          description: The question after the change.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Question" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Someone else asked this question (code `not_yours`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Someone else has answered it already, so it can no longer change (code `already_answered`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+    delete:
+      tags: [questions]
+      operationId: deleteQuestion
+      summary: Delete your question and its answers
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Someone else asked this question (code `not_yours`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/questions/{questionId}/answer:
@@ -608,6 +741,61 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
 
+  /v1/entries/{entryId}/photos:
+    parameters:
+      - $ref: "#/components/parameters/EntryId"
+    post:
+      tags: [entries]
+      operationId: addNotePhoto
+      summary: Add a photo to a note you can change
+      description: |
+        A JPEG of at most 5 MB; the app makes photos smaller first. A note holds at most 50. Put
+        `![](url)` in the note's text to show it: a photo the text no longer links is deleted with
+        the note's next change.
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+      responses:
+        "201":
+          description: The photo, ready to link.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NotePhoto" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: You can see this note but not change it (code `not_yours`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/entries/{entryId}/photos/{photoId}:
+    parameters:
+      - $ref: "#/components/parameters/EntryId"
+      - name: photoId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [entries]
+      operationId: getNotePhoto
+      summary: A photo in a note you can read
+      description: A photo never changes, so the answer may be cached.
+      responses:
+        "200":
+          description: The photo.
+          headers:
+            Cache-Control:
+              schema: { type: string }
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/households/{householdId}/moments:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -838,6 +1026,27 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  /v1/households/{householdId}/recipes/{slug}/image:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/RecipeSlug"
+    get:
+      tags: [cook]
+      operationId: getRecipeImage
+      summary: A recipe's picture, about 600 pixels wide (members only)
+      description: Fetched from Mealie through the API, like everything else from Mealie. 404 when the recipe has none.
+      responses:
+        "200":
+          description: The picture.
+          headers:
+            Cache-Control: { required: true, schema: { type: string } }
+          content:
+            image/*:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
   /v1/households/{householdId}/shopping-list:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -902,6 +1111,25 @@ paths:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
       - $ref: "#/components/parameters/ShoppingItemId"
+    patch:
+      tags: [shopping]
+      operationId: updateShoppingItem
+      summary: Move an item to another aisle
+      description: The household remembers it, so the same thing goes to that aisle from now on.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ShoppingItemUpdate" }
+      responses:
+        "200":
+          description: The item, moved.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShoppingItem" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
     delete:
       tags: [shopping]
       operationId: deleteShoppingItem
@@ -1038,7 +1266,8 @@ paths:
         Each member connects their own Plex account and sees the libraries on their own servers and
         on servers friends share with them, with their own watched state. A server that can't be
         reached is left out. Until the caller has connected, `connected` is false and `libraries`
-        is empty. Read-only: nothing is played or changed.
+        is empty. Libraries the caller left out are listed with `included: false`. Read-only:
+        nothing is played or changed in Plex.
       responses:
         "200":
           description: The libraries.
@@ -1074,6 +1303,101 @@ paths:
       summary: Disconnect your Plex account; Homeloom forgets its token
       responses:
         "204": { description: Disconnected. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/watch/suggestions:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [watch]
+      operationId: suggestWatch
+      summary: Ideas for what to watch, picked by Claude (members only)
+      description: |
+        With Plex connected, Claude picks mostly from what the caller hasn't seen in their
+        libraries, taking what they have watched as their taste, and adds one or two titles from
+        outside them. Without Plex, every idea is from outside. Ideas from a library carry `title`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WatchMood" }
+      responses:
+        "200":
+          description: Up to four ideas.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatchIdeas" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/watch/tonight:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [watch]
+      operationId: getWatchTonight
+      summary: What the household picked to watch tonight (members only)
+      description: |
+        A pick lasts until 5 a.m. the morning after, in the household's time zone. Members who
+        haven't connected Plex, or can't reach the title, still see it.
+      responses:
+        "200":
+          description: Tonight's pick, if there is one.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatchTonight" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [watch]
+      operationId: pickWatchTonight
+      summary: Pick one of your titles for tonight; the other members are told
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WatchTonightChoice" }
+      responses:
+        "200":
+          description: The pick.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TonightPick" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [watch]
+      operationId: clearWatchTonight
+      summary: Forget tonight's pick
+      responses:
+        "204": { description: Cleared. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/watch/libraries/{libraryId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - { name: libraryId, in: path, required: true, schema: { $ref: "#/components/schemas/MediaId" } }
+    put:
+      tags: [watch]
+      operationId: setWatchLibrary
+      summary: Include one of your libraries, or leave it out
+      description: |
+        Your own choice: a library you leave out isn't offered on your shelf or used for ideas.
+        Every library is included until you leave it out, so new ones show up on their own.
+        Nothing changes in Plex. Disconnecting forgets the choice.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WatchLibrarySetting" }
+      responses:
+        "204": { description: Saved. }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
@@ -1645,6 +1969,12 @@ components:
       properties:
         text: { type: string, minLength: 1, maxLength: 280 }
 
+    QuestionSuggestions:
+      type: object
+      required: [questions]
+      properties:
+        questions: { type: array, items: { type: string } }
+
     AnswerQuestion:
       type: object
       required: [text]
@@ -1692,7 +2022,7 @@ components:
       type: object
       required: [text, visibility]
       properties:
-        text: { type: string, minLength: 1, maxLength: 5000, description: "A note's text, or a reminder's or event's title (at most 200 characters)." }
+        text: { type: string, minLength: 1, maxLength: 20000, description: "A note's Markdown text, or a reminder's or event's title (at most 200 characters). A note's title is its first line, usually a `# Heading`." }
         visibility: { $ref: "#/components/schemas/Visibility" }
         revealAt: { type: string, format: date-time, description: "When a `reveal` note opens; required for it." }
         dueAt: { type: string, format: date-time, description: "Reminders only: when it is due; a notification goes out then. Ignored for events, which say when their alert goes out." }
@@ -1722,6 +2052,7 @@ components:
         revealAt: { type: string, format: date-time }
         sealed: { type: boolean, description: True while you may not read the text yet; `text` is then absent. }
         text: { type: string }
+        title: { type: string, description: "Notes only: the first line of the text without its Markdown, such as a `# Heading`'s words. Absent while `sealed`." }
         dueAt: { type: string, format: date-time, description: "A reminder's due time, or when an event's next alert goes out." }
         startsAt: { type: string, format: date-time }
         endsAt: { type: string, format: date-time }
@@ -1733,6 +2064,13 @@ components:
         doneBy: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    NotePhoto:
+      type: object
+      required: [id, url]
+      properties:
+        id: { type: string, format: uuid }
+        url: { type: string, description: "Where the photo is, to link in the note's text as `![](url)`." }
 
     MomentKind:
       type: string
@@ -1840,6 +2178,7 @@ components:
         tags:
           type: array
           items: { type: string }
+        imageUrl: { type: string, description: "The recipe's picture (getRecipeImage), versioned; absent when it has none." }
 
     Recipe:
       type: object
@@ -1849,6 +2188,7 @@ components:
         name: { type: string }
         description: { type: string }
         totalTime: { type: string }
+        imageUrl: { type: string, description: "The recipe's picture (getRecipeImage), versioned; absent when it has none." }
         servings: { type: string }
         tags:
           type: array
@@ -1892,12 +2232,26 @@ components:
       properties:
         text: { type: string, minLength: 1, maxLength: 200 }
 
+    ShoppingAisle:
+      type: string
+      enum: [produce, bakery, meat, dairy, frozen, pantry, drinks, household, other]
+      description: >-
+        Where in the shop the item is, listed in this order. New items go where the household put the
+        same thing before, else where Claude says, else `other`.
+
+    ShoppingItemUpdate:
+      type: object
+      required: [aisle]
+      properties:
+        aisle: { $ref: "#/components/schemas/ShoppingAisle" }
+
     ShoppingItem:
       type: object
-      required: [id, text, done, createdAt]
+      required: [id, text, aisle, done, createdAt]
       properties:
         id: { type: string, format: uuid }
         text: { type: string }
+        aisle: { $ref: "#/components/schemas/ShoppingAisle" }
         recipe: { type: string, description: "The recipe the item came from, if any." }
         addedBy: { type: string, format: uuid, description: Who added it; absent once they left. }
         done: { type: boolean }
@@ -1966,13 +2320,20 @@ components:
 
     WatchLibrary:
       type: object
-      required: [id, name, kind, server, owned]
+      required: [id, name, kind, server, owned, included]
       properties:
         id: { $ref: "#/components/schemas/MediaId" }
         name: { type: string }
         kind: { $ref: "#/components/schemas/MediaKind" }
         server: { type: string, description: The Plex server's name. }
         owned: { type: boolean, description: False for a library a friend shares with you. }
+        included: { type: boolean, description: False for a library you left out. }
+
+    WatchLibrarySetting:
+      type: object
+      required: [included]
+      properties:
+        included: { type: boolean }
 
     MediaKind:
       type: string
@@ -1993,6 +2354,53 @@ components:
         contentRating: { type: string, description: "Age rating, e.g. de/12 or PG-13." }
         episodes: { type: integer, description: Episodes of a series. }
         watched: { type: boolean, description: "You have seen the movie, or every episode." }
+        url: { type: string, format: uri, description: Opens the title in Plex. }
+
+    WatchTonight:
+      type: object
+      properties:
+        pick: { $ref: "#/components/schemas/TonightPick" }
+
+    WatchTonightChoice:
+      type: object
+      required: [titleId]
+      properties:
+        titleId: { $ref: "#/components/schemas/MediaId" }
+
+    TonightPick:
+      type: object
+      required: [titleId, kind, name, pickedBy, pickedAt]
+      properties:
+        titleId: { $ref: "#/components/schemas/MediaId" }
+        kind: { $ref: "#/components/schemas/MediaKind" }
+        name: { type: string }
+        year: { type: integer }
+        url: { type: string, format: uri, description: Opens the title in Plex. }
+        pickedBy: { type: string, format: uuid, description: The member who picked it. }
+        pickedAt: { type: string, format: date-time }
+
+    WatchMood:
+      type: object
+      properties:
+        mood: { type: string, maxLength: 200, description: "In your own words, e.g. \"something light, under two hours\"; may be empty." }
+
+    WatchIdeas:
+      type: object
+      required: [ideas]
+      properties:
+        ideas:
+          type: array
+          items: { $ref: "#/components/schemas/WatchIdea" }
+
+    WatchIdea:
+      type: object
+      required: [name, kind, reason]
+      properties:
+        name: { type: string }
+        year: { type: integer }
+        kind: { $ref: "#/components/schemas/MediaKind" }
+        reason: { type: string, description: One short sentence on why it fits. }
+        title: { $ref: "#/components/schemas/WatchTitle" }
 
     Scene:
       type: object
@@ -2126,7 +2534,7 @@ components:
         id: { type: string, format: uuid }
         name: { type: string }
         email: { type: string }
-        avatarUrl: { type: string }
+        avatarUrl: { type: string, description: "The picture they set in Homeloom, else the one authentik sends, if any." }
 
     CreateHousehold:
       type: object

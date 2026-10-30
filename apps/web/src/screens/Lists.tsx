@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { api, type Entry, type EntryKind, type HouseholdDetail, type User } from "../api/client";
-import { sameDay, setDone, startOfDay, useEntries, useShowDone } from "../entries";
+import { removeEntry, sameDay, setDone, startOfDay, useEntries, useShowDone } from "../entries";
+import { excerpt, firstPhoto } from "../notes";
 import { useSession } from "../session";
 import { Empty } from "../ui/Empty";
 import { Icon } from "../ui/Icon";
 import { ListRow } from "../ui/ListRow";
+import { MarkdownText } from "../ui/Markdown";
+import { Swipe, type SwipeAction } from "../ui/Swipe";
 import { ThreadAvatar, threadFor } from "../ui/ThreadAvatar";
 import { DoneToggle } from "./DoneToggle";
 import { EntrySheet } from "./EntrySheet";
@@ -22,6 +25,7 @@ export function Lists() {
   const { session } = useSession();
   const [params, setParams] = useSearchParams();
   const [sheet, setSheet] = useState<Sheet>(null);
+  const navigate = useNavigate();
   if (session.state !== "signedIn" || !session.household) throw new Error("tab without a household");
   const { user: me, household } = session;
   const tab = tabs.find((k) => k === params.get("show")) ?? "reminder";
@@ -36,15 +40,16 @@ export function Lists() {
     api.GET("/v1/entries/{entryId}", { params: { path: { entryId: linked } } }).then((res) => {
       if (!live) return;
       setParams({ show: res.data?.kind ?? "reminder" }, { replace: true });
-      if (res.data && !res.data.sealed) setSheet({ entry: res.data, kind: res.data.kind });
+      if (res.data?.kind === "note" && !res.data.sealed) navigate(`/lists/notes/${res.data.id}`);
+      else if (res.data && !res.data.sealed) setSheet({ entry: res.data, kind: res.data.kind });
     }, () => undefined);
     return () => {
       live = false;
     };
-  }, [linked, setParams]);
+  }, [linked, setParams, navigate]);
 
-  // Shopping adds in its own field at the top, so it has no plus.
-  const add = kind ? { label: t(`entries.title.${kind}`), onClick: () => setSheet({ kind }) } : undefined;
+  // Shopping adds in its own field at the top, so it has no plus. A note opens on its own page.
+  const add = kind ? { label: t(`entries.title.${kind}`), onClick: () => (kind === "note" ? navigate("/lists/notes/new") : setSheet({ kind })) } : undefined;
   return (
     <Screen title={t("tabs.lists")} add={add}>
       <div className="segmented" role="tablist" aria-label={t("entries.kind")}>
@@ -64,8 +69,8 @@ export function Lists() {
         <Empty title={t(`entries.empty.${kind}.title`)}>{t(`entries.empty.${kind}.body`)}</Empty>
       )}
       {entries && entries.length > 0 && tab === "reminder" && <Reminders entries={entries} household={household} me={me} onOpen={(entry) => setSheet({ entry, kind: entry.kind })} onChange={reload} />}
-      {entries && entries.length > 0 && tab === "event" && <Agenda entries={entries} onOpen={(entry) => setSheet({ entry, kind: entry.kind })} />}
-      {entries && entries.length > 0 && tab === "note" && <Notes entries={entries} household={household} me={me} onOpen={(entry) => setSheet({ entry, kind: entry.kind })} />}
+      {entries && entries.length > 0 && tab === "event" && <Agenda entries={entries} me={me} onOpen={(entry) => setSheet({ entry, kind: entry.kind })} onChange={reload} />}
+      {entries && entries.length > 0 && tab === "note" && <Notes entries={entries} household={household} me={me} onOpen={(entry) => navigate(`/lists/notes/${entry.id}`)} onChange={reload} />}
       {sheet && (
         <EntrySheet
           household={household}
@@ -88,6 +93,21 @@ function avatar(household: HouseholdDetail, userId: string | undefined) {
   const i = household.members.findIndex((m) => m.user.id === userId);
   const m = household.members[i];
   return m ? <ThreadAvatar name={m.user.name} src={m.user.avatarUrl} thread={threadFor(i)} size="sm" /> : undefined;
+}
+
+// The same swipe actions on every kind of entry: right for done where it can be done, left for delete where you may.
+function useEntryActions(me: User, onChange: () => void) {
+  const { t } = useTranslation();
+  return (e: Entry): { start?: SwipeAction; end?: SwipeAction } => ({
+    start:
+      e.kind === "reminder"
+        ? { label: t(e.doneAt ? "entries.reopen" : "entries.done"), icon: "check", tone: "done", onAction: async () => (await setDone(e, !e.doneAt)) && onChange() }
+        : undefined,
+    end:
+      e.authorId === me.id || e.visibility === "shared"
+        ? { label: t("entries.delete"), icon: "trash", tone: "danger", onAction: async () => (await removeEntry(e, t("entries.deleteConfirm"))) && onChange() }
+        : undefined,
+  });
 }
 
 export function useWhen() {
@@ -128,6 +148,7 @@ function Reminders({ entries, household, me, onOpen, onChange }: {
 }) {
   const { t } = useTranslation();
   const { moment } = useWhen();
+  const actions = useEntryActions(me, onChange);
   const [showDone, toggleDone] = useShowDone(me.id, "reminders");
   const open = entries.filter((e) => !e.doneAt);
   const done = entries.filter((e) => e.doneAt);
@@ -140,19 +161,21 @@ function Reminders({ entries, household, me, onOpen, onChange }: {
       .filter(Boolean)
       .join(" · ");
   const row = (e: Entry) => (
-    <div className="entry-row" key={e.id}>
-      <button
-        type="button"
-        className={e.doneAt ? "tick tick-done" : "tick"}
-        role="checkbox"
-        aria-checked={!!e.doneAt}
-        aria-label={e.text}
-        onClick={async () => (await setDone(e, !e.doneAt)) && onChange()}
-      >
-        {e.doneAt && <Icon name="check" size="sm" />}
-      </button>
-      <ListRow title={<span className={e.doneAt ? "have" : undefined}>{e.text}</span>} subtitle={subtitle(e)} trailing={avatar(household, e.assigneeId)} onClick={() => onOpen(e)} />
-    </div>
+    <Swipe key={e.id} {...actions(e)}>
+      <div className="entry-row">
+        <button
+          type="button"
+          className={e.doneAt ? "tick tick-done" : "tick"}
+          role="checkbox"
+          aria-checked={!!e.doneAt}
+          aria-label={e.text}
+          onClick={async () => (await setDone(e, !e.doneAt)) && onChange()}
+        >
+          {e.doneAt && <Icon name="check" size="sm" />}
+        </button>
+        <ListRow title={<span className={e.doneAt ? "have" : undefined}>{e.text}</span>} subtitle={subtitle(e)} trailing={avatar(household, e.assigneeId)} onClick={() => onOpen(e)} />
+      </div>
+    </Swipe>
   );
   return (
     <>
@@ -171,8 +194,9 @@ function Reminders({ entries, household, me, onOpen, onChange }: {
 }
 
 // Events by day, from today on.
-function Agenda({ entries, onOpen }: { entries: Entry[]; onOpen: (e: Entry) => void }) {
+function Agenda({ entries, me, onOpen, onChange }: { entries: Entry[]; me: User; onOpen: (e: Entry) => void; onChange: () => void }) {
   const { dayName, span } = useWhen();
+  const actions = useEntryActions(me, onChange);
   const days = new Map<number, Entry[]>();
   for (const e of entries) {
     const key = startOfDay(new Date(e.startsAt ?? e.createdAt)).getTime();
@@ -183,16 +207,19 @@ function Agenda({ entries, onOpen }: { entries: Entry[]; onOpen: (e: Entry) => v
       <h2 className="label group-title">{dayName(new Date(key))}</h2>
       <div className="hl-list">
         {es.map((e) => (
-          <ListRow key={e.id} title={e.text} subtitle={span(e)} trailing={e.visibility === "private" ? <Icon name="lock" size="sm" /> : undefined} onClick={() => onOpen(e)} />
+          <Swipe key={e.id} {...actions(e)}>
+            <ListRow title={e.text} subtitle={span(e)} trailing={e.visibility === "private" ? <Icon name="lock" size="sm" /> : undefined} onClick={() => onOpen(e)} />
+          </Swipe>
         ))}
       </div>
     </section>
   ));
 }
 
-function Notes({ entries, household, me, onOpen }: { entries: Entry[]; household: HouseholdDetail; me: User; onOpen: (e: Entry) => void }) {
+function Notes({ entries, household, me, onOpen, onChange }: { entries: Entry[]; household: HouseholdDetail; me: User; onOpen: (e: Entry) => void; onChange: () => void }) {
   const { t } = useTranslation();
   const { day } = useWhen();
+  const actions = useEntryActions(me, onChange);
   return entries.map((e) => {
     const author = household.members.find((m) => m.user.id === e.authorId)?.user.name ?? "";
     const chip = (
@@ -211,16 +238,32 @@ function Notes({ entries, household, me, onOpen }: { entries: Entry[]; household
       return (
         <article className="hl-card hl-card-sunken" key={e.id}>
           <div className="hl-eyebrow">{eyebrow}</div>
-          <p className={e.sealed ? "hl-card-body" : "note-text"}>{e.sealed ? t("entries.sealed", { name: author, date: day.format(new Date(e.revealAt ?? e.createdAt)) }) : e.text}</p>
+          {e.sealed ? (
+            <p className="hl-card-body">{t("entries.sealed", { name: author, date: day.format(new Date(e.revealAt ?? e.createdAt)) })}</p>
+          ) : (
+            <div className="bubble-md note-md">
+              <MarkdownText text={e.text ?? ""} photos />
+            </div>
+          )}
         </article>
       );
     }
+    const photo = firstPhoto(e.text ?? "");
+    const more = excerpt(e.text ?? "");
     return (
-      <button type="button" className="hl-card note" key={e.id} onClick={() => onOpen(e)}>
-        <span className="hl-eyebrow">{eyebrow}</span>
-        <span className="note-text">{e.text}</span>
-        {e.visibility === "reveal" && e.revealAt && <span className="caption muted">{t("entries.opens", { date: day.format(new Date(e.revealAt)) })}</span>}
-      </button>
+      <Swipe key={e.id} className="swipe-card" {...actions(e)}>
+        <button type="button" className="hl-card note" onClick={() => onOpen(e)}>
+          <span className="hl-eyebrow">{eyebrow}</span>
+          <span className="note-head">
+            <span className="note-head-text">
+              <span className="headline note-title">{e.title || t("notes.untitled")}</span>
+              {more && <span className="note-text">{more}</span>}
+            </span>
+            {photo && <img className="note-thumb" src={photo} alt="" loading="lazy" />}
+          </span>
+          {e.visibility === "reveal" && e.revealAt && <span className="caption muted">{t("entries.opens", { date: day.format(new Date(e.revealAt)) })}</span>}
+        </button>
+      </Swipe>
     );
   });
 }

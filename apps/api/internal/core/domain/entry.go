@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	MaxNoteText     = 5000
+	MaxNoteText     = 20000
 	MaxReminderText = 200
 	MaxEventText    = 200
 	// MaxAlertMinutes is the earliest an event's alert can go out: a week before.

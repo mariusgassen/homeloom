@@ -50,6 +50,14 @@ func TestUserCache(t *testing.T) {
 	if repo.calls != 2 || renamed.Name != "Alice B" || renamed.ID != first.ID {
 		t.Fatalf("changed identity should write through: calls=%d %+v", repo.calls, renamed)
 	}
+
+	if _, err := cache.SetAvatar(ctx, first.ID, domain.Photo{ContentType: "image/jpeg", Data: []byte{0xFF, 0xD8, 0xFF}}); err != nil {
+		t.Fatal(err)
+	}
+	withAvatar, _ := cache.UpsertByIdentity(ctx, id)
+	if repo.calls != 3 || withAvatar.AvatarAt == nil {
+		t.Fatalf("a new picture should drop the cached user: calls=%d %+v", repo.calls, withAvatar)
+	}
 }
 
 func TestUserCacheFallsBackWhenRedisIsDown(t *testing.T) {

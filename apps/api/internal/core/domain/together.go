@@ -9,6 +9,8 @@ import (
 const (
 	MaxQuestionText = 280
 	MaxAnswerText   = 2000
+	// QuestionSuggestionCount is how many questions one suggestion offers.
+	QuestionSuggestionCount = 5
 	// InviteTTL is how long an invite link works.
 	InviteTTL = 7 * 24 * time.Hour
 )

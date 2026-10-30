@@ -62,6 +62,13 @@ type SessionStore interface {
 
 type UserRepository interface {
 	UpsertByIdentity(ctx context.Context, id domain.Identity) (domain.User, error)
+	// SetAvatar and DeleteAvatar return the user as it is afterwards; Avatar returns
+	// domain.ErrNotFound when the user has set none.
+	SetAvatar(ctx context.Context, userID uuid.UUID, p domain.Photo) (domain.User, error)
+	Avatar(ctx context.Context, userID uuid.UUID) (domain.Photo, error)
+	DeleteAvatar(ctx context.Context, userID uuid.UUID) (domain.User, error)
+	// SharesHousehold reports whether a and b are members of one household together.
+	SharesHousehold(ctx context.Context, a, b uuid.UUID) (bool, error)
 }
 
 type HouseholdRepository interface {
@@ -91,6 +98,11 @@ type QuestionRepository interface {
 	// question once every member of its household (at least two) has answered. It returns
 	// domain.ErrConflict if the question was already revealed.
 	Answer(ctx context.Context, questionID, userID uuid.UUID, text string) (domain.Question, error)
+	// RewordQuestion changes the text. It returns domain.ErrConflict once anyone but the asker has
+	// answered, and domain.ErrNotFound for an unknown id.
+	RewordQuestion(ctx context.Context, questionID uuid.UUID, text string) (domain.Question, error)
+	// DeleteQuestion deletes the question with its answers, or returns domain.ErrNotFound.
+	DeleteQuestion(ctx context.Context, questionID uuid.UUID) error
 }
 
 type EntryRepository interface {
@@ -118,6 +130,13 @@ type EntryRepository interface {
 	// time, an event's alert) has passed since their last notification, and returns them. Each due
 	// time is claimed once, also by several API instances at the same time.
 	ClaimDue(ctx context.Context, now time.Time, limit int) ([]domain.Entry, error)
+	// AddEntryPhoto stores a photo in the entry and returns its id.
+	AddEntryPhoto(ctx context.Context, entryID uuid.UUID, p domain.Photo) (uuid.UUID, error)
+	// EntryPhoto returns domain.ErrNotFound unless the photo is in the entry.
+	EntryPhoto(ctx context.Context, entryID, photoID uuid.UUID) (domain.Photo, error)
+	// EntryPhotoIDs returns the ids of the entry's photos, oldest first.
+	EntryPhotoIDs(ctx context.Context, entryID uuid.UUID) ([]uuid.UUID, error)
+	DeleteEntryPhotos(ctx context.Context, entryID uuid.UUID, ids []uuid.UUID) error
 }
 
 type CalendarFeedRepository interface {
@@ -179,6 +198,8 @@ type RecipeBook interface {
 	Recipes(ctx context.Context) ([]domain.RecipeSummary, error)
 	// Recipe returns domain.ErrNotFound for an unknown slug.
 	Recipe(ctx context.Context, slug string) (domain.Recipe, error)
+	// Image returns the recipe's picture; domain.ErrNotFound when it has none.
+	Image(ctx context.Context, slug string) (domain.RecipeImage, error)
 }
 
 // ShoppingRepository keeps the household's shopping list. Calls that name an item return
@@ -194,6 +215,18 @@ type ShoppingRepository interface {
 	// ShoppingSuggestions returns what the household put on the list before, kept after items
 	// are cleared, most used first, then most recent; texts open on the list are left out.
 	ShoppingSuggestions(ctx context.Context, householdID uuid.UUID, limit int) ([]domain.TitleSuggestion, error)
+	SetShoppingItemAisle(ctx context.Context, householdID, id uuid.UUID, aisle domain.Aisle) (domain.ShoppingItem, error)
+	// KnownAisles returns the remembered aisle of each of the keys (domain.AisleKey) it knows.
+	KnownAisles(ctx context.Context, householdID uuid.UUID, keys []string) (map[string]domain.Aisle, error)
+	// RememberAisles stores where the household puts these things, replacing what it knew.
+	RememberAisles(ctx context.Context, householdID uuid.UUID, aisles map[string]domain.Aisle) error
+}
+
+// Grocer is the LLM's sense of where things are in a shop.
+type Grocer interface {
+	// Aisles returns one aisle for each of the texts, in order. It returns domain.ErrUnavailable
+	// when the LLM can't be asked.
+	Aisles(ctx context.Context, texts []string) ([]domain.Aisle, error)
 }
 
 // Chef is the LLM's cooking judgement.
@@ -201,6 +234,22 @@ type Chef interface {
 	// Pick chooses up to n of the candidates that fit the mood and says why, in the language
 	// given as a BCP 47 tag. It returns domain.ErrUnavailable when the LLM can't be asked.
 	Pick(ctx context.Context, mood, lang string, candidates []domain.RecipeSummary, n int) ([]domain.Pick, error)
+}
+
+// Muse is the LLM writing questions for the household to answer together.
+type Muse interface {
+	// Questions writes up to n new questions in the language given as a BCP 47 tag, each in the
+	// spirit of one of themes and unlike any of recent. It returns domain.ErrUnavailable when the
+	// LLM can't be asked.
+	Questions(ctx context.Context, lang string, themes, recent []string, n int) ([]string, error)
+}
+
+// Critic is the LLM's judgement on films and series.
+type Critic interface {
+	// Pick chooses up to n titles that fit the mood (which may be empty): mostly from candidates,
+	// by id, and some from outside them, taking seen as the person's taste. Reasons are in the
+	// language given as a BCP 47 tag. It returns domain.ErrUnavailable when the LLM can't be asked.
+	Pick(ctx context.Context, mood, lang string, candidates, seen []domain.Title, n int) ([]domain.WatchPick, error)
 }
 
 // SmartHome is Home Assistant, narrowed to what Homeloom may do: read scenes, lights, a few
@@ -248,6 +297,16 @@ type MediaLibrary interface {
 	// is domain.ErrNotFound.
 	Titles(ctx context.Context, token, libraryID string) ([]domain.Title, error)
 	Poster(ctx context.Context, token, titleID string) (domain.Poster, error)
+	// Title returns one title by an id Titles returned.
+	Title(ctx context.Context, token, titleID string) (domain.Title, error)
+}
+
+// TonightRepository keeps each household's pick for tonight; saving replaces the last one.
+type TonightRepository interface {
+	SaveTonight(ctx context.Context, p domain.TonightPick) error
+	// Tonight returns domain.ErrNotFound when nothing was picked.
+	Tonight(ctx context.Context, householdID uuid.UUID) (domain.TonightPick, error)
+	DeleteTonight(ctx context.Context, householdID uuid.UUID) error
 }
 
 type WatchConnectionRepository interface {
@@ -255,6 +314,9 @@ type WatchConnectionRepository interface {
 	SaveWatchConnection(ctx context.Context, c domain.WatchConnection) error
 	// WatchConnection returns domain.ErrNotFound when the person has none.
 	WatchConnection(ctx context.Context, userID uuid.UUID) (domain.WatchConnection, error)
+	// SetWatchLibraryHidden leaves a library out, or puts it back; domain.ErrNotFound without a
+	// connection.
+	SetWatchLibraryHidden(ctx context.Context, userID uuid.UUID, libraryID string, hidden bool) error
 	DeleteWatchConnection(ctx context.Context, userID uuid.UUID) error
 }
 

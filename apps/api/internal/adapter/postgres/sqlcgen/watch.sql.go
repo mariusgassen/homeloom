@@ -7,9 +7,19 @@ package sqlcgen
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
+
+const deleteTonight = `-- name: DeleteTonight :exec
+DELETE FROM watch_tonight WHERE household_id = $1
+`
+
+func (q *Queries) DeleteTonight(ctx context.Context, householdID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteTonight, householdID)
+	return err
+}
 
 const deleteWatchConnection = `-- name: DeleteWatchConnection :exec
 DELETE FROM watch_connections WHERE user_id = $1
@@ -20,15 +30,94 @@ func (q *Queries) DeleteWatchConnection(ctx context.Context, userID uuid.UUID) e
 	return err
 }
 
+const getTonight = `-- name: GetTonight :one
+SELECT household_id, title_id, kind, name, year, url, picked_by, picked_at FROM watch_tonight WHERE household_id = $1
+`
+
+func (q *Queries) GetTonight(ctx context.Context, householdID uuid.UUID) (WatchTonight, error) {
+	row := q.db.QueryRow(ctx, getTonight, householdID)
+	var i WatchTonight
+	err := row.Scan(
+		&i.HouseholdID,
+		&i.TitleID,
+		&i.Kind,
+		&i.Name,
+		&i.Year,
+		&i.Url,
+		&i.PickedBy,
+		&i.PickedAt,
+	)
+	return i, err
+}
+
 const getWatchConnection = `-- name: GetWatchConnection :one
-SELECT user_id, token, created_at FROM watch_connections WHERE user_id = $1
+SELECT user_id, token, created_at, hidden_libraries FROM watch_connections WHERE user_id = $1
 `
 
 func (q *Queries) GetWatchConnection(ctx context.Context, userID uuid.UUID) (WatchConnection, error) {
 	row := q.db.QueryRow(ctx, getWatchConnection, userID)
 	var i WatchConnection
-	err := row.Scan(&i.UserID, &i.Token, &i.CreatedAt)
+	err := row.Scan(
+		&i.UserID,
+		&i.Token,
+		&i.CreatedAt,
+		&i.HiddenLibraries,
+	)
 	return i, err
+}
+
+const setWatchLibraryHidden = `-- name: SetWatchLibraryHidden :execrows
+UPDATE watch_connections SET hidden_libraries = CASE
+    WHEN $1::boolean THEN array_append(array_remove(hidden_libraries, $2::text), $2::text)
+    ELSE array_remove(hidden_libraries, $2::text)
+END
+WHERE user_id = $3
+`
+
+type SetWatchLibraryHiddenParams struct {
+	Hidden    bool
+	LibraryID string
+	UserID    uuid.UUID
+}
+
+func (q *Queries) SetWatchLibraryHidden(ctx context.Context, arg SetWatchLibraryHiddenParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setWatchLibraryHidden, arg.Hidden, arg.LibraryID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const upsertTonight = `-- name: UpsertTonight :exec
+INSERT INTO watch_tonight (household_id, title_id, kind, name, year, url, picked_by, picked_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+ON CONFLICT (household_id) DO UPDATE SET title_id = EXCLUDED.title_id, kind = EXCLUDED.kind, name = EXCLUDED.name,
+    year = EXCLUDED.year, url = EXCLUDED.url, picked_by = EXCLUDED.picked_by, picked_at = EXCLUDED.picked_at
+`
+
+type UpsertTonightParams struct {
+	HouseholdID uuid.UUID
+	TitleID     string
+	Kind        string
+	Name        string
+	Year        int32
+	Url         string
+	PickedBy    uuid.UUID
+	PickedAt    time.Time
+}
+
+func (q *Queries) UpsertTonight(ctx context.Context, arg UpsertTonightParams) error {
+	_, err := q.db.Exec(ctx, upsertTonight,
+		arg.HouseholdID,
+		arg.TitleID,
+		arg.Kind,
+		arg.Name,
+		arg.Year,
+		arg.Url,
+		arg.PickedBy,
+		arg.PickedAt,
+	)
+	return err
 }
 
 const upsertWatchConnection = `-- name: UpsertWatchConnection :exec

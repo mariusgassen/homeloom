@@ -1,6 +1,10 @@
 package domain
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // MediaKind is what a library holds.
 type MediaKind string
@@ -19,6 +23,8 @@ type Library struct {
 	Server string
 	// Owned is false for a library a friend shares.
 	Owned bool
+	// Included is false for a library the person left out: it isn't shown or used for ideas.
+	Included bool
 }
 
 // Title is a movie or a series in a library. Minutes is a movie's length, or an episode's for a
@@ -36,6 +42,48 @@ type Title struct {
 	Watched       bool
 	// Episodes is the number of episodes of a series; 0 for a movie.
 	Episodes int
+	// URL opens the title in Plex.
+	URL string
+}
+
+// TonightPick is what a household chose to watch tonight. It keeps the title's name and link, so
+// members whose own Plex can't reach the title still see what was picked. It lasts until the
+// morning after it was picked.
+type TonightPick struct {
+	HouseholdID uuid.UUID
+	TitleID     string
+	Kind        MediaKind
+	Name        string
+	Year        int
+	URL         string
+	PickedBy    uuid.UUID
+	PickedAt    time.Time
+}
+
+const (
+	MaxWatchMood = 200
+	// WatchIdeaCount is how many ideas one suggestion offers.
+	WatchIdeaCount = 4
+)
+
+// WatchPick is a title the LLM chose: one of the candidates by TitleID, or one from outside the
+// libraries by name, year and kind.
+type WatchPick struct {
+	TitleID string
+	Name    string
+	Year    int
+	Kind    MediaKind
+	Reason  string
+}
+
+// WatchIdea is something to watch and why it fits. Title is set when it is in the person's
+// libraries.
+type WatchIdea struct {
+	Name   string
+	Year   int
+	Kind   MediaKind
+	Reason string
+	Title  *Title
 }
 
 // Shelf is what the person can watch: every movie and series library they can reach.
@@ -56,6 +104,8 @@ type Poster struct {
 type WatchConnection struct {
 	UserID uuid.UUID
 	Token  string
+	// Hidden lists the ids of the libraries the person left out.
+	Hidden []string
 }
 
 // PendingWatchConnection is a Plex sign-in that was started and waits for the person to come back.

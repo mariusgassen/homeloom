@@ -124,6 +124,10 @@ func (w *WatchConnections) WatchConnection(ctx context.Context, userID uuid.UUID
 	return c, nil
 }
 
+func (w *WatchConnections) SetWatchLibraryHidden(ctx context.Context, userID uuid.UUID, libraryID string, hidden bool) error {
+	return w.next.SetWatchLibraryHidden(ctx, userID, libraryID, hidden)
+}
+
 func (w *WatchConnections) DeleteWatchConnection(ctx context.Context, userID uuid.UUID) error {
 	return w.next.DeleteWatchConnection(ctx, userID)
 }

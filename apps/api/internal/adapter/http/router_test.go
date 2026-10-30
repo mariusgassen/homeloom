@@ -43,7 +43,7 @@ func newServer(t *testing.T, checks ...port.HealthCheck) http.Handler {
 }
 
 var curry = domain.Recipe{
-	RecipeSummary: domain.RecipeSummary{Slug: "green-curry", Name: "Green curry", Tags: []string{"Thai"}},
+	RecipeSummary: domain.RecipeSummary{Slug: "green-curry", Name: "Green curry", Tags: []string{"Thai"}, Image: "v1"},
 	Ingredients:   []domain.Ingredient{{ID: "i1", Text: "Coconut milk"}, {ID: "i2", Text: "Rice"}},
 	Steps:         []string{"Cook."},
 }
@@ -57,7 +57,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		recipes = book
 	}
 	push := service.NewPush(store, &memory.Pusher{})
-	shopping := service.NewShopping(store, store)
+	shopping := service.NewShopping(store, store, nil)
 	smart := memory.NewSmartHome([]domain.Scene{{ID: "scene.dinner", Name: "Dinner"}}, []domain.Light{{ID: "light.kitchen", Name: "Kitchen"}})
 	entries := service.NewEntry(store, store, store, push, time.UTC)
 	cook := service.NewCook(store, recipes, memory.Chef{}, shopping)
@@ -70,7 +70,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Identity:      service.NewIdentity(fakeVerifier{}, sessions, store),
 		Login:         service.NewLogin(memory.NewLoginProvider(), sessions),
 		Households:    service.NewHousehold(store),
-		Questions:     service.NewQuestion(store, store, push),
+		Questions:     service.NewQuestion(store, store, push, nil),
 		Entries:       entries,
 		Moments:       service.NewMoments(store, store, store, push, time.UTC),
 		Cook:          cook,
@@ -79,6 +79,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Push:          push,
 		Calls:         service.NewCall(store, sessions, memory.NewCallServer(), push).WithVoiceAgent("homeloom", agents).WithVoice(voice),
 		Voice:         voice,
+		Avatars:       service.NewAvatars(store),
 		Assistant:     service.NewAssistant(store, store, &memory.Assistant{}, entries, cook, shopping, home, time.UTC),
 		Agents:        agents,
 		HealthChecks:  checks,
@@ -194,6 +195,60 @@ func TestUnknownPath(t *testing.T) {
 	code, body := do(t, newServer(t), "GET", "/v1/nope", "token-alice", "")
 	if code != http.StatusNotFound || body["code"] != "not_found" {
 		t.Fatalf("got %d %v", code, body)
+	}
+}
+
+func TestAvatarsFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	_, inv := do(t, h, "POST", "/v1/households/"+created["id"].(string)+"/invites", "token-alice", "")
+	do(t, h, "POST", "/v1/invites/"+inv["code"].(string), "token-bob", "")
+	_, eve := do(t, h, "GET", "/v1/me", "token-eve", "")
+
+	put := func(body string) (int, map[string]any) {
+		t.Helper()
+		req := httptest.NewRequest("PUT", "/v1/me/avatar", strings.NewReader(body))
+		req.Header.Set("Content-Type", "image/jpeg")
+		req.Header.Set("Authorization", "Bearer token-alice")
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		var out map[string]any
+		_ = json.Unmarshal(rec.Body.Bytes(), &out)
+		return rec.Code, out
+	}
+	if code, body := put("not a jpeg"); code != 400 || body["code"] != "invalid_photo" {
+		t.Fatalf("not a JPEG: %d %v", code, body)
+	}
+	jpeg := "\xFF\xD8\xFF\xE0 a face"
+	code, alice := put(jpeg)
+	url, _ := alice["avatarUrl"].(string)
+	if code != 200 || !strings.HasPrefix(url, "/v1/users/"+alice["id"].(string)+"/avatar?v=") {
+		t.Fatalf("set avatar: %d %v", code, alice)
+	}
+	if _, me := do(t, h, "GET", "/v1/me", "token-alice", ""); me["avatarUrl"] != url {
+		t.Fatalf("me without the new picture: %v", me)
+	}
+	get := func(token string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("GET", url, nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	if rec := get("token-bob"); rec.Code != 200 || rec.Body.String() != jpeg || !strings.Contains(rec.Header().Get("Cache-Control"), "private") {
+		t.Fatalf("partner sees it: %d %q %v", rec.Code, rec.Body.String(), rec.Header())
+	}
+	if rec := get("token-eve"); rec.Code != 404 {
+		t.Fatalf("stranger sees it: %d", rec.Code)
+	}
+	if code, _ := do(t, h, "GET", "/v1/users/"+eve["id"].(string)+"/avatar", "token-alice", ""); code != 404 {
+		t.Fatalf("no picture: %d", code)
+	}
+	if code, body := do(t, h, "DELETE", "/v1/me/avatar", "token-alice", ""); code != 200 || body["avatarUrl"] != nil {
+		t.Fatalf("remove avatar: %d %v", code, body)
+	}
+	if rec := get("token-alice"); rec.Code != 404 {
+		t.Fatalf("removed avatar: %d", rec.Code)
 	}
 }
 
@@ -493,6 +548,19 @@ func TestCookFlow(t *testing.T) {
 	code, r := do(t, h, "GET", base+"/recipes/green-curry", "token-alice", "")
 	if code != 200 || len(r["ingredients"].([]any)) != 2 || r["steps"].([]any)[0] != "Cook." {
 		t.Fatalf("recipe: %d %v", code, r)
+	}
+	if r["imageUrl"] != base+"/recipes/green-curry/image?v=v1" {
+		t.Fatalf("image url: %v", r["imageUrl"])
+	}
+	img := httptest.NewRequest("GET", base+"/recipes/green-curry/image?v=v1", nil)
+	img.Header.Set("Authorization", "Bearer token-alice")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, img)
+	if rec.Code != 200 || rec.Header().Get("Content-Type") != "image/webp" || !strings.HasPrefix(rec.Header().Get("Cache-Control"), "private") || rec.Body.String() != "RIFF-green-curry" {
+		t.Fatalf("image: %d %v %q", rec.Code, rec.Header(), rec.Body.String())
+	}
+	if code, _ := do(t, h, "GET", base+"/recipes/green-curry/image", "token-eve", ""); code != 404 {
+		t.Fatalf("image for a non-member: want 404, got %d", code)
 	}
 	if code, _ := do(t, h, "GET", base+"/recipes/no..pe", "token-alice", ""); code != 400 {
 		t.Fatalf("bad slug: want 400, got %d", code)
@@ -1005,5 +1073,61 @@ func TestDAVMethodsReachTheirHandlers(t *testing.T) {
 				t.Errorf("%s %s: %d, handler saw %v", method, path, rec.Code, got)
 			}
 		}
+	}
+}
+
+func TestNotePhotosFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	id := created["id"].(string)
+	_, inv := do(t, h, "POST", "/v1/households/"+id+"/invites", "token-alice", "")
+	do(t, h, "POST", "/v1/invites/"+inv["code"].(string), "token-bob", "")
+	code, note := do(t, h, "POST", "/v1/households/"+id+"/entries", "token-alice", `{"kind":"note","text":"# **Trip** to Rome\n\nPack light","visibility":"private"}`)
+	if code != 201 || note["title"] != "Trip to Rome" {
+		t.Fatalf("create note: %d %v", code, note)
+	}
+	photos := "/v1/entries/" + note["id"].(string) + "/photos"
+	post := func(token, body string) (int, map[string]any) {
+		t.Helper()
+		req := httptest.NewRequest("POST", photos, strings.NewReader(body))
+		req.Header.Set("Content-Type", "image/jpeg")
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		var out map[string]any
+		_ = json.Unmarshal(rec.Body.Bytes(), &out)
+		return rec.Code, out
+	}
+	jpeg := "\xFF\xD8\xFF\xE0 a photo"
+	if code, body := post("token-bob", jpeg); code != 404 {
+		t.Fatalf("someone else's private note: %d %v", code, body)
+	}
+	if code, body := post("token-alice", "not a jpeg"); code != 400 || body["code"] != "invalid_photo" {
+		t.Fatalf("not a JPEG: %d %v", code, body)
+	}
+	code, photo := post("token-alice", jpeg)
+	url, _ := photo["url"].(string)
+	if code != 201 || url != photos+"/"+photo["id"].(string) {
+		t.Fatalf("add photo: %d %v", code, photo)
+	}
+	get := func(token string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("GET", url, nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	if rec := get("token-alice"); rec.Code != 200 || rec.Body.String() != jpeg || rec.Header().Get("Content-Type") != "image/jpeg" || !strings.Contains(rec.Header().Get("Cache-Control"), "private") {
+		t.Fatalf("get photo: %d %q %v", rec.Code, rec.Body.String(), rec.Header())
+	}
+	if rec := get("token-bob"); rec.Code != 404 {
+		t.Fatalf("photo in someone else's private note: %d", rec.Code)
+	}
+	// A change that drops the link drops the photo.
+	if code, body := do(t, h, "PUT", "/v1/entries/"+note["id"].(string), "token-alice", `{"text":"# Trip","visibility":"private"}`); code != 200 || body["title"] != "Trip" {
+		t.Fatalf("change note: %d %v", code, body)
+	}
+	if rec := get("token-alice"); rec.Code != 404 {
+		t.Fatalf("unlinked photo: %d", rec.Code)
 	}
 }

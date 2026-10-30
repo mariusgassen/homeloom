@@ -36,3 +36,11 @@ WHERE m.household_id = @household_id;
 
 -- name: RevealQuestion :exec
 UPDATE questions SET revealed_at = now() WHERE id = $1;
+
+-- name: RewordQuestion :one
+UPDATE questions q SET text = $2
+WHERE q.id = $1 AND NOT EXISTS (SELECT 1 FROM answers a WHERE a.question_id = q.id AND a.user_id <> q.asked_by)
+RETURNING *;
+
+-- name: DeleteQuestion :execrows
+DELETE FROM questions WHERE id = $1;

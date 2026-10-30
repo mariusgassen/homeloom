@@ -16,6 +16,15 @@ type IdentityService interface {
 	AuthenticateSession(ctx context.Context, sessionID string) (domain.User, error)
 }
 
+// AvatarService keeps the pictures members set for themselves.
+type AvatarService interface {
+	Set(ctx context.Context, actor domain.User, p domain.Photo) (domain.User, error)
+	Delete(ctx context.Context, actor domain.User) (domain.User, error)
+	// Get returns domain.ErrNotFound unless the user is the actor or shares a household with
+	// them, and has set a picture.
+	Get(ctx context.Context, actor domain.User, userID uuid.UUID) (domain.Photo, error)
+}
+
 type LoginService interface {
 	// Begin starts a sign-in: state is to be bound to the browser, url is where to send it.
 	Begin(ctx context.Context) (state, url string, err error)
@@ -38,6 +47,11 @@ type QuestionService interface {
 	List(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.Question, error)
 	Ask(ctx context.Context, actor domain.User, householdID uuid.UUID, text string) (domain.Question, error)
 	Answer(ctx context.Context, actor domain.User, questionID uuid.UUID, text string) (domain.Question, error)
+	// Reword and Delete are for whoever asked; others get domain.ErrForbidden.
+	Reword(ctx context.Context, actor domain.User, questionID uuid.UUID, text string) (domain.Question, error)
+	Delete(ctx context.Context, actor domain.User, questionID uuid.UUID) error
+	// Suggest returns new questions to ask, written in lang; domain.ErrUnavailable without an LLM.
+	Suggest(ctx context.Context, actor domain.User, householdID uuid.UUID, lang string) ([]string, error)
 }
 
 type EntryService interface {
@@ -50,6 +64,11 @@ type EntryService interface {
 	Delete(ctx context.Context, actor domain.User, id uuid.UUID) error
 	// SetDone ticks a reminder off (done true) or opens it again.
 	SetDone(ctx context.Context, actor domain.User, id uuid.UUID, done bool) (domain.Entry, error)
+	// AddPhoto stores a photo in a note the actor can change and returns its id. The note's text
+	// links it; a photo the text no longer links goes with the note's next change.
+	AddPhoto(ctx context.Context, actor domain.User, id uuid.UUID, p domain.Photo) (uuid.UUID, error)
+	// Photo returns domain.ErrNotFound unless the actor can read the note the photo is in.
+	Photo(ctx context.Context, actor domain.User, id, photoID uuid.UUID) (domain.Photo, error)
 	// HasCalendarFeed says whether the actor has a calendar subscription link for the household.
 	HasCalendarFeed(ctx context.Context, actor domain.User, householdID uuid.UUID) (bool, error)
 	// CreateCalendarFeed returns a new subscription link token; an earlier link stops working.
@@ -101,6 +120,7 @@ type CookService interface {
 	// Suggest picks recipes for a mood; lang is the language the reasons are written in.
 	Suggest(ctx context.Context, actor domain.User, householdID uuid.UUID, mood, lang string) (domain.Suggestions, error)
 	Recipe(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string) (domain.Recipe, error)
+	Image(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string) (domain.RecipeImage, error)
 	// AddToShoppingList puts the recipe's ingredients with the given ids on the shopping list and
 	// returns how many; unknown ids are ignored.
 	AddToShoppingList(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string, ingredientIDs []string) (int, error)
@@ -114,6 +134,8 @@ type ShoppingService interface {
 	// Add puts the texts on the list, noting the recipe they came from ("" for none).
 	Add(ctx context.Context, actor domain.User, householdID uuid.UUID, texts []string, recipe string) ([]domain.ShoppingItem, error)
 	SetDone(ctx context.Context, actor domain.User, householdID, id uuid.UUID, done bool) (domain.ShoppingItem, error)
+	// SetAisle moves an item to another aisle; things with the same text go there from now on.
+	SetAisle(ctx context.Context, actor domain.User, householdID, id uuid.UUID, aisle domain.Aisle) (domain.ShoppingItem, error)
 	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
 	// ClearDone removes the ticked items.
 	ClearDone(ctx context.Context, actor domain.User, householdID uuid.UUID) error
@@ -141,8 +163,18 @@ type WatchService interface {
 	CompleteConnect(ctx context.Context, actor domain.User, state string) error
 	Disconnect(ctx context.Context, actor domain.User, householdID uuid.UUID) error
 	Shelf(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Shelf, error)
+	// Include puts a library on the actor's shelf and in ideas, or leaves it out.
+	Include(ctx context.Context, actor domain.User, householdID uuid.UUID, libraryID string, included bool) error
 	Titles(ctx context.Context, actor domain.User, householdID uuid.UUID, libraryID string) ([]domain.Title, error)
 	Poster(ctx context.Context, actor domain.User, householdID uuid.UUID, titleID string) (domain.Poster, error)
+	// Pick makes one of the actor's titles the household's pick for tonight and tells the others.
+	Pick(ctx context.Context, actor domain.User, householdID uuid.UUID, titleID string) (domain.TonightPick, error)
+	// Tonight returns nil when nothing is picked for tonight.
+	Tonight(ctx context.Context, actor domain.User, householdID uuid.UUID) (*domain.TonightPick, error)
+	ClearTonight(ctx context.Context, actor domain.User, householdID uuid.UUID) error
+	// Suggest returns ideas that fit the mood, from the actor's libraries when connected and from
+	// outside them; domain.ErrUnavailable without an LLM.
+	Suggest(ctx context.Context, actor domain.User, householdID uuid.UUID, mood, lang string) ([]domain.WatchIdea, error)
 }
 
 type PushService interface {

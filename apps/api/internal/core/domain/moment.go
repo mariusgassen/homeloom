@@ -21,6 +21,8 @@ var (
 	ErrMomentDay = fmt.Errorf("%w: a moment can't be after today", ErrInvalid)
 	// ErrPhoto means a photo that isn't a JPEG of at most MaxPhotoBytes, or one on a gratitude line.
 	ErrPhoto = fmt.Errorf("%w: a photo must be a JPEG of at most %d MB, on a moment", ErrInvalid, MaxPhotoBytes>>20)
+	// ErrAvatar means a user's picture that isn't a JPEG of at most MaxPhotoBytes.
+	ErrAvatar = fmt.Errorf("%w: a picture must be a JPEG of at most %d MB", ErrInvalid, MaxPhotoBytes>>20)
 )
 
 // MomentKind is what a moment is.

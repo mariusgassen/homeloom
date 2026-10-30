@@ -1,6 +1,7 @@
 {
   "dav.private": "Homeloom · just me",
   "dav.shared": "Homeloom",
+  "error.already_answered": "Someone has answered already, so the question can't change any more.",
   "error.already_revealed": "The answers are already open, so they can't change any more.",
   "error.assistant_unavailable": "The assistant isn't available right now.",
   "error.auth_unavailable": "Sign-in is temporarily unavailable. Try again in a minute.",
@@ -8,8 +9,10 @@
   "error.cooking_unavailable": "Cooking isn't available right now.",
   "error.guest_link_used": "This link is already in use on another device.",
   "error.home_unavailable": "The smart home isn't reachable right now. Is Home Assistant set up and running?",
+  "error.ideas_unavailable": "No ideas right now. Try again in a minute.",
   "error.internal": "Something went wrong on our side.",
   "error.invalid": "The request is not valid.",
+  "error.invalid_aisle": "Pick one of the aisles.",
   "error.invalid_assignee": "Pick someone from your household. The reminder has to be shared for that.",
   "error.invalid_entry": "That doesn't work for this kind of entry.",
   "error.invalid_event_time": "Check the time: an event needs a start, and it can't end before it starts.",
@@ -17,6 +20,7 @@
   "error.invalid_ingredients": "Pick at least one ingredient from this recipe.",
   "error.invalid_moment_day": "A moment can't be in the future.",
   "error.invalid_photo": "Pick a photo of at most {max} MB.",
+  "error.too_many_photos": "A note holds at most {max} photos.",
   "error.invalid_reveal": "Pick when it opens. Only notes and moments can open later.",
   "error.invalid_text": "Please write between 1 and {max} characters.",
   "error.invite_invalid": "This invite link is no longer valid. Ask for a new one.",
@@ -47,6 +51,8 @@
   "push.reminder.title": "Reminder",
   "push.revealed.body": "Your answers to “{question}” are open now.",
   "push.revealed.title": "{name} answered too",
+  "push.watch_tonight.body": "{title}",
+  "push.watch_tonight.title": "{name} picked something for tonight",
   "shopping.list": "Shopping list",
   "voice.preview": "Hi, I'm Homeloom. This is how I'll sound when we talk."
 }

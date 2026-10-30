@@ -94,6 +94,31 @@ func (s *Store) Answer(_ context.Context, questionID, userID uuid.UUID, text str
 	return copyQuestion(q), nil
 }
 
+func (s *Store) RewordQuestion(_ context.Context, questionID uuid.UUID, text string) (domain.Question, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	q := s.findQuestion(questionID)
+	switch {
+	case q == nil:
+		return domain.Question{}, domain.ErrNotFound
+	case slices.ContainsFunc(q.Answers, func(a domain.Answer) bool { return a.UserID != q.AskedBy }):
+		return domain.Question{}, domain.ErrConflict
+	}
+	q.Text = text
+	return copyQuestion(q), nil
+}
+
+func (s *Store) DeleteQuestion(_ context.Context, questionID uuid.UUID) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := len(s.questions)
+	s.questions = slices.DeleteFunc(s.questions, func(q *domain.Question) bool { return q.ID == questionID })
+	if len(s.questions) == n {
+		return domain.ErrNotFound
+	}
+	return nil
+}
+
 func (s *Store) findQuestion(id uuid.UUID) *domain.Question {
 	for _, q := range s.questions {
 		if q.ID == id {
