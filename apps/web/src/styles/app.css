@@ -247,13 +247,14 @@ html:has(.sheet-backdrop, .assistant) { overflow: hidden; }
 .sheet-choice { cursor: pointer; color: var(--ink); }
 .sheet-choice input { width: 20px; height: 20px; accent-color: var(--spruce); flex: none; }
 .hl-list > .sheet-choice + .sheet-choice { box-shadow: inset 0 1px 0 var(--line); }
-/* Swiping a row left shows its actions underneath. */
+/* Swiping a row right shows done underneath, left shows delete. */
 .swipe { position: relative; overflow: hidden; }
 .swipe-content { position: relative; background: var(--surface-raised); touch-action: pan-y; transition: transform .22s ease; }
 .swipe-dragging { transition: none; }
-.swipe-actions { position: absolute; top: 0; right: 0; bottom: 0; display: flex; }
-.swipe-actions[hidden] { display: none; }
-.swipe-action { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0; border: 0; background: var(--ink-muted); color: var(--surface-raised); font: 600 12px/16px var(--font-text); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.swipe-action { position: absolute; top: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 0; border: 0; background: var(--ink-muted); color: var(--surface-raised); font: 600 12px/16px var(--font-text); cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.swipe-action[hidden] { display: none; }
+.swipe-action-start { left: 0; }
+.swipe-action-end { right: 0; }
 .swipe-action-done { background: var(--spruce); color: var(--on-spruce); }
 .swipe-action-danger { background: var(--danger); color: var(--surface-raised); }
 .hl-list > .swipe + .swipe > .swipe-content { box-shadow: inset 0 1px 0 var(--line); }

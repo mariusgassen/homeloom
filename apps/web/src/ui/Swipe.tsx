@@ -3,22 +3,23 @@ import { cx, Icon, type IconName } from "./Icon";
 
 export type SwipeAction = { label: string; icon: IconName; tone?: "done" | "danger"; onAction: () => void };
 
-// Each action's width when the row is open.
-const actionWidth = 76;
+// An action's width when the row is held open.
+const actionWidth = 88;
 // How far a drag has to go before it counts as sideways rather than a scroll.
 const slop = 8;
+// Swiping further than this share of the row does the action at once.
+const full = 0.5;
 // Opening one row closes the others.
 const rows = new EventTarget();
 
-// A list row that shows its actions when swiped left, as in iOS Mail. Tapping the row, or anywhere else, closes it.
-// Without actions it is just the row.
-export function Swipe({ actions, className, children }: { actions: SwipeAction[]; className?: string; children: ReactNode }) {
+// A list row with an action on each side, as in iOS Mail: swipe right for `start` (done), left for `end` (delete).
+// A short swipe holds the action open to tap; a long one does it at once. Tapping the row, or anywhere else, closes it.
+export function Swipe({ start, end, className, children }: { start?: SwipeAction; end?: SwipeAction; className?: string; children: ReactNode }) {
   const [dx, setDx] = useState(0);
   const [dragging, setDragging] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; from: number; axis?: "x" | "y" } | null>(null);
   const swiped = useRef(false);
-  const max = actions.length * actionWidth;
 
   useEffect(() => {
     const close = (e: Event) => (e as CustomEvent).detail !== root.current && setDx(0);
@@ -33,7 +34,7 @@ export function Swipe({ actions, className, children }: { actions: SwipeAction[]
     return () => document.removeEventListener("pointerdown", outside);
   }, [dx]);
 
-  if (actions.length === 0) return <div className={className}>{children}</div>;
+  if (!start && !end) return <div className={className}>{children}</div>;
 
   function down(e: PointerEvent<HTMLDivElement>) {
     drag.current = { x: e.clientX, y: e.clientY, from: dx };
@@ -55,9 +56,8 @@ export function Swipe({ actions, className, children }: { actions: SwipeAction[]
     }
     if (d.axis !== "x") return;
     swiped.current = true;
-    // Past fully open it gives a little, then stops.
-    const next = Math.min(0, d.from + x);
-    setDx(next < -max ? -max - (-max - next) / 4 : next);
+    // Only towards a side that has an action.
+    setDx(Math.min(start ? Infinity : 0, Math.max(end ? -Infinity : 0, d.from + x)));
   }
 
   function up() {
@@ -65,27 +65,35 @@ export function Swipe({ actions, className, children }: { actions: SwipeAction[]
     drag.current = null;
     if (d?.axis !== "x") return;
     setDragging(false);
-    setDx((at) => (at < -max / 2 ? -max : 0));
+    const width = root.current?.offsetWidth ?? 0;
+    const action = dx > 0 ? start : end;
+    if (action && Math.abs(dx) > width * full) {
+      setDx(0);
+      action.onAction();
+    } else setDx(Math.abs(dx) > actionWidth / 2 ? Math.sign(dx) * actionWidth : 0);
   }
+
+  const side = (a: SwipeAction | undefined, where: "start" | "end") =>
+    a && (
+      <button
+        type="button"
+        className={cx("swipe-action", `swipe-action-${where}`, a.tone && `swipe-action-${a.tone}`)}
+        style={{ width: Math.max(actionWidth, Math.abs(dx)) }}
+        hidden={where === "start" ? dx <= 0 : dx >= 0}
+        onClick={() => {
+          setDx(0);
+          a.onAction();
+        }}
+      >
+        <Icon name={a.icon} />
+        <span>{a.label}</span>
+      </button>
+    );
 
   return (
     <div ref={root} className={cx("swipe", className)}>
-      <div className="swipe-actions" style={{ width: max }} hidden={dx === 0 && !dragging}>
-        {actions.map((a) => (
-          <button
-            key={a.label}
-            type="button"
-            className={cx("swipe-action", a.tone && `swipe-action-${a.tone}`)}
-            onClick={() => {
-              setDx(0);
-              a.onAction();
-            }}
-          >
-            <Icon name={a.icon} />
-            <span>{a.label}</span>
-          </button>
-        ))}
-      </div>
+      {side(start, "start")}
+      {side(end, "end")}
       <div
         className={cx("swipe-content", dragging && "swipe-dragging")}
         style={dx ? { transform: `translateX(${dx}px)` } : undefined}

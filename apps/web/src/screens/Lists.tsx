@@ -95,17 +95,19 @@ function avatar(household: HouseholdDetail, userId: string | undefined) {
   return m ? <ThreadAvatar name={m.user.name} src={m.user.avatarUrl} thread={threadFor(i)} size="sm" /> : undefined;
 }
 
-// The same swipe actions on every kind of entry: done where it can be done, delete where you may.
+// The same swipe actions on every kind of entry: right for done where it can be done, left for delete where you may.
 function useEntryActions(me: User, onChange: () => void) {
   const { t } = useTranslation();
-  return (e: Entry): SwipeAction[] => [
-    ...(e.kind === "reminder"
-      ? [{ label: t(e.doneAt ? "entries.reopen" : "entries.done"), icon: "check" as const, tone: "done" as const, onAction: async () => (await setDone(e, !e.doneAt)) && onChange() }]
-      : []),
-    ...(e.authorId === me.id || e.visibility === "shared"
-      ? [{ label: t("entries.delete"), icon: "trash" as const, tone: "danger" as const, onAction: async () => (await removeEntry(e, t("entries.deleteConfirm"))) && onChange() }]
-      : []),
-  ];
+  return (e: Entry): { start?: SwipeAction; end?: SwipeAction } => ({
+    start:
+      e.kind === "reminder"
+        ? { label: t(e.doneAt ? "entries.reopen" : "entries.done"), icon: "check", tone: "done", onAction: async () => (await setDone(e, !e.doneAt)) && onChange() }
+        : undefined,
+    end:
+      e.authorId === me.id || e.visibility === "shared"
+        ? { label: t("entries.delete"), icon: "trash", tone: "danger", onAction: async () => (await removeEntry(e, t("entries.deleteConfirm"))) && onChange() }
+        : undefined,
+  });
 }
 
 export function useWhen() {
@@ -159,7 +161,7 @@ function Reminders({ entries, household, me, onOpen, onChange }: {
       .filter(Boolean)
       .join(" · ");
   const row = (e: Entry) => (
-    <Swipe key={e.id} actions={actions(e)}>
+    <Swipe key={e.id} {...actions(e)}>
       <div className="entry-row">
         <button
           type="button"
@@ -205,7 +207,7 @@ function Agenda({ entries, me, onOpen, onChange }: { entries: Entry[]; me: User;
       <h2 className="label group-title">{dayName(new Date(key))}</h2>
       <div className="hl-list">
         {es.map((e) => (
-          <Swipe key={e.id} actions={actions(e)}>
+          <Swipe key={e.id} {...actions(e)}>
             <ListRow title={e.text} subtitle={span(e)} trailing={e.visibility === "private" ? <Icon name="lock" size="sm" /> : undefined} onClick={() => onOpen(e)} />
           </Swipe>
         ))}
@@ -249,7 +251,7 @@ function Notes({ entries, household, me, onOpen, onChange }: { entries: Entry[];
     const photo = firstPhoto(e.text ?? "");
     const more = excerpt(e.text ?? "");
     return (
-      <Swipe key={e.id} className="swipe-card" actions={actions(e)}>
+      <Swipe key={e.id} className="swipe-card" {...actions(e)}>
         <button type="button" className="hl-card note" onClick={() => onOpen(e)}>
           <span className="hl-eyebrow">{eyebrow}</span>
           <span className="note-head">

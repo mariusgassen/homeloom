@@ -76,10 +76,8 @@ export function Shopping({ householdId, userId }: { householdId: string; userId:
   const row = (it: ShoppingItem) => (
     <div className="shopping-item" key={it.id}>
       <Swipe
-        actions={[
-          { label: t(it.done ? "entries.reopen" : "entries.done"), icon: "check", tone: "done", onAction: () => void tick(it) },
-          { label: t("entries.delete"), icon: "trash", tone: "danger", onAction: () => void remove(it) },
-        ]}
+        start={{ label: t(it.done ? "entries.reopen" : "entries.done"), icon: "check", tone: "done", onAction: () => void tick(it) }}
+        end={{ label: t("entries.delete"), icon: "trash", tone: "danger", onAction: () => void remove(it) }}
       >
         <div className="entry-row">
           <button type="button" className={it.done ? "tick tick-done" : "tick"} role="checkbox" aria-checked={it.done} aria-label={it.text} onClick={() => tick(it)}>
