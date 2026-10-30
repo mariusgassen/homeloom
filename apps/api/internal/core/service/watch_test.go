@@ -189,3 +189,45 @@ func TestWatchIdeas(t *testing.T) {
 		t.Errorf("without an LLM: want ErrUnavailable, got %v", err)
 	}
 }
+
+func TestWatchLeavesOutTheLibrariesYouChoose(t *testing.T) {
+	ctx := context.Background()
+	store := memory.NewStore()
+	alice, bob := newUser(t, store, "alice"), newUser(t, store, "bob")
+	m, _ := service.NewHousehold(store).Create(ctx, alice, "Home")
+	hid := m.Household.ID
+	media := memory.NewMediaLibrary(
+		[]domain.Library{{ID: "abc.1", Name: "Movies", Kind: domain.Movies}, {ID: "abc.2", Name: "Kids", Kind: domain.Movies}},
+		map[string][]domain.Title{"abc.1": {{ID: "abc.10", Name: "Arrival"}}, "abc.2": {{ID: "abc.20", Name: "Paddington"}}},
+	)
+	fake := &critic{picks: []domain.WatchPick{{Name: "Dark", Kind: domain.Shows}}}
+	watch := service.NewWatch(store, store, memory.NewSessions(), media, fake)
+
+	if err := watch.Include(ctx, alice, hid, "abc.2", false); !errors.Is(err, domain.ErrUnavailable) {
+		t.Fatalf("before connecting: %v", err)
+	}
+	signIn(t, watch, alice, m)
+	if err := watch.Include(ctx, alice, hid, "abc.2", false); err != nil {
+		t.Fatal(err)
+	}
+	s, err := watch.Shelf(ctx, alice, hid)
+	if err != nil || len(s.Libraries) != 2 || !s.Libraries[0].Included || s.Libraries[1].Included {
+		t.Fatalf("shelf: %+v, %v", s, err)
+	}
+	if _, err := watch.Suggest(ctx, alice, hid, "", "en"); err != nil || len(fake.candidates) != 1 || fake.candidates[0].ID != "abc.10" {
+		t.Fatalf("ideas used %+v, %v", fake.candidates, err)
+	}
+
+	if err := watch.Include(ctx, alice, hid, "zzz.1", false); !errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("unknown library: %v", err)
+	}
+	if err := watch.Include(ctx, bob, hid, "abc.1", false); !errors.Is(err, domain.ErrNotFound) {
+		t.Errorf("non-member: %v", err)
+	}
+	if err := watch.Include(ctx, alice, hid, "abc.2", true); err != nil {
+		t.Fatal(err)
+	}
+	if s, _ := watch.Shelf(ctx, alice, hid); !s.Libraries[1].Included {
+		t.Errorf("put back: %+v", s)
+	}
+}

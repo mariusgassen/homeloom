@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.24.0
+  version: 0.25.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -1266,7 +1266,8 @@ paths:
         Each member connects their own Plex account and sees the libraries on their own servers and
         on servers friends share with them, with their own watched state. A server that can't be
         reached is left out. Until the caller has connected, `connected` is false and `libraries`
-        is empty. Read-only: nothing is played or changed.
+        is empty. Libraries the caller left out are listed with `included: false`. Read-only:
+        nothing is played or changed in Plex.
       responses:
         "200":
           description: The libraries.
@@ -1329,6 +1330,29 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/WatchIdeas" }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/watch/libraries/{libraryId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - { name: libraryId, in: path, required: true, schema: { $ref: "#/components/schemas/MediaId" } }
+    put:
+      tags: [watch]
+      operationId: setWatchLibrary
+      summary: Include one of your libraries, or leave it out
+      description: |
+        Your own choice: a library you leave out isn't offered on your shelf or used for ideas.
+        Every library is included until you leave it out, so new ones show up on their own.
+        Nothing changes in Plex. Disconnecting forgets the choice.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WatchLibrarySetting" }
+      responses:
+        "204": { description: Saved. }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
@@ -2251,13 +2275,20 @@ components:
 
     WatchLibrary:
       type: object
-      required: [id, name, kind, server, owned]
+      required: [id, name, kind, server, owned, included]
       properties:
         id: { $ref: "#/components/schemas/MediaId" }
         name: { type: string }
         kind: { $ref: "#/components/schemas/MediaKind" }
         server: { type: string, description: The Plex server's name. }
         owned: { type: boolean, description: False for a library a friend shares with you. }
+        included: { type: boolean, description: False for a library you left out. }
+
+    WatchLibrarySetting:
+      type: object
+      required: [included]
+      properties:
+        included: { type: boolean }
 
     MediaKind:
       type: string

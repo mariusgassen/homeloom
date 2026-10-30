@@ -265,6 +265,51 @@ test("watch ideas come from the assistant, with or without a library", async () 
   expect(await calls.find((c) => c.url.endsWith("/watch/suggestions"))?.json()).toEqual({ mood: "something light" });
 });
 
+test("watch filters a library, opens a title and leaves out the libraries you turn off", async () => {
+  const movies = { id: "a.1", name: "Movies", kind: "movie", server: "Home", owned: true, included: true };
+  const kids = { id: "a.2", name: "Kids", kind: "movie", server: "Home", owned: true, included: false };
+  const shared = { id: "b.1", name: "Films", kind: "movie", server: "Jo's", owned: false, included: true };
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/watch`, () => json({ connected: true, libraries: [movies, kids, shared] })),
+    at("GET", `/v1/households/${home.id}/watch/libraries/a.1/titles`, () =>
+      json([
+        { id: "a.10", kind: "movie", name: "Amélie", genres: ["Comedy", "Romance"], minutes: 122, watched: false, summary: "Paris, gently." },
+        { id: "a.11", kind: "movie", name: "Heat", genres: ["Crime"], minutes: 170, watched: true },
+        { id: "a.12", kind: "movie", name: "Paddington 2", genres: ["Comedy"], minutes: 103, watched: false },
+      ]),
+    ),
+    at("PUT", `/v1/households/${home.id}/watch/libraries/b.1`, () => new Response(null, { status: 204 })),
+  );
+  renderApp("/watch");
+  expect(await screen.findByText("Amélie")).toBeInTheDocument();
+  expect(screen.queryByRole("tab", { name: /Kids/ })).not.toBeInTheDocument();
+
+  await userEvent.type(screen.getByRole("searchbox", { name: "Search" }), "amelie");
+  expect(screen.queryByText("Paddington 2")).not.toBeInTheDocument();
+  await userEvent.clear(screen.getByRole("searchbox", { name: "Search" }));
+
+  await userEvent.click(screen.getByRole("button", { name: "Filter" }));
+  const filters = screen.getByRole("dialog", { name: "Filter" });
+  await userEvent.click(within(filters).getByRole("switch", { name: "Not seen yet" }));
+  await userEvent.click(within(filters).getByRole("radio", { name: "Up to 2 h" }));
+  await userEvent.click(within(filters).getByRole("button", { name: "Done" }));
+  expect(screen.getByText("1 title")).toBeInTheDocument();
+  expect(screen.queryByText("Heat")).not.toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: /Paddington 2/ }));
+  expect(screen.getByRole("dialog", { name: "Paddington 2" })).toBeInTheDocument();
+  await userEvent.click(within(screen.getByRole("dialog", { name: "Paddington 2" })).getByRole("button", { name: "Done" }));
+
+  await userEvent.click(screen.getByRole("button", { name: "Choose" }));
+  const choose = screen.getByRole("dialog", { name: "Libraries" });
+  expect(within(choose).getByRole("switch", { name: "Kids" })).toHaveAttribute("aria-checked", "false");
+  await userEvent.click(within(choose).getByRole("switch", { name: "Films · Jo's" }));
+  await waitFor(() => expect(calls.some((c) => c.method === "PUT")).toBe(true));
+  expect(await calls.find((c) => c.method === "PUT")?.json()).toEqual({ included: false });
+  expect(screen.queryByRole("tab", { name: /Films/ })).not.toBeInTheDocument();
+});
+
 // A local date as the API writes it, days from today.
 function isoDay(offset = 0) {
   const d = new Date();

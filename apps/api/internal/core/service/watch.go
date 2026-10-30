@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -109,7 +110,27 @@ func (s *Watch) Shelf(ctx context.Context, actor domain.User, householdID uuid.U
 	if err != nil {
 		return domain.Shelf{}, err
 	}
+	for i := range libraries {
+		libraries[i].Included = !slices.Contains(c.Hidden, libraries[i].ID)
+	}
 	return domain.Shelf{Connected: true, Libraries: libraries}, nil
+}
+
+// Include puts one of the actor's libraries on their shelf, or leaves it out. It is the actor's
+// own choice and changes nothing in Plex; a library they can't reach is domain.ErrNotFound.
+func (s *Watch) Include(ctx context.Context, actor domain.User, householdID uuid.UUID, libraryID string, included bool) error {
+	token, err := s.token(ctx, actor, householdID)
+	if err != nil {
+		return err
+	}
+	libraries, err := s.media.Libraries(ctx, token)
+	if err != nil {
+		return unavailable(err)
+	}
+	if !slices.ContainsFunc(libraries, func(l domain.Library) bool { return l.ID == libraryID }) {
+		return fmt.Errorf("%w: no such library", domain.ErrNotFound)
+	}
+	return s.connections.SetWatchLibraryHidden(ctx, actor.ID, libraryID, !included)
 }
 
 func (s *Watch) Titles(ctx context.Context, actor domain.User, householdID uuid.UUID, libraryID string) ([]domain.Title, error) {
@@ -185,7 +206,7 @@ func (s *Watch) Suggest(ctx context.Context, actor domain.User, householdID uuid
 	return ideas, nil
 }
 
-// everything returns every title in the actor's libraries, or none when Plex isn't set up,
+// everything returns every title in the libraries the actor includes, or none when Plex isn't set up,
 // connected or reachable: ideas then come from outside the libraries only.
 func (s *Watch) everything(ctx context.Context, actor domain.User) []domain.Title {
 	if s.media == nil {
@@ -205,6 +226,9 @@ func (s *Watch) everything(ctx context.Context, actor domain.User) []domain.Titl
 	}
 	var all []domain.Title
 	for _, l := range libraries {
+		if slices.Contains(c.Hidden, l.ID) {
+			continue
+		}
 		titles, err := s.media.Titles(ctx, c.Token, l.ID)
 		if err != nil {
 			slog.WarnContext(ctx, "watch ideas: plex titles", "library", l.ID, "err", err)
