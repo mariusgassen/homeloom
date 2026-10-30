@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type HouseholdDetail, type Moment, type User, type Visibility } from "../api/client";
-import { shrink, today, uploadPhoto } from "../moments";
+import { maxVideoMB, shrink, today, uploadPhoto, uploadVideo } from "../moments";
 import { Button } from "../ui/Button";
 import { DateRow, FormGroup, Segmented } from "../ui/Form";
 import { Sheet } from "../ui/Sheet";
 
-// Keep a moment: what happened, the day, a photo if there is one, and who sees it. With a moment it
+// Keep a moment: what happened, the day, a photo and a video if there are any, and who sees it. With a moment it
 // edits that one instead.
 export function MomentSheet({ household, me, moment, onClose, onSaved }: {
   household: HouseholdDetail;
@@ -22,6 +22,11 @@ export function MomentSheet({ household, me, moment, onClose, onSaved }: {
   // undefined keeps the photo as it is, null removes it, a Blob replaces it.
   const [photo, setPhoto] = useState<Blob | null | undefined>(undefined);
   const [preview, setPreview] = useState<string | undefined>(moment?.photoUrl);
+  // The same for the video.
+  const [video, setVideo] = useState<File | null | undefined>(undefined);
+  const [videoPreview, setVideoPreview] = useState<string | undefined>(moment?.videoUrl);
+  // How much of the video has gone, while it is sent.
+  const [progress, setProgress] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // A moment saved before its photo failed is changed, not made again, on the next try.
@@ -35,6 +40,9 @@ export function MomentSheet({ household, me, moment, onClose, onSaved }: {
   useEffect(() => () => {
     if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
   }, [preview]);
+  useEffect(() => () => {
+    if (videoPreview?.startsWith("blob:")) URL.revokeObjectURL(videoPreview);
+  }, [videoPreview]);
 
   async function pick(file: File | undefined) {
     if (!file) return;
@@ -46,6 +54,17 @@ export function MomentSheet({ household, me, moment, onClose, onSaved }: {
     }
     setPhoto(small);
     setPreview(URL.createObjectURL(small));
+  }
+
+  function pickVideo(file: File | undefined) {
+    if (!file) return;
+    if (file.size > maxVideoMB << 20) {
+      setError(t("moments.videoTooBig", { max: maxVideoMB }));
+      return;
+    }
+    setError(null);
+    setVideo(file);
+    setVideoPreview(URL.createObjectURL(file));
   }
 
   async function submit(e: FormEvent) {
@@ -64,15 +83,27 @@ export function MomentSheet({ household, me, moment, onClose, onSaved }: {
       return;
     }
     saved.current = res.data;
-    let ok = true;
-    if (photo) ok = !!(await uploadPhoto(res.data, photo));
+    let failed: string | null = null;
+    if (photo && !(await uploadPhoto(res.data, photo))) failed = t("moments.photoFailed");
     if (photo === null && res.data.photoUrl) {
       const del = await api.DELETE("/v1/moments/{momentId}/photo", { params: { path: { momentId: res.data.id } } }).catch(() => undefined);
-      ok = !!del?.data;
+      if (!del?.data) failed = t("moments.photoFailed");
+    }
+    if (video) {
+      setProgress(0);
+      const sent = await uploadVideo(res.data, video, setProgress);
+      setProgress(null);
+      // Sent once is enough; a retry only sends what failed.
+      if (sent.moment) setVideo(undefined);
+      else failed = sent.error ?? t("moments.videoFailed");
+    }
+    if (video === null && res.data.videoUrl) {
+      const del = await api.DELETE("/v1/moments/{momentId}/video", { params: { path: { momentId: res.data.id } } }).catch(() => undefined);
+      if (!del?.data) failed = t("moments.videoFailed");
     }
     setBusy(false);
-    if (ok) onSaved();
-    else setError(t("moments.photoFailed"));
+    if (failed) setError(failed);
+    else onSaved();
   }
 
   async function remove() {
@@ -121,6 +152,24 @@ export function MomentSheet({ household, me, moment, onClose, onSaved }: {
           </Button>
         )}
       </div>
+
+      {videoPreview && <video className="moment-photo" src={videoPreview} controls playsInline muted preload="metadata" />}
+      <div className="moment-photo-actions">
+        <label className="hl-btn hl-btn-secondary hl-btn-sm">
+          {t(videoPreview ? "moments.videoChange" : "moments.video")}
+          <input className="visually-hidden" type="file" accept="video/mp4,video/quicktime" onChange={(e) => pickVideo(e.target.files?.[0])} />
+        </label>
+        {videoPreview && (
+          <Button variant="plain" size="sm" onClick={() => (setVideo(null), setVideoPreview(undefined))}>
+            {t("moments.videoRemove")}
+          </Button>
+        )}
+      </div>
+      {progress !== null && (
+        <p className="caption muted" role="status">
+          {t("moments.videoSending", { percent: Math.round(progress * 100) })}
+        </p>
+      )}
 
       <div className="field">
         <span className="label">{t("entries.who")}</span>

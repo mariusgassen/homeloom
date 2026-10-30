@@ -173,6 +173,7 @@ type Moment struct {
 	PhotoAt     *time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	VideoAt     *time.Time
 }
 
 type MomentPhoto struct {

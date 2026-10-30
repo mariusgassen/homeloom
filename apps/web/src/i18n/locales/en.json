@@ -23,7 +23,7 @@
     "create": "Create household",
     "failed": "That didn't work. Please try again."
   },
-  "settings": { "title": "Settings", "you": "You", "household": "Household", "owner": "Owner", "member": "Member", "open": "Household and settings", "photo": "Add photo", "photoChange": "Change photo", "photoRemove": "Remove photo", "photoFailed": "The photo didn't work. Please try another one." },
+  "settings": { "title": "Settings", "you": "You", "household": "Household", "owner": "Owner", "member": "Member", "open": "Household and settings", "photo": "Add photo", "photoChange": "Change photo", "photoRemove": "Remove photo", "photoFailed": "The photo didn't work. Please try another one.", "videos": "Videos", "autoplay": "Play videos automatically", "autoplayHint": "Muted, on this device" },
   "push": { "title": "Notifications", "switch": "Notifications on this device", "hint": "Answers, reminders and events", "install": "To get notifications on your iPhone, add Homeloom to your Home Screen first: tap Share, then “Add to Home Screen”, and open it from there.", "blocked": "Notifications are blocked. Allow them in your phone's Settings under Notifications, then try again.", "failed": "That didn't work. Please try again." },
   "today": {
     "question": { "eyebrow": "Today's question", "title": "No question yet", "body": "Ask one. Answers open once you both replied." },
@@ -108,6 +108,8 @@
     "text": "What happened", "day": "Day",
     "photo": "Add a photo", "photoChange": "Other photo", "photoRemove": "Remove photo",
     "photoFailed": "The photo didn't work. Please try another one.",
+    "video": "Add a video", "videoChange": "Other video", "videoRemove": "Remove video",
+    "videoFailed": "The video didn't work. Please try again.", "videoTooBig": "Pick a video of at most {{max}} MB.", "videoSending": "Sending video… {{percent}}%",
     "empty": { "title": "Your story starts here", "body": "Keep a first moment." },
     "earlier": "Earlier",
     "count": { "moments_one": "{{count}} moment", "moments_other": "{{count}} moments", "thanks_one": "{{count}} thank-you", "thanks_other": "{{count}} thank-yous" },

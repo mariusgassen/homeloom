@@ -1,4 +1,4 @@
-// Package s3 keeps photos in an S3 bucket: the bundled Garage (homeloom-garage) or any other
+// Package s3 keeps photos and videos in an S3 bucket: the bundled Garage (homeloom-garage) or any other
 // S3-compatible store. Objects are addressed by path, which every S3 store understands.
 package s3
 
@@ -84,4 +84,63 @@ func notFound(err error) error {
 		return domain.ErrNotFound
 	}
 	return err
+}
+
+// videoTimeout bounds sending a whole video to the store or reading one range of it back; a
+// stream also ends with the request it serves.
+const videoTimeout = 15 * time.Minute
+
+// videoPartSize is how much of a video is held in memory at a time while it is sent on. Without
+// it a stream of unknown length is cut into the largest parts S3 allows.
+const videoPartSize = 16 << 20
+
+func (s *Store) PutVideo(ctx context.Context, key, contentType string, r io.Reader) error {
+	ctx, cancel := context.WithTimeout(ctx, videoTimeout)
+	defer cancel()
+	_, err := s.client.PutObject(ctx, s.bucket, key, r, -1, minio.PutObjectOptions{ContentType: contentType, PartSize: videoPartSize})
+	return err
+}
+
+func (s *Store) StatVideo(ctx context.Context, key string) (domain.Video, error) {
+	ctx, cancel := context.WithTimeout(ctx, callTimeout)
+	defer cancel()
+	info, err := s.client.StatObject(ctx, s.bucket, key, minio.StatObjectOptions{})
+	if err != nil {
+		return domain.Video{}, notFound(err)
+	}
+	return domain.Video{ContentType: info.ContentType, Size: info.Size}, nil
+}
+
+func (s *Store) OpenVideo(ctx context.Context, key string, offset, length int64) (io.ReadCloser, error) {
+	ctx, cancel := context.WithTimeout(ctx, videoTimeout)
+	opts := minio.GetObjectOptions{}
+	if length > 0 {
+		if err := opts.SetRange(offset, offset+length-1); err != nil {
+			cancel()
+			return nil, err
+		}
+	}
+	obj, err := s.client.GetObject(ctx, s.bucket, key, opts)
+	if err != nil {
+		cancel()
+		return nil, notFound(err)
+	}
+	return stream{Object: obj, cancel: cancel}, nil
+}
+
+func (s *Store) DeleteVideo(ctx context.Context, key string) error {
+	ctx, cancel := context.WithTimeout(ctx, callTimeout)
+	defer cancel()
+	return s.client.RemoveObject(ctx, s.bucket, key, minio.RemoveObjectOptions{})
+}
+
+// stream is a video being read; closing it ends the read and its timeout.
+type stream struct {
+	*minio.Object
+	cancel context.CancelFunc
+}
+
+func (s stream) Close() error {
+	defer s.cancel()
+	return s.Object.Close()
 }

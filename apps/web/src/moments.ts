@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { api, type Moment, type MomentMonth, type Resurfaced } from "./api/client";
 import { useRefresh } from "./refresh";
 
@@ -84,6 +84,60 @@ export async function uploadPhoto(moment: Moment, photo: Blob) {
     })
     .catch(() => undefined);
   return res?.data;
+}
+
+// The largest video the API takes, in MB; videos are sent as they are.
+export const maxVideoMB = 200;
+
+// uploadVideo sends a picked video as it is, reporting how much has gone. It uses XHR, because
+// fetch can't tell how far an upload is. It resolves to the moment, or to the API's message.
+export function uploadVideo(moment: Moment, video: File, onProgress: (share: number) => void) {
+  return new Promise<{ moment?: Moment; error?: string }>((resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", `/v1/moments/${moment.id}/video`);
+    xhr.setRequestHeader("Content-Type", video.type || (/\.mov$/i.test(video.name) ? "video/quicktime" : "video/mp4"));
+    xhr.responseType = "json";
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
+    xhr.onload = () => {
+      const body = xhr.response as (Moment & { message?: string }) | null;
+      resolve(xhr.status === 200 && body ? { moment: body } : { error: body?.message });
+    };
+    xhr.onerror = () => resolve({});
+    xhr.send(video);
+  });
+}
+
+// Whether videos on the timeline play by themselves, muted, while they are in view. On unless
+// turned off on this device; kept here as well, in case the browser keeps nothing.
+const autoplayKey = "homeloom.autoplayVideos";
+let autoplay = (() => {
+  try {
+    return localStorage.getItem(autoplayKey) !== "0";
+  } catch {
+    return true;
+  }
+})();
+const autoplayListeners = new Set<() => void>();
+
+export function useAutoplay() {
+  const on = useSyncExternalStore(
+    (listener) => {
+      autoplayListeners.add(listener);
+      return () => autoplayListeners.delete(listener);
+    },
+    () => autoplay,
+  );
+  const set = useCallback((v: boolean) => {
+    autoplay = v;
+    try {
+      if (v) localStorage.removeItem(autoplayKey);
+      else localStorage.setItem(autoplayKey, "0");
+    } catch {
+      // Not remembered, but still switched.
+    }
+    autoplayListeners.forEach((l) => l());
+  }, []);
+  return [on, set] as const;
 }
 
 // A moment's day as a local date, for grouping and formatting; the API sends a bare date.

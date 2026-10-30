@@ -1,10 +1,12 @@
 package service
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"math/rand/v2"
 	"strings"
@@ -45,6 +47,8 @@ type Moments struct {
 	chance     func() float64
 	// photos is where photos go; nil keeps them in the moment repository.
 	photos port.PhotoStore
+	// videos is where videos go; without it moments have none.
+	videos port.VideoStore
 }
 
 // NewMoments counts days in loc, the household's time zone.
@@ -56,6 +60,12 @@ func NewMoments(households port.HouseholdRepository, moments port.MomentReposito
 // stay where they are and are still served from there.
 func (s *Moments) WithPhotos(photos port.PhotoStore) *Moments {
 	s.photos = photos
+	return s
+}
+
+// WithVideos lets moments have videos, kept in videos.
+func (s *Moments) WithVideos(videos port.VideoStore) *Moments {
+	s.videos = videos
 	return s
 }
 
@@ -140,6 +150,11 @@ func (s *Moments) Delete(ctx context.Context, actor domain.User, id uuid.UUID) e
 			return err
 		}
 	}
+	if s.videos != nil && m.VideoAt != nil {
+		if err := s.videos.DeleteVideo(ctx, videoKey(id)); err != nil {
+			return err
+		}
+	}
 	return s.moments.DeleteMoment(ctx, id)
 }
 
@@ -215,6 +230,97 @@ func (s *Moments) DeletePhoto(ctx context.Context, actor domain.User, id uuid.UU
 		return domain.Moment{}, err
 	}
 	return s.moments.GetMoment(ctx, id)
+}
+
+// videoTypes are the videos a moment can have: what phones record and browsers play.
+var videoTypes = map[string]bool{"video/mp4": true, "video/quicktime": true}
+
+func (s *Moments) SetVideo(ctx context.Context, actor domain.User, id uuid.UUID, contentType string, r io.Reader) (domain.Moment, error) {
+	m, err := s.own(ctx, actor, id)
+	if err != nil {
+		return domain.Moment{}, err
+	}
+	if s.videos == nil {
+		return domain.Moment{}, fmt.Errorf("%w: videos need the S3 store", domain.ErrUnavailable)
+	}
+	if m.Kind != domain.KindMoment || !videoTypes[contentType] {
+		return domain.Moment{}, domain.ErrVideo
+	}
+	// Both are ISO base media files, which start with a box of type "ftyp"; checking that keeps
+	// anything else from being served as a video.
+	br := bufio.NewReader(r)
+	if head, err := br.Peek(8); err != nil || string(head[4:8]) != "ftyp" {
+		return domain.Moment{}, domain.ErrVideo
+	}
+	if err := s.videos.PutVideo(ctx, videoKey(id), contentType, &capped{r: br, left: domain.MaxVideoBytes}); err != nil {
+		if errors.Is(err, domain.ErrVideo) {
+			return domain.Moment{}, domain.ErrVideo
+		}
+		return domain.Moment{}, err
+	}
+	if err := s.moments.MarkMomentVideo(ctx, id); err != nil {
+		return domain.Moment{}, err
+	}
+	return s.moments.GetMoment(ctx, id)
+}
+
+func (s *Moments) Video(ctx context.Context, actor domain.User, id uuid.UUID) (domain.VideoStream, error) {
+	m, err := s.Get(ctx, actor, id)
+	if err != nil {
+		return domain.VideoStream{}, err
+	}
+	if m.Sealed || m.VideoAt == nil || s.videos == nil {
+		return domain.VideoStream{}, domain.ErrNotFound
+	}
+	key := videoKey(id)
+	v, err := s.videos.StatVideo(ctx, key)
+	if err != nil {
+		return domain.VideoStream{}, err
+	}
+	return domain.VideoStream{Video: v, Open: func(ctx context.Context, offset, length int64) (io.ReadCloser, error) {
+		return s.videos.OpenVideo(ctx, key, offset, length)
+	}}, nil
+}
+
+func (s *Moments) DeleteVideo(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Moment, error) {
+	m, err := s.own(ctx, actor, id)
+	if err != nil {
+		return domain.Moment{}, err
+	}
+	if s.videos != nil && m.VideoAt != nil {
+		if err := s.videos.DeleteVideo(ctx, videoKey(id)); err != nil {
+			return domain.Moment{}, err
+		}
+	}
+	if err := s.moments.ClearMomentVideo(ctx, id); err != nil {
+		return domain.Moment{}, err
+	}
+	return s.moments.GetMoment(ctx, id)
+}
+
+// capped reads at most left bytes and fails with domain.ErrVideo on more, so a video that is too
+// big is stopped while it is sent, not after.
+type capped struct {
+	r    io.Reader
+	left int64
+}
+
+func (c *capped) Read(p []byte) (int, error) {
+	if c.left <= 0 {
+		// One byte more tells a video that is exactly the limit from a bigger one.
+		var b [1]byte
+		n, err := c.r.Read(b[:])
+		if n > 0 {
+			return 0, domain.ErrVideo
+		}
+		return 0, err
+	}
+	if int64(len(p)) > c.left {
+		p = p[:c.left]
+	}
+	n, err := c.r.Read(p)
+	c.left -= int64(n)
+	return n, err
 }
 
 // NotifyDaily sends the day's notifications once they are due: this day in earlier years, last
@@ -409,14 +515,17 @@ func (s *Moments) today() time.Time {
 // photoKey is where a moment's photo is kept in the PhotoStore.
 func photoKey(id uuid.UUID) string { return "moments/" + id.String() + ".jpg" }
 
+// videoKey is where a moment's video is kept in the VideoStore.
+func videoKey(id uuid.UUID) string { return "moments/" + id.String() + ".video" }
+
 func visibleMoment(m domain.Moment, viewer uuid.UUID) bool {
 	return m.AuthorID == viewer || m.Visibility != domain.VisibilityPrivate
 }
 
-// sealMoment hides the text and photo of someone else's "later" moment until it opens.
+// sealMoment hides the text, photo and video of someone else's "later" moment until it opens.
 func sealMoment(m domain.Moment, viewer uuid.UUID, now time.Time) domain.Moment {
 	if m.Visibility == domain.VisibilityReveal && m.AuthorID != viewer && m.RevealAt != nil && now.Before(*m.RevealAt) {
-		m.Text, m.PhotoAt, m.Sealed = "", nil, true
+		m.Text, m.PhotoAt, m.VideoAt, m.Sealed = "", nil, nil, true
 	}
 	return m
 }

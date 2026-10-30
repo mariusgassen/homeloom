@@ -54,7 +54,7 @@ S3_ACCESS_KEY_ID=GK$(openssl rand -hex 12)
 S3_SECRET_ACCESS_KEY=$(openssl rand -hex 32)
 ```
 
-Photos from before stay in Postgres and still show; a photo moves to S3 when it's replaced. Garage keeps its data in the `homeloom-garage-data` volume, so back that up along with Postgres. To use another S3-compatible store, also set `S3_ENDPOINT` (and `S3_REGION`, `S3_BUCKET`) and create the bucket and key there yourself.
+Videos on moments (MP4 or MOV, up to 200 MB) need the S3 store; without it the app can't take them. Photos from before stay in Postgres and still show; a photo moves to S3 when it's replaced. Garage keeps its data in the `homeloom-garage-data` volume, so back that up along with Postgres. To use another S3-compatible store, also set `S3_ENDPOINT` (and `S3_REGION`, `S3_BUCKET`) and create the bucket and key there yourself.
 
 ## Roadmap
 

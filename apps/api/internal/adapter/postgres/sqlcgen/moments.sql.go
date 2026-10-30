@@ -29,10 +29,19 @@ func (q *Queries) ClaimJobRun(ctx context.Context, arg ClaimJobRunParams) (int64
 	return result.RowsAffected(), nil
 }
 
+const clearMomentVideo = `-- name: ClearMomentVideo :exec
+UPDATE moments SET video_at = NULL, updated_at = now() WHERE id = $1
+`
+
+func (q *Queries) ClearMomentVideo(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, clearMomentVideo, id)
+	return err
+}
+
 const createMoment = `-- name: CreateMoment :one
 INSERT INTO moments (household_id, author_id, kind, day, visibility, reveal_at, text)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at
+RETURNING id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at
 `
 
 type CreateMomentParams struct {
@@ -68,6 +77,7 @@ func (q *Queries) CreateMoment(ctx context.Context, arg CreateMomentParams) (Mom
 		&i.PhotoAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.VideoAt,
 	)
 	return i, err
 }
@@ -94,7 +104,7 @@ func (q *Queries) DeleteMomentPhoto(ctx context.Context, momentID uuid.UUID) err
 }
 
 const getMoment = `-- name: GetMoment :one
-SELECT id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at FROM moments WHERE id = $1
+SELECT id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at FROM moments WHERE id = $1
 `
 
 func (q *Queries) GetMoment(ctx context.Context, id uuid.UUID) (Moment, error) {
@@ -112,6 +122,7 @@ func (q *Queries) GetMoment(ctx context.Context, id uuid.UUID) (Moment, error) {
 		&i.PhotoAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.VideoAt,
 	)
 	return i, err
 }
@@ -180,7 +191,7 @@ func (q *Queries) ListHouseholdIDs(ctx context.Context) ([]uuid.UUID, error) {
 }
 
 const listMoments = `-- name: ListMoments :many
-SELECT id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at FROM moments
+SELECT id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at FROM moments
 WHERE household_id = $1
   AND (author_id = $2 OR visibility <> 'private')
   AND day >= $3 AND day < $4
@@ -224,6 +235,7 @@ func (q *Queries) ListMoments(ctx context.Context, arg ListMomentsParams) ([]Mom
 			&i.PhotoAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.VideoAt,
 		); err != nil {
 			return nil, err
 		}
@@ -248,8 +260,17 @@ func (q *Queries) MarkMomentPhoto(ctx context.Context, momentID uuid.UUID) error
 	return err
 }
 
+const markMomentVideo = `-- name: MarkMomentVideo :exec
+UPDATE moments SET video_at = now(), updated_at = now() WHERE id = $1
+`
+
+func (q *Queries) MarkMomentVideo(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markMomentVideo, id)
+	return err
+}
+
 const momentsOnDay = `-- name: MomentsOnDay :many
-SELECT id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at FROM moments
+SELECT id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at FROM moments
 WHERE household_id = $1
   AND (author_id = $2 OR visibility <> 'private')
   AND extract(month FROM day) = extract(month FROM $3::date)
@@ -293,6 +314,7 @@ func (q *Queries) MomentsOnDay(ctx context.Context, arg MomentsOnDayParams) ([]M
 			&i.PhotoAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.VideoAt,
 		); err != nil {
 			return nil, err
 		}
@@ -305,7 +327,7 @@ func (q *Queries) MomentsOnDay(ctx context.Context, arg MomentsOnDayParams) ([]M
 }
 
 const randomGratitude = `-- name: RandomGratitude :one
-SELECT id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at FROM moments
+SELECT id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at FROM moments
 WHERE household_id = $1
   AND kind = 'gratitude'
   AND (author_id = $2 OR visibility <> 'private')
@@ -336,6 +358,7 @@ func (q *Queries) RandomGratitude(ctx context.Context, arg RandomGratitudeParams
 		&i.PhotoAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.VideoAt,
 	)
 	return i, err
 }
@@ -345,7 +368,7 @@ INSERT INTO moments (household_id, author_id, kind, day, visibility, text)
 VALUES ($1, $2, 'gratitude', $3, $4, $5)
 ON CONFLICT (household_id, author_id, day) WHERE kind = 'gratitude'
 DO UPDATE SET visibility = EXCLUDED.visibility, text = EXCLUDED.text, updated_at = now()
-RETURNING id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at
+RETURNING id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at
 `
 
 type SaveGratitudeParams struct {
@@ -378,6 +401,7 @@ func (q *Queries) SaveGratitude(ctx context.Context, arg SaveGratitudeParams) (M
 		&i.PhotoAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.VideoAt,
 	)
 	return i, err
 }
@@ -404,7 +428,7 @@ func (q *Queries) SetMomentPhoto(ctx context.Context, arg SetMomentPhotoParams) 
 const updateMoment = `-- name: UpdateMoment :one
 UPDATE moments SET day = $2, visibility = $3, reveal_at = $4, text = $5, updated_at = now()
 WHERE id = $1
-RETURNING id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at
+RETURNING id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at
 `
 
 type UpdateMomentParams struct {
@@ -436,6 +460,7 @@ func (q *Queries) UpdateMoment(ctx context.Context, arg UpdateMomentParams) (Mom
 		&i.PhotoAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.VideoAt,
 	)
 	return i, err
 }
