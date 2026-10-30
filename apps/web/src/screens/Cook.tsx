@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import { api, type Recipe, type Suggestions } from "../api/client";
+import { nextDays, useDayLabel, useMealPlan } from "../meals";
 import { useRefresh } from "../refresh";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
@@ -31,7 +32,7 @@ function saveLast(s: Suggestions) {
   }
 }
 
-function useHouseholdId() {
+export function useHouseholdId() {
   const { session } = useSession();
   if (session.state !== "signedIn" || !session.household) throw new Error("cook without a household");
   return session.household.id;
@@ -88,6 +89,16 @@ export function Cook() {
         </Button>
       }
     >
+      <Link to="/cook/week" className="today-tile">
+        <span className="today-tile-icon">
+          <Icon name="calendar" />
+        </span>
+        <span className="today-tile-text">
+          <span className="label">{t("week.eyebrow")}</span>
+          <span className="headline">{t("week.title")}</span>
+        </span>
+        <Icon name="chevron" size="sm" />
+      </Link>
       <form className="cook-form" onSubmit={submit}>
         <h2 className="title">{t("cook.question")}</h2>
         <div className="cook-group" role="group" aria-label={t("cook.moodLabel")}>
@@ -218,6 +229,7 @@ export function RecipeScreen() {
               {recipe.description && <span className="recipe-description">{recipe.description}</span>}
             </p>
           )}
+          <PlanFor householdId={householdId} slug={slug} />
           {recipe.ingredients.length > 0 && (
             <section className="group">
               <h2 className="label group-title">{t("cook.ingredients")}</h2>
@@ -270,8 +282,46 @@ export function RecipeScreen() {
   );
 }
 
+// The coming week as chips: tap a day to make this recipe its dinner, tap again to take it off.
+function PlanFor({ householdId, slug }: { householdId: string; slug: string }) {
+  const { t } = useTranslation();
+  const days = nextDays(7);
+  const { meals, plan, unplan } = useMealPlan(householdId, days);
+  const label = useDayLabel(true);
+  const [error, setError] = useState<string | null>(null);
+  if (!meals) return null;
+
+  async function toggle(day: string) {
+    setError(null);
+    if (meals?.[day]?.recipe.slug === slug) return unplan(day);
+    const failed = await plan(day, slug);
+    if (failed !== null) setError(failed || t("cook.failed"));
+  }
+
+  return (
+    <section className="group" aria-label={t("week.planFor")}>
+      <h2 className="label group-title">{t("week.planFor")}</h2>
+      <div className="cook-chips plan-days">
+        {days.map((day) => {
+          const here = meals[day]?.recipe.slug === slug;
+          return (
+            <button key={day} type="button" className={cx("hl-chip", here && "hl-chip-shared")} aria-pressed={here} onClick={() => toggle(day)}>
+              {label(day)}
+            </button>
+          );
+        })}
+      </div>
+      {error && (
+        <p className="callout error" role="alert">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
+
 // A recipe's picture; nothing at all when it has none or it doesn't load.
-function RecipePhoto({ src, className }: { src?: string; className: string }) {
+export function RecipePhoto({ src, className }: { src?: string; className: string }) {
   const [failed, setFailed] = useState(false);
   if (!src || failed) return null;
   return <img className={className} src={src} alt="" loading="lazy" onError={() => setFailed(true)} />;

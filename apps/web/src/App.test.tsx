@@ -4,6 +4,7 @@ import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { App } from "./App";
 import i18n from "./i18n";
+import { nextDays } from "./meals";
 import { SessionProvider } from "./session";
 
 // A stand-in for LiveKit's Room: connects at once and lets a test play the other side.
@@ -502,6 +503,62 @@ test("cook by mood suggests recipes and puts what's missing on the list", async 
   await userEvent.click(screen.getByRole("button", { name: "Put 2 missing items on the list" }));
   expect(await screen.findByRole("status")).toHaveTextContent("2 items are on “Shopping list” now.");
   expect(await calls.find((c) => c.url.endsWith("/shopping-list"))?.json()).toEqual({ recipe: "green-curry", ingredientIds: ["i1", "i3"] });
+});
+
+test("the week plan takes ideas, and its shopping goes to the list in one go", async () => {
+  const [today = "", tomorrow = "", third = ""] = nextDays(3);
+  const curry = { slug: "green-curry", name: "Green curry", tags: [], imageUrl: `/v1/households/${home.id}/recipes/green-curry/image?v=1` };
+  const soup = { slug: "soup", name: "Soup", tags: [] };
+  const planned: Record<string, unknown> = { [today]: { day: today, recipe: curry, plannedBy: marius.id } };
+  const calls = serve(
+    ...signedIn(),
+    (req) => {
+      const url = new URL(req.url);
+      if (req.method === "GET" && url.pathname === `/v1/households/${home.id}/meal-plan`) return json(Object.values(planned));
+      if (req.method === "PUT" && url.pathname.startsWith(`/v1/households/${home.id}/meal-plan/`)) {
+        const day = url.pathname.split("/").pop() ?? "";
+        planned[day] = { day, recipe: soup, plannedBy: marius.id };
+        return json(planned[day]);
+      }
+      return undefined;
+    },
+    at("POST", `/v1/households/${home.id}/meal-plan/suggestions`, () =>
+      json({ chef: true, meals: [{ day: tomorrow, recipe: soup, reason: "Uses the leeks." }, { day: third, recipe: curry }] }),
+    ),
+    at("GET", `/v1/households/${home.id}/recipes/green-curry`, () => json({ ...curry, steps: [], ingredients: [{ id: "i1", text: "Coconut milk" }, { id: "i2", text: "Rice" }] })),
+    at("GET", `/v1/households/${home.id}/recipes/soup`, () => json({ ...soup, steps: [], ingredients: [{ id: "i1", text: "Leeks" }] })),
+    at("POST", `/v1/households/${home.id}/meal-plan/shopping-list`, () => json({ added: 2, list: "Shopping list" })),
+  );
+  renderApp("/cook/week");
+  expect(await screen.findByText("Green curry")).toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText("Use up"), "leeks");
+  await userEvent.click(screen.getByRole("button", { name: "Ideas for 6 open days" }));
+  expect(await calls.find((c) => c.url.endsWith("/meal-plan/suggestions"))?.json()).toEqual({ from: today, days: 7, wish: "leeks" });
+  expect(await screen.findByText("Uses the leeks.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Skip Green curry" }));
+  await userEvent.click(screen.getByRole("button", { name: "Plan Soup" }));
+  expect(await calls.find((c) => c.method === "PUT")?.json()).toEqual({ recipe: "soup" });
+  expect(calls.find((c) => c.method === "PUT")?.url).toContain(`/meal-plan/${tomorrow}`);
+
+  await userEvent.click(screen.getByRole("link", { name: "Shopping for the week" }));
+  await userEvent.click(await screen.findByLabelText("Rice"));
+  await userEvent.click(screen.getByRole("button", { name: "Put 2 missing items on the list" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("2 items are on “Shopping list” now.");
+  expect(await calls.find((c) => c.url.endsWith("/meal-plan/shopping-list"))?.json()).toEqual({
+    recipes: [{ recipe: "green-curry", ingredientIds: ["i1"] }, { recipe: "soup", ingredientIds: ["i1"] }],
+  });
+});
+
+test("today shows tonight's planned dinner", async () => {
+  const [today = ""] = nextDays(1);
+  serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/meal-plan`, () => json([{ day: today, recipe: { slug: "soup", name: "Leek soup", tags: [], totalTime: "30 min" }, plannedBy: jo.id }])),
+    at("GET", `/v1/households/${home.id}/recipes/soup`, () => json({ slug: "soup", name: "Leek soup", tags: [], steps: [], ingredients: [] })),
+  );
+  renderApp();
+  await userEvent.click(await screen.findByRole("button", { name: /Leek soup/ }));
+  expect(await screen.findByRole("heading", { level: 1, name: "Leek soup" })).toBeInTheDocument();
 });
 
 test("cooking says so when Mealie is down", async () => {

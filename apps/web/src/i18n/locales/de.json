@@ -59,6 +59,24 @@
     "steps": "Zubereitung",
     "openRecipe": "Ganzes Rezept öffnen"
   },
+  "week": {
+    "eyebrow": "Vorausplanen",
+    "title": "Diese Woche",
+    "today": "Heute",
+    "tomorrow": "Morgen",
+    "nothing": "Noch nichts geplant",
+    "remove": "{{name}} aus dem Plan nehmen",
+    "accept": "{{name}} einplanen",
+    "dismiss": "{{name}} überspringen",
+    "acceptAll": "Alle Ideen einplanen",
+    "fill_one": "Ideen für den freien Tag",
+    "fill_other": "Ideen für {{count}} freie Tage",
+    "noIdeas": "Gerade keine Ideen. Leg erst ein paar Rezepte an.",
+    "random": "Nichts hat so richtig gepasst, also zufällig.",
+    "shopping": "Einkauf für die Woche",
+    "nothingPlanned": "Diese Woche ist noch nichts geplant.",
+    "planFor": "Einplanen für"
+  },
   "call": {
     "homeloom": "Homeloom",
     "call": "Anrufen",

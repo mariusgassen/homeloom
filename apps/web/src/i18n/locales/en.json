@@ -59,6 +59,24 @@
     "steps": "Steps",
     "openRecipe": "Open full recipe"
   },
+  "week": {
+    "eyebrow": "Plan ahead",
+    "title": "This week",
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "nothing": "Nothing planned",
+    "remove": "Take {{name}} off the plan",
+    "accept": "Plan {{name}}",
+    "dismiss": "Skip {{name}}",
+    "acceptAll": "Plan all ideas",
+    "fill_one": "Ideas for the open day",
+    "fill_other": "Ideas for {{count}} open days",
+    "noIdeas": "No ideas right now. Add a few recipes first.",
+    "random": "Nothing quite fit, so these are at random.",
+    "shopping": "Shopping for the week",
+    "nothingPlanned": "Nothing planned this week yet.",
+    "planFor": "Plan for"
+  },
   "call": {
     "homeloom": "Homeloom",
     "call": "Call",
