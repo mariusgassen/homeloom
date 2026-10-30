@@ -221,6 +221,7 @@ func run() error {
 		Moments:        moments,
 		Cook:           cook,
 		Shopping:       shopping,
+		Budget:         service.NewBudget(store, store, cfg.TimeZone),
 		Home:           homeService,
 		Watch:          watch,
 		Push:           push,

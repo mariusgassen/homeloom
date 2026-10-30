@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.26.0
+  version: 0.27.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -29,6 +29,7 @@ tags:
   - name: moments
   - name: cook
   - name: shopping
+  - name: budget
   - name: home
   - name: watch
   - name: push
@@ -1201,6 +1202,123 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/households/{householdId}/expenses:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [budget]
+      operationId: listExpenses
+      summary: One month of expenses and settlements (members only)
+      description: Newest day first. At most 1000.
+      parameters:
+        - name: month
+          in: query
+          description: "`YYYY-MM`; this month in the household's time zone when absent."
+          schema: { $ref: "#/components/schemas/Month" }
+      responses:
+        "200":
+          description: The month.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExpenseMonth" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [budget]
+      operationId: createExpense
+      summary: Add an expense
+      description: Without `shares` it is split evenly between all members; the first members carry odd cents.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExpenseFields" }
+      responses:
+        "201":
+          description: The expense.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Expense" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/expenses/{expenseId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/ExpenseId"
+    put:
+      tags: [budget]
+      operationId: updateExpense
+      summary: Change an expense
+      description: Every member may. A settlement can't be changed (`409 settlement_fixed`); delete it and settle again.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExpenseFields" }
+      responses:
+        "200":
+          description: The expense.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Expense" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: It is a settlement (code `settlement_fixed`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+    delete:
+      tags: [budget]
+      operationId: deleteExpense
+      summary: Delete an expense or a settlement
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/balance:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [budget]
+      operationId: getBalance
+      summary: Where everyone stands, and the payments that settle it (members only)
+      responses:
+        "200":
+          description: The balance.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Balance" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/settlements:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [budget]
+      operationId: settleUp
+      summary: Record that one member paid another back
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NewSettlement" }
+      responses:
+        "201":
+          description: The settlement, as an expense of kind `settlement`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Expense" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/households/{householdId}/home:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -1885,6 +2003,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    ExpenseId:
+      name: expenseId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     ConversationId:
       name: conversationId
       in: path
@@ -2264,6 +2387,104 @@ components:
       properties:
         text: { type: string, description: "The title, as it was last written." }
         uses: { type: integer, minimum: 1, description: How often it was used. }
+
+    ExpenseCategory:
+      type: string
+      enum: [groceries, dining, home, utilities, transport, travel, fun, health, gifts, other]
+      description: What it was spent on. Settlements are `other`.
+
+    ExpenseShare:
+      type: object
+      required: [userId, cents]
+      properties:
+        userId: { type: string, format: uuid }
+        cents: { type: integer, format: int64, minimum: 0, description: "This member's part, in cents." }
+
+    ExpenseFields:
+      type: object
+      required: [cents, category, paidBy]
+      properties:
+        cents: { type: integer, format: int64, minimum: 1, maximum: 10000000, description: The amount in cents (EUR). }
+        category: { $ref: "#/components/schemas/ExpenseCategory" }
+        note: { type: string, maxLength: 200 }
+        paidBy: { type: string, format: uuid, description: The member who paid. }
+        day: { type: string, format: date, description: "The day it was spent; today when absent." }
+        shares:
+          type: array
+          maxItems: 50
+          description: >-
+            Who carries how much: members, each once, adding up to `cents`. Absent or empty: evenly
+            between all members.
+          items: { $ref: "#/components/schemas/ExpenseShare" }
+
+    Expense:
+      type: object
+      required: [id, kind, cents, category, paidBy, day, shares, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind:
+          type: string
+          enum: [expense, settlement]
+          description: "A settlement is money `paidBy` gave the member in its one share."
+        cents: { type: integer, format: int64 }
+        category: { $ref: "#/components/schemas/ExpenseCategory" }
+        note: { type: string }
+        paidBy: { type: string, format: uuid }
+        day: { type: string, format: date }
+        shares:
+          type: array
+          description: Members with a part above zero.
+          items: { $ref: "#/components/schemas/ExpenseShare" }
+        addedBy: { type: string, format: uuid, description: Who wrote it down; absent once they left. }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    ExpenseMonth:
+      type: object
+      required: [month, expenses]
+      properties:
+        month: { $ref: "#/components/schemas/Month" }
+        expenses:
+          type: array
+          items: { $ref: "#/components/schemas/Expense" }
+        earlier: { $ref: "#/components/schemas/Month", description: "The latest earlier month with an expense; absent when there is none." }
+
+    NewSettlement:
+      type: object
+      required: [from, to, cents]
+      properties:
+        from: { type: string, format: uuid, description: The member who paid. }
+        to: { type: string, format: uuid, description: The member who got the money. }
+        cents: { type: integer, format: int64, minimum: 1, maximum: 10000000 }
+        day: { type: string, format: date, description: "Today when absent." }
+
+    Balance:
+      type: object
+      required: [members, transfers]
+      properties:
+        members:
+          type: array
+          description: Every member, and anyone who left while still owing or being owed.
+          items: { $ref: "#/components/schemas/MemberBalance" }
+        transfers:
+          type: array
+          description: Payments that settle everything; empty when everyone is even.
+          items: { $ref: "#/components/schemas/Transfer" }
+
+    MemberBalance:
+      type: object
+      required: [userId, cents]
+      properties:
+        userId: { type: string, format: uuid }
+        cents: { type: integer, format: int64, description: "What they paid minus their shares: above zero they are owed, below zero they owe." }
+
+    Transfer:
+      type: object
+      required: [from, to, cents]
+      properties:
+        from: { type: string, format: uuid }
+        to: { type: string, format: uuid }
+        cents: { type: integer, format: int64 }
 
     Home:
       type: object

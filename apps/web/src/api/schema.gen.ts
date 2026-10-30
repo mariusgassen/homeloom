@@ -902,6 +902,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/expenses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * One month of expenses and settlements (members only)
+         * @description Newest day first. At most 1000.
+         */
+        get: operations["listExpenses"];
+        put?: never;
+        /**
+         * Add an expense
+         * @description Without `shares` it is split evenly between all members; the first members carry odd cents.
+         */
+        post: operations["createExpense"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/expenses/{expenseId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                expenseId: components["parameters"]["ExpenseId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change an expense
+         * @description Every member may. A settlement can't be changed (`409 settlement_fixed`); delete it and settle again.
+         */
+        put: operations["updateExpense"];
+        post?: never;
+        /** Delete an expense or a settlement */
+        delete: operations["deleteExpense"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /** Where everyone stands, and the payments that settle it (members only) */
+        get: operations["getBalance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/settlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record that one member paid another back */
+        post: operations["settleUp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/home": {
         parameters: {
             query?: never;
@@ -1811,6 +1899,117 @@ export interface components {
             /** @description How often it was used. */
             uses: number;
         };
+        /**
+         * @description What it was spent on. Settlements are `other`.
+         * @enum {string}
+         */
+        ExpenseCategory: "groceries" | "dining" | "home" | "utilities" | "transport" | "travel" | "fun" | "health" | "gifts" | "other";
+        ExpenseShare: {
+            /** Format: uuid */
+            userId: string;
+            /**
+             * Format: int64
+             * @description This member's part, in cents.
+             */
+            cents: number;
+        };
+        ExpenseFields: {
+            /**
+             * Format: int64
+             * @description The amount in cents (EUR).
+             */
+            cents: number;
+            category: components["schemas"]["ExpenseCategory"];
+            note?: string;
+            /**
+             * Format: uuid
+             * @description The member who paid.
+             */
+            paidBy: string;
+            /**
+             * Format: date
+             * @description The day it was spent; today when absent.
+             */
+            day?: string;
+            /** @description Who carries how much: members, each once, adding up to `cents`. Absent or empty: evenly between all members. */
+            shares?: components["schemas"]["ExpenseShare"][];
+        };
+        Expense: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description A settlement is money `paidBy` gave the member in its one share.
+             * @enum {string}
+             */
+            kind: "expense" | "settlement";
+            /** Format: int64 */
+            cents: number;
+            category: components["schemas"]["ExpenseCategory"];
+            note?: string;
+            /** Format: uuid */
+            paidBy: string;
+            /** Format: date */
+            day: string;
+            /** @description Members with a part above zero. */
+            shares: components["schemas"]["ExpenseShare"][];
+            /**
+             * Format: uuid
+             * @description Who wrote it down; absent once they left.
+             */
+            addedBy?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ExpenseMonth: {
+            month: components["schemas"]["Month"];
+            expenses: components["schemas"]["Expense"][];
+            /** @description The latest earlier month with an expense; absent when there is none. */
+            earlier?: components["schemas"]["Month"];
+        };
+        NewSettlement: {
+            /**
+             * Format: uuid
+             * @description The member who paid.
+             */
+            from: string;
+            /**
+             * Format: uuid
+             * @description The member who got the money.
+             */
+            to: string;
+            /** Format: int64 */
+            cents: number;
+            /**
+             * Format: date
+             * @description Today when absent.
+             */
+            day?: string;
+        };
+        Balance: {
+            /** @description Every member, and anyone who left while still owing or being owed. */
+            members: components["schemas"]["MemberBalance"][];
+            /** @description Payments that settle everything; empty when everyone is even. */
+            transfers: components["schemas"]["Transfer"][];
+        };
+        MemberBalance: {
+            /** Format: uuid */
+            userId: string;
+            /**
+             * Format: int64
+             * @description What they paid minus their shares: above zero they are owed, below zero they owe.
+             */
+            cents: number;
+        };
+        Transfer: {
+            /** Format: uuid */
+            from: string;
+            /** Format: uuid */
+            to: string;
+            /** Format: int64 */
+            cents: number;
+        };
         Home: {
             /** @description Whether you have connected your Home Assistant account. */
             connected: boolean;
@@ -2157,6 +2356,7 @@ export interface components {
         MomentId: string;
         CallId: string;
         ShoppingItemId: string;
+        ExpenseId: string;
         ConversationId: string;
         RecipeSlug: string;
     };
@@ -3803,6 +4003,178 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listExpenses: {
+        parameters: {
+            query?: {
+                /** @description `YYYY-MM`; this month in the household's time zone when absent. */
+                month?: components["schemas"]["Month"];
+            };
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The month. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseMonth"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createExpense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExpenseFields"];
+            };
+        };
+        responses: {
+            /** @description The expense. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Expense"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateExpense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                expenseId: components["parameters"]["ExpenseId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExpenseFields"];
+            };
+        };
+        responses: {
+            /** @description The expense. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Expense"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description It is a settlement (code `settlement_fixed`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteExpense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                expenseId: components["parameters"]["ExpenseId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getBalance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The balance. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Balance"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    settleUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSettlement"];
+            };
+        };
+        responses: {
+            /** @description The settlement, as an expense of kind `settlement`. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Expense"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };
