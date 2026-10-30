@@ -213,29 +213,55 @@ func (c *Client) Titles(ctx context.Context, token, libraryID string) ([]domain.
 	}
 	out := []domain.Title{}
 	for _, m := range body.MediaContainer.Metadata {
-		kind := domain.MediaKind(m.Type)
-		if kind != domain.Movies && kind != domain.Shows {
-			continue
+		if t, ok := toTitle(s, m); ok {
+			out = append(out, t)
 		}
-		t := domain.Title{
-			ID: s.id + "." + m.RatingKey, Kind: kind, Name: m.Title, Year: m.Year, Summary: m.Summary,
-			Minutes: m.Duration / 60000, ContentRating: m.ContentRating, Rating: m.AudienceRating, Genres: []string{},
-		}
-		if t.Rating == 0 {
-			t.Rating = m.Rating
-		}
-		for _, g := range m.Genre {
-			t.Genres = append(t.Genres, g.Tag)
-		}
-		if kind == domain.Movies {
-			t.Watched = m.ViewCount > 0
-		} else {
-			t.Episodes = m.LeafCount
-			t.Watched = m.LeafCount > 0 && m.ViewedLeafCount >= m.LeafCount
-		}
-		out = append(out, t)
 	}
 	return out, nil
+}
+
+func (c *Client) Title(ctx context.Context, token, titleID string) (domain.Title, error) {
+	s, key, err := c.find(ctx, token, titleID)
+	if err != nil {
+		return domain.Title{}, err
+	}
+	var body container
+	if err := c.fromServer(ctx, s, "/library/metadata/"+key, &body); err != nil {
+		return domain.Title{}, err
+	}
+	for _, m := range body.MediaContainer.Metadata {
+		if t, ok := toTitle(s, m); ok && m.RatingKey == key {
+			return t, nil
+		}
+	}
+	return domain.Title{}, domain.ErrNotFound
+}
+
+// toTitle reads a movie or series; anything else is not a title.
+func toTitle(s *server, m metadata) (domain.Title, bool) {
+	kind := domain.MediaKind(m.Type)
+	if kind != domain.Movies && kind != domain.Shows {
+		return domain.Title{}, false
+	}
+	t := domain.Title{
+		ID: s.id + "." + m.RatingKey, Kind: kind, Name: m.Title, Year: m.Year, Summary: m.Summary,
+		Minutes: m.Duration / 60000, ContentRating: m.ContentRating, Rating: m.AudienceRating, Genres: []string{},
+		// Plex's own app opens the title on that server, and plays it from there.
+		URL: "https://app.plex.tv/desktop/#!/server/" + s.id + "/details?key=" + url.QueryEscape("/library/metadata/"+m.RatingKey),
+	}
+	if t.Rating == 0 {
+		t.Rating = m.Rating
+	}
+	for _, g := range m.Genre {
+		t.Genres = append(t.Genres, g.Tag)
+	}
+	if kind == domain.Movies {
+		t.Watched = m.ViewCount > 0
+	} else {
+		t.Episodes = m.LeafCount
+		t.Watched = m.LeafCount > 0 && m.ViewedLeafCount >= m.LeafCount
+	}
+	return t, true
 }
 
 func (c *Client) Poster(ctx context.Context, token, titleID string) (domain.Poster, error) {

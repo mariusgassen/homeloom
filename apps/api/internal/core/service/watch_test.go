@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/memory"
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/domain"
@@ -229,5 +230,72 @@ func TestWatchLeavesOutTheLibrariesYouChoose(t *testing.T) {
 	}
 	if s, _ := watch.Shelf(ctx, alice, hid); !s.Libraries[1].Included {
 		t.Errorf("put back: %+v", s)
+	}
+}
+
+func TestWatchTonight(t *testing.T) {
+	ctx := context.Background()
+	store := memory.NewStore()
+	pusher := &memory.Pusher{}
+	push := service.NewPush(store, pusher)
+	alice, bob, eve := newUser(t, store, "alice"), newUser(t, store, "bob"), newUser(t, store, "eve")
+	m, _ := service.NewHousehold(store).Create(ctx, alice, "Home")
+	hid := m.Household.ID
+	store.AddMember(hid, bob.ID, domain.RoleMember)
+	if err := push.Subscribe(ctx, bob, domain.PushSubscription{Endpoint: "https://web.push.apple.com/bob"}); err != nil {
+		t.Fatal(err)
+	}
+	berlin, _ := time.LoadLocation("Europe/Berlin")
+	now := time.Date(2026, 10, 30, 20, 0, 0, 0, berlin)
+	watch := service.NewWatch(store, store, memory.NewSessions(), mediaLibrary(), nil).WithTonight(store, push, berlin)
+	watch.SetClock(func() time.Time { return now })
+
+	if p, err := watch.Tonight(ctx, alice, hid); p != nil || err != nil {
+		t.Fatalf("nothing picked: %+v, %v", p, err)
+	}
+	if _, err := watch.Pick(ctx, alice, hid, "abc.10"); !errors.Is(err, domain.ErrUnavailable) {
+		t.Fatalf("pick without Plex: %v", err)
+	}
+	signIn(t, watch, alice, m)
+	if _, err := watch.Pick(ctx, alice, hid, "abc.99"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("unknown title: %v", err)
+	}
+	p, err := watch.Pick(ctx, alice, hid, "abc.10")
+	if err != nil || p.Name != "Arrival" || p.PickedBy != alice.ID {
+		t.Fatalf("pick: %+v, %v", p, err)
+	}
+	push.Wait()
+	if sent := pusher.Sent(); len(sent) != 1 || sent[0].Subscription.Endpoint != "https://web.push.apple.com/bob" {
+		t.Fatalf("told %+v, want only bob", sent)
+	}
+
+	// Bob sees it without Plex of his own, Eve doesn't, and it lasts until five in the morning.
+	if got, err := watch.Tonight(ctx, bob, hid); err != nil || got == nil || got.TitleID != "abc.10" {
+		t.Fatalf("bob: %+v, %v", got, err)
+	}
+	if _, err := watch.Tonight(ctx, eve, hid); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("stranger: %v", err)
+	}
+	now = time.Date(2026, 10, 31, 4, 59, 0, 0, berlin)
+	if got, err := watch.Tonight(ctx, bob, hid); err != nil || got == nil {
+		t.Fatalf("still tonight: %+v, %v", got, err)
+	}
+	now = time.Date(2026, 10, 31, 5, 0, 0, 0, berlin)
+	if got, err := watch.Tonight(ctx, bob, hid); got != nil || err != nil {
+		t.Fatalf("next morning: %+v, %v", got, err)
+	}
+
+	now = time.Date(2026, 10, 31, 21, 0, 0, 0, berlin)
+	if _, err := watch.Pick(ctx, alice, hid, "abc.10"); err != nil {
+		t.Fatal(err)
+	}
+	if err := watch.ClearTonight(ctx, eve, hid); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("stranger clears: %v", err)
+	}
+	if err := watch.ClearTonight(ctx, bob, hid); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := watch.Tonight(ctx, alice, hid); got != nil || err != nil {
+		t.Fatalf("after clearing: %+v, %v", got, err)
 	}
 }

@@ -152,7 +152,7 @@ func (h *handlers) GetWatchPoster(ctx context.Context, req oapi.GetWatchPosterRe
 func toWatchTitle(t domain.Title) oapi.WatchTitle {
 	out := oapi.WatchTitle{
 		Id: t.ID, Kind: oapi.MediaKind(t.Kind), Name: t.Name, Genres: t.Genres, Watched: t.Watched,
-		Summary: optional(t.Summary), ContentRating: optional(t.ContentRating),
+		Summary: optional(t.Summary), ContentRating: optional(t.ContentRating), Url: optional(t.URL),
 	}
 	if out.Genres == nil {
 		out.Genres = []string{}
@@ -207,4 +207,62 @@ func (h *handlers) SuggestWatch(ctx context.Context, req oapi.SuggestWatchReques
 		}
 	}
 	return out, nil
+}
+
+func (h *handlers) GetWatchTonight(ctx context.Context, req oapi.GetWatchTonightRequestObject) (oapi.GetWatchTonightResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	p, err := h.watch.Tonight(ctx, u, req.HouseholdId)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.GetWatchTonight404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case err != nil:
+		return nil, err
+	case p == nil:
+		return oapi.GetWatchTonight200JSONResponse{}, nil
+	}
+	out := toTonightPick(*p)
+	return oapi.GetWatchTonight200JSONResponse{Pick: &out}, nil
+}
+
+func (h *handlers) PickWatchTonight(ctx context.Context, req oapi.PickWatchTonightRequestObject) (oapi.PickWatchTonightResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	p, err := h.watch.Pick(ctx, u, req.HouseholdId, req.Body.TitleId)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.PickWatchTonight404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.Is(err, domain.ErrUnavailable):
+		return oapi.PickWatchTonight503JSONResponse{UnavailableJSONResponse: watchUnavailable(ctx, err)}, nil
+	case err != nil:
+		return nil, err
+	}
+	return oapi.PickWatchTonight200JSONResponse(toTonightPick(p)), nil
+}
+
+func (h *handlers) ClearWatchTonight(ctx context.Context, req oapi.ClearWatchTonightRequestObject) (oapi.ClearWatchTonightResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = h.watch.ClearTonight(ctx, u, req.HouseholdId)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.ClearWatchTonight404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case err != nil:
+		return nil, err
+	}
+	return oapi.ClearWatchTonight204Response{}, nil
+}
+
+func toTonightPick(p domain.TonightPick) oapi.TonightPick {
+	out := oapi.TonightPick{TitleId: p.TitleID, Kind: oapi.MediaKind(p.Kind), Name: p.Name, Url: optional(p.URL), PickedBy: p.PickedBy, PickedAt: p.PickedAt}
+	if p.Year > 0 {
+		out.Year = &p.Year
+	}
+	return out
 }

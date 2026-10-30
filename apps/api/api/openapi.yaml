@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.25.0
+  version: 0.26.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -1334,6 +1334,51 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  /v1/households/{householdId}/watch/tonight:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [watch]
+      operationId: getWatchTonight
+      summary: What the household picked to watch tonight (members only)
+      description: |
+        A pick lasts until 5 a.m. the morning after, in the household's time zone. Members who
+        haven't connected Plex, or can't reach the title, still see it.
+      responses:
+        "200":
+          description: Tonight's pick, if there is one.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatchTonight" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [watch]
+      operationId: pickWatchTonight
+      summary: Pick one of your titles for tonight; the other members are told
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WatchTonightChoice" }
+      responses:
+        "200":
+          description: The pick.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TonightPick" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [watch]
+      operationId: clearWatchTonight
+      summary: Forget tonight's pick
+      responses:
+        "204": { description: Cleared. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/households/{householdId}/watch/libraries/{libraryId}:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -2309,6 +2354,30 @@ components:
         contentRating: { type: string, description: "Age rating, e.g. de/12 or PG-13." }
         episodes: { type: integer, description: Episodes of a series. }
         watched: { type: boolean, description: "You have seen the movie, or every episode." }
+        url: { type: string, format: uri, description: Opens the title in Plex. }
+
+    WatchTonight:
+      type: object
+      properties:
+        pick: { $ref: "#/components/schemas/TonightPick" }
+
+    WatchTonightChoice:
+      type: object
+      required: [titleId]
+      properties:
+        titleId: { $ref: "#/components/schemas/MediaId" }
+
+    TonightPick:
+      type: object
+      required: [titleId, kind, name, pickedBy, pickedAt]
+      properties:
+        titleId: { $ref: "#/components/schemas/MediaId" }
+        kind: { $ref: "#/components/schemas/MediaKind" }
+        name: { type: string }
+        year: { type: integer }
+        url: { type: string, format: uri, description: Opens the title in Plex. }
+        pickedBy: { type: string, format: uuid, description: The member who picked it. }
+        pickedAt: { type: string, format: date-time }
 
     WatchMood:
       type: object

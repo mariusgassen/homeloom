@@ -8,6 +8,7 @@ import (
 	"math/rand/v2"
 	"slices"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -27,7 +28,15 @@ type Watch struct {
 	media       port.MediaLibrary
 	// critic is nil without an LLM; ideas are then unavailable. They don't need Plex.
 	critic port.Critic
+	// tonight is nil until WithTonight; picking for tonight is then unavailable.
+	tonight port.TonightRepository
+	notify  notifier
+	loc     *time.Location
+	now     func() time.Time
 }
+
+// tonightEnds is the hour of the morning after a pick when it stops being tonight's.
+const tonightEnds = 5
 
 // Caps on what one suggestion shows the critic, so a large library still fits a small prompt.
 const (
@@ -36,7 +45,14 @@ const (
 )
 
 func NewWatch(households port.HouseholdRepository, connections port.WatchConnectionRepository, sessions port.SessionStore, media port.MediaLibrary, critic port.Critic) *Watch {
-	return &Watch{households: households, connections: connections, sessions: sessions, media: media, critic: critic}
+	return &Watch{households: households, connections: connections, sessions: sessions, media: media, critic: critic, now: time.Now}
+}
+
+// WithTonight lets a household pick what to watch tonight; the others are told through notify,
+// and loc says when the night is over.
+func (s *Watch) WithTonight(tonight port.TonightRepository, notify notifier, loc *time.Location) *Watch {
+	s.tonight, s.notify, s.loc = tonight, notify, loc
+	return s
 }
 
 func (s *Watch) Connect(ctx context.Context, actor domain.User, householdID uuid.UUID) (string, error) {
@@ -149,6 +165,88 @@ func (s *Watch) Poster(ctx context.Context, actor domain.User, householdID uuid.
 	}
 	p, err := s.media.Poster(ctx, token, titleID)
 	return p, unavailable(err)
+}
+
+func (s *Watch) Pick(ctx context.Context, actor domain.User, householdID uuid.UUID, titleID string) (domain.TonightPick, error) {
+	token, err := s.token(ctx, actor, householdID)
+	if err != nil {
+		return domain.TonightPick{}, err
+	}
+	if s.tonight == nil {
+		return domain.TonightPick{}, fmt.Errorf("%w: tonight's pick is not set up", domain.ErrUnavailable)
+	}
+	t, err := s.media.Title(ctx, token, titleID)
+	if err != nil {
+		return domain.TonightPick{}, unavailable(err)
+	}
+	p := domain.TonightPick{
+		HouseholdID: householdID, TitleID: t.ID, Kind: t.Kind, Name: t.Name, Year: t.Year, URL: t.URL,
+		PickedBy: actor.ID, PickedAt: s.now(),
+	}
+	if err := s.tonight.SaveTonight(ctx, p); err != nil {
+		return domain.TonightPick{}, err
+	}
+	s.notifyPicked(ctx, actor, p)
+	return p, nil
+}
+
+func (s *Watch) Tonight(ctx context.Context, actor domain.User, householdID uuid.UUID) (*domain.TonightPick, error) {
+	if _, err := s.households.Role(ctx, householdID, actor.ID); err != nil {
+		return nil, err
+	}
+	if s.tonight == nil {
+		return nil, nil
+	}
+	p, err := s.tonight.Tonight(ctx, householdID)
+	if errors.Is(err, domain.ErrNotFound) || err == nil && !s.now().Before(s.nightEnds(p.PickedAt)) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+func (s *Watch) ClearTonight(ctx context.Context, actor domain.User, householdID uuid.UUID) error {
+	if _, err := s.households.Role(ctx, householdID, actor.ID); err != nil {
+		return err
+	}
+	if s.tonight == nil {
+		return nil
+	}
+	return s.tonight.DeleteTonight(ctx, householdID)
+}
+
+// nightEnds is the next tonightEnds o'clock after a pick: a pick at 1 a.m. is still that night's.
+func (s *Watch) nightEnds(pickedAt time.Time) time.Time {
+	t := pickedAt.In(s.loc)
+	y, m, d := t.Date()
+	end := time.Date(y, m, d, tonightEnds, 0, 0, 0, s.loc)
+	if !t.Before(end) {
+		end = end.AddDate(0, 0, 1)
+	}
+	return end
+}
+
+// notifyPicked tells the other members what is on tonight.
+func (s *Watch) notifyPicked(ctx context.Context, actor domain.User, p domain.TonightPick) {
+	members, err := s.households.Members(ctx, p.HouseholdID)
+	if err != nil {
+		slog.WarnContext(ctx, "tonight's pick: list members", "err", err)
+		return
+	}
+	var others []uuid.UUID
+	for _, m := range members {
+		if m.User.ID != actor.ID {
+			others = append(others, m.User.ID)
+		}
+	}
+	s.notify.Notify(ctx, others, domain.Notification{
+		Key:  "push.watch_tonight",
+		Args: []any{"name", actor.Name, "title", p.Name},
+		URL:  "/watch",
+		Tag:  "watch-tonight-" + p.HouseholdID.String(),
+	})
 }
 
 func (s *Watch) Suggest(ctx context.Context, actor domain.User, householdID uuid.UUID, mood, lang string) ([]domain.WatchIdea, error) {

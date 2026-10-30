@@ -297,6 +297,16 @@ type MediaLibrary interface {
 	// is domain.ErrNotFound.
 	Titles(ctx context.Context, token, libraryID string) ([]domain.Title, error)
 	Poster(ctx context.Context, token, titleID string) (domain.Poster, error)
+	// Title returns one title by an id Titles returned.
+	Title(ctx context.Context, token, titleID string) (domain.Title, error)
+}
+
+// TonightRepository keeps each household's pick for tonight; saving replaces the last one.
+type TonightRepository interface {
+	SaveTonight(ctx context.Context, p domain.TonightPick) error
+	// Tonight returns domain.ErrNotFound when nothing was picked.
+	Tonight(ctx context.Context, householdID uuid.UUID) (domain.TonightPick, error)
+	DeleteTonight(ctx context.Context, householdID uuid.UUID) error
 }
 
 type WatchConnectionRepository interface {
