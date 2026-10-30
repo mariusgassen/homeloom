@@ -188,3 +188,65 @@ func TestBudgetKeepsReceipts(t *testing.T) {
 		t.Fatalf("deleting the expense left its receipt: %v", err)
 	}
 }
+
+func TestTickingABillBooksIt(t *testing.T) {
+	ctx := context.Background()
+	f := newEntryFixture(t)
+	budget := service.NewBudget(f.store, f.store, time.UTC)
+	f.entries.WithBills(budget)
+	due := f.now.Add(time.Hour)
+
+	for name, fields := range map[string]domain.EntryFields{
+		"private":       {Text: "Gym", Visibility: domain.VisibilityPrivate, Bill: &domain.Bill{Cents: 3000, Category: domain.CategoryHealth}},
+		"no amount":     {Text: "Rent", Visibility: domain.VisibilityShared, Bill: &domain.Bill{Category: domain.CategoryHome}},
+		"no category":   {Text: "Rent", Visibility: domain.VisibilityShared, Bill: &domain.Bill{Cents: 100}},
+		"outside payer": {Text: "Rent", Visibility: domain.VisibilityShared, Bill: &domain.Bill{Cents: 100, Category: domain.CategoryHome, PaidBy: &f.eve.ID}},
+	} {
+		if _, err := f.entries.Create(ctx, f.alice, f.household, domain.KindReminder, fields); !errors.Is(err, domain.ErrBill) {
+			t.Errorf("%s: %v", name, err)
+		}
+	}
+	if _, err := f.entries.Create(ctx, f.alice, f.household, domain.KindNote, domain.EntryFields{Text: "x", Visibility: domain.VisibilityShared, Bill: &domain.Bill{Cents: 100, Category: domain.CategoryHome}}); !errors.Is(err, domain.ErrBill) {
+		t.Errorf("note: %v", err)
+	}
+
+	rent := f.create(t, f.alice, domain.KindReminder, domain.EntryFields{
+		Text: "Rent", Visibility: domain.VisibilityShared, DueAt: &due, Repeat: domain.RepeatMonthly,
+		Bill: &domain.Bill{Cents: 90000, Category: domain.CategoryHome, PaidBy: &f.alice.ID},
+	})
+	if rent.Bill == nil || rent.Bill.Cents != 90000 {
+		t.Fatalf("created: %+v", rent)
+	}
+	// Bob ticks it off; Alice pays rent, so Bob owes her half.
+	ticked, err := f.entries.SetDone(ctx, f.bob, rent.ID, true)
+	if err != nil || ticked.DueAt.Equal(due) {
+		t.Fatalf("tick: %+v, %v", ticked, err)
+	}
+	month, _ := budget.Month(ctx, f.alice, f.household, f.now)
+	if len(month.Expenses) != 1 || month.Expenses[0].Note != "Rent" || month.Expenses[0].PaidBy != f.alice.ID || month.Expenses[0].Category != domain.CategoryHome {
+		t.Fatalf("booked: %+v", month.Expenses)
+	}
+	if b, _ := budget.Balance(ctx, f.bob, f.household); len(b.Transfers) != 1 || b.Transfers[0] != (domain.Transfer{From: f.bob.ID, To: f.alice.ID, Cents: 45000}) {
+		t.Fatalf("balance: %+v", b)
+	}
+
+	// Without a payer, whoever ticks it off paid.
+	once := f.create(t, f.alice, domain.KindReminder, domain.EntryFields{Text: "Electricity", Visibility: domain.VisibilityShared, Bill: &domain.Bill{Cents: 6000, Category: domain.CategoryUtilities}})
+	if _, err := f.entries.SetDone(ctx, f.bob, once.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	// Ticking it again once it's done books nothing more.
+	if _, err := f.entries.SetDone(ctx, f.bob, once.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	month, _ = budget.Month(ctx, f.alice, f.household, f.now)
+	if len(month.Expenses) != 2 || month.Expenses[0].PaidBy != f.bob.ID && month.Expenses[1].PaidBy != f.bob.ID {
+		t.Fatalf("booked: %+v", month.Expenses)
+	}
+
+	// Without a bill an update drops it.
+	upd, err := f.entries.Update(ctx, f.alice, rent.ID, domain.EntryFields{Text: "Rent", Visibility: domain.VisibilityShared, DueAt: ticked.DueAt, Repeat: domain.RepeatMonthly}, nil)
+	if err != nil || upd.Bill != nil {
+		t.Fatalf("update: %+v, %v", upd, err)
+	}
+}

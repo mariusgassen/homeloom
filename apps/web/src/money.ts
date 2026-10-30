@@ -1,10 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { api, type Balance, type HouseholdDetail } from "./api/client";
+import { api, type Balance, type Entry, type ExpenseCategory, type HouseholdDetail } from "./api/client";
 import { useRefresh } from "./refresh";
 
 // The household keeps its money in euros, in cents.
 const currency = "EUR";
+
+export const categories: ExpenseCategory[] = ["groceries", "dining", "home", "utilities", "transport", "travel", "fun", "health", "gifts", "other"];
+
+// The open bill due next, within the next two weeks, if any.
+export function nextBill(entries: Entry[], now = new Date()) {
+  const soon = now.getTime() + 14 * 86400000;
+  return entries
+    .filter((e) => e.bill && !e.doneAt && e.dueAt && new Date(e.dueAt).getTime() <= soon)
+    .sort((a, b) => new Date(a.dueAt ?? 0).getTime() - new Date(b.dueAt ?? 0).getTime())[0];
+}
 
 export function useMoney() {
   const { i18n } = useTranslation();

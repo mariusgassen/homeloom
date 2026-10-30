@@ -202,6 +202,7 @@ func run() error {
 	if bucket != nil {
 		budget.WithReceipts(bucket)
 	}
+	entries.WithBills(budget)
 	go notifyDue(ctx, entries)
 	moments := service.NewMoments(store, store, store, push, cfg.TimeZone)
 	if bucket != nil {
@@ -213,7 +214,7 @@ func run() error {
 	homeService := service.NewHome(store, homeConnections, sessions, home)
 	households := service.NewHousehold(store)
 	watch := service.NewWatch(store, watchConnections, sessions, media, critic).WithTonight(store, push, cfg.TimeZone)
-	assistant := service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone)
+	assistant := service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone).WithBudget(budget)
 	agents := service.NewAgentAccess(store, sessions, store)
 
 	handler, err := httpadapter.NewRouter(httpadapter.Deps{

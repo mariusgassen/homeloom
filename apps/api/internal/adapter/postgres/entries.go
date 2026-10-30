@@ -18,6 +18,7 @@ func (s *Store) CreateEntry(ctx context.Context, e domain.Entry) (domain.Entry, 
 		RevealAt: e.RevealAt, Text: e.Text, DueAt: e.DueAt, StartsAt: e.StartsAt, EndsAt: e.EndsAt, AllDay: e.AllDay,
 		AlertMinutes: alertMinutes(e.AlertMinutes), Repeat: string(e.Repeat), AssigneeID: e.AssigneeID, NotifiedAt: e.NotifiedAt,
 		IcalUid: nullable(e.ICalUID), IcalName: nullable(e.ICalName),
+		BillCents: billCents(e.Bill), BillCategory: billCategory(e.Bill), BillPaidBy: billPaidBy(e.Bill),
 	})
 	if err != nil {
 		return domain.Entry{}, err
@@ -77,6 +78,7 @@ func (s *Store) UpdateEntry(ctx context.Context, e domain.Entry) (domain.Entry, 
 		ID: e.ID, Visibility: string(e.Visibility), RevealAt: e.RevealAt, Text: e.Text, DueAt: e.DueAt,
 		StartsAt: e.StartsAt, EndsAt: e.EndsAt, AllDay: e.AllDay, AlertMinutes: alertMinutes(e.AlertMinutes),
 		Repeat: string(e.Repeat), AssigneeID: e.AssigneeID, DoneAt: e.DoneAt, DoneBy: e.DoneBy, NotifiedAt: e.NotifiedAt,
+		BillCents: billCents(e.Bill), BillCategory: billCategory(e.Bill), BillPaidBy: billPaidBy(e.Bill),
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Entry{}, domain.ErrNotFound
@@ -135,7 +137,32 @@ func toEntry(r sqlcgen.Entry) domain.Entry {
 		m := int(*r.AlertMinutes)
 		e.AlertMinutes = &m
 	}
+	if r.BillCents != nil {
+		e.Bill = &domain.Bill{Cents: *r.BillCents, Category: domain.ExpenseCategory(deref(r.BillCategory)), PaidBy: r.BillPaidBy}
+	}
 	return e
+}
+
+func billCents(b *domain.Bill) *int64 {
+	if b == nil {
+		return nil
+	}
+	return &b.Cents
+}
+
+func billCategory(b *domain.Bill) *string {
+	if b == nil {
+		return nil
+	}
+	c := string(b.Category)
+	return &c
+}
+
+func billPaidBy(b *domain.Bill) *uuid.UUID {
+	if b == nil {
+		return nil
+	}
+	return b.PaidBy
 }
 
 // alertMinutes fits the minutes into the column; the service keeps them to a week.

@@ -261,3 +261,44 @@ func TestAssistantToolsWithoutTheChat(t *testing.T) {
 		t.Fatalf("unknown field: %v", err)
 	}
 }
+
+func TestAssistantAddsExpensesAndReadsTheMoney(t *testing.T) {
+	ctx := context.Background()
+	f := newAssistantFixture(t)
+	run := func(u domain.User, name, input string) (string, error) {
+		return f.assistant.RunTool(ctx, u, f.household, domain.ToolCall{Name: name, Input: json.RawMessage(input)})
+	}
+	if _, err := run(f.alice, "add_expense", `{"amount":12.5,"category":"groceries"}`); err == nil || err.Error() != "that part of the app isn't available right now" {
+		t.Fatalf("without a budget: %v", err)
+	}
+
+	budget := service.NewBudget(f.store, f.store, time.UTC)
+	f.assistant.WithBudget(budget)
+	f.entries.WithBills(budget)
+	out, err := run(f.alice, "add_expense", `{"amount":42.1,"category":"dining","note":"Pizza","paid_by":"`+f.bob.Name+`"}`)
+	if err != nil || !strings.Contains(out, `"amount_eur":"42.10"`) || !strings.Contains(out, `"paid_by":"`+f.bob.Name+`"`) {
+		t.Fatalf("add: %s, %v", out, err)
+	}
+	if _, err := run(f.alice, "add_expense", `{"amount":10,"category":"fun","shares":{"`+f.alice.Name+`":3}}`); !errors.Is(err, domain.ErrInvalid) {
+		t.Fatalf("shares off: %v", err)
+	}
+	if _, err := run(f.alice, "add_expense", `{"amount":10,"category":"fun","paid_by":"Mallory"}`); !errors.Is(err, domain.ErrInvalid) {
+		t.Fatalf("unknown payer: %v", err)
+	}
+	if _, err := run(f.eve, "get_money", `{}`); err == nil || err.Error() != "not found" {
+		t.Fatalf("outsider: %v", err)
+	}
+	out, err = run(f.alice, "get_money", `{}`)
+	if err != nil || !strings.Contains(out, f.alice.Name+` (you) pays `+f.bob.Name+` 21.05 EUR`) || !strings.Contains(out, `"dining":"42.10"`) {
+		t.Fatalf("money: %s, %v", out, err)
+	}
+
+	out, err = run(f.alice, "add_reminder", `{"text":"Rent","visibility":"shared","due":"2026-11-01T09:00","repeat":"monthly","bill":{"amount":900,"category":"home","paid_by":"`+f.alice.Name+`"}}`)
+	if err != nil {
+		t.Fatalf("bill: %s, %v", out, err)
+	}
+	es, _ := f.entries.List(ctx, f.alice, f.household, domain.KindReminder)
+	if len(es) != 1 || es[0].Bill == nil || es[0].Bill.Cents != 90000 {
+		t.Fatalf("bill reminder: %+v", es)
+	}
+}

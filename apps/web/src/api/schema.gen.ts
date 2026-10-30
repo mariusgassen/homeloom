@@ -1701,7 +1701,7 @@ export interface paths {
          * @description Stores your message, in a new conversation unless `conversationId` is given, and streams the
          *     answer as `text/event-stream`. The assistant acts only as you, through the same rules as the
          *     rest of the API: it reads and adds reminders, events and notes you can see, finds recipes,
-         *     reads and adds to the shopping list, and reads the home and switches its scenes and lights.
+         *     reads and adds to the shopping list, adds expenses and reads the money, and reads the home and switches its scenes and lights.
          *     It can't delete anything.
          *
          *     Events, each with a JSON `data` line:
@@ -1932,6 +1932,7 @@ export interface components {
              * @description Shared reminders only: the member it is for. Absent means everyone.
              */
             assigneeId?: string;
+            bill?: components["schemas"]["Bill"];
         };
         CreateEntry: components["schemas"]["EntryFields"] & {
             kind: components["schemas"]["EntryKind"];
@@ -1964,6 +1965,7 @@ export interface components {
             repeat: components["schemas"]["Repeat"];
             /** Format: uuid */
             assigneeId?: string;
+            bill?: components["schemas"]["Bill"];
             /** Format: date-time */
             doneAt?: string;
             /** Format: uuid */
@@ -2207,6 +2209,17 @@ export interface components {
             categories: components["schemas"]["CategoryTotal"][];
             /** @description The latest earlier month with an expense; absent when there is none. */
             earlier?: components["schemas"]["Month"];
+        };
+        /** @description Shared reminders only: ticking it off books this as an expense, split evenly, with the reminder's text as the note. A repeating reminder is a recurring bill. */
+        Bill: {
+            /** Format: int64 */
+            cents: number;
+            category: components["schemas"]["ExpenseCategory"];
+            /**
+             * Format: uuid
+             * @description The member who pays it; absent means whoever ticks it off.
+             */
+            paidBy?: string;
         };
         CategoryTotal: {
             category: components["schemas"]["ExpenseCategory"];

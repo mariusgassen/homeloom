@@ -37,6 +37,13 @@ type Entry struct {
 	now        func() time.Time
 	// photos is where notes' photos go; nil keeps them in the entry repository.
 	photos port.PhotoStore
+	// bills books a bill when its reminder is ticked off; nil means reminders can't be bills.
+	bills billBooker
+}
+
+// billBooker is the part of the budget a bill needs.
+type billBooker interface {
+	Add(ctx context.Context, actor domain.User, householdID uuid.UUID, f domain.ExpenseFields) (domain.Expense, error)
 }
 
 // NewEntry places all-day events and repeats in loc, the household's time zone, so they keep
@@ -49,6 +56,12 @@ func NewEntry(households port.HouseholdRepository, entries port.EntryRepository,
 // exist. Photos from before stay where they are and are still served from there.
 func (s *Entry) WithPhotos(photos port.PhotoStore) *Entry {
 	s.photos = photos
+	return s
+}
+
+// WithBills lets shared reminders be bills that book an expense in budget when ticked off.
+func (s *Entry) WithBills(budget billBooker) *Entry {
+	s.bills = budget
 	return s
 }
 
@@ -260,6 +273,20 @@ func (s *Entry) SetDone(ctx context.Context, actor domain.User, id uuid.UUID, do
 		return domain.Entry{}, fmt.Errorf("%w: only reminders can be done", domain.ErrConflict)
 	}
 	now := s.now()
+	if done && e.DoneAt == nil && e.Bill != nil && s.bills != nil {
+		// The expense comes first: a bill that couldn't be booked stays open to tick again.
+		payer := actor.ID
+		if e.Bill.PaidBy != nil {
+			payer = *e.Bill.PaidBy
+		}
+		day := now.In(s.loc)
+		if _, err := s.bills.Add(ctx, actor, e.HouseholdID, domain.ExpenseFields{
+			Cents: e.Bill.Cents, Category: e.Bill.Category, Note: e.Text, PaidBy: payer,
+			Day: time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, time.UTC),
+		}); err != nil {
+			return domain.Entry{}, err
+		}
+	}
 	switch {
 	case !done:
 		e.DoneAt, e.DoneBy = nil, nil
@@ -425,6 +452,22 @@ func (s *Entry) check(ctx context.Context, householdID uuid.UUID, kind domain.En
 		f.DueAt = nil
 	default:
 		return f, fmt.Errorf("%w: unknown kind %q", domain.ErrInvalid, kind)
+	}
+	if f.Bill != nil {
+		b := f.Bill
+		if kind != domain.KindReminder || f.Visibility != domain.VisibilityShared || s.bills == nil ||
+			b.Cents < 1 || b.Cents > domain.MaxExpenseCents || !b.Category.Valid() {
+			return f, domain.ErrBill
+		}
+		if b.PaidBy != nil {
+			members, err := s.households.Members(ctx, householdID)
+			if err != nil {
+				return f, err
+			}
+			if !slices.ContainsFunc(members, func(m domain.Member) bool { return m.User.ID == *b.PaidBy }) {
+				return f, domain.ErrBill
+			}
+		}
 	}
 	if f.AssigneeID != nil {
 		if f.Visibility != domain.VisibilityShared {

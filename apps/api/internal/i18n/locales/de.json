@@ -17,6 +17,7 @@
   "error.invalid": "Die Anfrage ist ungültig.",
   "error.invalid_aisle": "Wähl einen der Bereiche.",
   "error.invalid_amount": "Gib einen Betrag zwischen 0,01 und {max} ein.",
+  "error.invalid_bill": "Eine Rechnung braucht einen Betrag und eine Kategorie, und nur geteilte Erinnerungen können Rechnungen sein.",
   "error.invalid_assignee": "Wähle jemanden aus deinem Haushalt. Dafür muss die Erinnerung geteilt sein.",
   "error.invalid_chore": "Wähl, wie groß die Aufgabe ist und wie oft sie wiederkommt.",
   "error.invalid_chore_assignee": "Wähl jemanden aus eurem Zuhause.",

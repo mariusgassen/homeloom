@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.31.0
+  version: 0.32.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -2194,7 +2194,7 @@ paths:
         Stores your message, in a new conversation unless `conversationId` is given, and streams the
         answer as `text/event-stream`. The assistant acts only as you, through the same rules as the
         rest of the API: it reads and adds reminders, events and notes you can see, finds recipes,
-        reads and adds to the shopping list, and reads the home and switches its scenes and lights.
+        reads and adds to the shopping list, adds expenses and reads the money, and reads the home and switches its scenes and lights.
         It can't delete anything.
 
         Events, each with a JSON `data` line:
@@ -2524,6 +2524,7 @@ components:
         alertMinutes: { type: integer, minimum: 0, maximum: 10080, description: "Events only: a notification goes out this many minutes before the start (for all-day events, before midnight)." }
         repeat: { $ref: "#/components/schemas/Repeat" }
         assigneeId: { type: string, format: uuid, description: "Shared reminders only: the member it is for. Absent means everyone." }
+        bill: { $ref: "#/components/schemas/Bill" }
 
     CreateEntry:
       allOf:
@@ -2552,6 +2553,7 @@ components:
         alertMinutes: { type: integer }
         repeat: { $ref: "#/components/schemas/Repeat" }
         assigneeId: { type: string, format: uuid }
+        bill: { $ref: "#/components/schemas/Bill" }
         doneAt: { type: string, format: date-time }
         doneBy: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
@@ -2824,6 +2826,17 @@ components:
           description: What was spent per category, most first; categories without spending are left out.
           items: { $ref: "#/components/schemas/CategoryTotal" }
         earlier: { $ref: "#/components/schemas/Month", description: "The latest earlier month with an expense; absent when there is none." }
+
+    Bill:
+      type: object
+      description: >-
+        Shared reminders only: ticking it off books this as an expense, split evenly, with the
+        reminder's text as the note. A repeating reminder is a recurring bill.
+      required: [cents, category]
+      properties:
+        cents: { type: integer, format: int64, minimum: 1, maximum: 10000000 }
+        category: { $ref: "#/components/schemas/ExpenseCategory" }
+        paidBy: { type: string, format: uuid, description: "The member who pays it; absent means whoever ticks it off." }
 
     CategoryTotal:
       type: object

@@ -56,6 +56,23 @@ func Entries(t *testing.T, s interface {
 		t.Fatalf("unknown entry: want ErrNotFound, got %v", err)
 	}
 
+	// A bill goes with its reminder and can be taken off again.
+	rent := create(alice, domain.KindReminder, domain.EntryFields{Text: "Rent", Visibility: domain.VisibilityShared, Bill: &domain.Bill{Cents: 90000, Category: domain.CategoryHome, PaidBy: &alice.ID}})
+	if got, err := s.GetEntry(ctx, rent.ID); err != nil || got.Bill == nil || got.Bill.Cents != 90000 || got.Bill.Category != domain.CategoryHome || got.Bill.PaidBy == nil || *got.Bill.PaidBy != alice.ID {
+		t.Fatalf("bill: %+v, %v", got.Bill, err)
+	}
+	rent.Bill = &domain.Bill{Cents: 1, Category: domain.CategoryOther}
+	if got, err := s.UpdateEntry(ctx, rent); err != nil || got.Bill == nil || got.Bill.PaidBy != nil || got.Bill.Cents != 1 {
+		t.Fatalf("change bill: %+v, %v", got.Bill, err)
+	}
+	rent.Bill = nil
+	if got, err := s.UpdateEntry(ctx, rent); err != nil || got.Bill != nil {
+		t.Fatalf("drop bill: %+v, %v", got.Bill, err)
+	}
+	if err := s.DeleteEntry(ctx, rent.ID); err != nil {
+		t.Fatal(err)
+	}
+
 	// An entry a calendar app made is found by the name the app gave it, in its household only.
 	name := uuid.NewString() + ".ics"
 	synced, err := s.CreateEntry(ctx, domain.Entry{HouseholdID: h, AuthorID: bob.ID, Kind: domain.KindReminder, ICalUID: "uid-1", ICalName: name,

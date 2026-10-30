@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { api, type Entry, type EntryFields, type EntryKind, type HouseholdDetail, type Repeat, type User, type Visibility } from "../api/client";
+import { api, type Entry, type EntryFields, type EntryKind, type ExpenseCategory, type HouseholdDetail, type Repeat, type User, type Visibility } from "../api/client";
 import { fromLocal, matching, toLocalDate, toLocalDateTime, useSuggestions } from "../entries";
+import { categories, centsText, parseCents } from "../money";
 import { Button } from "../ui/Button";
 import { DateRow, FormBlock, FormGroup, Pills, Segmented, SwitchRow } from "../ui/Form";
 import { Sheet } from "../ui/Sheet";
@@ -22,7 +23,7 @@ export function EntrySheet({ household, me, entry, kind: fixedKind, onClose, onS
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [kind, setKind] = useState<EntryKind>(entry?.kind ?? fixedKind ?? "reminder");
   const [text, setText] = useState(entry?.text ?? "");
   const [visibility, setVisibility] = useState<Visibility>(entry?.visibility ?? "shared");
@@ -34,6 +35,11 @@ export function EntrySheet({ household, me, entry, kind: fixedKind, onClose, onS
   const [start, setStart] = useState(entry?.startsAt ? (entry.allDay ? toLocalDate(entry.startsAt) : toLocalDateTime(entry.startsAt)) : "");
   const [end, setEnd] = useState(entry?.endsAt ? (entry.allDay ? toLocalDate(entry.endsAt) : toLocalDateTime(entry.endsAt)) : "");
   const [alert, setAlert] = useState(entry?.alertMinutes !== undefined ? String(entry.alertMinutes) : "");
+  // A shared reminder can be a bill: ticking it off books the amount as an expense.
+  const [isBill, setIsBill] = useState(!!entry?.bill);
+  const [billAmount, setBillAmount] = useState(entry?.bill ? centsText(entry.bill.cents, i18n.language) : "");
+  const [billCategory, setBillCategory] = useState<ExpenseCategory>(entry?.bill?.category ?? "utilities");
+  const [billPayer, setBillPayer] = useState(entry?.bill?.paidBy ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const textRef = useRef<HTMLTextAreaElement & HTMLInputElement>(null);
@@ -60,6 +66,7 @@ export function EntrySheet({ household, me, entry, kind: fixedKind, onClose, onS
       if (dueAt) f.dueAt = fromLocal(dueAt);
       f.repeat = dueAt ? repeat : "never";
       if (assignee && visibility === "shared") f.assigneeId = assignee;
+      if (bill) f.bill = { cents: parseCents(billAmount), category: billCategory, paidBy: billPayer || undefined };
     }
     if (kind === "event") {
       f.allDay = allDay;
@@ -94,6 +101,8 @@ export function EntrySheet({ household, me, entry, kind: fixedKind, onClose, onS
     else setError(res?.error?.message ?? t("entries.failed"));
   }
 
+  const bill = kind === "reminder" && visibility === "shared" && isBill;
+  const billReady = !bill || parseCents(billAmount) > 0;
   const visibilities: Visibility[] = kind === "note" ? ["private", "shared", "reveal"] : ["private", "shared"];
   const repeatPills = (
     <FormBlock label={t("entries.repeat")}>
@@ -111,7 +120,7 @@ export function EntrySheet({ household, me, entry, kind: fixedKind, onClose, onS
         </Button>
       }
       trailing={
-        <Button type="submit" size="sm" disabled={busy || !text.trim() || (kind === "event" && !start) || (visibility === "reveal" && !revealAt)}>
+        <Button type="submit" size="sm" disabled={busy || !text.trim() || !billReady || (kind === "event" && !start) || (visibility === "reveal" && !revealAt)}>
           {t("entries.save")}
         </Button>
       }
@@ -165,6 +174,37 @@ export function EntrySheet({ household, me, entry, kind: fixedKind, onClose, onS
           )}
         </FormGroup>
       )}
+
+      {kind === "reminder" && visibility === "shared" && (
+        <FormGroup>
+          <SwitchRow label={t("entries.bill")} checked={isBill} onChange={setIsBill} />
+          {isBill && (
+            <>
+              <label className="form-row">
+                <span className="form-row-label">{t("money.amount")}</span>
+                <input className="input money-part" inputMode="decimal" value={billAmount} placeholder={centsText(0, i18n.language)} onChange={(e) => setBillAmount(e.target.value)} />
+              </label>
+              <FormBlock label={t("money.categoryLabel")}>
+                <Pills label={t("money.categoryLabel")} value={billCategory} options={categories.map((c) => ({ value: c, label: t(`money.category.${c}`) }))} onChange={setBillCategory} />
+              </FormBlock>
+              {household.members.length > 1 && (
+                <FormBlock label={t("money.paidByLabel")}>
+                  <Segmented
+                    label={t("money.paidByLabel")}
+                    value={billPayer}
+                    options={[
+                      { value: "", label: t("entries.billWhoever") },
+                      ...household.members.map((m) => ({ value: m.user.id, label: m.user.id === me.id ? t("money.you") : m.user.name })),
+                    ]}
+                    onChange={setBillPayer}
+                  />
+                </FormBlock>
+              )}
+            </>
+          )}
+        </FormGroup>
+      )}
+      {bill && <p className="caption muted sheet-hint">{t("entries.billHint")}</p>}
 
       {kind === "event" && (
         <>
