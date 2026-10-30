@@ -23,6 +23,7 @@
     "@mediapipe/tasks-vision": "^0.10.14",
     "i18next": "^26.5.11",
     "livekit-client": "^2.23.0",
+    "mediabunny": "1.64.0",
     "openapi-fetch": "^0.17.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

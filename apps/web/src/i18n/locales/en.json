@@ -109,7 +109,7 @@
     "photo": "Add a photo", "photoChange": "Other photo", "photoRemove": "Remove photo",
     "photoFailed": "The photo didn't work. Please try another one.",
     "video": "Add a video", "videoChange": "Other video", "videoRemove": "Remove video",
-    "videoFailed": "The video didn't work. Please try again.", "videoTooBig": "Pick a video of at most {{max}} MB.", "videoSending": "Sending video… {{percent}}%",
+    "videoFailed": "The video didn't work. Please try again.", "videoTooBig": "This video is too big, even compressed: at most {{max}} MB. Try a shorter one.", "videoReady": "Video ready · {{size}} MB", "videoCompressing": "Compressing video… {{percent}}%", "videoSending": "Sending video… {{percent}}%",
     "empty": { "title": "Your story starts here", "body": "Keep a first moment." },
     "earlier": "Earlier",
     "count": { "moments_one": "{{count}} moment", "moments_other": "{{count}} moments", "thanks_one": "{{count}} thank-you", "thanks_other": "{{count}} thank-yous" },

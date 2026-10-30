@@ -54,7 +54,7 @@ S3_ACCESS_KEY_ID=GK$(openssl rand -hex 12)
 S3_SECRET_ACCESS_KEY=$(openssl rand -hex 32)
 ```
 
-Videos zu Momenten (MP4 oder MOV, bis 200 MB) brauchen den S3-Speicher; ohne ihn nimmt die App keine an. Ältere Fotos bleiben in Postgres und werden weiter angezeigt; ein Foto wandert nach S3, sobald du es ersetzt. Garage speichert seine Daten im Volume `homeloom-garage-data`, sichere das also zusammen mit Postgres. Für einen anderen S3-kompatiblen Speicher setzt du zusätzlich `S3_ENDPOINT` (und `S3_REGION`, `S3_BUCKET`) und legst Bucket und Schlüssel dort selbst an.
+Videos zu Momenten (MP4 oder MOV; die App verkleinert sie auf höchstens 200 MB) brauchen den S3-Speicher; ohne ihn nimmt die App keine an. Ältere Fotos bleiben in Postgres und werden weiter angezeigt; ein Foto wandert nach S3, sobald du es ersetzt. Garage speichert seine Daten im Volume `homeloom-garage-data`, sichere das also zusammen mit Postgres. Für einen anderen S3-kompatiblen Speicher setzt du zusätzlich `S3_ENDPOINT` (und `S3_REGION`, `S3_BUCKET`) und legst Bucket und Schlüssel dort selbst an.
 
 ## Roadmap
 

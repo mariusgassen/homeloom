@@ -86,16 +86,17 @@ export async function uploadPhoto(moment: Moment, photo: Blob) {
   return res?.data;
 }
 
-// The largest video the API takes, in MB; videos are sent as they are.
+// The largest video the API takes, in MB; the app compresses videos first where it can.
 export const maxVideoMB = 200;
 
 // uploadVideo sends a picked video as it is, reporting how much has gone. It uses XHR, because
 // fetch can't tell how far an upload is. It resolves to the moment, or to the API's message.
-export function uploadVideo(moment: Moment, video: File, onProgress: (share: number) => void) {
+export function uploadVideo(moment: Moment, video: Blob, onProgress: (share: number) => void) {
   return new Promise<{ moment?: Moment; error?: string }>((resolve) => {
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", `/v1/moments/${moment.id}/video`);
-    xhr.setRequestHeader("Content-Type", video.type || (/\.mov$/i.test(video.name) ? "video/quicktime" : "video/mp4"));
+    const mov = video instanceof File && /\.mov$/i.test(video.name);
+    xhr.setRequestHeader("Content-Type", video.type || (mov ? "video/quicktime" : "video/mp4"));
     xhr.responseType = "json";
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(e.loaded / e.total);
     xhr.onload = () => {

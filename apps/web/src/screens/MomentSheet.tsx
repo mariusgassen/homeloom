@@ -22,11 +22,15 @@ export function MomentSheet({ household, me, moment, onClose, onSaved }: {
   // undefined keeps the photo as it is, null removes it, a Blob replaces it.
   const [photo, setPhoto] = useState<Blob | null | undefined>(undefined);
   const [preview, setPreview] = useState<string | undefined>(moment?.photoUrl);
-  // The same for the video.
-  const [video, setVideo] = useState<File | null | undefined>(undefined);
+  // The same for the video. Only a compressed video gets a preview here: one that goes as it was
+  // picked is just named.
+  const [video, setVideo] = useState<Blob | null | undefined>(undefined);
   const [videoPreview, setVideoPreview] = useState<string | undefined>(moment?.videoUrl);
-  // How much of the video has gone, while it is sent.
+  // How far the picked video is compressed, or sent.
+  const [compressing, setCompressing] = useState<number | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
+  // The latest pick; a video picked while another is compressed wins.
+  const picks = useRef(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // A moment saved before its photo failed is changed, not made again, on the next try.
@@ -56,15 +60,23 @@ export function MomentSheet({ household, me, moment, onClose, onSaved }: {
     setPreview(URL.createObjectURL(small));
   }
 
-  function pickVideo(file: File | undefined) {
+  async function pickVideo(file: File | undefined) {
     if (!file) return;
-    if (file.size > maxVideoMB << 20) {
+    const pick = ++picks.current;
+    setError(null);
+    setCompressing(0);
+    const small = await import("../compress")
+      .then(({ compressVideo }) => compressVideo(file, (share) => pick === picks.current && setCompressing(share)))
+      .catch(() => undefined);
+    if (pick !== picks.current) return;
+    setCompressing(null);
+    const chosen = small && small.size < file.size ? small : file;
+    if (chosen.size > maxVideoMB << 20) {
       setError(t("moments.videoTooBig", { max: maxVideoMB }));
       return;
     }
-    setError(null);
-    setVideo(file);
-    setVideoPreview(URL.createObjectURL(file));
+    setVideo(chosen);
+    setVideoPreview(chosen === small ? URL.createObjectURL(small) : undefined);
   }
 
   async function submit(e: FormEvent) {
@@ -126,7 +138,7 @@ export function MomentSheet({ household, me, moment, onClose, onSaved }: {
         </Button>
       }
       trailing={
-        <Button type="submit" size="sm" disabled={busy || !text.trim() || !day}>
+        <Button type="submit" size="sm" disabled={busy || compressing !== null || !text.trim() || !day}>
           {t("entries.save")}
         </Button>
       }
@@ -156,18 +168,21 @@ export function MomentSheet({ household, me, moment, onClose, onSaved }: {
       {videoPreview && <video className="moment-photo" src={videoPreview} controls playsInline muted preload="metadata" />}
       <div className="moment-photo-actions">
         <label className="hl-btn hl-btn-secondary hl-btn-sm">
-          {t(videoPreview ? "moments.videoChange" : "moments.video")}
+          {t(videoPreview || video ? "moments.videoChange" : "moments.video")}
           <input className="visually-hidden" type="file" accept="video/mp4,video/quicktime" onChange={(e) => pickVideo(e.target.files?.[0])} />
         </label>
-        {videoPreview && (
-          <Button variant="plain" size="sm" onClick={() => (setVideo(null), setVideoPreview(undefined))}>
+        {(videoPreview || video) && (
+          <Button variant="plain" size="sm" onClick={() => (picks.current++, setCompressing(null), setVideo(null), setVideoPreview(undefined))}>
             {t("moments.videoRemove")}
           </Button>
         )}
       </div>
-      {progress !== null && (
+      {video && !videoPreview && <p className="caption muted">{t("moments.videoReady", { size: Math.ceil(video.size / (1 << 20)) })}</p>}
+      {(compressing ?? progress) !== null && (
         <p className="caption muted" role="status">
-          {t("moments.videoSending", { percent: Math.round(progress * 100) })}
+          {compressing !== null
+            ? t("moments.videoCompressing", { percent: Math.round(compressing * 100) })
+            : t("moments.videoSending", { percent: Math.round((progress ?? 0) * 100) })}
         </p>
       )}
 

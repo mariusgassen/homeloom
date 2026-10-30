@@ -59,8 +59,8 @@ export default defineConfig({
         // Sign-in and API calls must always reach the server, never the app shell.
         navigateFallbackDenylist: apiPaths.map((p) => new RegExp(`^${p}`)),
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
-        // Call effects load their runtime when first used, not with the app.
-        globIgnores: ["mediapipe/**", "assets/effects-*.js"],
+        // Call effects and video compression load their runtime when first used, not with the app.
+        globIgnores: ["mediapipe/**", "assets/effects-*.js", "assets/compress-*.js"],
         // Web Push: showing notifications and opening them (public/push-sw.js).
         importScripts: ["push-sw.js"],
       },

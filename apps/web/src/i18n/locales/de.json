@@ -109,7 +109,7 @@
     "photo": "Foto hinzufügen", "photoChange": "Anderes Foto", "photoRemove": "Foto entfernen",
     "photoFailed": "Das Foto hat nicht geklappt. Versuch bitte ein anderes.",
     "video": "Video hinzufügen", "videoChange": "Anderes Video", "videoRemove": "Video entfernen",
-    "videoFailed": "Das Video hat nicht geklappt. Versuch es bitte nochmal.", "videoTooBig": "Wähl ein Video mit höchstens {{max}} MB.", "videoSending": "Video wird gesendet… {{percent}} %",
+    "videoFailed": "Das Video hat nicht geklappt. Versuch es bitte nochmal.", "videoTooBig": "Das Video ist auch verkleinert zu groß: höchstens {{max}} MB. Versuch ein kürzeres.", "videoReady": "Video bereit · {{size}} MB", "videoCompressing": "Video wird verkleinert… {{percent}} %", "videoSending": "Video wird gesendet… {{percent}} %",
     "empty": { "title": "Hier beginnt eure Geschichte", "body": "Halt den ersten Moment fest." },
     "earlier": "Früher",
     "count": { "moments_one": "{{count}} Moment", "moments_other": "{{count}} Momente", "thanks_one": "{{count}}× Danke", "thanks_other": "{{count}}× Danke" },
