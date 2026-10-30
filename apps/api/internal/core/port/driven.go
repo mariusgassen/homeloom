@@ -222,6 +222,32 @@ type ShoppingRepository interface {
 	RememberAisles(ctx context.Context, householdID uuid.UUID, aisles map[string]domain.Aisle) error
 }
 
+// ChoreRepository keeps the household's chores and what was done. Calls that name a chore or a
+// completion return domain.ErrNotFound when it isn't that household's.
+type ChoreRepository interface {
+	// Chores returns the chores still to do, soonest due first.
+	Chores(ctx context.Context, householdID uuid.UUID, limit int) ([]domain.Chore, error)
+	CreateChore(ctx context.Context, c domain.Chore) (domain.Chore, error)
+	GetChore(ctx context.Context, householdID, id uuid.UUID) (domain.Chore, error)
+	// UpdateChore stores the chore's fields.
+	UpdateChore(ctx context.Context, c domain.Chore) (domain.Chore, error)
+	// DeleteChore deletes it; its completions stay, without it.
+	DeleteChore(ctx context.Context, householdID, id uuid.UUID) error
+	// CompleteChore stores the chore as after and the completion together, if the chore is still
+	// as before (same due day and assignee, not done); else it returns domain.ErrConflict.
+	CompleteChore(ctx context.Context, before, after domain.Chore, done domain.ChoreCompletion) (domain.ChoreCompletion, error)
+	// LastChoreCompletion returns the chore's latest completion, or domain.ErrNotFound.
+	LastChoreCompletion(ctx context.Context, householdID, choreID uuid.UUID) (domain.ChoreCompletion, error)
+	GetChoreCompletion(ctx context.Context, householdID, id uuid.UUID) (domain.ChoreCompletion, error)
+	// UndoChoreCompletion deletes the completion and puts its chore back as it was before, if the
+	// completion is still the chore's latest; else it returns domain.ErrConflict.
+	UndoChoreCompletion(ctx context.Context, done domain.ChoreCompletion) error
+	// ChoreCompletions returns what was done on or after the day since, newest first.
+	ChoreCompletions(ctx context.Context, householdID uuid.UUID, since time.Time, limit int) ([]domain.ChoreCompletion, error)
+	// ThankChoreCompletion records the user's thanks; false when they had already said it.
+	ThankChoreCompletion(ctx context.Context, householdID, id, userID uuid.UUID) (bool, error)
+}
+
 // Grocer is the LLM's sense of where things are in a shop.
 type Grocer interface {
 	// Aisles returns one aisle for each of the texts, in order. It returns domain.ErrUnavailable

@@ -902,6 +902,175 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/chores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The household's chores still to do (members only)
+         * @description Soonest due first; overdue ones are due before today. A one-off chore leaves the list once done. At most 200.
+         */
+        get: operations["listChores"];
+        put?: never;
+        /**
+         * Set up a chore
+         * @description A rotating chore without `assigneeId` starts with you.
+         */
+        post: operations["createChore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/chores/{choreId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                choreId: components["parameters"]["ChoreId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a chore
+         * @description Chores are shared, so every member can change them.
+         */
+        put: operations["updateChore"];
+        post?: never;
+        /**
+         * Delete a chore
+         * @description What was done stays in the history and the tally.
+         */
+        delete: operations["deleteChore"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/chores/{choreId}/done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                choreId: components["parameters"]["ChoreId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tick a chore off as done by you
+         * @description A repeating chore moves to its next day after today or its due day, whichever is later; a
+         *     one-off is done. A rotating chore becomes the turn of the member after you, in the order
+         *     they joined. Once a day per chore.
+         */
+        post: operations["completeChore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/chore-completions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * What was done in the last six weeks (members only)
+         * @description Newest first, also of chores deleted since. At most 300.
+         */
+        get: operations["listChoreCompletions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/chore-completions/{completionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                completionId: components["parameters"]["CompletionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Take back that you did a chore
+         * @description Only your own, and only the chore's latest; the chore goes back to its day and turn before.
+         */
+        delete: operations["undoChoreCompletion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/chore-completions/{completionId}/thanks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                completionId: components["parameters"]["CompletionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say thanks for a chore someone did
+         * @description Whoever did it hears it, the first time you say it. With `gratitude`, the line also becomes
+         *     your gratitude line for today, shared, unless you wrote one already today.
+         */
+        post: operations["thankChoreCompletion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/chore-fairness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Who did how much this week and this month (members only)
+         * @description Points and chores done per current member, the week from Monday, in the household's time zone.
+         */
+        get: operations["getChoreFairness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/home": {
         parameters: {
             query?: never;
@@ -1811,6 +1980,84 @@ export interface components {
             /** @description How often it was used. */
             uses: number;
         };
+        ChoreFields: {
+            title: string;
+            /** @description The effort: 1 small, 2 medium, 3 big. */
+            points: number;
+            repeat?: components["schemas"]["Repeat"];
+            /** @description Each time it is done it becomes the next member's turn. */
+            rotate?: boolean;
+            /**
+             * Format: uuid
+             * @description Whose turn it is; absent means anyone's.
+             */
+            assigneeId?: string;
+            /**
+             * Format: date
+             * @description The day it is due; today when absent.
+             */
+            dueOn?: string;
+        };
+        Chore: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            points: number;
+            repeat: components["schemas"]["Repeat"];
+            rotate: boolean;
+            /** Format: uuid */
+            assigneeId?: string;
+            /** Format: date */
+            dueOn: string;
+            /** Format: uuid */
+            createdBy?: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ChoreCompletion: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: uuid
+             * @description Absent once the chore was deleted.
+             */
+            choreId?: string;
+            title: string;
+            points: number;
+            /**
+             * Format: uuid
+             * @description Who did it.
+             */
+            userId: string;
+            /** Format: date */
+            day: string;
+            /** Format: date-time */
+            doneAt: string;
+            thankedBy: string[];
+        };
+        ChoreThanks: {
+            /** @description A line for your gratitude wall, written if you have none today. */
+            gratitude?: string;
+        };
+        ChoreThanked: {
+            completion: components["schemas"]["ChoreCompletion"];
+            gratitude?: components["schemas"]["Moment"];
+        };
+        ChoreFairness: {
+            week: components["schemas"]["ChoreTally"];
+            month: components["schemas"]["ChoreTally"];
+        };
+        ChoreTally: {
+            /** Format: date */
+            from: string;
+            members: components["schemas"]["ChoreShare"][];
+        };
+        ChoreShare: {
+            /** Format: uuid */
+            userId: string;
+            points: number;
+            count: number;
+        };
         Home: {
             /** @description Whether you have connected your Home Assistant account. */
             connected: boolean;
@@ -2157,6 +2404,8 @@ export interface components {
         MomentId: string;
         CallId: string;
         ShoppingItemId: string;
+        ChoreId: string;
+        CompletionId: string;
         ConversationId: string;
         RecipeSlug: string;
     };
@@ -3802,6 +4051,274 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listChores: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The chores. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Chore"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createChore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChoreFields"];
+            };
+        };
+        responses: {
+            /** @description The new chore. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Chore"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateChore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                choreId: components["parameters"]["ChoreId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChoreFields"];
+            };
+        };
+        responses: {
+            /** @description The chore. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Chore"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteChore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                choreId: components["parameters"]["ChoreId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    completeChore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                choreId: components["parameters"]["ChoreId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What was done. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChoreCompletion"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description Done already today, or a one-off done before (code `chore_done`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listChoreCompletions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The history. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChoreCompletion"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    undoChoreCompletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                completionId: components["parameters"]["CompletionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Undone. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Someone else did it (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description The chore was done again since (code `chore_not_latest`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    thankChoreCompletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                completionId: components["parameters"]["CompletionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ChoreThanks"];
+            };
+        };
+        responses: {
+            /** @description The completion, and the gratitude line if one was written. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChoreThanked"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description You did it yourself (code `own_chore`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getChoreFairness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tallies. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChoreFairness"];
+                };
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];

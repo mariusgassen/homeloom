@@ -34,6 +34,7 @@ type Deps struct {
 	Moments        port.MomentService
 	Cook           port.CookService
 	Shopping       port.ShoppingService
+	Chores         port.ChoreService
 	Home           port.HomeService
 	Watch          port.WatchService
 	Push           port.PushService
@@ -122,6 +123,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 		moments:    d.Moments,
 		cook:       d.Cook,
 		shopping:   d.Shopping,
+		chores:     d.Chores,
 		home:       d.Home,
 		watch:      d.Watch,
 		push:       d.Push,

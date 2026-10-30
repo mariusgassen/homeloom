@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.26.0
+  version: 0.27.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -29,6 +29,7 @@ tags:
   - name: moments
   - name: cook
   - name: shopping
+  - name: chores
   - name: home
   - name: watch
   - name: push
@@ -1201,6 +1202,193 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/households/{householdId}/chores:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [chores]
+      operationId: listChores
+      summary: The household's chores still to do (members only)
+      description: Soonest due first; overdue ones are due before today. A one-off chore leaves the list once done. At most 200.
+      responses:
+        "200":
+          description: The chores.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Chore" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [chores]
+      operationId: createChore
+      summary: Set up a chore
+      description: A rotating chore without `assigneeId` starts with you.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChoreFields" }
+      responses:
+        "201":
+          description: The new chore.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Chore" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/chores/{choreId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/ChoreId"
+    put:
+      tags: [chores]
+      operationId: updateChore
+      summary: Change a chore
+      description: Chores are shared, so every member can change them.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChoreFields" }
+      responses:
+        "200":
+          description: The chore.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Chore" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [chores]
+      operationId: deleteChore
+      summary: Delete a chore
+      description: What was done stays in the history and the tally.
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/chores/{choreId}/done:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/ChoreId"
+    post:
+      tags: [chores]
+      operationId: completeChore
+      summary: Tick a chore off as done by you
+      description: |
+        A repeating chore moves to its next day after today or its due day, whichever is later; a
+        one-off is done. A rotating chore becomes the turn of the member after you, in the order
+        they joined. Once a day per chore.
+      responses:
+        "201":
+          description: What was done.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChoreCompletion" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Done already today, or a one-off done before (code `chore_done`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/households/{householdId}/chore-completions:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [chores]
+      operationId: listChoreCompletions
+      summary: What was done in the last six weeks (members only)
+      description: Newest first, also of chores deleted since. At most 300.
+      responses:
+        "200":
+          description: The history.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ChoreCompletion" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/chore-completions/{completionId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/CompletionId"
+    delete:
+      tags: [chores]
+      operationId: undoChoreCompletion
+      summary: Take back that you did a chore
+      description: Only your own, and only the chore's latest; the chore goes back to its day and turn before.
+      responses:
+        "204": { description: Undone. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Someone else did it (code `not_yours`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: The chore was done again since (code `chore_not_latest`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/households/{householdId}/chore-completions/{completionId}/thanks:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/CompletionId"
+    post:
+      tags: [chores]
+      operationId: thankChoreCompletion
+      summary: Say thanks for a chore someone did
+      description: |
+        Whoever did it hears it, the first time you say it. With `gratitude`, the line also becomes
+        your gratitude line for today, shared, unless you wrote one already today.
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChoreThanks" }
+      responses:
+        "200":
+          description: The completion, and the gratitude line if one was written.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChoreThanked" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: You did it yourself (code `own_chore`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/households/{householdId}/chore-fairness:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [chores]
+      operationId: getChoreFairness
+      summary: Who did how much this week and this month (members only)
+      description: Points and chores done per current member, the week from Monday, in the household's time zone.
+      responses:
+        "200":
+          description: The tallies.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChoreFairness" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/households/{householdId}/home:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -1885,6 +2073,16 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    ChoreId:
+      name: choreId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    CompletionId:
+      name: completionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     ConversationId:
       name: conversationId
       in: path
@@ -2264,6 +2462,82 @@ components:
       properties:
         text: { type: string, description: "The title, as it was last written." }
         uses: { type: integer, minimum: 1, description: How often it was used. }
+
+    ChoreFields:
+      type: object
+      required: [title, points]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 100 }
+        points: { type: integer, minimum: 1, maximum: 3, description: "The effort: 1 small, 2 medium, 3 big." }
+        repeat: { $ref: "#/components/schemas/Repeat" }
+        rotate: { type: boolean, description: Each time it is done it becomes the next member's turn. }
+        assigneeId: { type: string, format: uuid, description: "Whose turn it is; absent means anyone's." }
+        dueOn: { type: string, format: date, description: "The day it is due; today when absent." }
+
+    Chore:
+      type: object
+      required: [id, title, points, repeat, rotate, dueOn, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        points: { type: integer }
+        repeat: { $ref: "#/components/schemas/Repeat" }
+        rotate: { type: boolean }
+        assigneeId: { type: string, format: uuid }
+        dueOn: { type: string, format: date }
+        createdBy: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+
+    ChoreCompletion:
+      type: object
+      required: [id, title, points, userId, day, doneAt, thankedBy]
+      properties:
+        id: { type: string, format: uuid }
+        choreId: { type: string, format: uuid, description: Absent once the chore was deleted. }
+        title: { type: string }
+        points: { type: integer }
+        userId: { type: string, format: uuid, description: Who did it. }
+        day: { type: string, format: date }
+        doneAt: { type: string, format: date-time }
+        thankedBy:
+          type: array
+          items: { type: string, format: uuid }
+
+    ChoreThanks:
+      type: object
+      properties:
+        gratitude: { type: string, maxLength: 200, description: "A line for your gratitude wall, written if you have none today." }
+
+    ChoreThanked:
+      type: object
+      required: [completion]
+      properties:
+        completion: { $ref: "#/components/schemas/ChoreCompletion" }
+        gratitude: { $ref: "#/components/schemas/Moment" }
+
+    ChoreFairness:
+      type: object
+      required: [week, month]
+      properties:
+        week: { $ref: "#/components/schemas/ChoreTally" }
+        month: { $ref: "#/components/schemas/ChoreTally" }
+
+    ChoreTally:
+      type: object
+      required: [from, members]
+      properties:
+        from: { type: string, format: date }
+        members:
+          type: array
+          items: { $ref: "#/components/schemas/ChoreShare" }
+
+    ChoreShare:
+      type: object
+      required: [userId, points, count]
+      properties:
+        userId: { type: string, format: uuid }
+        points: { type: integer }
+        count: { type: integer }
 
     Home:
       type: object

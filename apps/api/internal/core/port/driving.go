@@ -143,6 +143,26 @@ type ShoppingService interface {
 	Suggestions(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.TitleSuggestion, error)
 }
 
+// ChoreService is the household's chores: who does what, in turns, and who did how much.
+type ChoreService interface {
+	// List returns the chores still to do, soonest due first.
+	List(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.Chore, error)
+	Create(ctx context.Context, actor domain.User, householdID uuid.UUID, f domain.ChoreFields) (domain.Chore, error)
+	Update(ctx context.Context, actor domain.User, householdID, id uuid.UUID, f domain.ChoreFields) (domain.Chore, error)
+	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
+	// Complete ticks the chore off as done by the actor: it moves to its next day and, when it
+	// rotates, to the next member.
+	Complete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) (domain.ChoreCompletion, error)
+	// Undo takes back the actor's own latest completion of a chore.
+	Undo(ctx context.Context, actor domain.User, householdID, completionID uuid.UUID) error
+	// Thank tells whoever did it thanks. With a line, it also becomes the actor's gratitude line
+	// for today, unless they wrote one already; the line is returned when it was written.
+	Thank(ctx context.Context, actor domain.User, householdID, completionID uuid.UUID, line string) (domain.ChoreCompletion, *domain.Moment, error)
+	// History returns what was done in the last weeks, newest first.
+	History(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.ChoreCompletion, error)
+	Fairness(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.ChoreFairness, error)
+}
+
 type HomeService interface {
 	// Connect starts the actor's sign-in at Home Assistant and returns where to send the browser.
 	Connect(ctx context.Context, actor domain.User, householdID uuid.UUID) (string, error)
