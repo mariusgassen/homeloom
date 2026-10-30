@@ -781,13 +781,47 @@ test("a note opens as its own page to read, and saves its title as a heading on 
   await userEvent.click(screen.getByText("Trip"));
   expect(await screen.findByRole("heading", { name: "Trip" })).toBeInTheDocument();
   expect(screen.getByText("light").tagName).toBe("STRONG");
-  await userEvent.click(screen.getByRole("button", { name: "Write" }));
+  await userEvent.click(screen.getByRole("radio", { name: "Write" }));
   const title = screen.getByLabelText("Title");
   await userEvent.clear(title);
   await userEvent.type(title, "Rome trip");
   await userEvent.click(screen.getByRole("button", { name: "Notes" }));
   expect(await screen.findByRole("tab", { name: "Notes" })).toHaveAttribute("aria-selected", "true");
   expect(await calls.find((c) => c.method === "PUT")?.json()).toEqual({ text: "# Rome trip\n\nPack **light**", visibility: "shared", repeat: "never" });
+});
+
+test("discarding a note puts back what it said when opened", async () => {
+  const note = entry({ kind: "note", text: "# Trip\n\nPack light", title: "Trip" });
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([note])),
+    at("GET", `/v1/entries/${note.id}`, () => json(note)),
+    at("PUT", `/v1/entries/${note.id}`, () => json(note)),
+  );
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  renderApp(`/lists/notes/${note.id}`);
+  await userEvent.click(await screen.findByRole("radio", { name: "Write" }));
+  expect(screen.queryByRole("button", { name: "Discard" })).not.toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText("Title"), " to Rome");
+  await userEvent.click(screen.getByRole("button", { name: "Discard" }));
+  expect(await screen.findByRole("tab", { name: "Notes" })).toHaveAttribute("aria-selected", "true");
+  // Nothing had been saved yet, so nothing is written back.
+  expect(calls.some((c) => c.method === "PUT")).toBe(false);
+});
+
+test("a note is deleted from its page", async () => {
+  const note = entry({ kind: "note", text: "# Trip", title: "Trip" });
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([])),
+    at("GET", `/v1/entries/${note.id}`, () => json(note)),
+    at("DELETE", `/v1/entries/${note.id}`, () => new Response(null, { status: 204 })),
+  );
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  renderApp(`/lists/notes/${note.id}`);
+  await userEvent.click(await screen.findByRole("button", { name: "Delete" }));
+  await screen.findByText("No notes yet");
+  expect(calls.some((c) => c.method === "DELETE")).toBe(true);
 });
 
 test("an empty new note is never saved", async () => {

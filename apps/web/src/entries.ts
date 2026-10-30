@@ -37,6 +37,13 @@ export async function setDone(entry: Entry, done: boolean) {
   return res?.data;
 }
 
+// Deletes an entry after asking; true once it is gone.
+export async function removeEntry(entry: Entry, confirm: string) {
+  if (!window.confirm(confirm)) return false;
+  const res = await api.DELETE("/v1/entries/{entryId}", { params: { path: { entryId: entry.id } } }).catch(() => undefined);
+  return !!res?.response.ok;
+}
+
 // <input type="datetime-local"> and <input type="date"> speak local wall-clock time without a zone.
 const pad = (n: number) => String(n).padStart(2, "0");
 
