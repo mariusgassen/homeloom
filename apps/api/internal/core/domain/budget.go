@@ -25,6 +25,7 @@ var (
 	// ErrPayer means the payer (or a settlement's receiver) is not a member, or a settlement pays oneself.
 	ErrPayer    = fmt.Errorf("%w: who paid must be a member", ErrInvalid)
 	ErrCategory = fmt.Errorf("%w: unknown category", ErrInvalid)
+	ErrReceipt  = fmt.Errorf("%w: a receipt must be a JPEG of at most %d MB", ErrInvalid, MaxPhotoBytes>>20)
 	// ErrSettlement means a settlement was to be changed like an expense; delete it and settle again.
 	ErrSettlement = fmt.Errorf("%w: a settlement can't be changed, only deleted", ErrConflict)
 )
@@ -82,8 +83,10 @@ type Expense struct {
 	Day     time.Time
 	Shares  []Share
 	AddedBy *uuid.UUID
-	Created time.Time
-	Updated time.Time
+	// ReceiptAt is when a photo of the receipt was added; nil when there is none.
+	ReceiptAt *time.Time
+	Created   time.Time
+	Updated   time.Time
 }
 
 // ExpenseFields is what a member writes about an expense. No shares means evenly between all members.
@@ -96,12 +99,21 @@ type ExpenseFields struct {
 	Shares   []Share
 }
 
-// ExpenseMonth is one month of expenses, newest day first, and the latest earlier month that has
-// any (zero when there is none).
+// ExpenseMonth is one month of expenses, newest day first, what was spent in it by category, and
+// the latest earlier month that has any (zero when there is none). Settlements count in neither
+// Total nor Categories: paying back isn't spending.
 type ExpenseMonth struct {
-	Month    time.Time
-	Expenses []Expense
-	Earlier  time.Time
+	Month      time.Time
+	Expenses   []Expense
+	Total      int64
+	Categories []CategoryTotal
+	Earlier    time.Time
+}
+
+// CategoryTotal is what a month spent in one category.
+type CategoryTotal struct {
+	Category ExpenseCategory
+	Cents    int64
 }
 
 // Net is where one person stands: positive when the others owe them, negative when they owe.

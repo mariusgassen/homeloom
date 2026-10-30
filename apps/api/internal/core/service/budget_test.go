@@ -110,3 +110,81 @@ func TestBudgetPagesByMonth(t *testing.T) {
 		t.Fatalf("august: %+v", aug)
 	}
 }
+
+func TestBudgetSumsTheMonthByCategory(t *testing.T) {
+	ctx := context.Background()
+	store := memory.NewStore()
+	alice, bob := newUser(t, store, "alice"), newUser(t, store, "bob")
+	m, _ := service.NewHousehold(store).Create(ctx, alice, "Home")
+	hh := m.Household.ID
+	store.AddMember(hh, bob.ID, domain.RoleMember)
+	budget := service.NewBudget(store, store, time.UTC)
+	for _, f := range []domain.ExpenseFields{
+		{Cents: 1000, Category: domain.CategoryFun, PaidBy: alice.ID},
+		{Cents: 3000, Category: domain.CategoryGroceries, PaidBy: bob.ID},
+		{Cents: 500, Category: domain.CategoryFun, PaidBy: bob.ID},
+	} {
+		if _, err := budget.Add(ctx, alice, hh, f); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := budget.Settle(ctx, alice, hh, alice.ID, bob.ID, 999, time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	month, err := budget.Month(ctx, alice, hh, time.Time{})
+	want := []domain.CategoryTotal{{Category: domain.CategoryGroceries, Cents: 3000}, {Category: domain.CategoryFun, Cents: 1500}}
+	if err != nil || month.Total != 4500 || len(month.Categories) != 2 || month.Categories[0] != want[0] || month.Categories[1] != want[1] {
+		t.Fatalf("summary: %d %+v, %v", month.Total, month.Categories, err)
+	}
+}
+
+func TestBudgetKeepsReceipts(t *testing.T) {
+	ctx := context.Background()
+	store := memory.NewStore()
+	alice, eve := newUser(t, store, "alice"), newUser(t, store, "eve")
+	m, _ := service.NewHousehold(store).Create(ctx, alice, "Home")
+	hh := m.Household.ID
+	e, err := service.NewBudget(store, store, time.UTC).Add(ctx, alice, hh, domain.ExpenseFields{Cents: 100, Category: domain.CategoryOther, PaidBy: alice.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	jpeg := domain.Photo{ContentType: "image/jpeg", Data: []byte{0xFF, 0xD8, 0xFF, 1}}
+
+	if _, err := service.NewBudget(store, store, time.UTC).SetReceipt(ctx, alice, hh, e.ID, jpeg); !errors.Is(err, domain.ErrUnavailable) {
+		t.Fatalf("without a store: %v", err)
+	}
+
+	photos := memory.NewPhotos()
+	budget := service.NewBudget(store, store, time.UTC).WithReceipts(photos)
+	if _, err := budget.SetReceipt(ctx, alice, hh, e.ID, domain.Photo{ContentType: "image/jpeg", Data: []byte("<svg>")}); !errors.Is(err, domain.ErrReceipt) {
+		t.Fatalf("not a JPEG: %v", err)
+	}
+	if _, err := budget.SetReceipt(ctx, eve, hh, e.ID, jpeg); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("outsider: %v", err)
+	}
+	if _, err := budget.Receipt(ctx, alice, hh, e.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("no receipt yet: %v", err)
+	}
+	got, err := budget.SetReceipt(ctx, alice, hh, e.ID, jpeg)
+	if err != nil || got.ReceiptAt == nil {
+		t.Fatalf("set: %+v, %v", got, err)
+	}
+	if p, err := budget.Receipt(ctx, alice, hh, e.ID); err != nil || len(p.Data) != 4 {
+		t.Fatalf("read: %v", err)
+	}
+	if got, err := budget.DeleteReceipt(ctx, alice, hh, e.ID); err != nil || got.ReceiptAt != nil {
+		t.Fatalf("delete receipt: %+v, %v", got, err)
+	}
+	if _, err := photos.GetPhoto(ctx, "receipts/"+e.ID.String()+".jpg"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("photo left behind: %v", err)
+	}
+	if _, err := budget.SetReceipt(ctx, alice, hh, e.ID, jpeg); err != nil {
+		t.Fatal(err)
+	}
+	if err := budget.Delete(ctx, alice, hh, e.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := photos.GetPhoto(ctx, "receipts/"+e.ID.String()+".jpg"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("deleting the expense left its receipt: %v", err)
+	}
+}

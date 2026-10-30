@@ -491,7 +491,7 @@ func TestBudgetFlow(t *testing.T) {
 		t.Fatalf("update: %d %v", code, e)
 	}
 	code, month := do(t, h, "GET", expenses+"?month=2026-10", "token-bob", "")
-	if code != 200 || month["month"] != "2026-10" || len(month["expenses"].([]any)) < 1 {
+	if code != 200 || month["month"] != "2026-10" || len(month["expenses"].([]any)) < 1 || month["total"] != float64(5000) || len(month["categories"].([]any)) != 1 {
 		t.Fatalf("month: %d %v", code, month)
 	}
 	if code, _ := do(t, h, "DELETE", expenses+"/"+e["id"].(string), "token-eve", ""); code != 404 {

@@ -129,6 +129,7 @@ type Expense struct {
 	AddedBy     *uuid.UUID
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	ReceiptAt   *time.Time
 }
 
 type ExpenseShare struct {

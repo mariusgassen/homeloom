@@ -148,6 +148,11 @@ type BudgetService interface {
 	// Settle records that from gave to the amount, on day (today when zero).
 	Settle(ctx context.Context, actor domain.User, householdID, from, to uuid.UUID, cents int64, day time.Time) (domain.Expense, error)
 	Balance(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Balance, error)
+	// SetReceipt, Receipt and DeleteReceipt keep a photo of the receipt with an expense. They return
+	// domain.ErrUnavailable when no photo store is set up.
+	SetReceipt(ctx context.Context, actor domain.User, householdID, id uuid.UUID, p domain.Photo) (domain.Expense, error)
+	Receipt(ctx context.Context, actor domain.User, householdID, id uuid.UUID) (domain.Photo, error)
+	DeleteReceipt(ctx context.Context, actor domain.User, householdID, id uuid.UUID) (domain.Expense, error)
 }
 
 type ShoppingService interface {

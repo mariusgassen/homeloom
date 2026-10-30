@@ -250,6 +250,8 @@ type BudgetRepository interface {
 	CreateExpense(ctx context.Context, e domain.Expense) (domain.Expense, error)
 	UpdateExpense(ctx context.Context, e domain.Expense) (domain.Expense, error)
 	DeleteExpense(ctx context.Context, householdID, id uuid.UUID) error
+	// SetExpenseReceipt records when a receipt photo was kept in a PhotoStore; nil when it was removed.
+	SetExpenseReceipt(ctx context.Context, householdID, id uuid.UUID, at *time.Time) (domain.Expense, error)
 	// Nets returns, for everyone with an expense or share, what they paid minus their shares.
 	Nets(ctx context.Context, householdID uuid.UUID) ([]domain.Net, error)
 }

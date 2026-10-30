@@ -31,6 +31,7 @@
   "error.not_found": "Das gibt es nicht, oder du kannst es nicht sehen.",
   "error.not_yours": "Nur wer das geschrieben hat, kann es ändern.",
   "error.push_unavailable": "Mitteilungen sind auf diesem Server nicht eingerichtet.",
+  "error.receipts_unavailable": "Belege können gerade nicht gespeichert werden.",
   "error.settlement_fixed": "Ein Ausgleich lässt sich nicht ändern. Lösch ihn und gleich neu aus.",
   "error.unauthenticated": "Bitte melde dich erneut an.",
   "error.voice_unavailable": "Homeloom kann gerade nicht sprechen.",

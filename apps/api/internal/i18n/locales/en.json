@@ -31,6 +31,7 @@
   "error.not_found": "This doesn't exist or you can't see it.",
   "error.not_yours": "Only the person who wrote this can change it.",
   "error.push_unavailable": "Notifications aren't set up on this server.",
+  "error.receipts_unavailable": "Receipts can't be kept right now.",
   "error.settlement_fixed": "A payback can't be changed. Delete it and settle up again.",
   "error.unauthenticated": "Please sign in again.",
   "error.voice_unavailable": "Homeloom can't speak right now.",

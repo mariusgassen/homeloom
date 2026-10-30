@@ -1,8 +1,11 @@
 package service
 
 import (
+	"bytes"
+	"cmp"
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -21,13 +24,21 @@ import (
 type Budget struct {
 	households port.HouseholdRepository
 	budget     port.BudgetRepository
-	loc        *time.Location
-	now        func() time.Time
+	// receipts keeps photos of receipts; nil means receipts aren't available.
+	receipts port.PhotoStore
+	loc      *time.Location
+	now      func() time.Time
 }
 
 // NewBudget counts days in loc, the household's time zone.
 func NewBudget(households port.HouseholdRepository, budget port.BudgetRepository, loc *time.Location) *Budget {
 	return &Budget{households: households, budget: budget, loc: loc, now: time.Now}
+}
+
+// WithReceipts keeps photos of receipts in photos.
+func (s *Budget) WithReceipts(photos port.PhotoStore) *Budget {
+	s.receipts = photos
+	return s
 }
 
 func (s *Budget) Month(ctx context.Context, actor domain.User, householdID uuid.UUID, month time.Time) (domain.ExpenseMonth, error) {
@@ -42,7 +53,21 @@ func (s *Budget) Month(ctx context.Context, actor domain.User, householdID uuid.
 	if err != nil {
 		return domain.ExpenseMonth{}, err
 	}
-	out := domain.ExpenseMonth{Month: from, Expenses: es}
+	out := domain.ExpenseMonth{Month: from, Expenses: es, Categories: []domain.CategoryTotal{}}
+	byCategory := map[domain.ExpenseCategory]int64{}
+	for _, e := range es {
+		if e.Kind == domain.KindExpense {
+			out.Total += e.Cents
+			byCategory[e.Category] += e.Cents
+		}
+	}
+	for _, c := range domain.ExpenseCategories {
+		if byCategory[c] > 0 {
+			out.Categories = append(out.Categories, domain.CategoryTotal{Category: c, Cents: byCategory[c]})
+		}
+	}
+	// Most spent first; equal amounts keep the order of the categories.
+	slices.SortStableFunc(out.Categories, func(a, b domain.CategoryTotal) int { return cmp.Compare(b.Cents, a.Cents) })
 	earlier, err := s.budget.LatestExpenseDay(ctx, householdID, from)
 	switch {
 	case err == nil:
@@ -97,8 +122,82 @@ func (s *Budget) Delete(ctx context.Context, actor domain.User, householdID, id 
 	if _, err := s.households.Role(ctx, householdID, actor.ID); err != nil {
 		return err
 	}
+	e, err := s.budget.Expense(ctx, householdID, id)
+	if err != nil {
+		return err
+	}
+	// The receipt goes first, so a deleted expense never leaves its photo behind.
+	if e.ReceiptAt != nil {
+		if s.receipts == nil {
+			return domain.ErrUnavailable
+		}
+		if err := s.receipts.DeletePhoto(ctx, receiptKey(id)); err != nil {
+			return storeDown(err)
+		}
+	}
 	return s.budget.DeleteExpense(ctx, householdID, id)
 }
+
+func (s *Budget) SetReceipt(ctx context.Context, actor domain.User, householdID, id uuid.UUID, p domain.Photo) (domain.Expense, error) {
+	if _, err := s.receiptOf(ctx, actor, householdID, id); err != nil {
+		return domain.Expense{}, err
+	}
+	// The app sends JPEGs; checking the bytes as well keeps anything else from being served as one.
+	if p.ContentType != "image/jpeg" || len(p.Data) > domain.MaxPhotoBytes || !bytes.HasPrefix(p.Data, []byte{0xFF, 0xD8, 0xFF}) {
+		return domain.Expense{}, domain.ErrReceipt
+	}
+	if err := s.receipts.PutPhoto(ctx, receiptKey(id), p); err != nil {
+		return domain.Expense{}, storeDown(err)
+	}
+	now := s.now()
+	return s.budget.SetExpenseReceipt(ctx, householdID, id, &now)
+}
+
+func (s *Budget) Receipt(ctx context.Context, actor domain.User, householdID, id uuid.UUID) (domain.Photo, error) {
+	e, err := s.receiptOf(ctx, actor, householdID, id)
+	if err != nil {
+		return domain.Photo{}, err
+	}
+	if e.ReceiptAt == nil {
+		return domain.Photo{}, domain.ErrNotFound
+	}
+	p, err := s.receipts.GetPhoto(ctx, receiptKey(id))
+	if err != nil && !errors.Is(err, domain.ErrNotFound) {
+		return domain.Photo{}, storeDown(err)
+	}
+	return p, err
+}
+
+func (s *Budget) DeleteReceipt(ctx context.Context, actor domain.User, householdID, id uuid.UUID) (domain.Expense, error) {
+	e, err := s.receiptOf(ctx, actor, householdID, id)
+	if err != nil {
+		return domain.Expense{}, err
+	}
+	if e.ReceiptAt == nil {
+		return e, nil
+	}
+	if err := s.receipts.DeletePhoto(ctx, receiptKey(id)); err != nil {
+		return domain.Expense{}, storeDown(err)
+	}
+	return s.budget.SetExpenseReceipt(ctx, householdID, id, nil)
+}
+
+// receiptOf checks membership and that receipts are available, and returns the expense.
+func (s *Budget) receiptOf(ctx context.Context, actor domain.User, householdID, id uuid.UUID) (domain.Expense, error) {
+	if _, err := s.households.Role(ctx, householdID, actor.ID); err != nil {
+		return domain.Expense{}, err
+	}
+	if s.receipts == nil {
+		return domain.Expense{}, domain.ErrUnavailable
+	}
+	return s.budget.Expense(ctx, householdID, id)
+}
+
+// storeDown reports a failing photo store as unavailable, so receipts stop working, not the budget.
+func storeDown(err error) error { return fmt.Errorf("%w: receipts: %w", domain.ErrUnavailable, err) }
+
+// receiptKey is where an expense's receipt is kept in the PhotoStore.
+func receiptKey(id uuid.UUID) string { return "receipts/" + id.String() + ".jpg" }
 
 func (s *Budget) Settle(ctx context.Context, actor domain.User, householdID, from, to uuid.UUID, cents int64, day time.Time) (domain.Expense, error) {
 	members, err := s.members(ctx, actor, householdID)
