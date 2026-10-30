@@ -23,9 +23,17 @@ func (s *Store) WatchConnection(ctx context.Context, userID uuid.UUID) (domain.W
 	if err != nil {
 		return domain.WatchConnection{}, err
 	}
-	return domain.WatchConnection{UserID: c.UserID, Token: c.Token}, nil
+	return domain.WatchConnection{UserID: c.UserID, Token: c.Token, Hidden: c.HiddenLibraries}, nil
 }
 
 func (s *Store) DeleteWatchConnection(ctx context.Context, userID uuid.UUID) error {
 	return s.q.DeleteWatchConnection(ctx, userID)
+}
+
+func (s *Store) SetWatchLibraryHidden(ctx context.Context, userID uuid.UUID, libraryID string, hidden bool) error {
+	n, err := s.q.SetWatchLibraryHidden(ctx, sqlcgen.SetWatchLibraryHiddenParams{UserID: userID, LibraryID: libraryID, Hidden: hidden})
+	if err == nil && n == 0 {
+		return domain.ErrNotFound
+	}
+	return err
 }

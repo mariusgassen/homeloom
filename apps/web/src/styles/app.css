@@ -105,6 +105,9 @@ fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .watch-library[aria-selected="true"], .watch-filter[aria-pressed="true"] { background: var(--spruce-tint); color: var(--spruce); }
 .watch-bar { display: flex; align-items: center; gap: var(--space-2); }
 .watch-bar .caption { flex-grow: 1; }
+.watch-search { flex: 1; min-width: 0; }
+.watch-filter { flex: none; align-self: stretch; padding: 0 var(--space-4); text-transform: none; letter-spacing: 0; font-size: 13px; white-space: nowrap; border-radius: var(--radius-pill); }
+.watch-choose { color: var(--spruce); }
 .watch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: var(--space-4) var(--space-3); }
 .watch-title { display: flex; flex-direction: column; gap: 2px; padding: 0; border: 0; background: none; color: var(--ink); text-align: left; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; min-width: 0; }
 .watch-title:active { transform: scale(.98); }

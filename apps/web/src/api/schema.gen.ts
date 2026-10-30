@@ -968,7 +968,8 @@ export interface paths {
          * @description Each member connects their own Plex account and sees the libraries on their own servers and
          *     on servers friends share with them, with their own watched state. A server that can't be
          *     reached is left out. Until the caller has connected, `connected` is false and `libraries`
-         *     is empty. Read-only: nothing is played or changed.
+         *     is empty. Libraries the caller left out are listed with `included: false`. Read-only:
+         *     nothing is played or changed in Plex.
          */
         get: operations["getWatchShelf"];
         put?: never;
@@ -1021,6 +1022,31 @@ export interface paths {
          *     outside them. Without Plex, every idea is from outside. Ideas from a library carry `title`.
          */
         post: operations["suggestWatch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/watch/libraries/{libraryId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                libraryId: components["schemas"]["MediaId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Include one of your libraries, or leave it out
+         * @description Your own choice: a library you leave out isn't offered on your shelf or used for ideas.
+         *     Every library is included until you leave it out, so new ones show up on their own.
+         *     Nothing changes in Plex. Disconnecting forgets the choice.
+         */
+        put: operations["setWatchLibrary"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1798,6 +1824,11 @@ export interface components {
             server: string;
             /** @description False for a library a friend shares with you. */
             owned: boolean;
+            /** @description False for a library you left out. */
+            included: boolean;
+        };
+        WatchLibrarySetting: {
+            included: boolean;
         };
         /** @enum {string} */
         MediaKind: "movie" | "show";
@@ -3893,6 +3924,34 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    setWatchLibrary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                libraryId: components["schemas"]["MediaId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WatchLibrarySetting"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             503: components["responses"]["Unavailable"];

@@ -21,14 +21,41 @@ func (q *Queries) DeleteWatchConnection(ctx context.Context, userID uuid.UUID) e
 }
 
 const getWatchConnection = `-- name: GetWatchConnection :one
-SELECT user_id, token, created_at FROM watch_connections WHERE user_id = $1
+SELECT user_id, token, created_at, hidden_libraries FROM watch_connections WHERE user_id = $1
 `
 
 func (q *Queries) GetWatchConnection(ctx context.Context, userID uuid.UUID) (WatchConnection, error) {
 	row := q.db.QueryRow(ctx, getWatchConnection, userID)
 	var i WatchConnection
-	err := row.Scan(&i.UserID, &i.Token, &i.CreatedAt)
+	err := row.Scan(
+		&i.UserID,
+		&i.Token,
+		&i.CreatedAt,
+		&i.HiddenLibraries,
+	)
 	return i, err
+}
+
+const setWatchLibraryHidden = `-- name: SetWatchLibraryHidden :execrows
+UPDATE watch_connections SET hidden_libraries = CASE
+    WHEN $1::boolean THEN array_append(array_remove(hidden_libraries, $2::text), $2::text)
+    ELSE array_remove(hidden_libraries, $2::text)
+END
+WHERE user_id = $3
+`
+
+type SetWatchLibraryHiddenParams struct {
+	Hidden    bool
+	LibraryID string
+	UserID    uuid.UUID
+}
+
+func (q *Queries) SetWatchLibraryHidden(ctx context.Context, arg SetWatchLibraryHiddenParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setWatchLibraryHidden, arg.Hidden, arg.LibraryID, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const upsertWatchConnection = `-- name: UpsertWatchConnection :exec

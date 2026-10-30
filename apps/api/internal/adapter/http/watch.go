@@ -27,7 +27,7 @@ func (h *handlers) GetWatchShelf(ctx context.Context, req oapi.GetWatchShelfRequ
 	}
 	out := oapi.GetWatchShelf200JSONResponse{Connected: shelf.Connected, Libraries: make([]oapi.WatchLibrary, len(shelf.Libraries))}
 	for i, l := range shelf.Libraries {
-		out.Libraries[i] = oapi.WatchLibrary{Id: l.ID, Name: l.Name, Kind: oapi.MediaKind(l.Kind), Server: l.Server, Owned: l.Owned}
+		out.Libraries[i] = oapi.WatchLibrary{Id: l.ID, Name: l.Name, Kind: oapi.MediaKind(l.Kind), Server: l.Server, Owned: l.Owned, Included: l.Included}
 	}
 	return out, nil
 }
@@ -88,6 +88,23 @@ func (h *handlers) DisconnectWatch(ctx context.Context, req oapi.DisconnectWatch
 		return nil, err
 	}
 	return oapi.DisconnectWatch204Response{}, nil
+}
+
+func (h *handlers) SetWatchLibrary(ctx context.Context, req oapi.SetWatchLibraryRequestObject) (oapi.SetWatchLibraryResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = h.watch.Include(ctx, u, req.HouseholdId, req.LibraryId, req.Body.Included)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.SetWatchLibrary404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.Is(err, domain.ErrUnavailable):
+		return oapi.SetWatchLibrary503JSONResponse{UnavailableJSONResponse: watchUnavailable(ctx, err)}, nil
+	case err != nil:
+		return nil, err
+	}
+	return oapi.SetWatchLibrary204Response{}, nil
 }
 
 func (h *handlers) ListWatchTitles(ctx context.Context, req oapi.ListWatchTitlesRequestObject) (oapi.ListWatchTitlesResponseObject, error) {

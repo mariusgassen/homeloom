@@ -250,7 +250,8 @@ type VoiceSetting struct {
 }
 
 type WatchConnection struct {
-	UserID    uuid.UUID
-	Token     string
-	CreatedAt time.Time
+	UserID          uuid.UUID
+	Token           string
+	CreatedAt       time.Time
+	HiddenLibraries []string
 }

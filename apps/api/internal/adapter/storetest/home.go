@@ -3,6 +3,7 @@ package storetest
 import (
 	"context"
 	"errors"
+	"slices"
 	"testing"
 
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/domain"
@@ -54,9 +55,30 @@ func WatchConnections(t *testing.T, s interface {
 			t.Fatal(err)
 		}
 	}
-	if c, err := s.WatchConnection(ctx, alice.ID); err != nil || c.Token != "second" || c.UserID != alice.ID {
+	if c, err := s.WatchConnection(ctx, alice.ID); err != nil || c.Token != "second" || c.UserID != alice.ID || len(c.Hidden) != 0 {
 		t.Fatalf("got %+v, %v", c, err)
 	}
+
+	// Leaving a library out twice lists it once; signing in again keeps the list.
+	for _, step := range []struct {
+		id     string
+		hidden bool
+	}{{"a.1", true}, {"a.2", true}, {"a.1", true}, {"a.2", false}} {
+		if err := s.SetWatchLibraryHidden(ctx, alice.ID, step.id, step.hidden); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := s.SaveWatchConnection(ctx, domain.WatchConnection{UserID: alice.ID, Token: "third"}); err != nil {
+		t.Fatal(err)
+	}
+	if c, err := s.WatchConnection(ctx, alice.ID); err != nil || !slices.Equal(c.Hidden, []string{"a.1"}) {
+		t.Fatalf("hidden: %+v, %v", c, err)
+	}
+	bob := user(t, s, "Bob")
+	if err := s.SetWatchLibraryHidden(ctx, bob.ID, "a.1", true); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("hide without a connection: %v", err)
+	}
+
 	for range 2 {
 		if err := s.DeleteWatchConnection(ctx, alice.ID); err != nil {
 			t.Fatal(err)

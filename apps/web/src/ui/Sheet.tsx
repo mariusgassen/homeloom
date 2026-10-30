@@ -1,8 +1,10 @@
 import { useEffect, useRef, type FormEvent, type PointerEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 // A bottom sheet: a grabber, a bar (leading action, title, trailing action), then the content. It sits above
 // the keyboard (see viewport.ts), closes on a tap outside, Escape, or a swipe down on its top, and is a
-// form when it gets onSubmit.
+// form when it gets onSubmit. It renders into the body, so a moving ancestor (content rising in has a
+// transform) can't pin it to the page instead of the screen.
 export function Sheet({ title, leading, trailing, onClose, onSubmit, children }: {
   title: string;
   leading?: ReactNode;
@@ -55,7 +57,7 @@ export function Sheet({ title, leading, trailing, onClose, onSubmit, children }:
       </div>
     </div>
   );
-  return (
+  return createPortal(
     <div className="sheet-backdrop" onClick={(e) => e.target === e.currentTarget && onClose()}>
       {onSubmit ? (
         <form ref={(el) => void (sheet.current = el)} className="sheet" role="dialog" aria-modal="true" aria-label={title} onSubmit={onSubmit}>
@@ -68,6 +70,7 @@ export function Sheet({ title, leading, trailing, onClose, onSubmit, children }:
           {children}
         </div>
       )}
-    </div>
+    </div>,
+    document.body,
   );
 }

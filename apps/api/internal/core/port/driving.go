@@ -163,6 +163,8 @@ type WatchService interface {
 	CompleteConnect(ctx context.Context, actor domain.User, state string) error
 	Disconnect(ctx context.Context, actor domain.User, householdID uuid.UUID) error
 	Shelf(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Shelf, error)
+	// Include puts a library on the actor's shelf and in ideas, or leaves it out.
+	Include(ctx context.Context, actor domain.User, householdID uuid.UUID, libraryID string, included bool) error
 	Titles(ctx context.Context, actor domain.User, householdID uuid.UUID, libraryID string) ([]domain.Title, error)
 	Poster(ctx context.Context, actor domain.User, householdID uuid.UUID, titleID string) (domain.Poster, error)
 	// Suggest returns ideas that fit the mood, from the actor's libraries when connected and from

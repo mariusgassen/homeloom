@@ -304,6 +304,9 @@ type WatchConnectionRepository interface {
 	SaveWatchConnection(ctx context.Context, c domain.WatchConnection) error
 	// WatchConnection returns domain.ErrNotFound when the person has none.
 	WatchConnection(ctx context.Context, userID uuid.UUID) (domain.WatchConnection, error)
+	// SetWatchLibraryHidden leaves a library out, or puts it back; domain.ErrNotFound without a
+	// connection.
+	SetWatchLibraryHidden(ctx context.Context, userID uuid.UUID, libraryID string, hidden bool) error
 	DeleteWatchConnection(ctx context.Context, userID uuid.UUID) error
 }
 

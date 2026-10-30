@@ -19,6 +19,8 @@ type Library struct {
 	Server string
 	// Owned is false for a library a friend shares.
 	Owned bool
+	// Included is false for a library the person left out: it isn't shown or used for ideas.
+	Included bool
 }
 
 // Title is a movie or a series in a library. Minutes is a movie's length, or an episode's for a
@@ -82,6 +84,8 @@ type Poster struct {
 type WatchConnection struct {
 	UserID uuid.UUID
 	Token  string
+	// Hidden lists the ids of the libraries the person left out.
+	Hidden []string
 }
 
 // PendingWatchConnection is a Plex sign-in that was started and waits for the person to come back.
