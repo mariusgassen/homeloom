@@ -357,6 +357,34 @@ test("the timeline shows the month, brings back a year ago and keeps today's lin
   expect(await post?.json()).toEqual({ kind: "gratitude", text: "The walk", visibility: "private" });
 });
 
+test("a moment's video plays by itself, muted, until autoplay is turned off", async () => {
+  const video = {
+    id: "66666666-6666-4666-8666-666666666665", kind: "moment", authorId: jo.id, day: isoDay(), visibility: "shared", sealed: false, text: "Waves",
+    videoUrl: "/v1/moments/y/video?v=1", createdAt: "2026-10-01T08:00:00Z", updatedAt: "2026-10-01T08:00:00Z",
+  };
+  serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/moments`, () => json({ month: isoDay().slice(0, 7), moments: [video] })),
+    at("GET", `/v1/households/${home.id}/moments/resurfaced`, () => json({ onThisDay: [] })),
+  );
+  const { unmount } = renderApp("/us");
+  expect(await screen.findByText("Waves")).toBeInTheDocument();
+  const player = document.querySelector("video");
+  expect(player?.getAttribute("src")).toBe("/v1/moments/y/video?v=1#t=0.001");
+  expect(player?.muted).toBe(true);
+  expect(player?.loop).toBe(true);
+  unmount();
+
+  renderApp("/settings");
+  const autoplay = await screen.findByRole("switch", { name: /Play videos automatically/ });
+  expect(autoplay).toHaveAttribute("aria-checked", "true");
+  await userEvent.click(autoplay);
+  expect(autoplay).toHaveAttribute("aria-checked", "false");
+  expect(localStorage.getItem("homeloom.autoplayVideos")).toBe("0");
+  await userEvent.click(autoplay);
+  expect(localStorage.getItem("homeloom.autoplayVideos")).toBeNull();
+});
+
 test("keeping a moment sends what happened and the day", async () => {
   const calls = serve(
     ...signedIn(),
@@ -440,7 +468,7 @@ test("settings hides notifications when the server has none", async () => {
   serve(...signedIn(), at("GET", "/v1/push", () => json({ code: "push_unavailable", message: "" }, 503)));
   renderApp("/settings");
   expect(await screen.findByRole("button", { name: "Invite someone" })).toBeInTheDocument();
-  expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+  expect(screen.queryByRole("switch", { name: /Notifications/ })).not.toBeInTheDocument();
 });
 
 test("an invite link waits through sign-in, then joins", async () => {
@@ -720,6 +748,18 @@ test("done reminders stay hidden until shown", async () => {
   expect(screen.getByText("Pay rent")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Hide" }));
   expect(screen.queryByText("Pay rent")).not.toBeInTheDocument();
+});
+
+test("the calendar never shows reminders while its events load", async () => {
+  serve(
+    ...signedIn(),
+    // Events never arrive, so whatever the calendar shows is what it shows while loading.
+    (req) => (new URL(req.url).searchParams.get("kind") === "reminder" ? at("GET", `/v1/households/${home.id}/entries`, () => json([entry({ text: "Bins out" })]))(req) : undefined),
+  );
+  renderApp("/lists");
+  expect(await screen.findByText("Bins out")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("tab", { name: "Calendar" }));
+  expect(screen.queryByText("Bins out")).not.toBeInTheDocument();
 });
 
 test("the quick-add sheet suggests reminders set before", async () => {

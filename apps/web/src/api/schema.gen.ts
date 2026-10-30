@@ -673,7 +673,7 @@ export interface paths {
          */
         put: operations["updateMoment"];
         post?: never;
-        /** Delete your moment or line, with its photo */
+        /** Delete your moment or line, with its photo and video */
         delete: operations["deleteMoment"];
         options?: never;
         head?: never;
@@ -702,6 +702,35 @@ export interface paths {
         post?: never;
         /** Remove the photo of your moment */
         delete: operations["deleteMomentPhoto"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/moments/{momentId}/video": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A moment's video
+         * @description Use the moment's `videoUrl`; it changes with the video, so the answer may be cached. Send
+         *     `Range` to stream it: one range comes back as 206, several as the whole video.
+         */
+        get: operations["getMomentVideo"];
+        /**
+         * Add or replace the video of your moment
+         * @description An MP4 or QuickTime video of at most 200 MB, sent as it is. Gratitude lines have no video.
+         *     Videos need the S3 store; without it this answers 503.
+         */
+        put: operations["setMomentVideo"];
+        post?: never;
+        /** Remove the video of your moment */
+        delete: operations["deleteMomentVideo"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1783,11 +1812,13 @@ export interface components {
             visibility: components["schemas"]["Visibility"];
             /** Format: date-time */
             revealAt?: string;
-            /** @description True while you may not read it yet; `text` and `photoUrl` are then absent. */
+            /** @description True while you may not read it yet; `text`, `photoUrl` and `videoUrl` are then absent. */
             sealed: boolean;
             text?: string;
             /** @description Where its photo is */
             photoUrl?: string;
+            /** @description Where its video is */
+            videoUrl?: string;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -3671,6 +3702,130 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description The moment without a photo. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description You can see it but not change it (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getMomentVideo: {
+        parameters: {
+            query?: {
+                /** @description The video's version, part of `videoUrl`. */
+                v?: string;
+            };
+            header?: {
+                /** @description One byte range, `bytes=from-to`, `bytes=from-` or `bytes=-last`. */
+                Range?: string;
+            };
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The whole video. */
+            200: {
+                headers: {
+                    "Accept-Ranges"?: string;
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "video/*": string;
+                };
+            };
+            /** @description The range asked for. */
+            206: {
+                headers: {
+                    "Accept-Ranges"?: string;
+                    "Cache-Control"?: string;
+                    "Content-Range": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "video/*": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description The range lies outside the video. */
+            416: {
+                headers: {
+                    "Content-Range": string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setMomentVideo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "video/*": string;
+            };
+        };
+        responses: {
+            /** @description The moment with its video. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description You can see it but not change it (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    deleteMomentVideo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The moment without a video. */
             200: {
                 headers: {
                     [name: string]: unknown;

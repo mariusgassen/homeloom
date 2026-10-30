@@ -2,6 +2,7 @@ package port
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -97,6 +98,12 @@ type MomentService interface {
 	// Photo returns domain.ErrNotFound unless the actor can see the moment and its photo.
 	Photo(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Photo, error)
 	DeletePhoto(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Moment, error)
+	// SetVideo streams r in as the video of the actor's moment. It is domain.ErrUnavailable without
+	// a VideoStore.
+	SetVideo(ctx context.Context, actor domain.User, id uuid.UUID, contentType string, r io.Reader) (domain.Moment, error)
+	// Video returns domain.ErrNotFound unless the actor can see the moment and its video.
+	Video(ctx context.Context, actor domain.User, id uuid.UUID) (domain.VideoStream, error)
+	DeleteVideo(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Moment, error)
 }
 
 // EntrySyncService lets a calendar app (over CalDAV) or a notes app (over WebDAV) read and change

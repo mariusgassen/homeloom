@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.27.0
+  version: 0.28.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -906,7 +906,7 @@ paths:
     delete:
       tags: [moments]
       operationId: deleteMoment
-      summary: Delete your moment or line, with its photo
+      summary: Delete your moment or line, with its photo and video
       responses:
         "204": { description: Deleted. }
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -972,6 +972,102 @@ paths:
       responses:
         "200":
           description: The moment without a photo.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: You can see it but not change it (code `not_yours`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/moments/{momentId}/video:
+    parameters:
+      - $ref: "#/components/parameters/MomentId"
+    get:
+      tags: [moments]
+      operationId: getMomentVideo
+      summary: A moment's video
+      description: |
+        Use the moment's `videoUrl`; it changes with the video, so the answer may be cached. Send
+        `Range` to stream it: one range comes back as 206, several as the whole video.
+      parameters:
+        - name: v
+          in: query
+          description: The video's version, part of `videoUrl`.
+          schema: { type: string, maxLength: 40 }
+        - name: Range
+          in: header
+          description: "One byte range, `bytes=from-to`, `bytes=from-` or `bytes=-last`."
+          schema: { type: string, maxLength: 200 }
+      responses:
+        "200":
+          description: The whole video.
+          headers:
+            Accept-Ranges:
+              schema: { type: string }
+            Cache-Control:
+              schema: { type: string }
+          content:
+            video/*:
+              schema: { type: string, format: binary }
+        "206":
+          description: The range asked for.
+          headers:
+            Accept-Ranges:
+              schema: { type: string }
+            Cache-Control:
+              schema: { type: string }
+            Content-Range:
+              required: true
+              schema: { type: string }
+          content:
+            video/*:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "416":
+          description: The range lies outside the video.
+          headers:
+            Content-Range:
+              required: true
+              schema: { type: string }
+    put:
+      tags: [moments]
+      operationId: setMomentVideo
+      summary: Add or replace the video of your moment
+      description: |
+        An MP4 or QuickTime video of at most 200 MB, sent as it is. Gratitude lines have no video.
+        Videos need the S3 store; without it this answers 503.
+      requestBody:
+        required: true
+        content:
+          video/*:
+            schema: { type: string, format: binary }
+      responses:
+        "200":
+          description: The moment with its video.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: You can see it but not change it (code `not_yours`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [moments]
+      operationId: deleteMomentVideo
+      summary: Remove the video of your moment
+      responses:
+        "200":
+          description: The moment without a video.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Moment" }
@@ -2231,9 +2327,10 @@ components:
         day: { type: string, format: date }
         visibility: { $ref: "#/components/schemas/Visibility" }
         revealAt: { type: string, format: date-time }
-        sealed: { type: boolean, description: True while you may not read it yet; `text` and `photoUrl` are then absent. }
+        sealed: { type: boolean, description: "True while you may not read it yet; `text`, `photoUrl` and `videoUrl` are then absent." }
         text: { type: string }
         photoUrl: { type: string, description: Where its photo is, if it has one. }
+        videoUrl: { type: string, description: Where its video is, if it has one. }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 

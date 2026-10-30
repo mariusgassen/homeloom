@@ -140,6 +140,18 @@ func Moments(t *testing.T, s interface {
 	if _, err := s.MomentPhoto(ctx, lake.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("marked photo kept its old copy: %v", err)
 	}
+	if err := s.MarkMomentVideo(ctx, lake.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.GetMoment(ctx, lake.ID); got.VideoAt == nil {
+		t.Fatalf("videoAt not set: %+v", got)
+	}
+	if err := s.ClearMomentVideo(ctx, lake.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.GetMoment(ctx, lake.ID); got.VideoAt != nil {
+		t.Fatalf("videoAt kept: %+v", got)
+	}
 	if err := s.SetMomentPhoto(ctx, lake.ID, domain.Photo{ContentType: "image/jpeg", Data: []byte{1}}); err != nil {
 		t.Fatal(err)
 	}

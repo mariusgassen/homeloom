@@ -23,7 +23,7 @@
     "create": "Haushalt anlegen",
     "failed": "Das hat nicht geklappt. Versuch es bitte noch mal."
   },
-  "settings": { "title": "Einstellungen", "you": "Du", "household": "Haushalt", "owner": "Inhaber:in", "member": "Mitglied", "open": "Haushalt und Einstellungen", "photo": "Foto hinzufügen", "photoChange": "Foto ändern", "photoRemove": "Foto entfernen", "photoFailed": "Das Foto hat nicht geklappt. Probier ein anderes." },
+  "settings": { "title": "Einstellungen", "you": "Du", "household": "Haushalt", "owner": "Inhaber:in", "member": "Mitglied", "open": "Haushalt und Einstellungen", "photo": "Foto hinzufügen", "photoChange": "Foto ändern", "photoRemove": "Foto entfernen", "photoFailed": "Das Foto hat nicht geklappt. Probier ein anderes.", "videos": "Videos", "autoplay": "Videos automatisch abspielen", "autoplayHint": "Ohne Ton, auf diesem Gerät" },
   "push": { "title": "Mitteilungen", "switch": "Mitteilungen auf diesem Gerät", "hint": "Antworten, Erinnerungen und Termine", "install": "Für Mitteilungen auf dem iPhone leg Homeloom zuerst auf deinen Home-Bildschirm: Tipp auf Teilen, dann „Zum Home-Bildschirm“, und öffne es von dort.", "blocked": "Mitteilungen sind blockiert. Erlaube sie in den Einstellungen deines Handys unter Mitteilungen und versuch es nochmal.", "failed": "Das hat nicht geklappt. Versuch es bitte nochmal." },
   "today": {
     "question": { "eyebrow": "Frage des Tages", "title": "Noch keine Frage", "body": "Stell eine. Die Antworten öffnen sich, wenn ihr beide geantwortet habt." },
@@ -109,6 +109,8 @@
     "text": "Was war?", "day": "Tag",
     "photo": "Foto hinzufügen", "photoChange": "Anderes Foto", "photoRemove": "Foto entfernen",
     "photoFailed": "Das Foto hat nicht geklappt. Versuch bitte ein anderes.",
+    "video": "Video hinzufügen", "videoChange": "Anderes Video", "videoRemove": "Video entfernen",
+    "videoFailed": "Das Video hat nicht geklappt. Versuch es bitte nochmal.", "videoTooBig": "Das Video ist auch verkleinert zu groß: höchstens {{max}} MB. Versuch ein kürzeres.", "videoReady": "Video bereit · {{size}} MB", "videoCompressing": "Video wird verkleinert… {{percent}} %", "videoSending": "Video wird gesendet… {{percent}} %",
     "empty": { "title": "Hier beginnt eure Geschichte", "body": "Halt den ersten Moment fest." },
     "earlier": "Früher",
     "count": { "moments_one": "{{count}} Moment", "moments_other": "{{count}} Momente", "thanks_one": "{{count}}× Danke", "thanks_other": "{{count}}× Danke" },

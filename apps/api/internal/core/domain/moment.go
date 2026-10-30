@@ -1,7 +1,9 @@
 package domain
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,6 +14,8 @@ const (
 	MaxGratitudeText = 200
 	// MaxPhotoBytes is the largest photo a moment can have; the app makes photos smaller first.
 	MaxPhotoBytes = 5 << 20
+	// MaxVideoBytes is the largest video a moment can have; videos are sent as they are.
+	MaxVideoBytes = 200 << 20
 	// MaxMomentsPerMonth caps one month of the timeline.
 	MaxMomentsPerMonth = 500
 )
@@ -21,6 +25,9 @@ var (
 	ErrMomentDay = fmt.Errorf("%w: a moment can't be after today", ErrInvalid)
 	// ErrPhoto means a photo that isn't a JPEG of at most MaxPhotoBytes, or one on a gratitude line.
 	ErrPhoto = fmt.Errorf("%w: a photo must be a JPEG of at most %d MB, on a moment", ErrInvalid, MaxPhotoBytes>>20)
+	// ErrVideo means a video that isn't an MP4 or QuickTime file of at most MaxVideoBytes, or one
+	// on a gratitude line.
+	ErrVideo = fmt.Errorf("%w: a video must be an MP4 or QuickTime file of at most %d MB, on a moment", ErrInvalid, MaxVideoBytes>>20)
 	// ErrAvatar means a user's picture that isn't a JPEG of at most MaxPhotoBytes.
 	ErrAvatar = fmt.Errorf("%w: a picture must be a JPEG of at most %d MB", ErrInvalid, MaxPhotoBytes>>20)
 )
@@ -44,10 +51,12 @@ type Moment struct {
 	Kind        MomentKind
 	MomentFields
 	// PhotoAt is when the photo was last set; nil means there is none.
-	PhotoAt   *time.Time
+	PhotoAt *time.Time
+	// VideoAt is when the video was last set; nil means there is none.
+	VideoAt   *time.Time
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	// Sealed means the caller may not read Text or see the photo yet; Text is then empty.
+	// Sealed means the caller may not read Text or see the photo or video yet; Text is then empty.
 	Sealed bool
 }
 
@@ -73,4 +82,16 @@ type MomentMonth struct {
 type Photo struct {
 	ContentType string
 	Data        []byte
+}
+
+// Video is a moment's video, as kept in the VideoStore.
+type Video struct {
+	ContentType string
+	Size        int64
+}
+
+// VideoStream is a video the caller may watch; Open reads length bytes from offset.
+type VideoStream struct {
+	Video
+	Open func(ctx context.Context, offset, length int64) (io.ReadCloser, error)
 }
