@@ -62,6 +62,19 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
         // Call effects load their runtime when first used, not with the app.
         globIgnores: ["mediapipe/**", "assets/effects-*.js"],
+        // Pictures change their URL when they change, so a kept copy is right until it's gone; they
+        // show offline too. The cache is dropped on sign-out (src/cache.ts).
+        runtimeCaching: [
+          {
+            urlPattern: /\/v1\/(users\/[^/]+\/avatar|entries\/[^/]+\/photos\/[^/]+|moments\/[^/]+\/photo|households\/[^/]+\/recipes\/[^/]+\/image)(\?|$)/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "homeloom-pictures",
+              cacheableResponse: { statuses: [200] },
+              expiration: { maxEntries: 300, maxAgeSeconds: 30 * 24 * 60 * 60 },
+            },
+          },
+        ],
         // Web Push: showing notifications and opening them (public/push-sw.js).
         importScripts: ["push-sw.js"],
       },

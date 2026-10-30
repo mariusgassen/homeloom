@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type Moment, type MomentMonth, type Resurfaced } from "./api/client";
+import { cached } from "./cache";
 import { useRefresh } from "./refresh";
 
 // The timeline, a month at a time: the newest month first (or the month asked for), and older
 // ones as the person asks for them.
 export function useTimeline(householdId: string, month?: string) {
-  const [months, setMonths] = useState<MomentMonth[] | null>(null);
+  const [months, setMonths] = useState<MomentMonth[] | null>(() => {
+    const kept = cached<MomentMonth>(`/v1/households/${householdId}/moments`, { month });
+    return kept ? [kept] : null;
+  });
   const [failed, setFailed] = useState(false);
   const [generation, setGeneration] = useState(0);
   const { generation: refreshed, track } = useRefresh();
@@ -42,7 +46,7 @@ export function useTimeline(householdId: string, month?: string) {
 
 // What comes back today: this day in earlier years and a gratitude line from a while ago.
 export function useResurfaced(householdId: string, generation: number) {
-  const [resurfaced, setResurfaced] = useState<Resurfaced | null>(null);
+  const [resurfaced, setResurfaced] = useState<Resurfaced | null>(() => cached<Resurfaced>(`/v1/households/${householdId}/moments/resurfaced`) ?? null);
   const { generation: refreshed, track } = useRefresh();
   useEffect(() => {
     let current = true;

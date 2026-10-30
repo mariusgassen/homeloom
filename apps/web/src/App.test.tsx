@@ -661,6 +661,40 @@ test("pulling down from the top loads the list again", async () => {
   expect(screen.getByText("Bins out")).toBeInTheDocument();
 });
 
+test("the app opens at once from what it kept, and offline too", async () => {
+  const list = `/v1/households/${home.id}/shopping-list`;
+  const milk = { id: "44444444-4444-4444-8444-444444444444", text: "Milk", aisle: "dairy", done: false, createdAt: "2026-10-28T08:00:00Z" };
+  serve(...signedIn(), at("GET", list, () => json([milk])));
+  const first = renderApp("/lists?show=shopping");
+  expect(await screen.findByText("Milk")).toBeInTheDocument();
+  first.unmount();
+
+  // No network: the session and the list are there on the first render, without loading.
+  vi.mocked(fetch).mockRejectedValue(new TypeError("Load failed"));
+  renderApp("/lists?show=shopping");
+  expect(screen.getByRole("heading", { level: 1, name: "Lists" })).toBeInTheDocument();
+  expect(screen.getByText("Milk")).toBeInTheDocument();
+  await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled());
+  expect(screen.getByText("Milk")).toBeInTheDocument();
+});
+
+test("signing out elsewhere drops what the app kept", async () => {
+  serve(...signedIn());
+  const first = renderApp();
+  expect(await screen.findByRole("heading", { level: 1, name: "Today" })).toBeInTheDocument();
+  first.unmount();
+
+  serve(at("GET", "/v1/me", () => json({ code: "unauthenticated", message: "" }, 401)));
+  const second = renderApp();
+  expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
+  second.unmount();
+
+  serve();
+  vi.mocked(fetch).mockRejectedValue(new TypeError("Load failed"));
+  renderApp();
+  expect(await screen.findByRole("button", { name: "Try again" })).toBeInTheDocument();
+});
+
 test("the shopping list adds, ticks and clears items", async () => {
   const list = `/v1/households/${home.id}/shopping-list`;
   const milk = { id: "44444444-4444-4444-8444-444444444444", text: "Milk", aisle: "dairy", done: false, createdAt: "2026-10-28T08:00:00Z" };

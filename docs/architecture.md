@@ -113,7 +113,8 @@ apps/web/
 ```
 
 - The app never sees a token: it starts sign-in with a full navigation to `/auth/login` and then calls the API with the session cookie.
-- The service worker precaches the app shell and never handles `/auth`, `/v1` or the health checks.
+- The service worker precaches the app shell and never handles `/auth`, the health checks or `/v1`, except pictures (avatars, note and moment photos, recipe images): their URLs carry their version, so it keeps them (`homeloom-pictures`, 300 at most, 30 days) and shows them offline.
+- **Offline and instant open** (`src/cache.ts`): the API client keeps the last answer to the GETs the app opens with (the session, entries, the shopping list, moments, questions, recipes) in IndexedDB. The app reads them into memory before its first render, so screens show them at once and load again behind them; when the network fails or the API answers 5xx, the client answers from them. The smart home and other live states are never kept. Answers older than 30 days are dropped; a 401, signing out or another person signing in drops everything, pictures too.
 - Installable on iOS from Safari's "Add to Home Screen". Web Push needs that install on iOS; in Safari itself Settings explains how to add the app.
 
 ## Calendar, reminders and notes

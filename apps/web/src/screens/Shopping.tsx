@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type ShoppingAisle, type ShoppingItem } from "../api/client";
+import { cached } from "../cache";
 import { matching, useShowDone, useSuggestions } from "../entries";
 import { useRefresh } from "../refresh";
 import { Button } from "../ui/Button";
@@ -18,7 +19,7 @@ const aisles: ShoppingAisle[] = ["produce", "bakery", "meat", "dairy", "frozen",
 // what's ticked. Tapping an item offers the other aisles.
 export function Shopping({ householdId, userId }: { householdId: string; userId: string }) {
   const { t } = useTranslation();
-  const [items, setItems] = useState<ShoppingItem[] | null>(null);
+  const [items, setItems] = useState<ShoppingItem[] | null>(() => cached<ShoppingItem[]>(`/v1/households/${householdId}/shopping-list`) ?? null);
   const [failed, setFailed] = useState(false);
   const [text, setText] = useState("");
   const [generation, setGeneration] = useState(0);

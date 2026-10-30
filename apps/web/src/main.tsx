@@ -7,6 +7,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
 import { App } from "./App";
+import { preload } from "./cache";
 import { Crashed } from "./screens/Welcome";
 import { SessionProvider } from "./session";
 import { trackViewport } from "./viewport";
@@ -15,14 +16,17 @@ const root = document.getElementById("root");
 if (!root) throw new Error("#root missing from index.html");
 trackViewport();
 
-createRoot(root).render(
-  <StrictMode>
-    <Crashed>
-      <BrowserRouter>
-        <SessionProvider>
-          <App />
-        </SessionProvider>
-      </BrowserRouter>
-    </Crashed>
-  </StrictMode>,
+// What this device kept opens the app at once, before the network answers.
+void preload().then(() =>
+  createRoot(root).render(
+    <StrictMode>
+      <Crashed>
+        <BrowserRouter>
+          <SessionProvider>
+            <App />
+          </SessionProvider>
+        </BrowserRouter>
+      </Crashed>
+    </StrictMode>,
+  ),
 );
