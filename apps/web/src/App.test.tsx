@@ -678,6 +678,37 @@ test("the app opens at once from what it kept, and offline too", async () => {
   expect(screen.getByText("Milk")).toBeInTheDocument();
 });
 
+test("the shopping list takes items offline and sends them once back online", async () => {
+  const list = `/v1/households/${home.id}/shopping-list`;
+  const calls = serve(...signedIn(), at("GET", list, () => json([])));
+  const first = renderApp("/lists?show=shopping");
+  expect(await screen.findByText("Nothing to buy")).toBeInTheDocument();
+  first.unmount();
+
+  let online = false;
+  vi.spyOn(navigator, "onLine", "get").mockImplementation(() => online);
+  vi.mocked(fetch).mockRejectedValue(new TypeError("Load failed"));
+  renderApp("/lists?show=shopping");
+  await userEvent.type(screen.getByLabelText("Add an item"), "Bread");
+  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  expect(await screen.findByText("Bread")).toBeInTheDocument();
+
+  const bread = { id: "44444444-4444-4444-8444-444444444444", text: "Bread", aisle: "bakery", done: false, createdAt: "2026-10-30T08:00:00Z" };
+  vi.mocked(fetch).mockImplementation(async (req) => {
+    const r = req as Request;
+    calls.push(r);
+    if (r.method === "POST") return json(bread, 201);
+    if (new URL(r.url).pathname === list) return json([bread]);
+    return json({}, 404);
+  });
+  online = true;
+  act(() => void window.dispatchEvent(new Event("online")));
+  await waitFor(() => expect(calls.filter((c) => c.method === "POST")).toHaveLength(1));
+  expect(await calls.find((c) => c.method === "POST")?.json()).toEqual({ text: "Bread" });
+  expect(await screen.findByRole("heading", { name: "Bakery" })).toBeInTheDocument();
+  vi.restoreAllMocks();
+});
+
 test("signing out elsewhere drops what the app kept", async () => {
   serve(...signedIn());
   const first = renderApp();

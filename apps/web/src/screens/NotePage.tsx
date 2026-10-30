@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useParams } from "react-router";
 import { api, type Entry, type EntryFields, type Visibility } from "../api/client";
-import { cached } from "../cache";
 import { fromLocal, toLocalDate } from "../entries";
 import { shrink } from "../moments";
 import { joinNote, splitNote, uploadNotePhoto } from "../notes";
+import { local } from "../outbox";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { Segmented } from "../ui/Form";
@@ -32,7 +32,7 @@ export function NotePage() {
     if (id === "new") return;
     let live = true;
     // A note never opened on this device still opens offline from the notes list it kept.
-    const kept = () => cached<Entry[]>(`/v1/households/${householdId}/entries`, { kind: "note" })?.find((e) => e.id === id);
+    const kept = () => local<Entry[]>(`/v1/households/${householdId}/entries`, { kind: "note" })?.find((e) => e.id === id);
     const show = (e?: Entry) => live && setLoaded(e?.kind === "note" && !e.sealed ? e : null);
     api.GET("/v1/entries/{entryId}", { params: { path: { entryId: id } } }).then(
       (res) => show(res.data ?? (res.response.status >= 500 ? kept() : undefined)),

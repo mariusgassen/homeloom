@@ -921,6 +921,18 @@ func TestEntriesFlow(t *testing.T) {
 	if code, body := do(t, h, "PUT", "/v1/entries/"+r["id"].(string), "token-bob", `{"text":"Bins out","visibility":"shared","dueAt":"2030-01-08T07:00:00Z"}`); code != 200 || body["text"] != "Bins out" || body["repeat"] != "never" {
 		t.Fatalf("bob edits the shared reminder: %d %v", code, body)
 	}
+	// An edit based on an older version is refused; one based on the current version goes through.
+	_, now := do(t, h, "GET", "/v1/entries/"+r["id"].(string), "token-bob", "")
+	stale := `"` + r["updatedAt"].(string) + `"`
+	if code, body := do(t, h, "PUT", "/v1/entries/"+r["id"].(string), "token-alice", `{"text":"Bins","visibility":"shared"}`, "If-Match", stale); code != 412 || body["code"] != "entry_changed" {
+		t.Fatalf("edit an older version: %d %v", code, body)
+	}
+	if code, body := do(t, h, "PUT", "/v1/entries/"+r["id"].(string), "token-alice", `{"text":"Bins","visibility":"shared"}`, "If-Match", "nonsense"); code != 412 {
+		t.Fatalf("edit with a tag that isn't a version: %d %v", code, body)
+	}
+	if code, body := do(t, h, "PUT", "/v1/entries/"+r["id"].(string), "token-alice", `{"text":"Bins out","visibility":"shared","dueAt":"2030-01-08T07:00:00Z"}`, "If-Match", `"`+now["updatedAt"].(string)+`"`); code != 200 {
+		t.Fatalf("edit the current version: %d %v", code, body)
+	}
 	if code, body := do(t, h, "PUT", done, "token-bob", ""); code != 200 || body["doneAt"] == nil || body["doneBy"] == nil {
 		t.Fatalf("tick off: %d %v", code, body)
 	}

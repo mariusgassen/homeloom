@@ -7,6 +7,7 @@
   "error.auth_unavailable": "Die Anmeldung ist gerade nicht erreichbar. Versuch es in einer Minute noch einmal.",
   "error.calls_unavailable": "Anrufe gehen gerade nicht.",
   "error.cooking_unavailable": "Kochen geht gerade nicht.",
+  "error.entry_changed": "Jemand hat das inzwischen geändert, deshalb wurde deine Änderung nicht darübergeschrieben.",
   "error.guest_link_used": "Dieser Link wird schon auf einem anderen Gerät benutzt.",
   "error.home_unavailable": "Dein Zuhause ist gerade nicht erreichbar. Ist Home Assistant eingerichtet und läuft?",
   "error.ideas_unavailable": "Gerade keine Ideen. Versuch es gleich noch einmal.",

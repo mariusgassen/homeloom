@@ -1,6 +1,7 @@
 import { createContext, use, useCallback, useEffect, useState, type ReactNode } from "react";
 import { api, type Household, type HouseholdDetail, type User } from "./api/client";
 import { cached, forget } from "./cache";
+import { clear } from "./outbox";
 
 export type Session =
   | { state: "loading" }
@@ -55,6 +56,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     const res = await api.POST("/auth/logout").catch(() => undefined);
     forget();
+    clear();
     const next = res?.data?.redirectUrl;
     if (next) window.location.assign(next);
     else setSession({ state: "signedOut" });

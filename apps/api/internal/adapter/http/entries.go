@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/http/oapi"
@@ -94,10 +95,18 @@ func (h *handlers) UpdateEntry(ctx context.Context, req oapi.UpdateEntryRequestO
 	if err != nil {
 		return nil, err
 	}
-	e, err := h.entries.Update(ctx, u, req.EntryId, toEntryFields(*req.Body))
+	var base *time.Time
+	if req.Params.IfMatch != nil {
+		// A tag that isn't a time is the zero time, which is no entry's version.
+		t, _ := time.Parse(time.RFC3339Nano, strings.Trim(*req.Params.IfMatch, `"`))
+		base = &t
+	}
+	e, err := h.entries.Update(ctx, u, req.EntryId, toEntryFields(*req.Body), base)
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
 		return oapi.UpdateEntry404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.Is(err, domain.ErrEntryChanged):
+		return oapi.UpdateEntry412JSONResponse(errorBody(ctx, "entry_changed", err.Error())), nil
 	case errors.Is(err, domain.ErrForbidden):
 		return oapi.UpdateEntry403JSONResponse(errorBody(ctx, "not_yours", err.Error())), nil
 	case errors.Is(err, domain.ErrInvalid):

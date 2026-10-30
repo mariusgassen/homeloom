@@ -14,6 +14,7 @@
     "offline": { "title": "Du bist offline", "body": "Homeloom ist wieder da, sobald du es bist." }
   },
   "refresh": { "loading": "Lädt …", "offline": "Du bist offline. Du siehst den letzten Stand." },
+  "offline": { "copy": "(Offline-Kopie)" },
   "crashed": { "title": "Da ist was schiefgelaufen", "body": "Das sollte nicht passieren. Neu laden hilft meistens.", "reload": "Neu laden" },
   "onboarding": {
     "title": "Richte euer Zuhause ein",

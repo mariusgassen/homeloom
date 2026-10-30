@@ -14,6 +14,7 @@
     "offline": { "title": "You're offline", "body": "Homeloom is back as soon as you are." }
   },
   "refresh": { "loading": "Loading…", "offline": "You're offline. This is what was last loaded." },
+  "offline": { "copy": "(offline copy)" },
   "crashed": { "title": "Something went wrong", "body": "That wasn't supposed to happen. Reloading usually helps.", "reload": "Reload" },
   "onboarding": {
     "title": "Set up your home",

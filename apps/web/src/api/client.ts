@@ -1,5 +1,5 @@
 import createClient from "openapi-fetch";
-import { keep } from "../cache";
+import { send } from "../outbox";
 import type { components, paths } from "./schema.gen";
 
 // Same origin: Caddy (production) or the Vite proxy (development) forwards API paths, so the
@@ -8,8 +8,9 @@ export const api = createClient<paths>({
   baseUrl: window.location.origin,
   credentials: "same-origin",
   // Looked up per call rather than captured once, so tests can stub fetch. What the app needs to
-  // open is kept on the device and answers when the network doesn't (cache.ts).
-  fetch: (req) => keep(req, (r) => globalThis.fetch(r)),
+  // open is kept on the device and answers when the network doesn't (cache.ts); changes made
+  // offline wait and go out once it's back (outbox.ts).
+  fetch: (req) => send(req, (r) => globalThis.fetch(r)),
 });
 
 export type User = components["schemas"]["User"];
