@@ -357,7 +357,7 @@ test("the timeline shows the month, brings back a year ago and keeps today's lin
   expect(await post?.json()).toEqual({ kind: "gratitude", text: "The walk", visibility: "private" });
 });
 
-test("a moment's video plays by itself, muted, until autoplay is turned off", async () => {
+test("a moment's video plays by itself, muted, with sound a tap away, until autoplay is turned off", async () => {
   const video = {
     id: "66666666-6666-4666-8666-666666666665", kind: "moment", authorId: jo.id, day: isoDay(), visibility: "shared", sealed: false, text: "Waves",
     videoUrl: "/v1/moments/y/video?v=1", createdAt: "2026-10-01T08:00:00Z", updatedAt: "2026-10-01T08:00:00Z",
@@ -373,6 +373,10 @@ test("a moment's video plays by itself, muted, until autoplay is turned off", as
   expect(player?.getAttribute("src")).toBe("/v1/moments/y/video?v=1#t=0.001");
   expect(player?.muted).toBe(true);
   expect(player?.loop).toBe(true);
+  expect(player?.controls).toBe(false);
+  await userEvent.click(screen.getByRole("button", { name: "Sound on" }));
+  expect(player?.muted).toBe(false);
+  expect(screen.getByRole("button", { name: "Sound off" })).toHaveAttribute("aria-pressed", "true");
   unmount();
 
   renderApp("/settings");

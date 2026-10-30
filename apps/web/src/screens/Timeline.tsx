@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type HouseholdDetail, type Moment, type MomentMonth, type User } from "../api/client";
 import { dayOf, today, useAutoplay, useResurfaced, useTimeline } from "../moments";
@@ -8,6 +8,7 @@ import { Empty } from "../ui/Empty";
 import { Icon } from "../ui/Icon";
 import { ListRow } from "../ui/ListRow";
 import { ThreadAvatar, threadFor } from "../ui/ThreadAvatar";
+import { Video } from "../ui/Video";
 
 // The Us tab's timeline: what comes back today, today's gratitude lines, then month by month.
 export function Timeline({ household, me, month, onOpen }: {
@@ -261,23 +262,8 @@ function MomentCard({ moment: m, me, people, onOpen }: { moment: Moment; me: Use
   );
 }
 
-// A moment's video. With autoplay it plays muted and on repeat while most of it is in view;
-// without, it waits for a tap. "#t=0.001" makes iOS show its first frame instead of black.
+// A moment's video, playing by itself or not as set on this device.
 function MomentVideo({ src }: { src: string }) {
   const [autoplay] = useAutoplay();
-  const ref = useRef<HTMLVideoElement>(null);
-  useEffect(() => {
-    const v = ref.current;
-    if (!autoplay || !v || typeof IntersectionObserver === "undefined") return;
-    const seen = new IntersectionObserver(
-      ([e]) => {
-        if (e?.isIntersecting) v.play().catch(() => undefined);
-        else v.pause();
-      },
-      { threshold: 0.6 },
-    );
-    seen.observe(v);
-    return () => seen.disconnect();
-  }, [autoplay]);
-  return <video ref={ref} className="moment-photo" src={`${src}#t=0.001`} controls playsInline preload="metadata" muted={autoplay} loop={autoplay} />;
+  return <Video src={src} autoplay={autoplay} />;
 }
