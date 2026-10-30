@@ -1,8 +1,10 @@
 package service_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"slices"
 	"strings"
 	"testing"
@@ -221,6 +223,69 @@ func TestPhotosInAStore(t *testing.T) {
 	}
 	if err := f.moments.Delete(ctx, f.alice, old.ID); err != nil || photos.Len() != 0 {
 		t.Fatalf("delete moment: %v, %d in the store", err, photos.Len())
+	}
+}
+
+func TestVideos(t *testing.T) {
+	ctx := context.Background()
+	f := newMomentFixture(t)
+	mp4 := func(n int) io.Reader {
+		return io.MultiReader(strings.NewReader("\x00\x00\x00\x18ftypmp42"), bytes.NewReader(make([]byte, n)))
+	}
+	lake := f.create(t, f.alice, domain.KindMoment, domain.MomentFields{Text: "Lake", Visibility: domain.VisibilityShared})
+	if _, err := f.moments.SetVideo(ctx, f.alice, lake.ID, "video/mp4", mp4(1)); !errors.Is(err, domain.ErrUnavailable) {
+		t.Fatalf("without a store: want ErrUnavailable, got %v", err)
+	}
+	videos := memory.NewVideos()
+	f.moments.WithVideos(videos)
+
+	if _, err := f.moments.SetVideo(ctx, f.bob, lake.ID, "video/mp4", mp4(1)); !errors.Is(err, domain.ErrForbidden) {
+		t.Fatalf("someone else's moment: want ErrForbidden, got %v", err)
+	}
+	if _, err := f.moments.SetVideo(ctx, f.alice, lake.ID, "video/webm", mp4(1)); !errors.Is(err, domain.ErrVideo) {
+		t.Fatalf("other type: want ErrVideo, got %v", err)
+	}
+	if _, err := f.moments.SetVideo(ctx, f.alice, lake.ID, "video/mp4", strings.NewReader("not a video at all")); !errors.Is(err, domain.ErrVideo) {
+		t.Fatalf("not an MP4: want ErrVideo, got %v", err)
+	}
+	if _, err := f.moments.SetVideo(ctx, f.alice, lake.ID, "video/mp4", mp4(domain.MaxVideoBytes)); !errors.Is(err, domain.ErrVideo) || videos.Len() != 0 {
+		t.Fatalf("too big: want ErrVideo and nothing kept, got %v, %d kept", err, videos.Len())
+	}
+	line := f.create(t, f.alice, domain.KindGratitude, domain.MomentFields{Text: "Tea", Visibility: domain.VisibilityShared})
+	if _, err := f.moments.SetVideo(ctx, f.alice, line.ID, "video/mp4", mp4(1)); !errors.Is(err, domain.ErrVideo) {
+		t.Fatalf("gratitude line: want ErrVideo, got %v", err)
+	}
+
+	got, err := f.moments.SetVideo(ctx, f.alice, lake.ID, "video/quicktime", mp4(100))
+	if err != nil || got.VideoAt == nil || videos.Len() != 1 {
+		t.Fatalf("set video: %+v, %v", got, err)
+	}
+	v, err := f.moments.Video(ctx, f.bob, lake.ID)
+	if err != nil || v.Size != 112 || v.ContentType != "video/quicktime" {
+		t.Fatalf("video: %+v, %v", v, err)
+	}
+	r, err := v.Open(ctx, 4, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b, _ := io.ReadAll(r); string(b) != "ftyp" {
+		t.Fatalf("range: %q", b)
+	}
+	if _, err := f.moments.Video(ctx, f.eve, lake.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("outside the household: want ErrNotFound, got %v", err)
+	}
+
+	if got, err := f.moments.DeleteVideo(ctx, f.alice, lake.ID); err != nil || got.VideoAt != nil || videos.Len() != 0 {
+		t.Fatalf("delete video: %+v, %v, %d kept", got, err, videos.Len())
+	}
+	if _, err := f.moments.Video(ctx, f.bob, lake.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("deleted video: want ErrNotFound, got %v", err)
+	}
+	if _, err := f.moments.SetVideo(ctx, f.alice, lake.ID, "video/mp4", mp4(1)); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.moments.Delete(ctx, f.alice, lake.ID); err != nil || videos.Len() != 0 {
+		t.Fatalf("delete moment: %v, %d kept", err, videos.Len())
 	}
 }
 

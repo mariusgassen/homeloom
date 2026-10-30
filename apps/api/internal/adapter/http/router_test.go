@@ -72,7 +72,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Households:    service.NewHousehold(store),
 		Questions:     service.NewQuestion(store, store, push, nil),
 		Entries:       entries,
-		Moments:       service.NewMoments(store, store, store, push, time.UTC),
+		Moments:       service.NewMoments(store, store, store, push, time.UTC).WithVideos(memory.NewVideos()),
 		Cook:          cook,
 		Shopping:      shopping,
 		Home:          home,
@@ -325,6 +325,65 @@ func TestMomentsFlow(t *testing.T) {
 	}
 	if code, _ := do(t, h, "GET", photo, "token-alice", ""); code != 404 {
 		t.Fatalf("removed photo: %d", code)
+	}
+
+	video := "/v1/moments/" + trip["id"].(string) + "/video"
+	send := func(token, contentType, body string) (int, map[string]any) {
+		t.Helper()
+		req := httptest.NewRequest("PUT", video, strings.NewReader(body))
+		req.Header.Set("Content-Type", contentType)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		var out map[string]any
+		_ = json.Unmarshal(rec.Body.Bytes(), &out)
+		return rec.Code, out
+	}
+	mp4 := "\x00\x00\x00\x18ftypmp42 and the rest!!!!" // 29 bytes
+	if code, body := send("token-bob", "video/mp4", mp4); code != 403 || body["code"] != "not_yours" {
+		t.Fatalf("video on someone else's moment: %d %v", code, body)
+	}
+	if code, body := send("token-alice", "video/mp4", "not a video"); code != 400 || body["code"] != "invalid_video" {
+		t.Fatalf("not a video: %d %v", code, body)
+	}
+	code, withVideo := send("token-alice", "video/mp4; codecs=avc1", mp4)
+	videoURL, _ := withVideo["videoUrl"].(string)
+	if code != 200 || !strings.HasPrefix(videoURL, video+"?v=") {
+		t.Fatalf("set video: %d %v", code, withVideo)
+	}
+	watch := func(rng string) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest("GET", videoURL, nil)
+		req.Header.Set("Authorization", "Bearer token-bob")
+		if rng != "" {
+			req.Header.Set("Range", rng)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	if rec := watch(""); rec.Code != 200 || rec.Body.String() != mp4 || rec.Header().Get("Content-Type") != "video/mp4" || rec.Header().Get("Accept-Ranges") != "bytes" {
+		t.Fatalf("whole video: %d %q %v", rec.Code, rec.Body.String(), rec.Header())
+	}
+	for rng, want := range map[string]string{"bytes=4-7": "bytes 4-7/29", "bytes=25-": "bytes 25-28/29", "bytes=-3": "bytes 26-28/29", "bytes=0-1000": "bytes 0-28/29"} {
+		if rec := watch(rng); rec.Code != 206 || rec.Header().Get("Content-Range") != want {
+			t.Fatalf("range %s: %d %v", rng, rec.Code, rec.Header())
+		}
+	}
+	if rec := watch("bytes=4-7"); rec.Body.String() != "ftyp" {
+		t.Fatalf("range body: %q", rec.Body.String())
+	}
+	if rec := watch("bytes=29-"); rec.Code != 416 || rec.Header().Get("Content-Range") != "bytes */29" {
+		t.Fatalf("range outside: %d %v", rec.Code, rec.Header())
+	}
+	if rec := watch("bytes=0-1,4-5"); rec.Code != 200 || rec.Body.String() != mp4 {
+		t.Fatalf("several ranges: %d", rec.Code)
+	}
+	if code, body := do(t, h, "DELETE", video, "token-alice", ""); code != 200 || body["videoUrl"] != nil {
+		t.Fatalf("remove video: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "GET", video, "token-bob", ""); code != 404 {
+		t.Fatalf("removed video: %d", code)
 	}
 
 	if code, body := do(t, h, "PUT", "/v1/moments/"+line["id"].(string), "token-bob", `{"text":"Mine now","visibility":"shared"}`); code != 403 {

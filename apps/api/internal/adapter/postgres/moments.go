@@ -123,6 +123,14 @@ func (s *Store) DeleteMomentPhoto(ctx context.Context, id uuid.UUID) error {
 	return s.q.DeleteMomentPhoto(ctx, id)
 }
 
+func (s *Store) MarkMomentVideo(ctx context.Context, id uuid.UUID) error {
+	return s.q.MarkMomentVideo(ctx, id)
+}
+
+func (s *Store) ClearMomentVideo(ctx context.Context, id uuid.UUID) error {
+	return s.q.ClearMomentVideo(ctx, id)
+}
+
 func (s *Store) HouseholdIDs(ctx context.Context) ([]uuid.UUID, error) {
 	return s.q.ListHouseholdIDs(ctx)
 }
@@ -144,6 +152,6 @@ func toMoment(r sqlcgen.Moment) domain.Moment {
 	return domain.Moment{
 		ID: r.ID, HouseholdID: r.HouseholdID, AuthorID: r.AuthorID, Kind: domain.MomentKind(r.Kind),
 		MomentFields: domain.MomentFields{Day: r.Day, Visibility: domain.Visibility(r.Visibility), RevealAt: r.RevealAt, Text: r.Text},
-		PhotoAt:      r.PhotoAt, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+		PhotoAt:      r.PhotoAt, VideoAt: r.VideoAt, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
 	}
 }

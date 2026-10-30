@@ -42,8 +42,8 @@ services:
       # Calls with Homeloom need speech (OpenAI) and Claude; without either key they're off.
       # The API uses the OpenAI key only for voice previews in Settings.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      # With an S3 key pair new moment photos go to homeloom-garage (or another S3 store at
-      # S3_ENDPOINT); without one they stay in Postgres.
+      # With an S3 key pair new moment photos and videos go to homeloom-garage (or another S3
+      # store at S3_ENDPOINT); without one photos stay in Postgres and moments have no videos.
       S3_ENDPOINT: ${S3_ENDPOINT:-http://homeloom-garage:3900}
       S3_REGION: ${S3_REGION:-garage}
       S3_BUCKET: ${S3_BUCKET:-homeloom}

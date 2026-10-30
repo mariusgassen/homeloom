@@ -54,5 +54,7 @@
   "push.watch_tonight.body": "{title}",
   "push.watch_tonight.title": "{name} hat was für heute Abend ausgesucht",
   "shopping.list": "Einkaufsliste",
-  "voice.preview": "Hi, ich bin Homeloom. So klinge ich, wenn wir reden."
+  "voice.preview": "Hi, ich bin Homeloom. So klinge ich, wenn wir reden.",
+  "error.invalid_video": "Wähl ein MP4- oder MOV-Video mit höchstens {max} MB.",
+  "error.videos_unavailable": "Videos sind auf diesem Server nicht eingerichtet."
 }

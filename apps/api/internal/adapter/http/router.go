@@ -105,13 +105,17 @@ func NewRouter(d Deps) (http.Handler, error) {
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		writeError(r.Context(), w, http.StatusNotFound, "not_found", "")
 	})
-	api := r.With(withAuthSlot, limitBody, validator.OapiRequestValidatorWithOptions(spec, &validator.Options{
-		Options: openapi3filter.Options{
-			AuthenticationFunc: authenticate(d.Identity),
-			MultiError:         false,
-		},
-		ErrorHandlerWithOpts: validationError,
-	}))
+	validate := func(excludeBody bool) func(http.Handler) http.Handler {
+		return validator.OapiRequestValidatorWithOptions(spec, &validator.Options{
+			Options: openapi3filter.Options{
+				AuthenticationFunc: authenticate(d.Identity),
+				MultiError:         false,
+				ExcludeRequestBody: excludeBody,
+			},
+			ErrorHandlerWithOpts: validationError,
+		})
+	}
+	api := r.With(withAuthSlot, limitBody, byUpload(validate(false), validate(true)))
 
 	h := &handlers{
 		version:    d.Version,
@@ -175,12 +179,42 @@ func writeError(ctx context.Context, w http.ResponseWriter, status int, code, de
 	_ = json.NewEncoder(w).Encode(errorBody(ctx, code, detail))
 }
 
+// maxVideoBody bounds a video upload: a video and some room.
+const maxVideoBody = domain.MaxVideoBytes + 64<<10
+
 // limitBody keeps a request body from growing without bound before the validator reads it.
 func limitBody(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.Body = http.MaxBytesReader(w, r.Body, maxBody)
+		limit := int64(maxBody)
+		if videoUpload(r) {
+			limit = maxVideoBody
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		next.ServeHTTP(w, r)
 	})
+}
+
+// byUpload validates a video upload with upload, which leaves the body alone: the validator would
+// read all of it into memory, and the core streams and checks it instead. Everything else goes
+// through validate.
+func byUpload(validate, upload func(http.Handler) http.Handler) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		v, u := validate(next), upload(next)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if videoUpload(r) {
+				u.ServeHTTP(w, r)
+				return
+			}
+			v.ServeHTTP(w, r)
+		})
+	}
+}
+
+// videoUpload is a request that sends a moment's video: PUT /v1/moments/{momentId}/video.
+func videoUpload(r *http.Request) bool {
+	rest, ok := strings.CutPrefix(r.URL.Path, "/v1/moments/")
+	id, ok2 := strings.CutSuffix(rest, "/video")
+	return r.Method == http.MethodPut && ok && ok2 && id != "" && !strings.Contains(id, "/")
 }
 
 // withLanguage negotiates the response language once per request; handlers read it with i18n.FromContext.

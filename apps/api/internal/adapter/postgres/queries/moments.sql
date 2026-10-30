@@ -84,6 +84,12 @@ WITH photo AS (
 )
 UPDATE moments SET photo_at = NULL, updated_at = now() WHERE id = @moment_id;
 
+-- name: MarkMomentVideo :exec
+UPDATE moments SET video_at = now(), updated_at = now() WHERE id = $1;
+
+-- name: ClearMomentVideo :exec
+UPDATE moments SET video_at = NULL, updated_at = now() WHERE id = $1;
+
 -- name: ListHouseholdIDs :many
 SELECT id FROM households ORDER BY id;
 

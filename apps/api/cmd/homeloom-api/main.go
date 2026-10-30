@@ -176,10 +176,10 @@ func run() error {
 			return err
 		}
 	}
-	// Without S3 credentials moment and note photos stay in Postgres.
-	var photos port.PhotoStore
+	// Without S3 credentials moment and note photos stay in Postgres, and moments have no videos.
+	var bucket *s3.Store
 	if cfg.S3AccessKeyID != "" {
-		if photos, err = s3.New(cfg.S3Endpoint, cfg.S3Region, cfg.S3Bucket, cfg.S3AccessKeyID, cfg.S3SecretAccessKey); err != nil {
+		if bucket, err = s3.New(cfg.S3Endpoint, cfg.S3Region, cfg.S3Bucket, cfg.S3AccessKeyID, cfg.S3SecretAccessKey); err != nil {
 			return err
 		}
 	}
@@ -193,14 +193,14 @@ func run() error {
 	defer push.Wait()
 
 	entries := service.NewEntry(store, store, store, push, cfg.TimeZone)
-	if photos != nil {
-		entries.WithPhotos(photos)
+	if bucket != nil {
+		entries.WithPhotos(bucket)
 	}
 	shopping := service.NewShopping(store, store, grocer)
 	go notifyDue(ctx, entries)
 	moments := service.NewMoments(store, store, store, push, cfg.TimeZone)
-	if photos != nil {
-		moments.WithPhotos(photos)
+	if bucket != nil {
+		moments.WithPhotos(bucket).WithVideos(bucket)
 	}
 	go notifyDaily(ctx, moments)
 	cook := service.NewCook(store, book, chef, shopping)
