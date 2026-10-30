@@ -722,6 +722,18 @@ test("done reminders stay hidden until shown", async () => {
   expect(screen.queryByText("Pay rent")).not.toBeInTheDocument();
 });
 
+test("the calendar never shows reminders while its events load", async () => {
+  serve(
+    ...signedIn(),
+    // Events never arrive, so whatever the calendar shows is what it shows while loading.
+    (req) => (new URL(req.url).searchParams.get("kind") === "reminder" ? at("GET", `/v1/households/${home.id}/entries`, () => json([entry({ text: "Bins out" })]))(req) : undefined),
+  );
+  renderApp("/lists");
+  expect(await screen.findByText("Bins out")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("tab", { name: "Calendar" }));
+  expect(screen.queryByText("Bins out")).not.toBeInTheDocument();
+});
+
 test("the quick-add sheet suggests reminders set before", async () => {
   const calls = serve(
     ...signedIn(),
