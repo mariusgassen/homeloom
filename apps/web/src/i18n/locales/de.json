@@ -14,6 +14,7 @@
     "offline": { "title": "Du bist offline", "body": "Homeloom ist wieder da, sobald du es bist." }
   },
   "refresh": { "loading": "Lädt …", "offline": "Du bist offline. Du siehst den letzten Stand." },
+  "sync": { "offlineWaiting_one": "Du bist offline. Deine Änderung geht raus, sobald du wieder online bist.", "offlineWaiting_other": "Du bist offline. Deine {{count}} Änderungen gehen raus, sobald du wieder online bist.", "syncing_one": "Deine Änderung wird gesendet …", "syncing_other": "{{count}} Änderungen werden gesendet …", "waiting_one": "Deine Änderung geht raus, sobald es geht.", "waiting_other": "{{count}} Änderungen gehen raus, sobald es geht.", "copies_one": "Jemand hat das inzwischen geändert, deshalb ist deine Version als Kopie gespeichert. Tippen zum Ausblenden.", "copies_other": "Inzwischen wurde einiges geändert, deshalb sind {{count}} deiner Versionen als Kopien gespeichert. Tippen zum Ausblenden." },
   "offline": { "copy": "(Offline-Kopie)" },
   "crashed": { "title": "Da ist was schiefgelaufen", "body": "Das sollte nicht passieren. Neu laden hilft meistens.", "reload": "Neu laden" },
   "onboarding": {

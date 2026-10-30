@@ -2,7 +2,8 @@ import { useRef, useState, type ReactNode, type TouchEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { useAssistant } from "../assistant";
-import { useOnline, usePull } from "../refresh";
+import { seenCopies } from "../outbox";
+import { useOnline, useOutbox, usePull } from "../refresh";
 import { useSession } from "../session";
 import { cx, Icon } from "../ui/Icon";
 import { Mark } from "../ui/Mark";
@@ -49,11 +50,7 @@ export function Screen({ title, overline, back, action, add, refreshable = true,
           {pull.refreshing && <span className="visually-hidden" role="status">{t("refresh.loading")}</span>}
         </div>
       )}
-      {!online && (
-        <p className="caption offline" role="status">
-          {t("refresh.offline")}
-        </p>
-      )}
+      <SyncStatus online={online} />
       <header className="screen-header">
         <h1 className="large-title">{title}</h1>
       </header>
@@ -64,6 +61,27 @@ export function Screen({ title, overline, back, action, add, refreshable = true,
         </button>
       )}
     </div>
+  );
+}
+
+// A quiet line under the toolbar: offline, changes waiting or going out, or edits kept as copies
+// because someone changed the same thing meanwhile. Tapping the copies line puts it away.
+function SyncStatus({ online }: { online: boolean }) {
+  const { t } = useTranslation();
+  const { pending, syncing, copies } = useOutbox();
+  if (copies > 0) {
+    return (
+      <button type="button" className="caption offline offline-copies" role="status" onClick={seenCopies}>
+        {t("sync.copies", { count: copies })}
+      </button>
+    );
+  }
+  const key = !online ? (pending ? "sync.offlineWaiting" : "refresh.offline") : syncing ? "sync.syncing" : pending ? "sync.waiting" : undefined;
+  if (!key) return null;
+  return (
+    <p className={cx("caption offline", online && "offline-syncing")} role="status">
+      {t(key, { count: pending })}
+    </p>
   );
 }
 

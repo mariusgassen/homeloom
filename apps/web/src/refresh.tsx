@@ -1,5 +1,5 @@
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { drain, onSynced } from "./outbox";
+import { drain, onSynced, outboxState, subscribe as subscribeOutbox } from "./outbox";
 
 // A screen's data hooks list generation in their effect deps and pass their request to track, so
 // a pull (or coming back to the app) loads them again and the spinner knows when they're done.
@@ -87,4 +87,9 @@ export function useOnline() {
     () => navigator.onLine,
     () => true,
   );
+}
+
+// What waits to be sent, whether it is going out now, and how many edits became copies.
+export function useOutbox() {
+  return useSyncExternalStore(subscribeOutbox, outboxState, outboxState);
 }

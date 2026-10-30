@@ -14,6 +14,7 @@
     "offline": { "title": "You're offline", "body": "Homeloom is back as soon as you are." }
   },
   "refresh": { "loading": "Loading…", "offline": "You're offline. This is what was last loaded." },
+  "sync": { "offlineWaiting_one": "You're offline. Your change goes out once you're back.", "offlineWaiting_other": "You're offline. Your {{count}} changes go out once you're back.", "syncing_one": "Sending your change…", "syncing_other": "Sending {{count}} changes…", "waiting_one": "Your change goes out as soon as it can.", "waiting_other": "{{count}} changes go out as soon as they can.", "copies_one": "Someone changed this in the meantime, so yours is kept as a copy. Tap to dismiss.", "copies_other": "Others changed these in the meantime, so {{count}} of yours are kept as copies. Tap to dismiss." },
   "offline": { "copy": "(offline copy)" },
   "crashed": { "title": "Something went wrong", "body": "That wasn't supposed to happen. Reloading usually helps.", "reload": "Reload" },
   "onboarding": {

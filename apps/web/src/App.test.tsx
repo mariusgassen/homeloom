@@ -692,6 +692,7 @@ test("the shopping list takes items offline and sends them once back online", as
   await userEvent.type(screen.getByLabelText("Add an item"), "Bread");
   await userEvent.click(screen.getByRole("button", { name: "Add" }));
   expect(await screen.findByText("Bread")).toBeInTheDocument();
+  expect(screen.getByRole("status")).toHaveTextContent("You're offline. Your change goes out once you're back.");
 
   const bread = { id: "44444444-4444-4444-8444-444444444444", text: "Bread", aisle: "bakery", done: false, createdAt: "2026-10-30T08:00:00Z" };
   vi.mocked(fetch).mockImplementation(async (req) => {
@@ -706,6 +707,7 @@ test("the shopping list takes items offline and sends them once back online", as
   await waitFor(() => expect(calls.filter((c) => c.method === "POST")).toHaveLength(1));
   expect(await calls.find((c) => c.method === "POST")?.json()).toEqual({ text: "Bread" });
   expect(await screen.findByRole("heading", { name: "Bakery" })).toBeInTheDocument();
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
   vi.restoreAllMocks();
 });
 
