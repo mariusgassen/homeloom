@@ -116,6 +116,10 @@ fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .watch-poster-none { display: flex; align-items: center; justify-content: center; color: var(--ink-muted); font: 600 28px/1 var(--font-display); }
 .watch-detail { display: grid; grid-template-columns: 112px 1fr; gap: var(--space-4); align-items: start; }
 .watch-ideas { display: flex; flex-direction: column; gap: var(--space-3); }
+.watch-tonight { display: grid; grid-template-columns: 88px 1fr; gap: var(--space-4); align-items: start; }
+.watch-tonight-text { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.watch-tonight-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-top: var(--space-2); }
+a.hl-btn { text-decoration: none; }
 .watch-idea { display: grid; grid-template-columns: 64px 1fr; gap: var(--space-3); align-items: start; padding: var(--space-3); border: 0; border-radius: var(--radius-md); background: var(--surface-raised); color: var(--ink); text-align: left; font: inherit; }
 button.watch-idea { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 button.watch-idea:active { transform: scale(.98); }

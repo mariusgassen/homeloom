@@ -276,10 +276,14 @@ test("watch filters a library, opens a title and leaves out the libraries you tu
       json([
         { id: "a.10", kind: "movie", name: "Amélie", genres: ["Comedy", "Romance"], minutes: 122, watched: false, summary: "Paris, gently." },
         { id: "a.11", kind: "movie", name: "Heat", genres: ["Crime"], minutes: 170, watched: true },
-        { id: "a.12", kind: "movie", name: "Paddington 2", genres: ["Comedy"], minutes: 103, watched: false },
+        { id: "a.12", kind: "movie", name: "Paddington 2", genres: ["Comedy"], minutes: 103, watched: false, url: "https://app.plex.tv/p2" },
       ]),
     ),
     at("PUT", `/v1/households/${home.id}/watch/libraries/b.1`, () => new Response(null, { status: 204 })),
+    at("GET", `/v1/households/${home.id}/watch/tonight`, () => json({})),
+    at("PUT", `/v1/households/${home.id}/watch/tonight`, () =>
+      json({ titleId: "a.12", kind: "movie", name: "Paddington 2", url: "https://app.plex.tv/p2", pickedBy: marius.id, pickedAt: "2026-10-30T19:00:00Z" }),
+    ),
   );
   renderApp("/watch");
   expect(await screen.findByText("Amélie")).toBeInTheDocument();
@@ -298,15 +302,20 @@ test("watch filters a library, opens a title and leaves out the libraries you tu
   expect(screen.queryByText("Heat")).not.toBeInTheDocument();
 
   await userEvent.click(screen.getByRole("button", { name: /Paddington 2/ }));
-  expect(screen.getByRole("dialog", { name: "Paddington 2" })).toBeInTheDocument();
-  await userEvent.click(within(screen.getByRole("dialog", { name: "Paddington 2" })).getByRole("button", { name: "Done" }));
+  const sheet = screen.getByRole("dialog", { name: "Paddington 2" });
+  expect(within(sheet).getByRole("link", { name: "Open in Plex" })).toHaveAttribute("href", "https://app.plex.tv/p2");
+  await userEvent.click(within(sheet).getByRole("button", { name: "Watch tonight" }));
+  const tonight = await screen.findByRole("region", { name: "Tonight" });
+  expect(within(tonight).getByText("You picked this")).toBeInTheDocument();
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(await calls.find((c) => c.method === "PUT" && c.url.endsWith("/watch/tonight"))?.json()).toEqual({ titleId: "a.12" });
 
   await userEvent.click(screen.getByRole("button", { name: "Choose" }));
   const choose = screen.getByRole("dialog", { name: "Libraries" });
   expect(within(choose).getByRole("switch", { name: "Kids" })).toHaveAttribute("aria-checked", "false");
   await userEvent.click(within(choose).getByRole("switch", { name: "Films · Jo's" }));
-  await waitFor(() => expect(calls.some((c) => c.method === "PUT")).toBe(true));
-  expect(await calls.find((c) => c.method === "PUT")?.json()).toEqual({ included: false });
+  await waitFor(() => expect(calls.some((c) => c.method === "PUT" && c.url.endsWith("/b.1"))).toBe(true));
+  expect(await calls.find((c) => c.method === "PUT" && c.url.endsWith("/b.1"))?.json()).toEqual({ included: false });
   expect(screen.queryByRole("tab", { name: /Films/ })).not.toBeInTheDocument();
 });
 

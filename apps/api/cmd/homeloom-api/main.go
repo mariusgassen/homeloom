@@ -206,7 +206,7 @@ func run() error {
 	cook := service.NewCook(store, book, chef, shopping)
 	homeService := service.NewHome(store, homeConnections, sessions, home)
 	households := service.NewHousehold(store)
-	watch := service.NewWatch(store, watchConnections, sessions, media, critic)
+	watch := service.NewWatch(store, watchConnections, sessions, media, critic).WithTonight(store, push, cfg.TimeZone)
 	assistant := service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone)
 	agents := service.NewAgentAccess(store, sessions, store)
 

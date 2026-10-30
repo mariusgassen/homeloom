@@ -31,6 +31,8 @@ func fakePlex(t *testing.T) (*Client, *int) {
 				{"ratingKey":"11","type":"movie","title":"Paddington","year":2014,"rating":7.5}]}}`))
 		case "/library/sections/2/all":
 			_, _ = w.Write([]byte(`{"MediaContainer":{"Metadata":[{"ratingKey":"20","type":"show","title":"Dark","leafCount":26,"viewedLeafCount":26}]}}`))
+		case "/library/metadata/11":
+			_, _ = w.Write([]byte(`{"MediaContainer":{"Metadata":[{"ratingKey":"11","type":"movie","title":"Paddington","year":2014}]}}`))
 		case "/photo/:/transcode":
 			if r.URL.Query().Get("url") != "/library/metadata/10/thumb" {
 				w.WriteHeader(http.StatusNotFound)
@@ -127,6 +129,16 @@ func TestLibrariesTitlesAndPosters(t *testing.T) {
 	shows, err := c.Titles(ctx, "alice-token", "abc.2")
 	if err != nil || len(shows) != 1 || !shows[0].Watched || shows[0].Episodes != 26 {
 		t.Fatalf("shows: %+v, %v", shows, err)
+	}
+
+	if movies[0].URL != "https://app.plex.tv/desktop/#!/server/abc/details?key=%2Flibrary%2Fmetadata%2F10" {
+		t.Fatalf("arrival link: %q", movies[0].URL)
+	}
+	if one, err := c.Title(ctx, "alice-token", "abc.11"); err != nil || one.Name != "Paddington" || one.ID != "abc.11" || one.Year != 2014 {
+		t.Fatalf("one title: %+v, %v", one, err)
+	}
+	if _, err := c.Title(ctx, "alice-token", "abc.12"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("missing title: %v", err)
 	}
 
 	p, err := c.Poster(ctx, "alice-token", "abc.10")

@@ -51,6 +51,8 @@
   "push.reminder.title": "Reminder",
   "push.revealed.body": "Your answers to “{question}” are open now.",
   "push.revealed.title": "{name} answered too",
+  "push.watch_tonight.body": "{title}",
+  "push.watch_tonight.title": "{name} picked something for tonight",
   "shopping.list": "Shopping list",
   "voice.preview": "Hi, I'm Homeloom. This is how I'll sound when we talk."
 }

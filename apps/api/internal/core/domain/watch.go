@@ -1,6 +1,10 @@
 package domain
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // MediaKind is what a library holds.
 type MediaKind string
@@ -38,6 +42,22 @@ type Title struct {
 	Watched       bool
 	// Episodes is the number of episodes of a series; 0 for a movie.
 	Episodes int
+	// URL opens the title in Plex.
+	URL string
+}
+
+// TonightPick is what a household chose to watch tonight. It keeps the title's name and link, so
+// members whose own Plex can't reach the title still see what was picked. It lasts until the
+// morning after it was picked.
+type TonightPick struct {
+	HouseholdID uuid.UUID
+	TitleID     string
+	Kind        MediaKind
+	Name        string
+	Year        int
+	URL         string
+	PickedBy    uuid.UUID
+	PickedAt    time.Time
 }
 
 const (

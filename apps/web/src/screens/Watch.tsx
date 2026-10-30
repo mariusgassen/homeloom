@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { createContext, use, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
-import { api, type WatchLibrary, type WatchShelf, type WatchTitle } from "../api/client";
+import { api, type TonightPick, type WatchLibrary, type WatchShelf, type WatchTitle } from "../api/client";
 import { useRefresh } from "../refresh";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
@@ -18,6 +18,52 @@ function useHouseholdId() {
   const { session } = useSession();
   if (session.state !== "signedIn" || !session.household) throw new Error("watch without a household");
   return session.household.id;
+}
+
+// Tonight's pick for the household: whatever anyone picked, until the next morning. undefined
+// while loading, null when nothing is picked.
+export function useTonight(householdId: string) {
+  const [pick, setPick] = useState<TonightPick | null>();
+  const { generation } = useRefresh();
+  useEffect(() => {
+    let current = true;
+    api
+      .GET("/v1/households/{householdId}/watch/tonight", { params: { path: { householdId } } })
+      .catch(() => undefined)
+      .then((res) => current && setPick(res?.data?.pick ?? null));
+    return () => {
+      current = false;
+    };
+  }, [householdId, generation]);
+
+  // Returns whether it worked; the others are told by the API.
+  const choose = useCallback(
+    async (title: WatchTitle) => {
+      const res = await api
+        .PUT("/v1/households/{householdId}/watch/tonight", { params: { path: { householdId } }, body: { titleId: title.id } })
+        .catch(() => undefined);
+      if (res?.data) setPick(res.data);
+      return Boolean(res?.data);
+    },
+    [householdId],
+  );
+  const clear = useCallback(async () => {
+    setPick(null);
+    await api.DELETE("/v1/households/{householdId}/watch/tonight", { params: { path: { householdId } } }).catch(() => undefined);
+  }, [householdId]);
+  return { pick, choose, clear };
+}
+
+const TonightContext = createContext<ReturnType<typeof useTonight> | null>(null);
+
+// Who picked it, as a short line: you, or the member by name.
+export function usePickedBy(pick: TonightPick) {
+  const { t } = useTranslation();
+  const { session } = useSession();
+  if (session.state !== "signedIn") return "";
+  if (pick.pickedBy === session.user.id) return t("watch.tonight.byYou");
+  const name = session.household?.members.find((m) => m.user.id === pick.pickedBy)?.user.name;
+  return name ? t("watch.tonight.by", { name }) : "";
 }
 
 const posterURL = (householdId: string, titleId: string) =>
@@ -37,6 +83,7 @@ export function Watch() {
   const [busy, setBusy] = useState(false);
   const [library, setLibrary] = useState<string | null>(null);
   const [choosing, setChoosing] = useState(false);
+  const tonight = useTonight(householdId);
   const { generation: refreshed, track } = useRefresh();
 
   useEffect(() => {
@@ -97,10 +144,13 @@ export function Watch() {
 
   if (unavailable) {
     return (
-      <Screen title={t("watch.title")} back={back}>
-        <WatchIdeas householdId={householdId} />
-        <Empty title={t("watch.offTitle")}>{unavailable}</Empty>
-      </Screen>
+      <TonightContext value={tonight}>
+        <Screen title={t("watch.title")} back={back}>
+          {tonight.pick && <Tonight householdId={householdId} pick={tonight.pick} onClear={tonight.clear} />}
+          <WatchIdeas householdId={householdId} />
+          <Empty title={t("watch.offTitle")}>{unavailable}</Empty>
+        </Screen>
+      </TonightContext>
     );
   }
 
@@ -108,51 +158,80 @@ export function Watch() {
   const libraries = all.filter((l) => l.included);
   const chosen = libraries.find((l) => l.id === library) ?? libraries[0];
   return (
-    <Screen title={t("watch.title")} back={back}>
-      {error && (
-        <p className="callout error" role="alert">
-          {error}
-        </p>
-      )}
-      {!shelf && (
-        <div className="loading-inline">
-          <Mark size={40} weaving label={t("refresh.loading")} />
+    <TonightContext value={tonight}>
+      <Screen title={t("watch.title")} back={back}>
+        {tonight.pick && <Tonight householdId={householdId} pick={tonight.pick} onClear={tonight.clear} />}
+        {error && (
+          <p className="callout error" role="alert">
+            {error}
+          </p>
+        )}
+        {!shelf && (
+          <div className="loading-inline">
+            <Mark size={40} weaving label={t("refresh.loading")} />
+          </div>
+        )}
+        {shelf && !shelf.connected && (
+          <Card
+            tone="sunken"
+            title={t("watch.connectTitle")}
+            footer={
+              <Button size="sm" disabled={busy} onClick={connect}>
+                {t("watch.connect")}
+              </Button>
+            }
+          >
+            {t("watch.connectBody")}
+          </Card>
+        )}
+        {shelf && <WatchIdeas householdId={householdId} />}
+        {shelf?.connected && all.length === 0 && <Empty title={t("watch.emptyTitle")}>{t("watch.emptyBody")}</Empty>}
+        {all.length > 0 && libraries.length === 0 && (
+          <Empty
+            title={t("watch.noneChosenTitle")}
+            action={
+              <Button variant="secondary" size="sm" onClick={() => setChoosing(true)}>
+                {t("watch.choose")}
+              </Button>
+            }
+          />
+        )}
+        {libraries.length > 0 && <LibraryPicker libraries={libraries} chosen={chosen} onPick={setLibrary} onChoose={() => setChoosing(true)} />}
+        {chosen && <Library key={chosen.id} householdId={householdId} library={chosen} />}
+        {shelf?.connected && (
+          <Button variant="plain" size="sm" className="home-disconnect" disabled={busy} onClick={disconnect}>
+            {t("watch.disconnect")}
+          </Button>
+        )}
+        {choosing && <ChooseLibraries libraries={all} onInclude={include} onClose={() => setChoosing(false)} />}
+      </Screen>
+    </TonightContext>
+  );
+}
+
+// What you're watching tonight, at the top: open it in Plex, or pick again.
+function Tonight({ householdId, pick, onClear }: { householdId: string; pick: TonightPick; onClear: () => void }) {
+  const { t } = useTranslation();
+  const by = usePickedBy(pick);
+  return (
+    <section className="watch-tonight hl-card" aria-label={t("watch.tonight.eyebrow")}>
+      <Poster householdId={householdId} title={{ id: pick.titleId, name: pick.name }} />
+      <div className="watch-tonight-text">
+        <span className="hl-eyebrow">{t("watch.tonight.eyebrow")}</span>
+        <h2 className="headline">{pick.name}</h2>
+        <span className="caption muted">{[pick.year, by].filter(Boolean).join(" · ")}</span>
+        <div className="watch-tonight-actions">
+          {pick.url && (
+            <a className="hl-btn hl-btn-primary hl-btn-sm" href={pick.url} target="_blank" rel="noreferrer">
+              {t("watch.openInPlex")}
+            </a>
+          )}
+          <Button variant="plain" size="sm" onClick={onClear}>
+            {t("watch.tonight.clear")}
+          </Button>
         </div>
-      )}
-      {shelf && !shelf.connected && (
-        <Card
-          tone="sunken"
-          title={t("watch.connectTitle")}
-          footer={
-            <Button size="sm" disabled={busy} onClick={connect}>
-              {t("watch.connect")}
-            </Button>
-          }
-        >
-          {t("watch.connectBody")}
-        </Card>
-      )}
-      {shelf && <WatchIdeas householdId={householdId} />}
-      {shelf?.connected && all.length === 0 && <Empty title={t("watch.emptyTitle")}>{t("watch.emptyBody")}</Empty>}
-      {all.length > 0 && libraries.length === 0 && (
-        <Empty
-          title={t("watch.noneChosenTitle")}
-          action={
-            <Button variant="secondary" size="sm" onClick={() => setChoosing(true)}>
-              {t("watch.choose")}
-            </Button>
-          }
-        />
-      )}
-      {libraries.length > 0 && <LibraryPicker libraries={libraries} chosen={chosen} onPick={setLibrary} onChoose={() => setChoosing(true)} />}
-      {chosen && <Library key={chosen.id} householdId={householdId} library={chosen} />}
-      {shelf?.connected && (
-        <Button variant="plain" size="sm" className="home-disconnect" disabled={busy} onClick={disconnect}>
-          {t("watch.disconnect")}
-        </Button>
-      )}
-      {choosing && <ChooseLibraries libraries={all} onInclude={include} onClose={() => setChoosing(false)} />}
-    </Screen>
+      </div>
+    </section>
   );
 }
 
@@ -358,7 +437,7 @@ function FilterSheet({ kind, genres, filters, onChange, onClose }: { kind: Watch
   );
 }
 
-export function Poster({ householdId, title }: { householdId: string; title: WatchTitle }) {
+export function Poster({ householdId, title }: { householdId: string; title: { id: string; name: string } }) {
   const [missing, setMissing] = useState(false);
   if (missing) return <span className="watch-poster watch-poster-none" aria-hidden="true">{title.name.slice(0, 1)}</span>;
   return <img className="watch-poster" src={posterURL(householdId, title.id)} alt="" loading="lazy" onError={() => setMissing(true)} />;
@@ -366,6 +445,15 @@ export function Poster({ householdId, title }: { householdId: string; title: Wat
 
 export function TitleSheet({ householdId, title, onClose, onAnother }: { householdId: string; title: WatchTitle; onClose: () => void; onAnother?: () => void }) {
   const { t, i18n } = useTranslation();
+  const tonight = use(TonightContext);
+  const [failed, setFailed] = useState(false);
+  const picked = tonight?.pick?.titleId === title.id;
+  async function choose() {
+    if (!tonight) return;
+    setFailed(false);
+    if (await tonight.choose(title)) onClose();
+    else setFailed(true);
+  }
   const facts = [
     title.year,
     title.kind === "show" && title.episodes ? t("watch.episodes", { count: title.episodes }) : title.minutes && t("watch.minutes", { count: title.minutes }),
@@ -391,8 +479,23 @@ export function TitleSheet({ householdId, title, onClose, onAnother }: { househo
         </div>
       </div>
       {title.summary && <p className="callout">{title.summary}</p>}
+      {failed && (
+        <p className="callout error" role="alert">
+          {t("watch.failed")}
+        </p>
+      )}
+      {tonight && (
+        <Button block icon={picked ? "check" : "film"} disabled={picked} onClick={choose}>
+          {t(picked ? "watch.tonight.picked" : "watch.tonight.pick")}
+        </Button>
+      )}
+      {title.url && (
+        <a className="hl-btn hl-btn-secondary hl-btn-block" href={title.url} target="_blank" rel="noreferrer">
+          {t("watch.openInPlex")}
+        </a>
+      )}
       {onAnother && (
-        <Button variant="secondary" block onClick={onAnother}>
+        <Button variant="plain" block onClick={onAnother}>
           {t("watch.another")}
         </Button>
       )}

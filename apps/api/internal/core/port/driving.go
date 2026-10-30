@@ -167,6 +167,11 @@ type WatchService interface {
 	Include(ctx context.Context, actor domain.User, householdID uuid.UUID, libraryID string, included bool) error
 	Titles(ctx context.Context, actor domain.User, householdID uuid.UUID, libraryID string) ([]domain.Title, error)
 	Poster(ctx context.Context, actor domain.User, householdID uuid.UUID, titleID string) (domain.Poster, error)
+	// Pick makes one of the actor's titles the household's pick for tonight and tells the others.
+	Pick(ctx context.Context, actor domain.User, householdID uuid.UUID, titleID string) (domain.TonightPick, error)
+	// Tonight returns nil when nothing is picked for tonight.
+	Tonight(ctx context.Context, actor domain.User, householdID uuid.UUID) (*domain.TonightPick, error)
+	ClearTonight(ctx context.Context, actor domain.User, householdID uuid.UUID) error
 	// Suggest returns ideas that fit the mood, from the actor's libraries when connected and from
 	// outside them; domain.ErrUnavailable without an LLM.
 	Suggest(ctx context.Context, actor domain.User, householdID uuid.UUID, mood, lang string) ([]domain.WatchIdea, error)

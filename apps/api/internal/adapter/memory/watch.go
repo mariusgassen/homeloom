@@ -92,6 +92,22 @@ func (m *MediaLibrary) Poster(_ context.Context, token, titleID string) (domain.
 	return domain.Poster{}, domain.ErrNotFound
 }
 
+func (m *MediaLibrary) Title(_ context.Context, token, titleID string) (domain.Title, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if err := m.check(token); err != nil {
+		return domain.Title{}, err
+	}
+	for _, ts := range m.titles {
+		for _, t := range ts {
+			if t.ID == titleID {
+				return t, nil
+			}
+		}
+	}
+	return domain.Title{}, domain.ErrNotFound
+}
+
 // check must be called with mu held.
 func (m *MediaLibrary) check(token string) error {
 	if m.Down {
@@ -148,5 +164,32 @@ func (s *Store) DeleteWatchConnection(_ context.Context, userID uuid.UUID) error
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.watchConnections, userID)
+	return nil
+}
+
+func (s *Store) SaveTonight(_ context.Context, p domain.TonightPick) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.tonight == nil {
+		s.tonight = map[uuid.UUID]domain.TonightPick{}
+	}
+	s.tonight[p.HouseholdID] = p
+	return nil
+}
+
+func (s *Store) Tonight(_ context.Context, householdID uuid.UUID) (domain.TonightPick, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p, ok := s.tonight[householdID]
+	if !ok {
+		return domain.TonightPick{}, domain.ErrNotFound
+	}
+	return p, nil
+}
+
+func (s *Store) DeleteTonight(_ context.Context, householdID uuid.UUID) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.tonight, householdID)
 	return nil
 }

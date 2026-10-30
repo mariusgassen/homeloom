@@ -1028,6 +1028,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/watch/tonight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * What the household picked to watch tonight (members only)
+         * @description A pick lasts until 5 a.m. the morning after, in the household's time zone. Members who
+         *     haven't connected Plex, or can't reach the title, still see it.
+         */
+        get: operations["getWatchTonight"];
+        /** Pick one of your titles for tonight; the other members are told */
+        put: operations["pickWatchTonight"];
+        post?: never;
+        /** Forget tonight's pick */
+        delete: operations["clearWatchTonight"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/watch/libraries/{libraryId}": {
         parameters: {
             query?: never;
@@ -1849,6 +1874,35 @@ export interface components {
             episodes?: number;
             /** @description You have seen the movie, or every episode. */
             watched: boolean;
+            /**
+             * Format: uri
+             * @description Opens the title in Plex.
+             */
+            url?: string;
+        };
+        WatchTonight: {
+            pick?: components["schemas"]["TonightPick"];
+        };
+        WatchTonightChoice: {
+            titleId: components["schemas"]["MediaId"];
+        };
+        TonightPick: {
+            titleId: components["schemas"]["MediaId"];
+            kind: components["schemas"]["MediaKind"];
+            name: string;
+            year?: number;
+            /**
+             * Format: uri
+             * @description Opens the title in Plex.
+             */
+            url?: string;
+            /**
+             * Format: uuid
+             * @description The member who picked it.
+             */
+            pickedBy: string;
+            /** Format: date-time */
+            pickedAt: string;
         };
         WatchMood: {
             /** @description In your own words, e.g. "something light, under two hours"; may be empty. */
@@ -3927,6 +3981,81 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             503: components["responses"]["Unavailable"];
+        };
+    };
+    getWatchTonight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tonight's pick, if there is one. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchTonight"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    pickWatchTonight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WatchTonightChoice"];
+            };
+        };
+        responses: {
+            /** @description The pick. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TonightPick"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    clearWatchTonight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cleared. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     setWatchLibrary: {

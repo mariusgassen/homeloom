@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
-import type { Entry, HouseholdDetail, Moment, Question, User } from "../api/client";
+import type { Entry, HouseholdDetail, Moment, Question, TonightPick, User } from "../api/client";
 import { dueToday, useEntries } from "../entries";
 import { dayOf, useResurfaced } from "../moments";
 import { useSession } from "../session";
@@ -16,6 +16,7 @@ import { MomentSheet } from "./MomentSheet";
 import { AskForm, QuestionCard, useQuestions } from "./questions";
 import { Screen } from "./Screen";
 import { Timeline } from "./Timeline";
+import { usePickedBy, useTonight } from "./Watch";
 
 function useHome() {
   const { session } = useSession();
@@ -61,7 +62,7 @@ export function Today() {
       <NextUp key={generation} household={household} />
       <TodayQuestion household={household} me={me} />
       <Dinner />
-      <Watch />
+      <Watch household={household} />
       <TodayMoment household={household} me={me} />
       {adding && (
         <EntrySheet
@@ -175,10 +176,13 @@ function Dinner() {
   );
 }
 
-// A film or a show for tonight, one tap from the libraries and a surprise pick.
-function Watch() {
+// A film or a show for tonight, one tap from the libraries and a surprise pick; once someone
+// picked, what it is and who chose it.
+function Watch({ household }: { household: HouseholdDetail }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { pick } = useTonight(household.id);
+  if (pick) return <WatchPicked pick={pick} />;
   return (
     <button type="button" className="today-tile today-watch" onClick={() => navigate("/watch")}>
       <span className="today-tile-icon">
@@ -187,6 +191,25 @@ function Watch() {
       <span className="today-tile-text">
         <span className="label">{t("today.watch.eyebrow")}</span>
         <span className="headline">{t("today.watch.title")}</span>
+      </span>
+      <Icon name="chevron" size="sm" />
+    </button>
+  );
+}
+
+function WatchPicked({ pick }: { pick: TonightPick }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const by = usePickedBy(pick);
+  return (
+    <button type="button" className="today-tile today-watch" onClick={() => navigate("/watch")}>
+      <span className="today-tile-icon">
+        <Icon name="film" />
+      </span>
+      <span className="today-tile-text">
+        <span className="label">{t("watch.tonight.eyebrow")}</span>
+        <span className="headline">{pick.name}</span>
+        {by && <span className="caption muted">{by}</span>}
       </span>
       <Icon name="chevron" size="sm" />
     </button>

@@ -255,3 +255,14 @@ type WatchConnection struct {
 	CreatedAt       time.Time
 	HiddenLibraries []string
 }
+
+type WatchTonight struct {
+	HouseholdID uuid.UUID
+	TitleID     string
+	Kind        string
+	Name        string
+	Year        int32
+	Url         string
+	PickedBy    uuid.UUID
+	PickedAt    time.Time
+}
