@@ -1,4 +1,7 @@
-import type { Entry, EntryKind, Household, ShoppingItem, User } from "./api/client";
+import type { components } from "./api/schema.gen";
+import type { Chore, ChoreCompletion, Entry, EntryKind, Expense, ExpenseMonth, Household, HouseholdDetail, ShoppingItem, User } from "./api/client";
+
+type ExpenseShare = components["schemas"]["ExpenseShare"];
 import { cached, keep } from "./cache";
 import i18n from "./i18n";
 import { splitNote } from "./notes";
@@ -24,6 +27,8 @@ type Op = {
   // An entry edit: the version it is based on, and its kind for a copy.
   ifMatch?: string;
   kind?: EntryKind;
+  // A chore ticked off: what it was, to show in what was done until it is sent.
+  chore?: { title: string; points: number };
   at: number;
 };
 
@@ -97,7 +102,15 @@ type Change =
   | { type: "createEntry"; household: string }
   | { type: "updateEntry" | "deleteEntry" | "done" | "undone"; entry: string }
   | { type: "addItem" | "clearDone"; household: string }
-  | { type: "moveItem" | "removeItem" | "tick" | "untick"; household: string; item: string };
+  | { type: "moveItem" | "removeItem" | "tick" | "untick"; household: string; item: string }
+  | { type: "createExpense" | "settle" | "createChore"; household: string }
+  | { type: "updateExpense" | "deleteExpense"; household: string; expense: string }
+  | { type: "updateChore" | "deleteChore" | "choreDone"; household: string; chore: string }
+  | { type: "undoCompletion"; household: string; completion: string };
+
+// Kinds of change that make something, and so get a local id.
+const creates = ["createEntry", "addItem", "createExpense", "settle", "createChore", "choreDone"];
+const deletes = ["deleteEntry", "removeItem", "deleteExpense", "deleteChore", "undoCompletion"];
 
 function change(method: string, path: string): Change | undefined {
   let m: RegExpExecArray | null;
@@ -120,20 +133,47 @@ function change(method: string, path: string): Change | undefined {
     if (method === "PUT") return { type: "tick", household: m[1] ?? "", item: m[2] ?? "" };
     if (method === "DELETE") return { type: "untick", household: m[1] ?? "", item: m[2] ?? "" };
   }
+  if ((m = /^\/v1\/households\/([^/]+)\/(expenses|settlements|chores)$/.exec(path)) && method === "POST") {
+    return { type: m[2] === "expenses" ? "createExpense" : m[2] === "settlements" ? "settle" : "createChore", household: m[1] ?? "" };
+  }
+  if ((m = /^\/v1\/households\/([^/]+)\/expenses\/([^/]+)$/.exec(path))) {
+    if (method === "PUT") return { type: "updateExpense", household: m[1] ?? "", expense: m[2] ?? "" };
+    if (method === "DELETE") return { type: "deleteExpense", household: m[1] ?? "", expense: m[2] ?? "" };
+  }
+  if ((m = /^\/v1\/households\/([^/]+)\/chores\/([^/]+)$/.exec(path))) {
+    if (method === "PUT") return { type: "updateChore", household: m[1] ?? "", chore: m[2] ?? "" };
+    if (method === "DELETE") return { type: "deleteChore", household: m[1] ?? "", chore: m[2] ?? "" };
+  }
+  if ((m = /^\/v1\/households\/([^/]+)\/chores\/([^/]+)\/done$/.exec(path)) && method === "POST") return { type: "choreDone", household: m[1] ?? "", chore: m[2] ?? "" };
+  if ((m = /^\/v1\/households\/([^/]+)\/chore-completions\/([^/]+)$/.exec(path)) && method === "DELETE") {
+    return { type: "undoCompletion", household: m[1] ?? "", completion: m[2] ?? "" };
+  }
   return undefined;
 }
 
-// What a change is about: an entry or an item id, local or real.
-function target(op: Op) {
-  const c = change(op.method, op.path);
-  if (!c) return undefined;
+// What a change is about, local or real; for one that makes something, what it makes.
+function about(c: Change) {
   if ("entry" in c) return c.entry;
   if ("item" in c) return c.item;
-  return op.local;
+  if ("expense" in c) return c.expense;
+  if (c.type === "choreDone") return undefined;
+  if ("chore" in c) return c.chore;
+  if ("completion" in c) return c.completion;
+  return undefined;
+}
+
+function target(op: Op) {
+  const c = change(op.method, op.path);
+  return c && (about(c) ?? op.local);
 }
 
 const me = () => cached<User>("/v1/me");
 const iso = (at: number) => new Date(at).toISOString();
+// The phone's date, as the API writes days.
+const day = (at: number) => {
+  const d = new Date(at);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 function madeEntry(op: Op): Entry {
   const body = op.body ?? {};
@@ -156,6 +196,62 @@ function madeEntry(op: Op): Entry {
 
 function madeItem(op: Op): ShoppingItem {
   return { id: op.local ?? "", text: String(op.body?.text ?? ""), aisle: "other", addedBy: op.user, done: false, createdAt: iso(op.at) };
+}
+
+// An expense split evenly, as the API does without shares: the first members carry odd cents.
+function evenShares(household: string, cents: number): ExpenseShare[] {
+  const members = cached<HouseholdDetail>(`/v1/households/${household}`)?.members ?? [];
+  const n = Math.max(members.length, 1);
+  return members.map((m, i) => ({ userId: m.user.id, cents: Math.floor(cents / n) + (i < cents % n ? 1 : 0) }));
+}
+
+function madeExpense(op: Op, household: string): Expense {
+  const body = op.body ?? {};
+  const cents = Number(body.cents ?? 0);
+  const at = { day: String(body.day ?? day(op.at)), addedBy: op.user, createdAt: iso(op.at), updatedAt: iso(op.at) };
+  if (op.path.endsWith("/settlements")) {
+    const to = String(body.to ?? "");
+    return { id: op.local ?? "", kind: "settlement", cents, category: "other", paidBy: String(body.from ?? ""), shares: [{ userId: to, cents }], ...at };
+  }
+  return {
+    ...(body as Partial<Expense>),
+    id: op.local ?? "",
+    kind: "expense",
+    cents,
+    category: (body.category as Expense["category"]) ?? "other",
+    paidBy: String(body.paidBy ?? op.user),
+    shares: (body.shares as ExpenseShare[] | undefined) ?? evenShares(household, cents),
+    ...at,
+  };
+}
+
+function madeChore(op: Op): Chore {
+  const body = op.body ?? {};
+  const rotate = body.rotate === true;
+  return {
+    ...(body as Partial<Chore>),
+    id: op.local ?? "",
+    title: String(body.title ?? ""),
+    points: Number(body.points ?? 1),
+    repeat: (body.repeat as Chore["repeat"]) ?? "never",
+    rotate,
+    assigneeId: (body.assigneeId as string | undefined) ?? (rotate ? op.user : undefined),
+    dueOn: String(body.dueOn ?? day(op.at)),
+    createdBy: op.user,
+    createdAt: iso(op.at),
+  };
+}
+
+function madeCompletion(op: Op, chore: string): ChoreCompletion {
+  return { id: op.local ?? "", choreId: chore, title: op.chore?.title ?? "", points: op.chore?.points ?? 1, userId: op.user, day: day(op.at), doneAt: iso(op.at), thankedBy: [] };
+}
+
+const expenseFields = ["cents", "category", "note", "paidBy", "day", "shares"];
+const choreFields = ["title", "points", "repeat", "rotate", "assigneeId", "dueOn"];
+
+// edited is something with the fields an edit sends replaced: one it leaves out is cleared.
+function edited<T extends object>(x: T, fields: string[], body?: Record<string, unknown>): T {
+  return { ...(Object.fromEntries(Object.entries(x).filter(([k]) => !fields.includes(k))) as T), ...(body as Partial<T>) };
 }
 
 const entryFields = ["text", "visibility", "revealAt", "dueAt", "startsAt", "endsAt", "allDay", "alertMinutes", "repeat", "assigneeId"];
@@ -228,6 +324,45 @@ function overlay(path: string, search: string, value: unknown): unknown {
     }
     return list;
   }
+  if ((m = /^\/v1\/households\/([^/]+)\/expenses$/.exec(path)) && value && typeof value === "object" && "expenses" in value) {
+    const month = value as ExpenseMonth;
+    let list = month.expenses;
+    for (const op of pending) {
+      const c = change(op.method, op.path);
+      if (!c || !("household" in c) || c.household !== m[1]) continue;
+      if (c.type === "createExpense" || c.type === "settle") {
+        const e = madeExpense(op, c.household);
+        if (e.day.startsWith(month.month)) list = [e, ...list];
+      } else if (c.type === "updateExpense") list = list.map((e) => (e.id === c.expense ? { ...edited(e, expenseFields, op.body), updatedAt: iso(op.at) } : e));
+      else if (c.type === "deleteExpense") list = list.filter((e) => e.id !== c.expense);
+    }
+    if (list === month.expenses) return value;
+    list = [...list].sort((a, b) => b.day.localeCompare(a.day));
+    // The total follows; the categories are the server's until it has the change.
+    return { ...month, expenses: list, total: list.reduce((n, e) => n + (e.kind === "expense" ? e.cents : 0), 0) };
+  }
+  if ((m = /^\/v1\/households\/([^/]+)\/chores$/.exec(path)) && Array.isArray(value)) {
+    let list = value as Chore[];
+    for (const op of pending) {
+      const c = change(op.method, op.path);
+      if (!c || !("household" in c) || c.household !== m[1]) continue;
+      if (c.type === "createChore") list = [...list, madeChore(op)];
+      else if (c.type === "updateChore") list = list.map((x) => (x.id === c.chore ? edited(x, choreFields, op.body) : x));
+      // Ticked off, it is gone until the server says when it is next due.
+      else if (c.type === "deleteChore" || c.type === "choreDone") list = list.filter((x) => x.id !== c.chore);
+    }
+    return list;
+  }
+  if ((m = /^\/v1\/households\/([^/]+)\/chore-completions$/.exec(path)) && Array.isArray(value)) {
+    let list = value as ChoreCompletion[];
+    for (const op of pending) {
+      const c = change(op.method, op.path);
+      if (!c || !("household" in c) || c.household !== m[1]) continue;
+      if (c.type === "choreDone") list = [madeCompletion(op, c.chore), ...list];
+      else if (c.type === "undoCompletion") list = list.filter((d) => d.id !== c.completion);
+    }
+    return list;
+  }
   return value;
 }
 
@@ -239,11 +374,15 @@ export function local<T>(path: string, query?: Record<string, string | undefined
   return overlay(path, search, value) as T;
 }
 
-// The entry or item something local is about, as the app sees it now.
-function current(op: Op, id: string): Entry | ShoppingItem | undefined {
+// What something local is about, as the app sees it now.
+function current(op: Op, id: string): Entry | ShoppingItem | Expense | Chore | undefined {
   const c = change(op.method, op.path);
   if (!c) return undefined;
   if ("item" in c) return local<ShoppingItem[]>(`/v1/households/${c.household}/shopping-list`)?.find((it) => it.id === id);
+  if (c.type === "createExpense" || c.type === "settle" || "expense" in c) {
+    return local<ExpenseMonth>(`/v1/households/${c.household}/expenses`)?.expenses.find((e) => e.id === id) ?? (op.local === id ? madeExpense(op, c.household) : undefined);
+  }
+  if (c.type === "createChore" || "chore" in c) return local<Chore[]>(`/v1/households/${c.household}/chores`)?.find((x) => x.id === id) ?? (op.local === id ? madeChore(op) : undefined);
   for (const kind of [undefined, "note", "reminder", "event"]) {
     const e = local<Entry[]>(`/v1/households/${op.household}/entries`, { kind })?.find((x) => x.id === id);
     if (e) return e;
@@ -269,36 +408,46 @@ function enqueue(method: string, path: string, body: Record<string, unknown> | u
   const c = change(method, path);
   if (!user || !household || !c) throw new TypeError("offline");
   const op: Op = { id: crypto.randomUUID(), user, household, method, path, body, at: Date.now() };
-  const about = "entry" in c ? c.entry : "item" in c ? c.item : undefined;
-  const made = about ? ops.find((o) => o.local === about) : undefined;
+  const id = about(c);
+  const made = id ? ops.find((o) => o.local === id) : undefined;
 
-  if (c.type === "createEntry" || c.type === "addItem") {
+  if (creates.includes(c.type)) {
     op.local = crypto.randomUUID();
+    if (c.type === "choreDone") {
+      const chore = local<Chore[]>(`/v1/households/${c.household}/chores`)?.find((x) => x.id === c.chore);
+      op.chore = { title: chore?.title ?? "", points: chore?.points ?? 1 };
+    }
     ops = [...ops, op];
     save();
-    return json(c.type === "createEntry" ? madeEntry(op) : madeItem(op), 201);
+    if (c.type === "createEntry") return json(madeEntry(op), 201);
+    if (c.type === "addItem") return json(madeItem(op), 201);
+    if (c.type === "createChore") return json(madeChore(op), 201);
+    if (c.type === "choreDone") return json(madeCompletion(op, c.chore), 201);
+    return json(madeExpense(op, household), 201);
   }
-  if (c.type === "deleteEntry" || c.type === "removeItem") {
+  if (deletes.includes(c.type)) {
     // Something deleted before it was sent is never sent at all; earlier changes to it needn't be either.
-    ops = ops.filter((o) => target(o) !== about);
+    ops = ops.filter((o) => target(o) !== id);
     if (!made) ops = [...ops, op];
     save();
     return new Response(null, { status: 204 });
   }
-  if (c.type === "updateEntry") {
-    const earlier = made ?? ops.find((o) => o.method === "PUT" && change(o.method, o.path)?.type === "updateEntry" && target(o) === about);
+  if (c.type === "updateEntry" || c.type === "updateExpense" || c.type === "updateChore") {
+    const earlier = made ?? ops.find((o) => o.method === "PUT" && change(o.method, o.path)?.type === c.type && target(o) === id);
     if (earlier) {
       // The latest fields replace the earlier ones; what a create makes and the first edit's version stay.
-      earlier.body = earlier.local ? { kind: earlier.body?.kind, ...body } : body;
+      earlier.body = earlier.local && earlier.body?.kind ? { kind: earlier.body.kind, ...body } : body;
       save();
-      return json(current(earlier, about ?? ""));
+      return json(current(earlier, id ?? ""));
     }
-    op.ifMatch = serverVersion(household, about ?? "");
-    op.kind = (current(op, about ?? "") as Entry | undefined)?.kind;
+    if (c.type === "updateEntry") {
+      op.ifMatch = serverVersion(household, id ?? "");
+      op.kind = (current(op, id ?? "") as Entry | undefined)?.kind;
+    }
   }
   ops = [...ops, op];
   save();
-  const now = about ? current(op, about) : undefined;
+  const now = id ? current(op, id) : undefined;
   return now ? json(now) : new Response(null, { status: 204 });
 }
 
@@ -329,7 +478,8 @@ export async function send(req: Request, fetcher: (req: Request) => Promise<Resp
   const text = await req.clone().text();
   const body = text ? (JSON.parse(text) as Record<string, unknown>) : undefined;
   // Something made offline can only change offline until it is made; others go behind what waits.
-  const waiting = mine().length > 0 || ("entry" in c && !!ops.find((o) => o.local === c.entry));
+  const id = about(c);
+  const waiting = mine().length > 0 || (!!id && !!ops.find((o) => o.local === id));
   if (!waiting && navigator.onLine) {
     try {
       return await keep(req, fetcher);

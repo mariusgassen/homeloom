@@ -7,7 +7,7 @@ const kept = [
   /^\/v1\/me$/,
   /^\/v1\/households$/,
   /^\/v1\/households\/[^/]+$/,
-  /^\/v1\/households\/[^/]+\/(entries|shopping-list|moments|moments\/resurfaced|questions)$/,
+  /^\/v1\/households\/[^/]+\/(entries|shopping-list|moments|moments\/resurfaced|questions|expenses|balance|chores|chore-completions|chore-fairness)$/,
   /^\/v1\/households\/[^/]+\/recipes\/[^/]+$/,
   /^\/v1\/entries\/[^/]+$/,
 ];

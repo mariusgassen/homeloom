@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type Balance, type Entry, type ExpenseCategory, type HouseholdDetail } from "./api/client";
+import { local } from "./outbox";
 import { useRefresh } from "./refresh";
 
 // The household keeps its money in euros, in cents.
@@ -38,7 +39,7 @@ export function centsText(cents: number, lang: string) {
 // The household's balance, read again when the screen is pulled or reload is called. undefined
 // while loading, null when it couldn't be read.
 export function useBalance(householdId: string) {
-  const [balance, setBalance] = useState<Balance | null>();
+  const [balance, setBalance] = useState<Balance | null | undefined>(() => local<Balance>(`/v1/households/${householdId}/balance`));
   const [generation, setGeneration] = useState(0);
   const { generation: refreshed } = useRefresh();
   useEffect(() => {

@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type Chore, type ChoreCompletion, type ChoreFairness } from "./api/client";
 import { toLocalDate } from "./entries";
+import { local } from "./outbox";
 import { useRefresh } from "./refresh";
 
 // The household's chores still to do, what was done lately and who did how much. Each part is
 // loaded only when asked for, so Today reads just the chores.
 export function useChores(householdId: string, { history = false } = {}) {
-  const [chores, setChores] = useState<Chore[] | null>(null);
-  const [done, setDone] = useState<ChoreCompletion[] | null>(null);
-  const [fairness, setFairness] = useState<ChoreFairness | null>(null);
+  const [chores, setChores] = useState<Chore[] | null>(() => local<Chore[]>(`/v1/households/${householdId}/chores`) ?? null);
+  const [done, setDone] = useState<ChoreCompletion[] | null>(() => (history ? (local<ChoreCompletion[]>(`/v1/households/${householdId}/chore-completions`) ?? null) : null));
+  const [fairness, setFairness] = useState<ChoreFairness | null>(() => (history ? (local<ChoreFairness>(`/v1/households/${householdId}/chore-fairness`) ?? null) : null));
   const [failed, setFailed] = useState(false);
   const [generation, setGeneration] = useState(0);
   const { generation: refreshed, track } = useRefresh();

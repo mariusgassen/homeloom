@@ -4,6 +4,7 @@ import { useNavigate } from "react-router";
 import { api, type Expense, type ExpenseCategory, type ExpenseMonth, type HouseholdDetail, type Transfer, type User } from "../api/client";
 import { categories, centsText, parseCents, useBalance, useMoney, useStanding } from "../money";
 import { shrink, today } from "../moments";
+import { local } from "../outbox";
 import { useRefresh } from "../refresh";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
@@ -19,7 +20,10 @@ import { Screen } from "./Screen";
 
 // The months shown so far, newest first; loadEarlier adds the one before the last.
 function useExpenses(householdId: string) {
-  const [months, setMonths] = useState<ExpenseMonth[] | null>(null);
+  const [months, setMonths] = useState<ExpenseMonth[] | null>(() => {
+    const kept = local<ExpenseMonth>(`/v1/households/${householdId}/expenses`);
+    return kept ? [kept] : null;
+  });
   const [failed, setFailed] = useState(false);
   const [generation, setGeneration] = useState(0);
   const { generation: refreshed, track } = useRefresh();
