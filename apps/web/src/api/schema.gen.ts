@@ -522,6 +522,9 @@ export interface paths {
          * Change an entry
          * @description Shared entries can be changed by every member; private and "later" ones only by their
          *     author. Only the author can change who sees an entry.
+         *
+         *     With `If-Match`, the change is only made if the entry hasn't changed since the version it
+         *     names, so an edit made offline doesn't overwrite someone else's newer one.
          */
         put: operations["updateEntry"];
         post?: never;
@@ -3503,7 +3506,10 @@ export interface operations {
     updateEntry: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description The `updatedAt` of the entry the change is based on, in double quotes, such as `"2026-10-30T08:00:00.123456Z"`. */
+                "If-Match"?: string;
+            };
             path: {
                 entryId: components["parameters"]["EntryId"];
             };
@@ -3536,6 +3542,15 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
+            /** @description The entry changed since the version in `If-Match`; nothing was changed (code `entry_changed`). */
+            412: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     deleteEntry: {

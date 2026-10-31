@@ -693,6 +693,73 @@ test("pulling down from the top loads the list again", async () => {
   expect(screen.getByText("Bins out")).toBeInTheDocument();
 });
 
+test("the app opens at once from what it kept, and offline too", async () => {
+  const list = `/v1/households/${home.id}/shopping-list`;
+  const milk = { id: "44444444-4444-4444-8444-444444444444", text: "Milk", aisle: "dairy", done: false, createdAt: "2026-10-28T08:00:00Z" };
+  serve(...signedIn(), at("GET", list, () => json([milk])));
+  const first = renderApp("/lists?show=shopping");
+  expect(await screen.findByText("Milk")).toBeInTheDocument();
+  first.unmount();
+
+  // No network: the session and the list are there on the first render, without loading.
+  vi.mocked(fetch).mockRejectedValue(new TypeError("Load failed"));
+  renderApp("/lists?show=shopping");
+  expect(screen.getByRole("heading", { level: 1, name: "Lists" })).toBeInTheDocument();
+  expect(screen.getByText("Milk")).toBeInTheDocument();
+  await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled());
+  expect(screen.getByText("Milk")).toBeInTheDocument();
+});
+
+test("the shopping list takes items offline and sends them once back online", async () => {
+  const list = `/v1/households/${home.id}/shopping-list`;
+  const calls = serve(...signedIn(), at("GET", list, () => json([])));
+  const first = renderApp("/lists?show=shopping");
+  expect(await screen.findByText("Nothing to buy")).toBeInTheDocument();
+  first.unmount();
+
+  let online = false;
+  vi.spyOn(navigator, "onLine", "get").mockImplementation(() => online);
+  vi.mocked(fetch).mockRejectedValue(new TypeError("Load failed"));
+  renderApp("/lists?show=shopping");
+  await userEvent.type(screen.getByLabelText("Add an item"), "Bread");
+  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  expect(await screen.findByText("Bread")).toBeInTheDocument();
+  expect(screen.getByRole("status")).toHaveTextContent("You're offline. Your change goes out once you're back.");
+
+  const bread = { id: "44444444-4444-4444-8444-444444444444", text: "Bread", aisle: "bakery", done: false, createdAt: "2026-10-30T08:00:00Z" };
+  vi.mocked(fetch).mockImplementation(async (req) => {
+    const r = req as Request;
+    calls.push(r);
+    if (r.method === "POST") return json(bread, 201);
+    if (new URL(r.url).pathname === list) return json([bread]);
+    return json({}, 404);
+  });
+  online = true;
+  act(() => void window.dispatchEvent(new Event("online")));
+  await waitFor(() => expect(calls.filter((c) => c.method === "POST")).toHaveLength(1));
+  expect(await calls.find((c) => c.method === "POST")?.json()).toEqual({ text: "Bread" });
+  expect(await screen.findByRole("heading", { name: "Bakery" })).toBeInTheDocument();
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  vi.restoreAllMocks();
+});
+
+test("signing out elsewhere drops what the app kept", async () => {
+  serve(...signedIn());
+  const first = renderApp();
+  expect(await screen.findByRole("heading", { level: 1, name: "Today" })).toBeInTheDocument();
+  first.unmount();
+
+  serve(at("GET", "/v1/me", () => json({ code: "unauthenticated", message: "" }, 401)));
+  const second = renderApp();
+  expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
+  second.unmount();
+
+  serve();
+  vi.mocked(fetch).mockRejectedValue(new TypeError("Load failed"));
+  renderApp();
+  expect(await screen.findByRole("button", { name: "Try again" })).toBeInTheDocument();
+});
+
 test("the shopping list adds, ticks and clears items", async () => {
   const list = `/v1/households/${home.id}/shopping-list`;
   const milk = { id: "44444444-4444-4444-8444-444444444444", text: "Milk", aisle: "dairy", done: false, createdAt: "2026-10-28T08:00:00Z" };

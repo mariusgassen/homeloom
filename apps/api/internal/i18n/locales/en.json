@@ -9,6 +9,7 @@
   "error.chore_done": "That's done already.",
   "error.chore_not_latest": "It was done again since, so this can't be taken back any more.",
   "error.cooking_unavailable": "Cooking isn't available right now.",
+  "error.entry_changed": "Someone changed this in the meantime, so your change wasn't saved over it.",
   "error.guest_link_used": "This link is already in use on another device.",
   "error.home_unavailable": "The smart home isn't reachable right now. Is Home Assistant set up and running?",
   "error.ideas_unavailable": "No ideas right now. Try again in a minute.",

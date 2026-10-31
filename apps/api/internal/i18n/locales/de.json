@@ -9,6 +9,7 @@
   "error.chore_done": "Das ist schon erledigt.",
   "error.chore_not_latest": "Das wurde seitdem nochmal erledigt, darum lässt es sich nicht mehr zurücknehmen.",
   "error.cooking_unavailable": "Kochen geht gerade nicht.",
+  "error.entry_changed": "Jemand hat das inzwischen geändert, deshalb wurde deine Änderung nicht darübergeschrieben.",
   "error.guest_link_used": "Dieser Link wird schon auf einem anderen Gerät benutzt.",
   "error.home_unavailable": "Dein Zuhause ist gerade nicht erreichbar. Ist Home Assistant eingerichtet und läuft?",
   "error.ideas_unavailable": "Gerade keine Ideen. Versuch es gleich noch einmal.",

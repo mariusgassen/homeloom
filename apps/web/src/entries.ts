@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, type Entry, type EntryKind } from "./api/client";
+import { local } from "./outbox";
 import { useRefresh } from "./refresh";
 
 // The household's entries of one kind, or all of them, with helpers to keep the list current.
@@ -30,7 +31,9 @@ export function useEntries(householdId: string, kind?: EntryKind | null) {
   }, [householdId, kind, key, generation, refreshed, track]);
 
   const reload = useCallback(() => setGeneration((g) => g + 1), []);
-  return { entries: loaded?.key === key ? loaded.entries : null, failed, reload };
+  // Until this list has loaded, what this device kept for it shows.
+  const kept = useMemo(() => (kind === null ? null : (local<Entry[]>(`/v1/households/${householdId}/entries`, { kind }) ?? null)), [householdId, kind]);
+  return { entries: loaded?.key === key ? loaded.entries : kept, failed, reload };
 }
 
 export async function setDone(entry: Entry, done: boolean) {

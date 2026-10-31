@@ -61,7 +61,7 @@ type EntryService interface {
 	Get(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Entry, error)
 	// Suggestions returns titles of reminders the actor set before, to set again.
 	Suggestions(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.TitleSuggestion, error)
-	Update(ctx context.Context, actor domain.User, id uuid.UUID, f domain.EntryFields) (domain.Entry, error)
+	Update(ctx context.Context, actor domain.User, id uuid.UUID, f domain.EntryFields, base *time.Time) (domain.Entry, error)
 	Delete(ctx context.Context, actor domain.User, id uuid.UUID) error
 	// SetDone ticks a reminder off (done true) or opens it again.
 	SetDone(ctx context.Context, actor domain.User, id uuid.UUID, done bool) (domain.Entry, error)

@@ -1,5 +1,7 @@
 import { createContext, use, useCallback, useEffect, useState, type ReactNode } from "react";
-import { api, type HouseholdDetail, type User } from "./api/client";
+import { api, type Household, type HouseholdDetail, type User } from "./api/client";
+import { cached, forget } from "./cache";
+import { clear } from "./outbox";
 
 export type Session =
   | { state: "loading" }
@@ -29,8 +31,17 @@ async function load(): Promise<Session> {
   }
 }
 
+// The session this device kept from last time, so the app opens signed in at once and checks behind it.
+function kept(): Session {
+  const user = cached<User>("/v1/me");
+  const first = cached<Household[]>("/v1/households")?.[0];
+  const household = first && cached<HouseholdDetail>(`/v1/households/${first.id}`);
+  if (!user || !first || !household) return { state: "loading" };
+  return { state: "signedIn", user, household };
+}
+
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session>({ state: "loading" });
+  const [session, setSession] = useState<Session>(kept);
   const [generation, setGeneration] = useState(0);
 
   useEffect(() => {
@@ -44,6 +55,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const reload = useCallback(() => setGeneration((g) => g + 1), []);
   const signOut = useCallback(async () => {
     const res = await api.POST("/auth/logout").catch(() => undefined);
+    forget();
+    clear();
     const next = res?.data?.redirectUrl;
     if (next) window.location.assign(next);
     else setSession({ state: "signedOut" });
