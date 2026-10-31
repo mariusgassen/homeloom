@@ -43,12 +43,14 @@ func TestPushSubscriptions(t *testing.T)   { storetest.PushSubscriptions(t, stor
 func TestEntries(t *testing.T)             { storetest.Entries(t, store(t)) }
 func TestCalendarFeeds(t *testing.T)       { storetest.CalendarFeeds(t, store(t)) }
 func TestShoppingItems(t *testing.T)       { storetest.ShoppingItems(t, store(t)) }
+func TestExpenses(t *testing.T)            { storetest.Expenses(t, store(t)) }
 func TestShoppingSuggestions(t *testing.T) { storetest.ShoppingSuggestions(t, store(t)) }
 func TestReminderSuggestions(t *testing.T) { storetest.ReminderSuggestions(t, store(t)) }
 func TestConversations(t *testing.T)       { storetest.Conversations(t, store(t)) }
 func TestMCPTokens(t *testing.T)           { storetest.MCPTokens(t, store(t)) }
 func TestMoments(t *testing.T)             { storetest.Moments(t, store(t)) }
 func TestVoiceSettings(t *testing.T)       { storetest.VoiceSettings(t, store(t)) }
+func TestChores(t *testing.T)              { storetest.Chores(t, store(t)) }
 
 func TestStore(t *testing.T) {
 	ctx := context.Background()

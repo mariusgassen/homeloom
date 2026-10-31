@@ -14,6 +14,8 @@
     "offline": { "title": "You're offline", "body": "Homeloom is back as soon as you are." }
   },
   "refresh": { "loading": "Loading…", "offline": "You're offline. This is what was last loaded." },
+  "sync": { "offlineWaiting_one": "You're offline. Your change goes out once you're back.", "offlineWaiting_other": "You're offline. Your {{count}} changes go out once you're back.", "syncing_one": "Sending your change…", "syncing_other": "Sending {{count}} changes…", "waiting_one": "Your change goes out as soon as it can.", "waiting_other": "{{count}} changes go out as soon as they can.", "copies_one": "Someone changed this in the meantime, so yours is kept as a copy. Tap to dismiss.", "copies_other": "Others changed these in the meantime, so {{count}} of yours are kept as copies. Tap to dismiss." },
+  "offline": { "copy": "(offline copy)" },
   "crashed": { "title": "Something went wrong", "body": "That wasn't supposed to happen. Reloading usually helps.", "reload": "Reload" },
   "onboarding": {
     "title": "Set up your home",
@@ -23,7 +25,7 @@
     "create": "Create household",
     "failed": "That didn't work. Please try again."
   },
-  "settings": { "title": "Settings", "you": "You", "household": "Household", "owner": "Owner", "member": "Member", "open": "Household and settings", "photo": "Add photo", "photoChange": "Change photo", "photoRemove": "Remove photo", "photoFailed": "The photo didn't work. Please try another one." },
+  "settings": { "title": "Settings", "you": "You", "household": "Household", "owner": "Owner", "member": "Member", "open": "Household and settings", "photo": "Add photo", "photoChange": "Change photo", "photoRemove": "Remove photo", "photoFailed": "The photo didn't work. Please try another one.", "videos": "Videos", "autoplay": "Play videos automatically", "autoplayHint": "Muted, on this device" },
   "push": { "title": "Notifications", "switch": "Notifications on this device", "hint": "Answers, reminders and events", "install": "To get notifications on your iPhone, add Homeloom to your Home Screen first: tap Share, then “Add to Home Screen”, and open it from there.", "blocked": "Notifications are blocked. Allow them in your phone's Settings under Notifications, then try again.", "failed": "That didn't work. Please try again." },
   "today": {
     "question": { "eyebrow": "Today's question", "title": "No question yet", "body": "Ask one. Answers open once you both replied." },
@@ -31,6 +33,8 @@
     "next": { "eyebrow": "Next up", "clear": "Nothing planned today. Time for each other.", "more_one": "{{count}} more today", "more_other": "{{count}} more today" },
     "dinner": { "eyebrow": "Dinner tonight", "title": "What do you feel like?" },
     "watch": { "eyebrow": "Watch tonight", "title": "Something to watch?" },
+    "chores": { "eyebrow": "Chores today", "all": "All", "more_one": "{{count}} more", "more_other": "{{count}} more", "setUp": "Share the housework" },
+    "money": { "eyebrow": "Money", "title": "Who owes whom?" },
     "thanks": "What made you smile today?"
   },
   "cook": {
@@ -77,6 +81,7 @@
     "nothingPlanned": "Nothing planned this week yet.",
     "planFor": "Plan for"
   },
+  "video": { "play": "Play", "pause": "Pause", "soundOn": "Sound on", "soundOff": "Sound off", "fullscreen": "Fullscreen" },
   "call": {
     "homeloom": "Homeloom",
     "call": "Call",
@@ -126,6 +131,8 @@
     "text": "What happened", "day": "Day",
     "photo": "Add a photo", "photoChange": "Other photo", "photoRemove": "Remove photo",
     "photoFailed": "The photo didn't work. Please try another one.",
+    "video": "Add a video", "videoChange": "Other video", "videoRemove": "Remove video",
+    "videoFailed": "The video didn't work. Please try again.", "videoTooBig": "This video is too big, even compressed: at most {{max}} MB. Try a shorter one.", "videoReady": "Video ready · {{size}} MB", "videoCompressing": "Compressing video… {{percent}}%", "videoSending": "Sending video… {{percent}}%",
     "empty": { "title": "Your story starts here", "body": "Keep a first moment." },
     "earlier": "Earlier",
     "count": { "moments_one": "{{count}} moment", "moments_other": "{{count}} moments", "thanks_one": "{{count}} thank-you", "thanks_other": "{{count}} thank-yous" },
@@ -240,6 +247,8 @@
     ]
   },
   "shopping": { "tab": "Shopping", "placeholder": "Add an item", "add": "Add", "remove": "Remove {{item}}", "clear": "Clear", "emptyTitle": "Nothing to buy", "emptyBody": "Add what you need.", "moveTo": "Move to", "aisle": { "produce": "Fruit & veg", "bakery": "Bakery", "meat": "Meat & fish", "dairy": "Dairy & eggs", "frozen": "Frozen", "pantry": "Pantry", "drinks": "Drinks", "household": "Household", "other": "Other" }, "open": "Open list" },
+  "chores": { "title": "Chores", "new": "New chore", "edit": "Edit chore", "what": "What needs doing", "placeholder": "Take the bins out", "size": "How big", "sizes": { "1": "Small", "2": "Medium", "3": "Big" }, "once": "Once", "from": "Starts", "next": "Next time", "rotate": "Take turns", "turn": "Whose turn", "for": "For", "anyone": "Anyone", "me": "You", "turnOf": "{{name}}'s turn", "overdue": "Since {{day}}", "today": "Today", "later": "Coming up", "history": "Done lately", "fairness": "Who did what", "week": "This week", "month": "This month", "points_one": "{{count}} point", "points_other": "{{count}} points", "thank": "Thank {{name}}", "thanked": "{{name}} hears your thanks.", "thankedWall": "{{name}} hears your thanks, and it's on your gratitude wall.", "thankedBy": "Thanks from {{names}}", "thanksLine": "Thank you, {{name}}, for “{{chore}}”.", "undo": "Undo", "delete": "Delete chore", "deleteConfirm": "Delete this chore? What was done stays in the history.", "failed": "That didn't work. Try again?", "emptyTitle": "No chores yet", "emptyBody": "Add what comes back again and again. Take turns, and see who did what." },
+  "money": { "title": "Money", "balance": "Where you stand", "even": "You're even", "youOwe": "You owe {{name}} {{amount}}", "owesYou": "{{name}} owes you {{amount}}", "youOweTotal": "You owe {{amount}} in all", "owedTotal": "You're owed {{amount}} in all", "pays": "{{from}} pays {{to}} {{amount}}", "settle": "Settle up", "settled": "Paid", "settleYouPay": "You pay {{name}} back. Change the amount if it's only part of it.", "settlePaysYou": "{{name}} pays you back. Change the amount if it's only part of it.", "settleHint": "{{from}} pays {{to}} back. Change the amount if it's only part of it.", "someone": "Someone", "you": "You", "add": "Add expense", "new": "New expense", "edit": "Expense", "amount": "Amount", "note": "What for?", "notePlaceholder": "e.g. Weekly shop", "categoryLabel": "Category", "paidByLabel": "Paid by", "paidBy": "{{name}} paid", "day": "Day", "split": "Split", "splits": { "even": "Evenly", "custom": "Custom" }, "evenHint": "{{amount}} each", "left": "{{amount}} left to split", "over": "{{amount}} too much", "yours": "yours {{amount}}", "paidBackByYou": "You paid {{name}} back", "paidYouBack": "{{name}} paid you back", "paidBack": "{{from}} paid {{to}} back", "deleteConfirm": "Delete this for both of you?", "emptyTitle": "Nothing spent yet", "emptyBody": "Add what one of you paid, and Homeloom keeps track of who owes whom.", "spent": "Spent", "receipt": "Receipt", "receiptAdd": "Add receipt", "receiptChange": "Change receipt", "receiptRemove": "Remove receipt", "receiptFailed": "The expense is saved, but the receipt didn't work. Please try again.", "earlier": "Show {{month}}", "failed": "That didn't work. Please try again.", "category": { "groceries": "Groceries", "dining": "Eating out", "home": "Home", "utilities": "Bills", "transport": "Getting around", "travel": "Travel", "fun": "Fun", "health": "Health", "gifts": "Gifts", "other": "Other" }},
   "invite": {
     "create": "Invite someone",
     "body": "Send this link to your partner. It works once and until {{date}}.",

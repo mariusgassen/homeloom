@@ -64,6 +64,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 	home := service.NewHome(store, store, sessions, smart)
 	agents := service.NewAgentAccess(store, sessions, store)
 	voice := service.NewVoice(store, &memory.Speaker{})
+	moments := service.NewMoments(store, store, store, push, time.UTC).WithVideos(memory.NewVideos())
 	h, err := httpadapter.NewRouter(httpadapter.Deps{
 		Version:       "1.2.3",
 		PublicURL:     "https://homeloom.example.com",
@@ -72,9 +73,11 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Households:    service.NewHousehold(store),
 		Questions:     service.NewQuestion(store, store, push, nil),
 		Entries:       entries,
-		Moments:       service.NewMoments(store, store, store, push, time.UTC),
+		Moments:       moments,
 		Cook:          cook,
 		Shopping:      shopping,
+		Chores:        service.NewChores(store, store, store, moments, push, time.UTC),
+		Budget:        service.NewBudget(store, store, time.UTC),
 		Home:          home,
 		Push:          push,
 		Calls:         service.NewCall(store, sessions, memory.NewCallServer(), push).WithVoiceAgent("homeloom", agents).WithVoice(voice),
@@ -327,6 +330,65 @@ func TestMomentsFlow(t *testing.T) {
 		t.Fatalf("removed photo: %d", code)
 	}
 
+	video := "/v1/moments/" + trip["id"].(string) + "/video"
+	send := func(token, contentType, body string) (int, map[string]any) {
+		t.Helper()
+		req := httptest.NewRequest("PUT", video, strings.NewReader(body))
+		req.Header.Set("Content-Type", contentType)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		var out map[string]any
+		_ = json.Unmarshal(rec.Body.Bytes(), &out)
+		return rec.Code, out
+	}
+	mp4 := "\x00\x00\x00\x18ftypmp42 and the rest!!!!" // 29 bytes
+	if code, body := send("token-bob", "video/mp4", mp4); code != 403 || body["code"] != "not_yours" {
+		t.Fatalf("video on someone else's moment: %d %v", code, body)
+	}
+	if code, body := send("token-alice", "video/mp4", "not a video"); code != 400 || body["code"] != "invalid_video" {
+		t.Fatalf("not a video: %d %v", code, body)
+	}
+	code, withVideo := send("token-alice", "video/mp4; codecs=avc1", mp4)
+	videoURL, _ := withVideo["videoUrl"].(string)
+	if code != 200 || !strings.HasPrefix(videoURL, video+"?v=") {
+		t.Fatalf("set video: %d %v", code, withVideo)
+	}
+	watch := func(rng string) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest("GET", videoURL, nil)
+		req.Header.Set("Authorization", "Bearer token-bob")
+		if rng != "" {
+			req.Header.Set("Range", rng)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	if rec := watch(""); rec.Code != 200 || rec.Body.String() != mp4 || rec.Header().Get("Content-Type") != "video/mp4" || rec.Header().Get("Accept-Ranges") != "bytes" {
+		t.Fatalf("whole video: %d %q %v", rec.Code, rec.Body.String(), rec.Header())
+	}
+	for rng, want := range map[string]string{"bytes=4-7": "bytes 4-7/29", "bytes=25-": "bytes 25-28/29", "bytes=-3": "bytes 26-28/29", "bytes=0-1000": "bytes 0-28/29"} {
+		if rec := watch(rng); rec.Code != 206 || rec.Header().Get("Content-Range") != want {
+			t.Fatalf("range %s: %d %v", rng, rec.Code, rec.Header())
+		}
+	}
+	if rec := watch("bytes=4-7"); rec.Body.String() != "ftyp" {
+		t.Fatalf("range body: %q", rec.Body.String())
+	}
+	if rec := watch("bytes=29-"); rec.Code != 416 || rec.Header().Get("Content-Range") != "bytes */29" {
+		t.Fatalf("range outside: %d %v", rec.Code, rec.Header())
+	}
+	if rec := watch("bytes=0-1,4-5"); rec.Code != 200 || rec.Body.String() != mp4 {
+		t.Fatalf("several ranges: %d", rec.Code)
+	}
+	if code, body := do(t, h, "DELETE", video, "token-alice", ""); code != 200 || body["videoUrl"] != nil {
+		t.Fatalf("remove video: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "GET", video, "token-bob", ""); code != 404 {
+		t.Fatalf("removed video: %d", code)
+	}
+
 	if code, body := do(t, h, "PUT", "/v1/moments/"+line["id"].(string), "token-bob", `{"text":"Mine now","visibility":"shared"}`); code != 403 {
 		t.Fatalf("change someone else's line: %d %v", code, body)
 	}
@@ -384,6 +446,125 @@ func TestShoppingListFlow(t *testing.T) {
 	}
 	if code, _ := do(t, h, "DELETE", item, "token-alice", ""); code != 404 {
 		t.Fatalf("delete a cleared item: %d", code)
+	}
+}
+
+func TestBudgetFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	id := created["id"].(string)
+	_, inv := do(t, h, "POST", "/v1/households/"+id+"/invites", "token-alice", "")
+	do(t, h, "POST", "/v1/invites/"+inv["code"].(string), "token-bob", "")
+	_, alice := do(t, h, "GET", "/v1/me", "token-alice", "")
+	_, bob := do(t, h, "GET", "/v1/me", "token-bob", "")
+	a, b := alice["id"].(string), bob["id"].(string)
+	expenses := "/v1/households/" + id + "/expenses"
+
+	code, e := do(t, h, "POST", expenses, "token-alice", `{"cents":4200,"category":"dining","note":"Pizza","paidBy":"`+a+`","day":"2026-10-12"}`)
+	if code != 201 || e["kind"] != "expense" || e["day"] != "2026-10-12" || len(e["shares"].([]any)) != 2 {
+		t.Fatalf("add: %d %v", code, e)
+	}
+	if code, body := do(t, h, "POST", expenses, "token-alice", `{"cents":100,"category":"fun","paidBy":"`+a+`","shares":[{"userId":"`+b+`","cents":50}]}`); code != 400 || body["code"] != "invalid_shares" {
+		t.Fatalf("shares off: %d %v", code, body)
+	}
+	if code, body := do(t, h, "POST", expenses, "token-alice", `{"cents":100,"category":"yachts","paidBy":"`+a+`"}`); code != 400 {
+		t.Fatalf("unknown category: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "POST", expenses, "token-eve", `{"cents":100,"category":"fun","paidBy":"`+a+`"}`); code != 404 {
+		t.Fatalf("non-member adds: %d", code)
+	}
+
+	code, bal := do(t, h, "GET", "/v1/households/"+id+"/balance", "token-bob", "")
+	transfers := bal["transfers"].([]any)
+	if code != 200 || len(transfers) != 1 || transfers[0].(map[string]any)["from"] != b || transfers[0].(map[string]any)["cents"] != float64(2100) {
+		t.Fatalf("balance: %d %v", code, bal)
+	}
+	code, s := do(t, h, "POST", "/v1/households/"+id+"/settlements", "token-bob", `{"from":"`+b+`","to":"`+a+`","cents":2100}`)
+	if code != 201 || s["kind"] != "settlement" {
+		t.Fatalf("settle: %d %v", code, s)
+	}
+	if code, body := do(t, h, "PUT", expenses+"/"+s["id"].(string), "token-alice", `{"cents":100,"category":"other","paidBy":"`+b+`"}`); code != 409 || body["code"] != "settlement_fixed" {
+		t.Fatalf("change a settlement: %d %v", code, body)
+	}
+	if _, bal := do(t, h, "GET", "/v1/households/"+id+"/balance", "token-alice", ""); len(bal["transfers"].([]any)) != 0 {
+		t.Fatalf("after settling: %v", bal)
+	}
+	if code, e := do(t, h, "PUT", expenses+"/"+e["id"].(string), "token-bob", `{"cents":5000,"category":"dining","paidBy":"`+a+`","day":"2026-10-12"}`); code != 200 || e["cents"] != float64(5000) {
+		t.Fatalf("update: %d %v", code, e)
+	}
+	code, month := do(t, h, "GET", expenses+"?month=2026-10", "token-bob", "")
+	if code != 200 || month["month"] != "2026-10" || len(month["expenses"].([]any)) < 1 || month["total"] != float64(5000) || len(month["categories"].([]any)) != 1 {
+		t.Fatalf("month: %d %v", code, month)
+	}
+	if code, _ := do(t, h, "DELETE", expenses+"/"+e["id"].(string), "token-eve", ""); code != 404 {
+		t.Fatalf("non-member deletes: %d", code)
+	}
+	if code, _ := do(t, h, "DELETE", expenses+"/"+e["id"].(string), "token-bob", ""); code != 204 {
+		t.Fatalf("delete: %d", code)
+	}
+}
+
+func TestChoresFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	id := created["id"].(string)
+	_, inv := do(t, h, "POST", "/v1/households/"+id+"/invites", "token-alice", "")
+	do(t, h, "POST", "/v1/invites/"+inv["code"].(string), "token-bob", "")
+	chores := "/v1/households/" + id + "/chores"
+
+	if code, body := do(t, h, "POST", chores, "token-alice", `{"title":"Bins","points":5}`); code != 400 {
+		t.Fatalf("too many points: %d %v", code, body)
+	}
+	if code, body := do(t, h, "POST", chores, "token-alice", `{"title":" ","points":1}`); code != 400 || body["code"] != "invalid_text" {
+		t.Fatalf("blank title: %d %v", code, body)
+	}
+	code, bins := do(t, h, "POST", chores, "token-alice", `{"title":"Bins","points":2,"repeat":"weekly","rotate":true}`)
+	if code != 201 || bins["assigneeId"] == nil || bins["rotate"] != true || bins["dueOn"] == nil {
+		t.Fatalf("create: %d %v", code, bins)
+	}
+	chore := chores + "/" + bins["id"].(string)
+	if code, body := do(t, h, "PUT", chore, "token-bob", `{"title":"Bins out","points":2,"repeat":"weekly","rotate":true,"assigneeId":"`+bins["assigneeId"].(string)+`"}`); code != 200 || body["title"] != "Bins out" {
+		t.Fatalf("update: %d %v", code, body)
+	}
+	if code, _ := doList(t, h, chores, "token-eve"); code != 404 {
+		t.Fatalf("non-member lists chores: %d", code)
+	}
+
+	code, done := do(t, h, "POST", chore+"/done", "token-alice", "")
+	if code != 201 || done["title"] != "Bins out" || done["points"] != float64(2) {
+		t.Fatalf("done: %d %v", code, done)
+	}
+	if code, body := do(t, h, "POST", chore+"/done", "token-bob", ""); code != 409 || body["code"] != "chore_done" {
+		t.Fatalf("done twice: %d %v", code, body)
+	}
+	completion := "/v1/households/" + id + "/chore-completions/" + done["id"].(string)
+	if code, body := do(t, h, "POST", completion+"/thanks", "token-alice", ""); code != 409 || body["code"] != "own_chore" {
+		t.Fatalf("thanking yourself: %d %v", code, body)
+	}
+	code, thanked := do(t, h, "POST", completion+"/thanks", "token-bob", `{"gratitude":"Alice took the bins out"}`)
+	if code != 200 || thanked["gratitude"] == nil || len(thanked["completion"].(map[string]any)["thankedBy"].([]any)) != 1 {
+		t.Fatalf("thanks: %d %v", code, thanked)
+	}
+	if code, history := doList(t, h, "/v1/households/"+id+"/chore-completions", "token-bob"); code != 200 || len(history) != 1 {
+		t.Fatalf("history: %d %v", code, history)
+	}
+	code, fair := do(t, h, "GET", "/v1/households/"+id+"/chore-fairness", "token-bob", "")
+	week, _ := fair["week"].(map[string]any)
+	if code != 200 || len(week["members"].([]any)) != 2 {
+		t.Fatalf("fairness: %d %v", code, fair)
+	}
+
+	if code, body := do(t, h, "DELETE", completion, "token-bob", ""); code != 403 || body["code"] != "not_yours" {
+		t.Fatalf("undo someone else's: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "DELETE", completion, "token-alice", ""); code != 204 {
+		t.Fatalf("undo: %d", code)
+	}
+	if code, _ := do(t, h, "DELETE", chore, "token-bob", ""); code != 204 {
+		t.Fatalf("delete: %d", code)
+	}
+	if code, list := doList(t, h, chores, "token-alice"); code != 200 || len(list) != 0 {
+		t.Fatalf("after delete: %d %v", code, list)
 	}
 }
 
@@ -959,6 +1140,18 @@ func TestEntriesFlow(t *testing.T) {
 	}
 	if code, body := do(t, h, "PUT", "/v1/entries/"+r["id"].(string), "token-bob", `{"text":"Bins out","visibility":"shared","dueAt":"2030-01-08T07:00:00Z"}`); code != 200 || body["text"] != "Bins out" || body["repeat"] != "never" {
 		t.Fatalf("bob edits the shared reminder: %d %v", code, body)
+	}
+	// An edit based on an older version is refused; one based on the current version goes through.
+	_, now := do(t, h, "GET", "/v1/entries/"+r["id"].(string), "token-bob", "")
+	stale := `"` + r["updatedAt"].(string) + `"`
+	if code, body := do(t, h, "PUT", "/v1/entries/"+r["id"].(string), "token-alice", `{"text":"Bins","visibility":"shared"}`, "If-Match", stale); code != 412 || body["code"] != "entry_changed" {
+		t.Fatalf("edit an older version: %d %v", code, body)
+	}
+	if code, body := do(t, h, "PUT", "/v1/entries/"+r["id"].(string), "token-alice", `{"text":"Bins","visibility":"shared"}`, "If-Match", "nonsense"); code != 412 {
+		t.Fatalf("edit with a tag that isn't a version: %d %v", code, body)
+	}
+	if code, body := do(t, h, "PUT", "/v1/entries/"+r["id"].(string), "token-alice", `{"text":"Bins out","visibility":"shared","dueAt":"2030-01-08T07:00:00Z"}`, "If-Match", `"`+now["updatedAt"].(string)+`"`); code != 200 {
+		t.Fatalf("edit the current version: %d %v", code, body)
 	}
 	if code, body := do(t, h, "PUT", done, "token-bob", ""); code != 200 || body["doneAt"] == nil || body["doneBy"] == nil {
 		t.Fatalf("tick off: %d %v", code, body)

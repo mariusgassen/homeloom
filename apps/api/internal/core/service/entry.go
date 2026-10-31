@@ -129,10 +129,15 @@ func (s *Entry) Suggestions(ctx context.Context, actor domain.User, householdID 
 	return s.entries.ReminderSuggestions(ctx, householdID, actor.ID, domain.MaxSuggestions)
 }
 
-func (s *Entry) Update(ctx context.Context, actor domain.User, id uuid.UUID, f domain.EntryFields) (domain.Entry, error) {
+// Update changes an entry. With base, only if the entry is still the version last changed then,
+// so an edit made offline doesn't overwrite a newer one.
+func (s *Entry) Update(ctx context.Context, actor domain.User, id uuid.UUID, f domain.EntryFields, base *time.Time) (domain.Entry, error) {
 	e, err := s.editable(ctx, actor, id)
 	if err != nil {
 		return domain.Entry{}, err
+	}
+	if base != nil && !base.Equal(e.UpdatedAt) {
+		return domain.Entry{}, domain.ErrEntryChanged
 	}
 	if f.Visibility != e.Visibility && actor.ID != e.AuthorID {
 		return domain.Entry{}, fmt.Errorf("%w: only the author decides who sees it", domain.ErrForbidden)

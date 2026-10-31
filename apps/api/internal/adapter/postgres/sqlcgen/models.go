@@ -76,6 +76,39 @@ type ChatMessage struct {
 	CreatedAt      time.Time
 }
 
+type Chore struct {
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+	Title       string
+	Points      int32
+	Repeat      string
+	Rotate      bool
+	AssigneeID  *uuid.UUID
+	DueOn       time.Time
+	DoneAt      *time.Time
+	CreatedBy   *uuid.UUID
+	CreatedAt   time.Time
+}
+
+type ChoreCompletion struct {
+	ID             uuid.UUID
+	HouseholdID    uuid.UUID
+	ChoreID        *uuid.UUID
+	Title          string
+	Points         int32
+	UserID         uuid.UUID
+	Day            time.Time
+	DoneAt         time.Time
+	PrevDueOn      time.Time
+	PrevAssigneeID *uuid.UUID
+}
+
+type ChoreThank struct {
+	CompletionID uuid.UUID
+	UserID       uuid.UUID
+	CreatedAt    time.Time
+}
+
 type Conversation struct {
 	ID          uuid.UUID
 	HouseholdID uuid.UUID
@@ -115,6 +148,27 @@ type EntryPhoto struct {
 	ContentType string
 	Data        []byte
 	CreatedAt   time.Time
+}
+
+type Expense struct {
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+	Kind        string
+	Cents       int64
+	Category    string
+	Note        *string
+	PaidBy      uuid.UUID
+	Day         time.Time
+	AddedBy     *uuid.UUID
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	ReceiptAt   *time.Time
+}
+
+type ExpenseShare struct {
+	ExpenseID uuid.UUID
+	UserID    uuid.UUID
+	Cents     int64
 }
 
 type HomeConnection struct {
@@ -184,6 +238,7 @@ type Moment struct {
 	PhotoAt     *time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	VideoAt     *time.Time
 }
 
 type MomentPhoto struct {

@@ -1,4 +1,5 @@
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { drain, onSynced, outboxState, subscribe as subscribeOutbox } from "./outbox";
 
 // A screen's data hooks list generation in their effect deps and pass their request to track, so
 // a pull (or coming back to the app) loads them again and the spinner knows when they're done.
@@ -33,6 +34,13 @@ export function RefreshProvider({ children }: { children: ReactNode }) {
     await Promise.allSettled([...pending.current, new Promise((r) => setTimeout(r, minSpin))]);
   }, []);
 
+  // Changes made offline go out when the app opens, comes back or is online again; once they
+  // have, the screen loads again to show what the server made of them.
+  useEffect(() => onSynced(() => setGeneration((g) => g + 1)), []);
+  useEffect(() => {
+    if (online) void drain();
+  }, [online]);
+
   // Back online, or back in the app after a while: load again quietly.
   const wasOnline = useRef(online);
   useEffect(() => {
@@ -43,7 +51,8 @@ export function RefreshProvider({ children }: { children: ReactNode }) {
     let hiddenAt = 0;
     const onVisibility = () => {
       if (document.hidden) hiddenAt = Date.now();
-      else if (hiddenAt && Date.now() - hiddenAt > staleAfter) setGeneration((g) => g + 1);
+      else void drain();
+      if (!document.hidden && hiddenAt && Date.now() - hiddenAt > staleAfter) setGeneration((g) => g + 1);
     };
     document.addEventListener("visibilitychange", onVisibility);
     return () => document.removeEventListener("visibilitychange", onVisibility);
@@ -78,4 +87,9 @@ export function useOnline() {
     () => navigator.onLine,
     () => true,
   );
+}
+
+// What waits to be sent, whether it is going out now, and how many edits became copies.
+export function useOutbox() {
+  return useSyncExternalStore(subscribeOutbox, outboxState, outboxState);
 }

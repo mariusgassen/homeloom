@@ -176,10 +176,10 @@ func run() error {
 			return err
 		}
 	}
-	// Without S3 credentials moment and note photos stay in Postgres.
-	var photos port.PhotoStore
+	// Without S3 credentials moment and note photos stay in Postgres, and moments have no videos.
+	var bucket *s3.Store
 	if cfg.S3AccessKeyID != "" {
-		if photos, err = s3.New(cfg.S3Endpoint, cfg.S3Region, cfg.S3Bucket, cfg.S3AccessKeyID, cfg.S3SecretAccessKey); err != nil {
+		if bucket, err = s3.New(cfg.S3Endpoint, cfg.S3Region, cfg.S3Bucket, cfg.S3AccessKeyID, cfg.S3SecretAccessKey); err != nil {
 			return err
 		}
 	}
@@ -193,16 +193,22 @@ func run() error {
 	defer push.Wait()
 
 	entries := service.NewEntry(store, store, store, push, cfg.TimeZone)
-	if photos != nil {
-		entries.WithPhotos(photos)
+	if bucket != nil {
+		entries.WithPhotos(bucket)
 	}
 	shopping := service.NewShopping(store, store, grocer)
+	// Receipts are kept in S3 only; without it the rest of the budget works.
+	budget := service.NewBudget(store, store, cfg.TimeZone)
+	if bucket != nil {
+		budget.WithReceipts(bucket)
+	}
 	go notifyDue(ctx, entries)
 	moments := service.NewMoments(store, store, store, push, cfg.TimeZone)
-	if photos != nil {
-		moments.WithPhotos(photos)
+	if bucket != nil {
+		moments.WithPhotos(bucket).WithVideos(bucket)
 	}
-	go notifyDaily(ctx, moments)
+	chores := service.NewChores(store, store, store, moments, push, cfg.TimeZone)
+	go notifyDaily(ctx, map[string]dailyJob{"moments": moments, "chores": chores})
 	cook := service.NewCook(store, book, chef, shopping).WithPlan(store)
 	homeService := service.NewHome(store, homeConnections, sessions, home)
 	households := service.NewHousehold(store)
@@ -221,6 +227,8 @@ func run() error {
 		Moments:        moments,
 		Cook:           cook,
 		Shopping:       shopping,
+		Chores:         chores,
+		Budget:         budget,
 		Home:           homeService,
 		Watch:          watch,
 		Push:           push,
@@ -290,14 +298,21 @@ func notifyDue(ctx context.Context, entries *service.Entry) {
 	}
 }
 
-// notifyDaily sends the timeline's daily notifications until ctx ends. Several API instances may
-// run it: each goes out once a day.
-func notifyDaily(ctx context.Context, moments *service.Moments) {
+// dailyJob sends notifications that go out once a day.
+type dailyJob interface {
+	NotifyDaily(ctx context.Context) error
+}
+
+// notifyDaily sends the daily notifications (the timeline's, the chores' nudge) until ctx ends.
+// Several API instances may run it: each goes out once a day.
+func notifyDaily(ctx context.Context, jobs map[string]dailyJob) {
 	tick := time.NewTicker(time.Minute)
 	defer tick.Stop()
 	for {
-		if err := moments.NotifyDaily(ctx); err != nil {
-			slog.WarnContext(ctx, "notify daily moments", "err", err)
+		for name, job := range jobs {
+			if err := job.NotifyDaily(ctx); err != nil {
+				slog.WarnContext(ctx, "notify daily", "job", name, "err", err)
+			}
 		}
 		select {
 		case <-ctx.Done():

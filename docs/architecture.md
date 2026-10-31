@@ -88,6 +88,24 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 - The service checks membership, and every query is scoped to the household, so an item id from another household is `404`.
 - **Aisles:** each item sits in an aisle (produce, bakery, meat, dairy, frozen, pantry, drinks, household, other) and the list shows them in that order. A new item goes where the household put the same text before (`shopping_aisles`, by lower-cased text, outliving the items), else where Claude says (`adapter/claude`, port `Grocer`, one call per addition for all unknown items, bounded to 8 s), else `other`. Moving an item (`PATCH …/items/{id}`) also updates that memory, so a correction sticks.
 
+## Chores
+
+- `chores` holds what the household does again and again (or once): a title, an effort of 1 to 3 points, a repeat, the day it is due (`due_on`, a date in `TIME_ZONE`) and whose turn it is (`assignee_id`; NULL is anyone's). Chores are shared: every member sees, changes, ticks off and deletes them; the service checks membership and every query is scoped to the household.
+- **Ticking off** (`POST …/chores/{id}/done`) records a `chore_completions` row with the chore's title and points, so history and fairness outlive the chore, and how the chore was before. A repeating chore moves to its next day after today or its due day, whichever is later; a one-off gets `done_at` and leaves the list. A rotating chore becomes the turn of the member after whoever did it, in the order they joined. It runs under a lock on the chore row and only if the chore is still as it was read, and once per chore and day (`409 chore_done`), so two taps at once count once.
+- **Undo** deletes your own latest completion of a chore and puts the chore back to its day and turn (`409 chore_not_latest` once it was done again).
+- **Fairness** (`GET …/chore-fairness`) adds up points and chores per current member for the week from Monday and the month, in `TIME_ZONE`. The history lists the last six weeks.
+- **Thanks** (`POST …/chore-completions/{id}/thanks`) is kept once per person (`chore_thanks`) and tells whoever did it. A line sent with it becomes the thanker's gratitude line for today through the Moments service, unless they wrote one already, so a thank-you never replaces what they wrote.
+- **Nudge** (`Chores.NotifyDaily`, every minute on each instance, claimed in `job_runs` as `chores-due`): from 18:00, once a day, everyone with a chore due today or overdue hears which ones: their turn, and anyone's.
+
+## Money
+
+- One shared budget per household (`expenses`, `expense_shares`), opened from Today. Every member sees, adds, changes and deletes every expense; the service checks membership and every query is scoped to the household.
+- **Expenses** are whole cents in euros, paid by one member, in a category, on a day, and split into shares that add up to the amount, each member at most once. Without shares the service splits evenly between the current members; the first ones carry odd cents.
+- **Settling up** is stored as an expense of kind `settlement`: the payer paid it, the receiver has the one share. So where someone stands is one sum over everything, what they paid minus their shares, and settlements need no rules of their own. A settlement can't be changed, only deleted.
+- **Month summary:** `GET …/expenses?month=YYYY-MM` also returns the month's `total` and what was spent per category, most first. Settlements count in neither: paying back isn't spending.
+- **Receipts** are JPEGs of at most 5 MB kept in S3 only (`receipts/<id>.jpg`, the same `PhotoStore` as photos); Postgres records `receipt_at`. Without S3, or while it is down, receipts answer `503 receipts_unavailable` and the rest of the budget works. Deleting an expense deletes its receipt first.
+- **Balance** (`GET …/balance`) lists every member and anyone who left while still owing or being owed, plus the payments that settle it, largest debts first; for two people that is one payment.
+
 ## Smart home
 
 - **Home Assistant** (`adapter/homeassistant`, port `SmartHome`) is optional: without `HOME_ASSISTANT_URL` the home endpoints answer `503 home_unavailable`, and so do they when Home Assistant is down. Each call is bounded to 5 s.
@@ -108,13 +126,16 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 apps/web/
   src/api/            typed client; schema.gen.ts is generated from the OpenAPI contract
   src/ui/, styles/    the design system's tokens and components, ported to React
-  src/screens/        one file per screen; tabs: Today, Us, Lists, Home; dinner and movies open from Today
+  src/screens/        one file per screen; tabs: Today, Us, Lists, Home; dinner, movies, money and chores open from Today
   src/i18n/           German and English copy
   Caddyfile           static files plus the reverse proxy to the API
 ```
 
 - The app never sees a token: it starts sign-in with a full navigation to `/auth/login` and then calls the API with the session cookie.
-- The service worker precaches the app shell and never handles `/auth`, `/v1` or the health checks.
+- The service worker precaches the app shell and never handles `/auth`, the health checks or `/v1`, except pictures (avatars, note and moment photos, recipe images): their URLs carry their version, so it keeps them (`homeloom-pictures`, 300 at most, 30 days) and shows them offline.
+- **Offline and instant open** (`src/cache.ts`): the API client keeps the last answer to the GETs the app opens with (the session, entries, the shopping list, moments, questions, recipes) in IndexedDB. The app reads them into memory before its first render, so screens show them at once and load again behind them; when the network fails or the API answers 5xx, the client answers from them. The smart home and other live states are never kept. Answers older than 30 days are dropped; a 401, signing out or another person signing in drops everything, pictures too.
+- **Changes made offline** (`src/outbox.ts`): creating, editing, ticking off and deleting entries, and every change to the shopping list, wait in an outbox in localStorage when there is no network (or something is waiting already, so order holds). The client answers as the server would, with local ids for what it made, and applies what waits to every GET, so lists show it at once. The outbox is sent in order when the app opens, comes back to the foreground or goes online; a 5xx stops it and it tries again after 30 s. Local ids turn into the real ones, later changes included. Each change belongs to whoever made it and is never sent for someone else; signing out drops it.
+- **Conflicts:** an entry edit from the outbox carries the `updatedAt` it was made on as `If-Match` (`PUT /v1/entries/{id}` answers `412 entry_changed` if the entry changed since). Then, or if the entry was deleted meanwhile, the other version stays and the edit is saved as a new entry marked "(offline copy)". Ticks, aisles and deletes are last-write-wins. Several offline edits of one entry are sent as one.
 - Installable on iOS from Safari's "Add to Home Screen". Web Push needs that install on iOS; in Safari itself Settings explains how to add the app.
 
 ## Calendar, reminders and notes
@@ -139,6 +160,7 @@ apps/web/
 - One `moments` table holds the Us tab's timeline: **moments** (a line, the day it happened, maybe a photo) and **gratitude lines** (one per person and day; writing again that day replaces the line, enforced by a partial unique index). Both use the entries' visibility model; only the author changes or deletes theirs. `reveal` (sealed until `revealAt`, photo included) is ready for letters to the future; the app doesn't offer it yet.
 - `GET /v1/households/{id}/moments?month=YYYY-MM` returns one month, newest day first, and the latest earlier month with anything in it, so the app pages month by month. `…/moments/resurfaced` returns this day in earlier years and one gratitude line older than a week, at random.
 - **Photos** are JPEGs of at most 5 MB. With `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` set they go to S3 (`adapter/s3`, port `PhotoStore`, key `moments/<id>.jpg`; the bundled `homeloom-garage` by default) and Postgres only records `photo_at`. Without them they stay in Postgres (`moment_photos`, apart from the rows so lists never read them). Photos stored in Postgres before S3 was set up are still served from there and move to S3 when replaced. Deleting a photo or its moment deletes the object first, so nothing is left behind; while S3 is down, photos can't be set, shown or deleted, and everything else works. Each S3 call is bounded to 10 s. The PWA makes them at most 1600 px on the long side before upload. `photoUrl` carries the photo's version, so browsers may cache it privately. The API checks the JPEG signature and bounds every request body.
+- **Videos** on moments are MP4 or QuickTime files of at most 200 MB, only kept in S3 (port `VideoStore`, key `moments/<id>.video`); without S3 the upload answers 503 (`videos_unavailable`). An upload is streamed through to S3 in 16 MB parts, never held whole: the router lets it skip the request validator's body read and raises its body limit, and the core checks the `ftyp` box and stops the stream past the limit. `GET …/video` answers one `Range` with 206 straight from S3, which iOS needs to play it; `videoUrl` carries the version, like `photoUrl`. Video calls to S3 are bounded to 15 minutes. The PWA first compresses a picked video in the browser (Mediabunny over WebCodecs, loaded on demand) to H.264/AAC MP4 at most 1280 px on the long side, so longer videos fit; where it can't, or the result is not smaller, the video goes as it is. Whether videos play by themselves (muted, while in view) is a per-device setting in the PWA.
 - **Daily notifications** (`Moments.NotifyDaily`, every minute on each instance): this day in earlier years at 9:00, last month's look back on the 1st at 19:00, and at 20:00, with a one-in-three chance per person, a gratitude line from more than two weeks ago. Each job claims its day in `job_runs`, so it runs once across instances. Days count in `TIME_ZONE`.
 
 ## Assistant
@@ -163,7 +185,7 @@ apps/web/
 - Subscriptions are per person and device (`push_subscriptions`, keyed by endpoint), each with the language it was made in, so every device gets its notification in its own language from the server's catalog. Only the push services of Apple, Google, Mozilla and Microsoft are accepted as endpoints, because the API posts to them. One that the push service reports gone (404/410) is deleted.
 - Turning it on is a tap in Settings: the permission prompt comes first (iOS only shows it for a user gesture), then `PushManager.subscribe` with the server's key. The service worker (`public/push-sw.js`, imported into the generated one) shows the notification and opens its page when tapped.
 - The core decides who hears what. Notifications are sent in the background, bounded to 10 s per push service and 30 s per round, and never fail the request that caused them; on shutdown the API waits for those under way.
-- When the last member answers a question, everyone else hears that the answers are open. Reminders and event alerts notify when they come due (see above).
+- When the last member answers a question, everyone else hears that the answers are open. Reminders and event alerts notify when they come due (see above); chores nudge in the evening and pass on thanks (see Chores).
 
 ## Calls
 
