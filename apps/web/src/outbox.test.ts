@@ -121,3 +121,38 @@ test("changes someone else made on this device are never sent as you", async () 
   await drain(fetcher);
   expect(sent).toHaveLength(0);
 });
+
+test("an expense added offline shows in its month, split evenly, until it is sent", async () => {
+  const jo = "22222222-2222-4222-8222-222222222222";
+  await keep(req("GET", `/v1/households/${h}`), async () => json({ id: h, name: "Our place", role: "owner", members: [{ user: me, role: "owner" }, { user: { id: jo, name: "Jo" }, role: "member" }] }));
+  const expenses = `/v1/households/${h}/expenses`;
+  await keep(req("GET", expenses), async () => json({ month: "2026-10", expenses: [], total: 0, categories: [] }));
+  online = false;
+
+  await send(req("POST", expenses, { cents: 1001, category: "groceries", paidBy: me.id, day: "2026-10-31" }), down);
+  const month = (await (await send(req("GET", expenses), down)).json()) as { total: number; expenses: { cents: number; shares: { userId: string; cents: number }[] }[] };
+  expect(month.total).toBe(1001);
+  expect(month.expenses[0]?.shares).toEqual([{ userId: me.id, cents: 501 }, { userId: jo, cents: 500 }]);
+
+  online = true;
+  const { sent, fetcher } = server(() => json({ id: "88888888-8888-4888-8888-888888888888" }, 201));
+  await drain(fetcher);
+  expect(sent).toEqual([{ method: "POST", path: expenses, ifMatch: null, body: { cents: 1001, category: "groceries", paidBy: me.id, day: "2026-10-31" } }]);
+});
+
+test("a chore ticked off offline leaves the list and shows as done; undone again, nothing is sent", async () => {
+  const chore = { id: "99999999-9999-4999-8999-999999999999", title: "Bins", points: 2, repeat: "weekly", rotate: true, assigneeId: me.id, dueOn: "2026-10-31", createdAt: "2026-10-01T08:00:00Z" };
+  const chores = `/v1/households/${h}/chores`;
+  const completions = `/v1/households/${h}/chore-completions`;
+  await keep(req("GET", chores), async () => json([chore]));
+  await keep(req("GET", completions), async () => json([]));
+  online = false;
+
+  const done = (await (await send(req("POST", `${chores}/${chore.id}/done`), down)).json()) as { id: string };
+  expect(await (await send(req("GET", chores), down)).json()).toEqual([]);
+  expect(await (await send(req("GET", completions), down)).json()).toMatchObject([{ title: "Bins", points: 2, userId: me.id }]);
+
+  await send(req("DELETE", `${completions}/${done.id}`), down);
+  expect(outboxState().pending).toBe(0);
+  expect(await (await send(req("GET", chores), down)).json()).toMatchObject([{ title: "Bins" }]);
+});
