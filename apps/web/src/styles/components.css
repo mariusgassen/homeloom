@@ -98,3 +98,13 @@ button.hl-listrow:active { background: var(--surface-sunken); }
 .hl-empty { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); padding: var(--space-8) var(--space-4); text-align: center; }
 .hl-empty .hl-mark { margin-bottom: var(--space-2); opacity: .9; }
 .hl-empty p { max-width: 28ch; }
+
+/* Video: a feed-style player. The whole picture plays and pauses; sound sits in a corner. */
+.hl-video { position: relative; overflow: hidden; border-radius: var(--radius-sm); background: #000; }
+.hl-video-media { display: block; width: 100%; max-height: 420px; object-fit: cover; }
+.hl-video-tap { position: absolute; inset: 0; display: grid; place-items: center; padding: 0; border: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.hl-video-play { width: 56px; height: 56px; display: grid; place-items: center; border-radius: var(--radius-pill); background: rgb(0 0 0 / .45); color: #fff; }
+.hl-video-play .hl-icon { width: 28px; height: 28px; fill: currentColor; margin-left: 3px; }
+.hl-video-sound { position: absolute; right: var(--space-2); bottom: var(--space-3); width: 32px; height: 32px; display: grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-pill); background: rgb(0 0 0 / .45); color: #fff; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.hl-video-sound::before { content: ""; position: absolute; inset: -6px; }
+.hl-video-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgb(255 255 255 / .85); transform-origin: left; transition: transform .25s linear; pointer-events: none; }

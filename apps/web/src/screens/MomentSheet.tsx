@@ -5,6 +5,7 @@ import { maxVideoMB, shrink, today, uploadPhoto, uploadVideo } from "../moments"
 import { Button } from "../ui/Button";
 import { DateRow, FormGroup, Segmented } from "../ui/Form";
 import { Sheet } from "../ui/Sheet";
+import { Video } from "../ui/Video";
 
 // Keep a moment: what happened, the day, a photo and a video if there are any, and who sees it. With a moment it
 // edits that one instead.
@@ -165,7 +166,7 @@ export function MomentSheet({ household, me, moment, onClose, onSaved }: {
         )}
       </div>
 
-      {videoPreview && <video className="moment-photo" src={videoPreview} controls playsInline muted preload="metadata" />}
+      {videoPreview && <Video src={videoPreview} autoplay={false} />}
       <div className="moment-photo-actions">
         <label className="hl-btn hl-btn-secondary hl-btn-sm">
           {t(videoPreview || video ? "moments.videoChange" : "moments.video")}
