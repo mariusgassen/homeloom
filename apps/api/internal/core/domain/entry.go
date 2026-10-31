@@ -23,6 +23,8 @@ var (
 	ErrEventTime = fmt.Errorf("%w: an event needs a start, an end not before it, and an alert of 0-%d minutes before", ErrInvalid, MaxAlertMinutes)
 	// ErrEntryFields means a field that doesn't fit the kind, such as a due time on a note.
 	ErrEntryFields = fmt.Errorf("%w: field does not fit this kind of entry", ErrInvalid)
+	// ErrEntryChanged means the entry changed since the version a change was based on.
+	ErrEntryChanged = fmt.Errorf("%w: the entry changed since the version the change is based on", ErrConflict)
 )
 
 // TextError is an entry text that is empty or longer than Max characters.

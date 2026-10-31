@@ -87,6 +87,15 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 - The service checks membership, and every query is scoped to the household, so an item id from another household is `404`.
 - **Aisles:** each item sits in an aisle (produce, bakery, meat, dairy, frozen, pantry, drinks, household, other) and the list shows them in that order. A new item goes where the household put the same text before (`shopping_aisles`, by lower-cased text, outliving the items), else where Claude says (`adapter/claude`, port `Grocer`, one call per addition for all unknown items, bounded to 8 s), else `other`. Moving an item (`PATCH …/items/{id}`) also updates that memory, so a correction sticks.
 
+## Chores
+
+- `chores` holds what the household does again and again (or once): a title, an effort of 1 to 3 points, a repeat, the day it is due (`due_on`, a date in `TIME_ZONE`) and whose turn it is (`assignee_id`; NULL is anyone's). Chores are shared: every member sees, changes, ticks off and deletes them; the service checks membership and every query is scoped to the household.
+- **Ticking off** (`POST …/chores/{id}/done`) records a `chore_completions` row with the chore's title and points, so history and fairness outlive the chore, and how the chore was before. A repeating chore moves to its next day after today or its due day, whichever is later; a one-off gets `done_at` and leaves the list. A rotating chore becomes the turn of the member after whoever did it, in the order they joined. It runs under a lock on the chore row and only if the chore is still as it was read, and once per chore and day (`409 chore_done`), so two taps at once count once.
+- **Undo** deletes your own latest completion of a chore and puts the chore back to its day and turn (`409 chore_not_latest` once it was done again).
+- **Fairness** (`GET …/chore-fairness`) adds up points and chores per current member for the week from Monday and the month, in `TIME_ZONE`. The history lists the last six weeks.
+- **Thanks** (`POST …/chore-completions/{id}/thanks`) is kept once per person (`chore_thanks`) and tells whoever did it. A line sent with it becomes the thanker's gratitude line for today through the Moments service, unless they wrote one already, so a thank-you never replaces what they wrote.
+- **Nudge** (`Chores.NotifyDaily`, every minute on each instance, claimed in `job_runs` as `chores-due`): from 18:00, once a day, everyone with a chore due today or overdue hears which ones: their turn, and anyone's.
+
 ## Money
 
 - One shared budget per household (`expenses`, `expense_shares`), opened from Today. Every member sees, adds, changes and deletes every expense; the service checks membership and every query is scoped to the household.
@@ -116,13 +125,16 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 apps/web/
   src/api/            typed client; schema.gen.ts is generated from the OpenAPI contract
   src/ui/, styles/    the design system's tokens and components, ported to React
-  src/screens/        one file per screen; tabs: Today, Us, Lists, Home; dinner, movies and money open from Today
+  src/screens/        one file per screen; tabs: Today, Us, Lists, Home; dinner, movies, money and chores open from Today
   src/i18n/           German and English copy
   Caddyfile           static files plus the reverse proxy to the API
 ```
 
 - The app never sees a token: it starts sign-in with a full navigation to `/auth/login` and then calls the API with the session cookie.
-- The service worker precaches the app shell and never handles `/auth`, `/v1` or the health checks.
+- The service worker precaches the app shell and never handles `/auth`, the health checks or `/v1`, except pictures (avatars, note and moment photos, recipe images): their URLs carry their version, so it keeps them (`homeloom-pictures`, 300 at most, 30 days) and shows them offline.
+- **Offline and instant open** (`src/cache.ts`): the API client keeps the last answer to the GETs the app opens with (the session, entries, the shopping list, moments, questions, recipes) in IndexedDB. The app reads them into memory before its first render, so screens show them at once and load again behind them; when the network fails or the API answers 5xx, the client answers from them. The smart home and other live states are never kept. Answers older than 30 days are dropped; a 401, signing out or another person signing in drops everything, pictures too.
+- **Changes made offline** (`src/outbox.ts`): creating, editing, ticking off and deleting entries, and every change to the shopping list, wait in an outbox in localStorage when there is no network (or something is waiting already, so order holds). The client answers as the server would, with local ids for what it made, and applies what waits to every GET, so lists show it at once. The outbox is sent in order when the app opens, comes back to the foreground or goes online; a 5xx stops it and it tries again after 30 s. Local ids turn into the real ones, later changes included. Each change belongs to whoever made it and is never sent for someone else; signing out drops it.
+- **Conflicts:** an entry edit from the outbox carries the `updatedAt` it was made on as `If-Match` (`PUT /v1/entries/{id}` answers `412 entry_changed` if the entry changed since). Then, or if the entry was deleted meanwhile, the other version stays and the edit is saved as a new entry marked "(offline copy)". Ticks, aisles and deletes are last-write-wins. Several offline edits of one entry are sent as one.
 - Installable on iOS from Safari's "Add to Home Screen". Web Push needs that install on iOS; in Safari itself Settings explains how to add the app.
 
 ## Calendar, reminders and notes
@@ -172,7 +184,7 @@ apps/web/
 - Subscriptions are per person and device (`push_subscriptions`, keyed by endpoint), each with the language it was made in, so every device gets its notification in its own language from the server's catalog. Only the push services of Apple, Google, Mozilla and Microsoft are accepted as endpoints, because the API posts to them. One that the push service reports gone (404/410) is deleted.
 - Turning it on is a tap in Settings: the permission prompt comes first (iOS only shows it for a user gesture), then `PushManager.subscribe` with the server's key. The service worker (`public/push-sw.js`, imported into the generated one) shows the notification and opens its page when tapped.
 - The core decides who hears what. Notifications are sent in the background, bounded to 10 s per push service and 30 s per round, and never fail the request that caused them; on shutdown the API waits for those under way.
-- When the last member answers a question, everyone else hears that the answers are open. Reminders and event alerts notify when they come due (see above).
+- When the last member answers a question, everyone else hears that the answers are open. Reminders and event alerts notify when they come due (see above); chores nudge in the evening and pass on thanks (see Chores).
 
 ## Calls
 

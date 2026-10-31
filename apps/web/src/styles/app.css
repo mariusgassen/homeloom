@@ -392,6 +392,8 @@ html:has(.sheet-backdrop, .assistant) { overflow: hidden; }
 .ptr { display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .ptr-settle { transition: height .28s cubic-bezier(.2, .8, .2, 1); }
 .offline { margin: var(--space-2) 0 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: color-mix(in srgb, var(--saffron) 14%, transparent); color: var(--ink); }
+.offline-syncing { background: var(--spruce-tint); }
+.offline-copies { display: block; width: 100%; border: 0; text-align: start; font: inherit; cursor: pointer; }
 
 .center-state { align-items: center; text-align: center; }
 .loading-inline { display: grid; place-items: center; padding: var(--space-8) 0; }
@@ -441,3 +443,22 @@ html:has(.sheet-backdrop, .assistant) { overflow: hidden; }
 .voice { display: flex; flex-direction: column; gap: var(--space-4); }
 .voice-speed { width: 100%; min-height: var(--hit-min); margin: 0; accent-color: var(--spruce); }
 .voice-speed-ends { display: flex; justify-content: space-between; color: var(--ink-muted); }
+
+.today-chores-head { display: flex; align-items: center; justify-content: space-between; }
+.today-chores .today-tile-icon { background: color-mix(in srgb, var(--success) 14%, transparent); color: var(--success); }
+.chore-effort { display: inline-flex; gap: 3px; }
+.chore-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--line); }
+.chore-dot-on { background: var(--spruce); }
+.chore-fairness { display: flex; flex-direction: column; gap: var(--space-3); }
+.chore-fairness-head { display: flex; flex-direction: column; gap: var(--space-2); }
+.chore-fairness-head .label { color: var(--ink-muted); text-transform: uppercase; }
+.chore-share { display: flex; align-items: center; gap: var(--space-3); }
+.chore-share-main { display: flex; flex-direction: column; gap: var(--space-1); flex-grow: 1; min-width: 0; }
+.chore-share-text { display: flex; justify-content: space-between; gap: var(--space-2); }
+.chore-bar { height: 8px; border-radius: 4px; background: var(--surface-sunken); overflow: hidden; }
+.chore-bar-fill { display: block; height: 100%; border-radius: 4px; background: var(--spruce); transition: width .2s ease; }
+.chore-bar-saffron { background: var(--saffron); }
+.chore-bar-berry { background: var(--berry); }
+.chore-thank { color: var(--ink-muted); }
+.chore-thanked { color: var(--berry); }
+.chore-thanked svg path { fill: currentColor; }

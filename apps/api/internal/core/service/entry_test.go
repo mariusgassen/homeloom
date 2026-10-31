@@ -101,7 +101,7 @@ func TestEntryVisibility(t *testing.T) {
 	if _, err := f.entries.Get(ctx, f.bob, private.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("private to bob: want ErrNotFound, got %v", err)
 	}
-	if _, err := f.entries.Update(ctx, f.bob, private.ID, domain.EntryFields{Text: "x", Visibility: domain.VisibilityPrivate}); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := f.entries.Update(ctx, f.bob, private.ID, domain.EntryFields{Text: "x", Visibility: domain.VisibilityPrivate}, nil); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("update private as bob: want ErrNotFound, got %v", err)
 	}
 	if mine, _ := f.entries.List(ctx, f.alice, f.household, domain.KindNote); len(mine) != 3 {
@@ -114,7 +114,7 @@ func TestEntryVisibility(t *testing.T) {
 	if e, _ := f.entries.Get(ctx, f.alice, letter.ID); e.Sealed || e.Text == "" {
 		t.Fatalf("alice reads her own letter: %+v", e)
 	}
-	if _, err := f.entries.Update(ctx, f.bob, letter.ID, domain.EntryFields{Text: "peek", Visibility: domain.VisibilityShared}); !errors.Is(err, domain.ErrForbidden) {
+	if _, err := f.entries.Update(ctx, f.bob, letter.ID, domain.EntryFields{Text: "peek", Visibility: domain.VisibilityShared}, nil); !errors.Is(err, domain.ErrForbidden) {
 		t.Fatalf("bob changes the letter: want ErrForbidden, got %v", err)
 	}
 	if err := f.entries.Delete(ctx, f.bob, letter.ID); !errors.Is(err, domain.ErrForbidden) {
@@ -125,10 +125,17 @@ func TestEntryVisibility(t *testing.T) {
 		t.Fatalf("letter opens after revealAt: %+v", e)
 	}
 
-	if e, err := f.entries.Update(ctx, f.bob, shared.ID, domain.EntryFields{Text: "Milk", Visibility: domain.VisibilityShared}); err != nil || e.Text != "Milk" {
+	if e, err := f.entries.Update(ctx, f.bob, shared.ID, domain.EntryFields{Text: "Milk", Visibility: domain.VisibilityShared}, nil); err != nil || e.Text != "Milk" {
 		t.Fatalf("bob edits a shared note: %+v, %v", e, err)
 	}
-	if _, err := f.entries.Update(ctx, f.bob, shared.ID, domain.EntryFields{Text: "Milk", Visibility: domain.VisibilityPrivate}); !errors.Is(err, domain.ErrForbidden) {
+	stale := shared.UpdatedAt.Add(-time.Second)
+	if _, err := f.entries.Update(ctx, f.alice, shared.ID, domain.EntryFields{Text: "Oat milk", Visibility: domain.VisibilityShared}, &stale); !errors.Is(err, domain.ErrEntryChanged) {
+		t.Fatalf("alice edits an older version: want ErrEntryChanged, got %v", err)
+	}
+	if e, _ := f.entries.Get(ctx, f.alice, shared.ID); e.Text != "Milk" {
+		t.Fatalf("a refused edit changes nothing: %+v", e)
+	}
+	if _, err := f.entries.Update(ctx, f.bob, shared.ID, domain.EntryFields{Text: "Milk", Visibility: domain.VisibilityPrivate}, nil); !errors.Is(err, domain.ErrForbidden) {
 		t.Fatalf("bob makes alice's note private: want ErrForbidden, got %v", err)
 	}
 	if err := f.entries.Delete(ctx, f.bob, shared.ID); err != nil {
@@ -396,7 +403,7 @@ func TestNotePhotos(t *testing.T) {
 
 	// Changing the note deletes the photos its text no longer links.
 	text := "# Trip\n\n![](/v1/entries/" + note.ID.String() + "/photos/" + kept.String() + ")"
-	if _, err := f.entries.Update(ctx, f.alice, note.ID, domain.EntryFields{Text: text, Visibility: domain.VisibilityShared}); err != nil {
+	if _, err := f.entries.Update(ctx, f.alice, note.ID, domain.EntryFields{Text: text, Visibility: domain.VisibilityShared}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := f.entries.Photo(ctx, f.alice, note.ID, kept); err != nil {
@@ -481,7 +488,7 @@ func TestNotePhotosInAPhotoStore(t *testing.T) {
 	}
 	// Unlinking a photo deletes it from the store too, and so does deleting the note.
 	text := "# Trip\n\n![](/v1/entries/" + note.ID.String() + "/photos/" + kept.String() + ")"
-	if _, err := f.entries.Update(ctx, f.alice, note.ID, domain.EntryFields{Text: text, Visibility: domain.VisibilityShared}); err != nil {
+	if _, err := f.entries.Update(ctx, f.alice, note.ID, domain.EntryFields{Text: text, Visibility: domain.VisibilityShared}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := f.entries.Photo(ctx, f.alice, note.ID, dropped); !errors.Is(err, domain.ErrNotFound) || photos.Len() != 1 {

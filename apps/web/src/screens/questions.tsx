@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type HouseholdDetail, type Question, type User } from "../api/client";
+import { cached } from "../cache";
 import { useRefresh } from "../refresh";
 import { Button } from "../ui/Button";
 import { RevealCard, type Person } from "../ui/RevealCard";
 import { threadFor } from "../ui/ThreadAvatar";
 
 export function useQuestions(householdId: string) {
-  const [questions, setQuestions] = useState<Question[] | null>(null);
+  const [questions, setQuestions] = useState<Question[] | null>(() => cached<Question[]>(`/v1/households/${householdId}/questions`) ?? null);
   const [failed, setFailed] = useState(false);
   const [generation, setGeneration] = useState(0);
   const { generation: refreshed, track } = useRefresh();

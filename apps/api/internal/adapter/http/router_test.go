@@ -64,6 +64,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 	home := service.NewHome(store, store, sessions, smart)
 	agents := service.NewAgentAccess(store, sessions, store)
 	voice := service.NewVoice(store, &memory.Speaker{})
+	moments := service.NewMoments(store, store, store, push, time.UTC).WithVideos(memory.NewVideos())
 	h, err := httpadapter.NewRouter(httpadapter.Deps{
 		Version:       "1.2.3",
 		PublicURL:     "https://homeloom.example.com",
@@ -72,9 +73,10 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Households:    service.NewHousehold(store),
 		Questions:     service.NewQuestion(store, store, push, nil),
 		Entries:       entries,
-		Moments:       service.NewMoments(store, store, store, push, time.UTC).WithVideos(memory.NewVideos()),
+		Moments:       moments,
 		Cook:          cook,
 		Shopping:      shopping,
+		Chores:        service.NewChores(store, store, store, moments, push, time.UTC),
 		Budget:        service.NewBudget(store, store, time.UTC),
 		Home:          home,
 		Push:          push,
@@ -499,6 +501,70 @@ func TestBudgetFlow(t *testing.T) {
 	}
 	if code, _ := do(t, h, "DELETE", expenses+"/"+e["id"].(string), "token-bob", ""); code != 204 {
 		t.Fatalf("delete: %d", code)
+	}
+}
+
+func TestChoresFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	id := created["id"].(string)
+	_, inv := do(t, h, "POST", "/v1/households/"+id+"/invites", "token-alice", "")
+	do(t, h, "POST", "/v1/invites/"+inv["code"].(string), "token-bob", "")
+	chores := "/v1/households/" + id + "/chores"
+
+	if code, body := do(t, h, "POST", chores, "token-alice", `{"title":"Bins","points":5}`); code != 400 {
+		t.Fatalf("too many points: %d %v", code, body)
+	}
+	if code, body := do(t, h, "POST", chores, "token-alice", `{"title":" ","points":1}`); code != 400 || body["code"] != "invalid_text" {
+		t.Fatalf("blank title: %d %v", code, body)
+	}
+	code, bins := do(t, h, "POST", chores, "token-alice", `{"title":"Bins","points":2,"repeat":"weekly","rotate":true}`)
+	if code != 201 || bins["assigneeId"] == nil || bins["rotate"] != true || bins["dueOn"] == nil {
+		t.Fatalf("create: %d %v", code, bins)
+	}
+	chore := chores + "/" + bins["id"].(string)
+	if code, body := do(t, h, "PUT", chore, "token-bob", `{"title":"Bins out","points":2,"repeat":"weekly","rotate":true,"assigneeId":"`+bins["assigneeId"].(string)+`"}`); code != 200 || body["title"] != "Bins out" {
+		t.Fatalf("update: %d %v", code, body)
+	}
+	if code, _ := doList(t, h, chores, "token-eve"); code != 404 {
+		t.Fatalf("non-member lists chores: %d", code)
+	}
+
+	code, done := do(t, h, "POST", chore+"/done", "token-alice", "")
+	if code != 201 || done["title"] != "Bins out" || done["points"] != float64(2) {
+		t.Fatalf("done: %d %v", code, done)
+	}
+	if code, body := do(t, h, "POST", chore+"/done", "token-bob", ""); code != 409 || body["code"] != "chore_done" {
+		t.Fatalf("done twice: %d %v", code, body)
+	}
+	completion := "/v1/households/" + id + "/chore-completions/" + done["id"].(string)
+	if code, body := do(t, h, "POST", completion+"/thanks", "token-alice", ""); code != 409 || body["code"] != "own_chore" {
+		t.Fatalf("thanking yourself: %d %v", code, body)
+	}
+	code, thanked := do(t, h, "POST", completion+"/thanks", "token-bob", `{"gratitude":"Alice took the bins out"}`)
+	if code != 200 || thanked["gratitude"] == nil || len(thanked["completion"].(map[string]any)["thankedBy"].([]any)) != 1 {
+		t.Fatalf("thanks: %d %v", code, thanked)
+	}
+	if code, history := doList(t, h, "/v1/households/"+id+"/chore-completions", "token-bob"); code != 200 || len(history) != 1 {
+		t.Fatalf("history: %d %v", code, history)
+	}
+	code, fair := do(t, h, "GET", "/v1/households/"+id+"/chore-fairness", "token-bob", "")
+	week, _ := fair["week"].(map[string]any)
+	if code != 200 || len(week["members"].([]any)) != 2 {
+		t.Fatalf("fairness: %d %v", code, fair)
+	}
+
+	if code, body := do(t, h, "DELETE", completion, "token-bob", ""); code != 403 || body["code"] != "not_yours" {
+		t.Fatalf("undo someone else's: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "DELETE", completion, "token-alice", ""); code != 204 {
+		t.Fatalf("undo: %d", code)
+	}
+	if code, _ := do(t, h, "DELETE", chore, "token-bob", ""); code != 204 {
+		t.Fatalf("delete: %d", code)
+	}
+	if code, list := doList(t, h, chores, "token-alice"); code != 200 || len(list) != 0 {
+		t.Fatalf("after delete: %d %v", code, list)
 	}
 }
 
@@ -1035,6 +1101,18 @@ func TestEntriesFlow(t *testing.T) {
 	}
 	if code, body := do(t, h, "PUT", "/v1/entries/"+r["id"].(string), "token-bob", `{"text":"Bins out","visibility":"shared","dueAt":"2030-01-08T07:00:00Z"}`); code != 200 || body["text"] != "Bins out" || body["repeat"] != "never" {
 		t.Fatalf("bob edits the shared reminder: %d %v", code, body)
+	}
+	// An edit based on an older version is refused; one based on the current version goes through.
+	_, now := do(t, h, "GET", "/v1/entries/"+r["id"].(string), "token-bob", "")
+	stale := `"` + r["updatedAt"].(string) + `"`
+	if code, body := do(t, h, "PUT", "/v1/entries/"+r["id"].(string), "token-alice", `{"text":"Bins","visibility":"shared"}`, "If-Match", stale); code != 412 || body["code"] != "entry_changed" {
+		t.Fatalf("edit an older version: %d %v", code, body)
+	}
+	if code, body := do(t, h, "PUT", "/v1/entries/"+r["id"].(string), "token-alice", `{"text":"Bins","visibility":"shared"}`, "If-Match", "nonsense"); code != 412 {
+		t.Fatalf("edit with a tag that isn't a version: %d %v", code, body)
+	}
+	if code, body := do(t, h, "PUT", "/v1/entries/"+r["id"].(string), "token-alice", `{"text":"Bins out","visibility":"shared","dueAt":"2030-01-08T07:00:00Z"}`, "If-Match", `"`+now["updatedAt"].(string)+`"`); code != 200 {
+		t.Fatalf("edit the current version: %d %v", code, body)
 	}
 	if code, body := do(t, h, "PUT", done, "token-bob", ""); code != 200 || body["doneAt"] == nil || body["doneBy"] == nil {
 		t.Fatalf("tick off: %d %v", code, body)

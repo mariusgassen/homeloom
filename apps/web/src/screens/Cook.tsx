@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router";
 import { api, type Recipe, type Suggestions } from "../api/client";
+import { cached } from "../cache";
 import { useRefresh } from "../refresh";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
@@ -153,7 +154,7 @@ export function RecipeScreen() {
   const householdId = useHouseholdId();
   const navigate = useNavigate();
   const { slug = "" } = useParams();
-  const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [recipe, setRecipe] = useState<Recipe | null>(() => cached<Recipe>(`/v1/households/${householdId}/recipes/${slug}`) ?? null);
   const [error, setError] = useState<string | null>(null);
   const [have, setHave] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);

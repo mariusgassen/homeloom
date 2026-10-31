@@ -77,7 +77,7 @@ func (s *Entry) SyncPut(ctx context.Context, actor domain.User, householdID uuid
 	if l.Visibility == domain.VisibilityShared {
 		in.AssigneeID = e.AssigneeID
 	}
-	if e, err = s.Update(ctx, actor, e.ID, in.EntryFields); err != nil {
+	if e, err = s.Update(ctx, actor, e.ID, in.EntryFields, nil); err != nil {
 		return domain.Entry{}, false, err
 	}
 	if l.Kind == domain.KindReminder && in.Done != (e.DoneAt != nil) {
@@ -158,7 +158,7 @@ func (s *Entry) SyncMove(ctx context.Context, actor domain.User, householdID uui
 	if to.Visibility != e.Visibility {
 		f := e.EntryFields
 		f.Visibility, f.AssigneeID = to.Visibility, nil
-		if e, err = s.Update(ctx, actor, e.ID, f); err != nil {
+		if e, err = s.Update(ctx, actor, e.ID, f, nil); err != nil {
 			return domain.Entry{}, err
 		}
 	} else if e, err = s.editable(ctx, actor, e.ID); err != nil {

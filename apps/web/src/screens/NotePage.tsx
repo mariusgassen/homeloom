@@ -5,6 +5,7 @@ import { api, type Entry, type EntryFields, type Visibility } from "../api/clien
 import { fromLocal, toLocalDate } from "../entries";
 import { shrink } from "../moments";
 import { joinNote, splitNote, uploadNotePhoto } from "../notes";
+import { local } from "../outbox";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { Segmented } from "../ui/Form";
@@ -25,23 +26,27 @@ export function NotePage() {
   const { session } = useSession();
   if (session.state !== "signedIn" || !session.household) throw new Error("tab without a household");
   const [loaded, setLoaded] = useState<Entry | null | undefined>(id === "new" ? null : undefined);
+  const householdId = session.household.id;
 
   useEffect(() => {
     if (id === "new") return;
     let live = true;
+    // A note never opened on this device still opens offline from the notes list it kept.
+    const kept = () => local<Entry[]>(`/v1/households/${householdId}/entries`, { kind: "note" })?.find((e) => e.id === id);
+    const show = (e?: Entry) => live && setLoaded(e?.kind === "note" && !e.sealed ? e : null);
     api.GET("/v1/entries/{entryId}", { params: { path: { entryId: id } } }).then(
-      (res) => live && setLoaded(res.data?.kind === "note" && !res.data.sealed ? res.data : null),
-      () => live && setLoaded(null),
+      (res) => show(res.data ?? (res.response.status >= 500 ? kept() : undefined)),
+      () => show(kept()),
     );
     return () => {
       live = false;
     };
-  }, [id]);
+  }, [id, householdId]);
 
   if (loaded === undefined) return <div className="note-page" aria-busy="true" />;
   if (loaded === null && id !== "new") return <NoteMissing />;
   // A note made on this page gets its id in the URL; the editor keeps going as it is.
-  return <NoteEditor key={loaded?.id ?? "new"} entry={loaded ?? undefined} householdId={session.household.id} meId={session.user.id} partner={session.household.members.find((m) => m.user.id !== session.user.id)?.user.name ?? ""} />;
+  return <NoteEditor key={loaded?.id ?? "new"} entry={loaded ?? undefined} householdId={householdId} meId={session.user.id} partner={session.household.members.find((m) => m.user.id !== session.user.id)?.user.name ?? ""} />;
 }
 
 function NoteMissing() {

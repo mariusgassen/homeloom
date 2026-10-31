@@ -693,6 +693,73 @@ test("pulling down from the top loads the list again", async () => {
   expect(screen.getByText("Bins out")).toBeInTheDocument();
 });
 
+test("the app opens at once from what it kept, and offline too", async () => {
+  const list = `/v1/households/${home.id}/shopping-list`;
+  const milk = { id: "44444444-4444-4444-8444-444444444444", text: "Milk", aisle: "dairy", done: false, createdAt: "2026-10-28T08:00:00Z" };
+  serve(...signedIn(), at("GET", list, () => json([milk])));
+  const first = renderApp("/lists?show=shopping");
+  expect(await screen.findByText("Milk")).toBeInTheDocument();
+  first.unmount();
+
+  // No network: the session and the list are there on the first render, without loading.
+  vi.mocked(fetch).mockRejectedValue(new TypeError("Load failed"));
+  renderApp("/lists?show=shopping");
+  expect(screen.getByRole("heading", { level: 1, name: "Lists" })).toBeInTheDocument();
+  expect(screen.getByText("Milk")).toBeInTheDocument();
+  await waitFor(() => expect(vi.mocked(fetch)).toHaveBeenCalled());
+  expect(screen.getByText("Milk")).toBeInTheDocument();
+});
+
+test("the shopping list takes items offline and sends them once back online", async () => {
+  const list = `/v1/households/${home.id}/shopping-list`;
+  const calls = serve(...signedIn(), at("GET", list, () => json([])));
+  const first = renderApp("/lists?show=shopping");
+  expect(await screen.findByText("Nothing to buy")).toBeInTheDocument();
+  first.unmount();
+
+  let online = false;
+  vi.spyOn(navigator, "onLine", "get").mockImplementation(() => online);
+  vi.mocked(fetch).mockRejectedValue(new TypeError("Load failed"));
+  renderApp("/lists?show=shopping");
+  await userEvent.type(screen.getByLabelText("Add an item"), "Bread");
+  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  expect(await screen.findByText("Bread")).toBeInTheDocument();
+  expect(screen.getByRole("status")).toHaveTextContent("You're offline. Your change goes out once you're back.");
+
+  const bread = { id: "44444444-4444-4444-8444-444444444444", text: "Bread", aisle: "bakery", done: false, createdAt: "2026-10-30T08:00:00Z" };
+  vi.mocked(fetch).mockImplementation(async (req) => {
+    const r = req as Request;
+    calls.push(r);
+    if (r.method === "POST") return json(bread, 201);
+    if (new URL(r.url).pathname === list) return json([bread]);
+    return json({}, 404);
+  });
+  online = true;
+  act(() => void window.dispatchEvent(new Event("online")));
+  await waitFor(() => expect(calls.filter((c) => c.method === "POST")).toHaveLength(1));
+  expect(await calls.find((c) => c.method === "POST")?.json()).toEqual({ text: "Bread" });
+  expect(await screen.findByRole("heading", { name: "Bakery" })).toBeInTheDocument();
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  vi.restoreAllMocks();
+});
+
+test("signing out elsewhere drops what the app kept", async () => {
+  serve(...signedIn());
+  const first = renderApp();
+  expect(await screen.findByRole("heading", { level: 1, name: "Today" })).toBeInTheDocument();
+  first.unmount();
+
+  serve(at("GET", "/v1/me", () => json({ code: "unauthenticated", message: "" }, 401)));
+  const second = renderApp();
+  expect(await screen.findByRole("button", { name: "Sign in" })).toBeInTheDocument();
+  second.unmount();
+
+  serve();
+  vi.mocked(fetch).mockRejectedValue(new TypeError("Load failed"));
+  renderApp();
+  expect(await screen.findByRole("button", { name: "Try again" })).toBeInTheDocument();
+});
+
 test("the shopping list adds, ticks and clears items", async () => {
   const list = `/v1/households/${home.id}/shopping-list`;
   const milk = { id: "44444444-4444-4444-8444-444444444444", text: "Milk", aisle: "dairy", done: false, createdAt: "2026-10-28T08:00:00Z" };
@@ -962,6 +1029,52 @@ test("today lists what's due and today's events", async () => {
   expect(within(next).getByText("Water the plants")).toBeInTheDocument();
   expect(within(next).getByText("Dinner with Jo")).toBeInTheDocument();
   expect(screen.queryByText("Next year")).not.toBeInTheDocument();
+});
+
+const chore = (over: Record<string, unknown> = {}) => ({
+  id: "99999999-9999-4999-8999-999999999999", title: "Bins", points: 2, repeat: "weekly", rotate: true, assigneeId: marius.id, dueOn: "2026-01-01", createdAt: "2026-01-01T08:00:00Z", ...over,
+});
+
+test("today's chores are ticked off on Today", async () => {
+  let done = false;
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([])),
+    at("GET", `/v1/households/${home.id}/chores`, () => json(done ? [chore({ dueOn: "2099-01-01", assigneeId: jo.id })] : [chore(), chore({ id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", title: "Windows", dueOn: "2099-01-01" })])),
+    at("POST", `/v1/households/${home.id}/chores/${chore().id}/done`, () => {
+      done = true;
+      return json({ id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", title: "Bins", points: 2, userId: marius.id, day: "2026-01-01", doneAt: "2026-01-01T08:00:00Z", thankedBy: [] }, 201);
+    }),
+  );
+  renderApp("/");
+  const card = await screen.findByRole("region", { name: "Chores today" });
+  expect(within(card).queryByText("Windows")).not.toBeInTheDocument();
+  await userEvent.click(within(card).getByRole("checkbox", { name: "Bins" }));
+  await waitFor(() => expect(screen.queryByRole("region", { name: "Chores today" })).not.toBeInTheDocument());
+  expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/done"))).toBe(true);
+});
+
+test("the chores page shows who did what and thanks into the gratitude wall", async () => {
+  const completion = { id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", choreId: chore().id, title: "Bins", points: 2, userId: jo.id, day: "2026-01-01", doneAt: "2026-01-01T08:00:00Z", thankedBy: [] as string[] };
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/chores`, () => json([chore({ assigneeId: marius.id })])),
+    at("GET", `/v1/households/${home.id}/chore-completions`, () => json([completion])),
+    at("GET", `/v1/households/${home.id}/chore-fairness`, () =>
+      json({
+        week: { from: "2025-12-29", members: [{ userId: marius.id, points: 0, count: 0 }, { userId: jo.id, points: 2, count: 1 }] },
+        month: { from: "2026-01-01", members: [{ userId: marius.id, points: 0, count: 0 }, { userId: jo.id, points: 2, count: 1 }] },
+      }),
+    ),
+    at("POST", `/v1/households/${home.id}/chore-completions/${completion.id}/thanks`, () => json({ completion: { ...completion, thankedBy: [marius.id] }, gratitude: { id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", kind: "gratitude", authorId: marius.id, day: "2026-01-01", visibility: "shared", sealed: false, createdAt: "2026-01-01T08:00:00Z", updatedAt: "2026-01-01T08:00:00Z" } })),
+  );
+  renderApp("/chores");
+  const fair = await screen.findByRole("region", { name: "Who did what" });
+  expect(within(fair).getByText("2 points")).toBeInTheDocument();
+  await userEvent.click(await screen.findByRole("button", { name: "Thank Jo" }));
+  expect(await screen.findByText("Jo hears your thanks, and it's on your gratitude wall.")).toBeInTheDocument();
+  const post = calls.find((c) => c.method === "POST");
+  expect(await post?.json()).toEqual({ gratitude: "Thank you, Jo, for “Bins”." });
 });
 
 test("today greets you and brings back a thank-you", async () => {

@@ -16,3 +16,6 @@ func (s *Moments) SetChance(chance func() float64) { s.chance = chance }
 
 // SetClock lets tests move time for a Watch service.
 func (s *Watch) SetClock(now func() time.Time) { s.now = now }
+
+// SetClock lets tests move time for a Chores service.
+func (s *Chores) SetClock(now func() time.Time) { s.now = now }
