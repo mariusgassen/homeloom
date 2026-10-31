@@ -60,7 +60,7 @@
     "steps": "Steps",
     "openRecipe": "Open full recipe"
   },
-  "video": { "play": "Play", "pause": "Pause", "soundOn": "Sound on", "soundOff": "Sound off" },
+  "video": { "play": "Play", "pause": "Pause", "soundOn": "Sound on", "soundOff": "Sound off", "fullscreen": "Fullscreen" },
   "call": {
     "homeloom": "Homeloom",
     "call": "Call",

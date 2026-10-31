@@ -60,7 +60,7 @@
     "steps": "Zubereitung",
     "openRecipe": "Ganzes Rezept öffnen"
   },
-  "video": { "play": "Abspielen", "pause": "Pause", "soundOn": "Ton an", "soundOff": "Ton aus" },
+  "video": { "play": "Abspielen", "pause": "Pause", "soundOn": "Ton an", "soundOff": "Ton aus", "fullscreen": "Vollbild" },
   "call": {
     "homeloom": "Homeloom",
     "call": "Anrufen",
