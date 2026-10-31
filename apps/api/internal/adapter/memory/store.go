@@ -38,6 +38,7 @@ type Store struct {
 	homeConnections   map[uuid.UUID]domain.HomeConnection
 	watchConnections  map[uuid.UUID]domain.WatchConnection
 	tonight           map[uuid.UUID]domain.TonightPick
+	meals             []domain.PlannedMeal
 	pushSubscriptions []domain.PushSubscription
 	shopping          []domain.ShoppingItem
 	shoppingHistory   map[historyKey]suggestion

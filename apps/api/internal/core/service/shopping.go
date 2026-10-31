@@ -35,19 +35,27 @@ func (s *Shopping) Items(ctx context.Context, actor domain.User, householdID uui
 }
 
 func (s *Shopping) Add(ctx context.Context, actor domain.User, householdID uuid.UUID, texts []string, recipe string) ([]domain.ShoppingItem, error) {
+	items := make([]domain.ShoppingItem, len(texts))
+	for i, text := range texts {
+		items[i] = domain.ShoppingItem{Text: text, Recipe: recipe}
+	}
+	return s.AddItems(ctx, actor, householdID, items)
+}
+
+func (s *Shopping) AddItems(ctx context.Context, actor domain.User, householdID uuid.UUID, drafts []domain.ShoppingItem) ([]domain.ShoppingItem, error) {
 	if _, err := s.households.Role(ctx, householdID, actor.ID); err != nil {
 		return nil, err
 	}
-	if len(texts) == 0 || len(texts) > domain.MaxShoppingItems {
+	if len(drafts) == 0 || len(drafts) > domain.MaxShoppingItems {
 		return nil, fmt.Errorf("%w: add 1-%d items", domain.ErrInvalid, domain.MaxShoppingItems)
 	}
-	items := make([]domain.ShoppingItem, len(texts))
-	for i, text := range texts {
-		text = strings.TrimSpace(text)
+	items := make([]domain.ShoppingItem, len(drafts))
+	for i, d := range drafts {
+		text := strings.TrimSpace(d.Text)
 		if text == "" || utf8.RuneCountInString(text) > domain.MaxShoppingText {
 			return nil, domain.TextError{Max: domain.MaxShoppingText}
 		}
-		items[i] = domain.ShoppingItem{HouseholdID: householdID, Text: text, Recipe: recipe, AddedBy: &actor.ID, Aisle: domain.AisleOther}
+		items[i] = domain.ShoppingItem{HouseholdID: householdID, Text: text, Recipe: d.Recipe, AddedBy: &actor.ID, Aisle: domain.AisleOther}
 	}
 	s.sort(ctx, householdID, items)
 	return s.items.AddShoppingItems(ctx, items)

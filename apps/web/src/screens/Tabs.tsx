@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import type { Entry, HouseholdDetail, Moment, Question, TonightPick, User } from "../api/client";
 import { completeChore, dueToday as choreDueToday, useChores } from "../chores";
 import { dueToday, useEntries } from "../entries";
+import { nextDays, useMealPlan } from "../meals";
 import { useBalance, useStanding } from "../money";
 import { dayOf, useResurfaced } from "../moments";
 import { useSession } from "../session";
@@ -66,7 +67,7 @@ export function Today() {
       <NextUp key={generation} household={household} />
       <TodayChores household={household} me={me} />
       <TodayQuestion household={household} me={me} />
-      <Dinner />
+      <Dinner household={household} />
       <Watch household={household} />
       <Money household={household} me={me} />
       <TodayMoment household={household} me={me} />
@@ -227,10 +228,32 @@ function TodayChores({ household, me }: { household: HouseholdDetail; me: User }
   );
 }
 
-// Dinner is an invitation to pick something together, one tap from ideas.
-function Dinner() {
+// Dinner shows what's planned for tonight, one tap from its recipe; else an invitation to pick
+// something together, one tap from ideas.
+function Dinner({ household }: { household: HouseholdDetail }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { meals } = useMealPlan(household.id, nextDays(1));
+  const meal = meals && Object.values(meals)[0];
+  if (meal) {
+    return (
+      <button type="button" className="today-tile today-dinner" onClick={() => navigate(`/cook/${meal.recipe.slug}`)}>
+        {meal.recipe.imageUrl ? (
+          <img className="today-tile-photo" src={meal.recipe.imageUrl} alt="" loading="lazy" />
+        ) : (
+          <span className="today-tile-icon">
+            <Icon name="cook" />
+          </span>
+        )}
+        <span className="today-tile-text">
+          <span className="label">{t("today.dinner.eyebrow")}</span>
+          <span className="headline">{meal.recipe.name}</span>
+          {meal.recipe.totalTime && <span className="caption muted">{meal.recipe.totalTime}</span>}
+        </span>
+        <Icon name="chevron" size="sm" />
+      </button>
+    );
+  }
   return (
     <button type="button" className="today-tile today-dinner" onClick={() => navigate("/cook")}>
       <span className="today-tile-icon">

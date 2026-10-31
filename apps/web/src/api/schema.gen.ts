@@ -805,6 +805,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/meal-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The household's dinners for some days (members only)
+         * @description One dinner per day. Days are calendar dates, as the household lives them. Planned dinners
+         *     stay readable when Mealie is down.
+         */
+        get: operations["getMealPlan"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/meal-plan/{day}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                day: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Make a recipe the day's dinner, replacing what was planned */
+        put: operations["planMeal"];
+        post?: never;
+        /** Take the day's dinner off the plan */
+        delete: operations["unplanMeal"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/meal-plan/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ideas for the days without a dinner (members only)
+         * @description Claude picks one recipe for each unplanned day, different from each other, from what is
+         *     planned and from the dinners of the last three weeks. It favours what is on hand: the
+         *     `wish`, and what was ticked off the shopping list. Nothing is planned until a member
+         *     accepts an idea with planMeal. Without Claude the ideas are random (`chef` is false).
+         */
+        post: operations["suggestMealPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/meal-plan/shopping-list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Put the chosen ingredients of several recipes on the shopping list at once
+         * @description Each item notes the recipe it is for and goes to its aisle, like addToShoppingList.
+         */
+        post: operations["addMealPlanToShoppingList"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/shopping-list": {
         parameters: {
             query?: never;
@@ -2088,6 +2179,43 @@ export interface components {
             /** @description The recipe's slug. */
             recipe: string;
             ingredientIds: string[];
+        };
+        PlannedMeal: {
+            /** Format: date */
+            day: string;
+            recipe: components["schemas"]["RecipeSummary"];
+            /**
+             * Format: uuid
+             * @description The member who planned it.
+             */
+            plannedBy: string;
+        };
+        MealChoice: {
+            /** @description The recipe's slug. */
+            recipe: string;
+        };
+        MealPlanWish: {
+            /** Format: date */
+            from: string;
+            /** @default 7 */
+            days: number;
+            /** @description What to use up or what you feel like, in your own words. */
+            wish?: string;
+        };
+        MealIdeas: {
+            meals: components["schemas"]["MealIdea"][];
+            /** @description True when Claude picked; false for the random fallback. */
+            chef: boolean;
+        };
+        MealIdea: {
+            /** Format: date */
+            day: string;
+            recipe: components["schemas"]["RecipeSummary"];
+            /** @description Why it fits */
+            reason?: string;
+        };
+        AddMealsToShoppingList: {
+            recipes: components["schemas"]["AddToShoppingList"][];
         };
         ShoppingListAdded: {
             /** @description How many ingredients were put on the list. */
@@ -4231,6 +4359,147 @@ export interface operations {
                     "image/*": string;
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getMealPlan: {
+        parameters: {
+            query: {
+                from: string;
+                days?: number;
+            };
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The planned dinners from `from` on, by day; days without one are left out. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlannedMeal"][];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    planMeal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                day: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MealChoice"];
+            };
+        };
+        responses: {
+            /** @description The planned dinner. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlannedMeal"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    unplanMeal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                day: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    suggestMealPlan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MealPlanWish"];
+            };
+        };
+        responses: {
+            /** @description One idea per unplanned day, by day; empty when every day is planned or Mealie has no recipes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MealIdeas"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    addMealPlanToShoppingList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddMealsToShoppingList"];
+            };
+        };
+        responses: {
+            /** @description What was added, and to which list. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ShoppingListAdded"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             503: components["responses"]["Unavailable"];

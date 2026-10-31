@@ -62,6 +62,23 @@ func TestPick(t *testing.T) {
 	}
 }
 
+func TestPlan(t *testing.T) {
+	var req map[string]any
+	srv := fakeAPI(t, "end_turn", `{"picks":[{"slug":"curry","reason":"Uses the spinach."},{"slug":"soup","reason":""}]}`, &req)
+	chef := claude.NewChef("key", "claude-opus-5-5", option.WithBaseURL(srv.URL))
+
+	picks, err := chef.Plan(context.Background(), "something light", "en", []string{"spinach"}, []string{"Lasagne"}, candidates, 2)
+	if err != nil || len(picks) != 2 || picks[0] != (domain.Pick{Slug: "curry", Reason: "Uses the spinach."}) || picks[1].Slug != "soup" {
+		t.Fatalf("plan: %+v, %v", picks, err)
+	}
+	user := fmt.Sprint(req["messages"])
+	for _, want := range []string{"- spinach", "- Lasagne", "<wish>something light</wish>", "Choose 2 recipes", "English"} {
+		if !strings.Contains(user, want) {
+			t.Errorf("%q missing: %s", want, user)
+		}
+	}
+}
+
 func TestPickFailuresAreUnavailable(t *testing.T) {
 	for name, srv := range map[string]*httptest.Server{
 		"refusal":  fakeAPI(t, "refusal", "", nil),

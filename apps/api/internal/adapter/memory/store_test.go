@@ -13,6 +13,7 @@ func TestQuestions(t *testing.T)           { storetest.Questions(t, memory.NewSt
 func TestHomeConnections(t *testing.T)     { storetest.HomeConnections(t, memory.NewStore()) }
 func TestWatchConnections(t *testing.T)    { storetest.WatchConnections(t, memory.NewStore()) }
 func TestTonight(t *testing.T)             { storetest.Tonight(t, memory.NewStore()) }
+func TestMealPlan(t *testing.T)            { storetest.MealPlan(t, memory.NewStore()) }
 func TestPushSubscriptions(t *testing.T)   { storetest.PushSubscriptions(t, memory.NewStore()) }
 func TestEntries(t *testing.T)             { storetest.Entries(t, memory.NewStore()) }
 func TestCalendarFeeds(t *testing.T)       { storetest.CalendarFeeds(t, memory.NewStore()) }
