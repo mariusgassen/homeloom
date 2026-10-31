@@ -60,8 +60,8 @@ export default defineConfig({
         // Sign-in and API calls must always reach the server, never the app shell.
         navigateFallbackDenylist: apiPaths.map((p) => new RegExp(`^${p}`)),
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
-        // Call effects load their runtime when first used, not with the app.
-        globIgnores: ["mediapipe/**", "assets/effects-*.js"],
+        // Call effects and video compression load their runtime when first used, not with the app.
+        globIgnores: ["mediapipe/**", "assets/effects-*.js", "assets/compress-*.js"],
         // Pictures change their URL when they change, so a kept copy is right until it's gone; they
         // show offline too. The cache is dropped on sign-out (src/cache.ts).
         runtimeCaching: [

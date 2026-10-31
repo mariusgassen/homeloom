@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type McpToken, type TokenAccess, type VoiceSettings } from "../api/client";
 import { ownAvatar, removeAvatar, square, uploadAvatar } from "../avatar";
+import { useAutoplay } from "../moments";
 import { currentSubscription, pushKey, pushSupport, subscribe, unsubscribe } from "../push";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
@@ -44,11 +45,32 @@ export function Settings() {
       {household && <CalendarLink householdId={household.id} />}
       {household && <OtherApps householdId={household.id} />}
       <Voice />
+      <Videos />
       <Notifications />
       <Button variant="danger" block onClick={signOut}>
         {t("auth.signOut")}
       </Button>
     </Screen>
+  );
+}
+
+// Whether videos on the timeline play by themselves, on this device.
+function Videos() {
+  const { t } = useTranslation();
+  const [autoplay, setAutoplay] = useAutoplay();
+  return (
+    <section className="group">
+      <h2 className="label group-title">{t("settings.videos")}</h2>
+      <div className="hl-list">
+        <button type="button" className="hl-listrow" role="switch" aria-checked={autoplay} onClick={() => setAutoplay(!autoplay)}>
+          <span className="hl-listrow-main">
+            <span className="hl-listrow-title">{t("settings.autoplay")}</span>
+            <span className="hl-listrow-sub">{t("settings.autoplayHint")}</span>
+          </span>
+          <span className={autoplay ? "switch switch-on" : "switch"} aria-hidden="true" />
+        </button>
+      </div>
+    </section>
   );
 }
 

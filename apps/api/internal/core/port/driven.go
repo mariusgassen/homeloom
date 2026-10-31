@@ -5,6 +5,7 @@ package port
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -175,6 +176,9 @@ type MomentRepository interface {
 	// MomentPhoto returns domain.ErrNotFound when the moment has none.
 	MomentPhoto(ctx context.Context, id uuid.UUID) (domain.Photo, error)
 	DeleteMomentPhoto(ctx context.Context, id uuid.UUID) error
+	// MarkMomentVideo sets VideoAt for a video kept in the VideoStore.
+	MarkMomentVideo(ctx context.Context, id uuid.UUID) error
+	ClearMomentVideo(ctx context.Context, id uuid.UUID) error
 }
 
 // PhotoStore keeps photos outside the database (S3), under keys the service chooses. GetPhoto
@@ -183,6 +187,18 @@ type PhotoStore interface {
 	PutPhoto(ctx context.Context, key string, p domain.Photo) error
 	GetPhoto(ctx context.Context, key string) (domain.Photo, error)
 	DeletePhoto(ctx context.Context, key string) error
+}
+
+// VideoStore keeps videos (S3), under keys the service chooses. They are streamed, never held in
+// memory whole. StatVideo returns domain.ErrNotFound for a key it doesn't hold; deleting a missing
+// key is no error.
+type VideoStore interface {
+	// PutVideo stores what r yields; an error from r aborts it and leaves nothing behind.
+	PutVideo(ctx context.Context, key, contentType string, r io.Reader) error
+	StatVideo(ctx context.Context, key string) (domain.Video, error)
+	// OpenVideo reads length bytes from offset; closing it ends the read.
+	OpenVideo(ctx context.Context, key string, offset, length int64) (io.ReadCloser, error)
+	DeleteVideo(ctx context.Context, key string) error
 }
 
 // JobRepository lets a daily job run once per day across all API instances.
@@ -220,6 +236,48 @@ type ShoppingRepository interface {
 	KnownAisles(ctx context.Context, householdID uuid.UUID, keys []string) (map[string]domain.Aisle, error)
 	// RememberAisles stores where the household puts these things, replacing what it knew.
 	RememberAisles(ctx context.Context, householdID uuid.UUID, aisles map[string]domain.Aisle) error
+}
+
+// ChoreRepository keeps the household's chores and what was done. Calls that name a chore or a
+// completion return domain.ErrNotFound when it isn't that household's.
+type ChoreRepository interface {
+	// Chores returns the chores still to do, soonest due first.
+	Chores(ctx context.Context, householdID uuid.UUID, limit int) ([]domain.Chore, error)
+	CreateChore(ctx context.Context, c domain.Chore) (domain.Chore, error)
+	GetChore(ctx context.Context, householdID, id uuid.UUID) (domain.Chore, error)
+	// UpdateChore stores the chore's fields.
+	UpdateChore(ctx context.Context, c domain.Chore) (domain.Chore, error)
+	// DeleteChore deletes it; its completions stay, without it.
+	DeleteChore(ctx context.Context, householdID, id uuid.UUID) error
+	// CompleteChore stores the chore as after and the completion together, if the chore is still
+	// as before (same due day and assignee, not done); else it returns domain.ErrConflict.
+	CompleteChore(ctx context.Context, before, after domain.Chore, done domain.ChoreCompletion) (domain.ChoreCompletion, error)
+	// LastChoreCompletion returns the chore's latest completion, or domain.ErrNotFound.
+	LastChoreCompletion(ctx context.Context, householdID, choreID uuid.UUID) (domain.ChoreCompletion, error)
+	GetChoreCompletion(ctx context.Context, householdID, id uuid.UUID) (domain.ChoreCompletion, error)
+	// UndoChoreCompletion deletes the completion and puts its chore back as it was before, if the
+	// completion is still the chore's latest; else it returns domain.ErrConflict.
+	UndoChoreCompletion(ctx context.Context, done domain.ChoreCompletion) error
+	// ChoreCompletions returns what was done on or after the day since, newest first.
+	ChoreCompletions(ctx context.Context, householdID uuid.UUID, since time.Time, limit int) ([]domain.ChoreCompletion, error)
+	// ThankChoreCompletion records the user's thanks; false when they had already said it.
+	ThankChoreCompletion(ctx context.Context, householdID, id, userID uuid.UUID) (bool, error)
+}
+
+// BudgetRepository keeps the household's expenses and settlements. Calls that name an expense
+// return domain.ErrNotFound when the household has none with that id.
+type BudgetRepository interface {
+	// Expenses returns those spent on days in [from, to), newest day first, with their shares.
+	Expenses(ctx context.Context, householdID uuid.UUID, from, to time.Time, limit int) ([]domain.Expense, error)
+	// LatestExpenseDay returns the newest day before `before` with an expense; domain.ErrNotFound when none.
+	LatestExpenseDay(ctx context.Context, householdID uuid.UUID, before time.Time) (time.Time, error)
+	Expense(ctx context.Context, householdID, id uuid.UUID) (domain.Expense, error)
+	// CreateExpense and UpdateExpense store the expense with its shares, all or none.
+	CreateExpense(ctx context.Context, e domain.Expense) (domain.Expense, error)
+	UpdateExpense(ctx context.Context, e domain.Expense) (domain.Expense, error)
+	DeleteExpense(ctx context.Context, householdID, id uuid.UUID) error
+	// Nets returns, for everyone with an expense or share, what they paid minus their shares.
+	Nets(ctx context.Context, householdID uuid.UUID) ([]domain.Net, error)
 }
 
 // Grocer is the LLM's sense of where things are in a shop.

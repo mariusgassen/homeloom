@@ -25,7 +25,7 @@
     "create": "Haushalt anlegen",
     "failed": "Das hat nicht geklappt. Versuch es bitte noch mal."
   },
-  "settings": { "title": "Einstellungen", "you": "Du", "household": "Haushalt", "owner": "Inhaber:in", "member": "Mitglied", "open": "Haushalt und Einstellungen", "photo": "Foto hinzufügen", "photoChange": "Foto ändern", "photoRemove": "Foto entfernen", "photoFailed": "Das Foto hat nicht geklappt. Probier ein anderes." },
+  "settings": { "title": "Einstellungen", "you": "Du", "household": "Haushalt", "owner": "Inhaber:in", "member": "Mitglied", "open": "Haushalt und Einstellungen", "photo": "Foto hinzufügen", "photoChange": "Foto ändern", "photoRemove": "Foto entfernen", "photoFailed": "Das Foto hat nicht geklappt. Probier ein anderes.", "videos": "Videos", "autoplay": "Videos automatisch abspielen", "autoplayHint": "Ohne Ton, auf diesem Gerät" },
   "push": { "title": "Mitteilungen", "switch": "Mitteilungen auf diesem Gerät", "hint": "Antworten, Erinnerungen und Termine", "install": "Für Mitteilungen auf dem iPhone leg Homeloom zuerst auf deinen Home-Bildschirm: Tipp auf Teilen, dann „Zum Home-Bildschirm“, und öffne es von dort.", "blocked": "Mitteilungen sind blockiert. Erlaube sie in den Einstellungen deines Handys unter Mitteilungen und versuch es nochmal.", "failed": "Das hat nicht geklappt. Versuch es bitte nochmal." },
   "today": {
     "question": { "eyebrow": "Frage des Tages", "title": "Noch keine Frage", "body": "Stell eine. Die Antworten öffnen sich, wenn ihr beide geantwortet habt." },
@@ -33,6 +33,8 @@
     "next": { "eyebrow": "Als Nächstes", "clear": "Heute steht nichts an. Zeit für euch.", "more_one": "Noch {{count}} heute", "more_other": "Noch {{count}} heute" },
     "dinner": { "eyebrow": "Heute Abend", "title": "Worauf habt ihr Lust?" },
     "watch": { "eyebrow": "Heute schauen", "title": "Lust auf einen Film?" },
+    "chores": { "eyebrow": "Heute im Haushalt", "all": "Alle", "more_one": "{{count}} weitere", "more_other": "{{count}} weitere", "setUp": "Teilt euch den Haushalt" },
+    "money": { "eyebrow": "Geld", "title": "Wer schuldet wem?" },
     "thanks": "Was hat dich heute zum Lächeln gebracht?"
   },
   "cook": {
@@ -61,6 +63,7 @@
     "steps": "Zubereitung",
     "openRecipe": "Ganzes Rezept öffnen"
   },
+  "video": { "play": "Abspielen", "pause": "Pause", "soundOn": "Ton an", "soundOff": "Ton aus", "fullscreen": "Vollbild" },
   "call": {
     "homeloom": "Homeloom",
     "call": "Anrufen",
@@ -110,6 +113,8 @@
     "text": "Was war?", "day": "Tag",
     "photo": "Foto hinzufügen", "photoChange": "Anderes Foto", "photoRemove": "Foto entfernen",
     "photoFailed": "Das Foto hat nicht geklappt. Versuch bitte ein anderes.",
+    "video": "Video hinzufügen", "videoChange": "Anderes Video", "videoRemove": "Video entfernen",
+    "videoFailed": "Das Video hat nicht geklappt. Versuch es bitte nochmal.", "videoTooBig": "Das Video ist auch verkleinert zu groß: höchstens {{max}} MB. Versuch ein kürzeres.", "videoReady": "Video bereit · {{size}} MB", "videoCompressing": "Video wird verkleinert… {{percent}} %", "videoSending": "Video wird gesendet… {{percent}} %",
     "empty": { "title": "Hier beginnt eure Geschichte", "body": "Halt den ersten Moment fest." },
     "earlier": "Früher",
     "count": { "moments_one": "{{count}} Moment", "moments_other": "{{count}} Momente", "thanks_one": "{{count}}× Danke", "thanks_other": "{{count}}× Danke" },
@@ -224,6 +229,8 @@
     ]
   },
   "shopping": { "tab": "Einkauf", "placeholder": "Was fehlt?", "add": "Hinzufügen", "remove": "{{item}} entfernen", "clear": "Leeren", "emptyTitle": "Nichts zu kaufen", "emptyBody": "Schreib auf, was fehlt.", "moveTo": "Verschieben nach", "aisle": { "produce": "Obst & Gemüse", "bakery": "Brot & Backwaren", "meat": "Fleisch & Fisch", "dairy": "Milch & Eier", "frozen": "Tiefkühl", "pantry": "Vorrat", "drinks": "Getränke", "household": "Haushalt", "other": "Sonstiges" }, "open": "Zur Liste" },
+  "chores": { "title": "Haushalt", "new": "Neue Aufgabe", "edit": "Aufgabe bearbeiten", "what": "Was ist zu tun", "placeholder": "Müll rausbringen", "size": "Wie groß", "sizes": { "1": "Klein", "2": "Mittel", "3": "Groß" }, "once": "Einmal", "from": "Ab", "next": "Nächstes Mal", "rotate": "Abwechseln", "turn": "Wer ist dran", "for": "Für", "anyone": "Wer mag", "me": "Du", "turnOf": "{{name}} ist dran", "overdue": "Seit {{day}}", "today": "Heute", "later": "Demnächst", "history": "Zuletzt erledigt", "fairness": "Wer hat was gemacht", "week": "Diese Woche", "month": "Diesen Monat", "points_one": "{{count}} Punkt", "points_other": "{{count}} Punkte", "thank": "{{name}} danken", "thanked": "{{name}} bekommt dein Danke.", "thankedWall": "{{name}} bekommt dein Danke, und es steht auf deiner Dankbarkeitswand.", "thankedBy": "Danke von {{names}}", "thanksLine": "Danke, {{name}}, für „{{chore}}“.", "undo": "Zurücknehmen", "delete": "Aufgabe löschen", "deleteConfirm": "Diese Aufgabe löschen? Was erledigt wurde, bleibt im Verlauf.", "failed": "Das hat nicht geklappt. Nochmal?", "emptyTitle": "Noch keine Aufgaben", "emptyBody": "Trag ein, was immer wieder ansteht. Wechselt euch ab und seht, wer was gemacht hat." },
+  "money": { "title": "Geld", "balance": "So steht ihr", "even": "Ihr seid quitt", "youOwe": "Du schuldest {{name}} {{amount}}", "owesYou": "{{name}} schuldet dir {{amount}}", "youOweTotal": "Du schuldest insgesamt {{amount}}", "owedTotal": "Du bekommst insgesamt {{amount}}", "pays": "{{from}} zahlt {{to}} {{amount}}", "settle": "Ausgleichen", "settled": "Bezahlt", "settleYouPay": "Du zahlst {{name}} zurück. Ändere den Betrag, wenn es nur ein Teil ist.", "settlePaysYou": "{{name}} zahlt dir zurück. Ändere den Betrag, wenn es nur ein Teil ist.", "settleHint": "{{from}} zahlt {{to}} zurück. Ändere den Betrag, wenn es nur ein Teil ist.", "someone": "Jemand", "you": "Du", "add": "Ausgabe hinzufügen", "new": "Neue Ausgabe", "edit": "Ausgabe", "amount": "Betrag", "note": "Wofür?", "notePlaceholder": "z. B. Wocheneinkauf", "categoryLabel": "Kategorie", "paidByLabel": "Bezahlt von", "paidBy": "{{name}} hat bezahlt", "day": "Tag", "split": "Aufteilen", "splits": { "even": "Gleich", "custom": "Individuell" }, "evenHint": "{{amount}} pro Person", "left": "Noch {{amount}} aufzuteilen", "over": "{{amount}} zu viel", "yours": "dein Teil {{amount}}", "paidBackByYou": "Du hast {{name}} zurückgezahlt", "paidYouBack": "{{name}} hat dir zurückgezahlt", "paidBack": "{{from}} hat {{to}} zurückgezahlt", "deleteConfirm": "Für euch beide löschen?", "emptyTitle": "Noch nichts ausgegeben", "emptyBody": "Trag ein, was einer von euch bezahlt hat, und Homeloom merkt sich, wer wem was schuldet.", "earlier": "{{month}} zeigen", "failed": "Das hat nicht geklappt. Bitte versuch es noch mal.", "category": { "groceries": "Lebensmittel", "dining": "Essen gehen", "home": "Zuhause", "utilities": "Rechnungen", "transport": "Unterwegs", "travel": "Reisen", "fun": "Freizeit", "health": "Gesundheit", "gifts": "Geschenke", "other": "Sonstiges" }},
   "invite": {
     "create": "Jemanden einladen",
     "body": "Schick diesen Link an deinen Schatz. Er gilt einmal und bis {{date}}.",

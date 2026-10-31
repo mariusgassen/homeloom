@@ -357,6 +357,38 @@ test("the timeline shows the month, brings back a year ago and keeps today's lin
   expect(await post?.json()).toEqual({ kind: "gratitude", text: "The walk", visibility: "private" });
 });
 
+test("a moment's video plays by itself, muted, with sound a tap away, until autoplay is turned off", async () => {
+  const video = {
+    id: "66666666-6666-4666-8666-666666666665", kind: "moment", authorId: jo.id, day: isoDay(), visibility: "shared", sealed: false, text: "Waves",
+    videoUrl: "/v1/moments/y/video?v=1", createdAt: "2026-10-01T08:00:00Z", updatedAt: "2026-10-01T08:00:00Z",
+  };
+  serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/moments`, () => json({ month: isoDay().slice(0, 7), moments: [video] })),
+    at("GET", `/v1/households/${home.id}/moments/resurfaced`, () => json({ onThisDay: [] })),
+  );
+  const { unmount } = renderApp("/us");
+  expect(await screen.findByText("Waves")).toBeInTheDocument();
+  const player = document.querySelector("video");
+  expect(player?.getAttribute("src")).toBe("/v1/moments/y/video?v=1#t=0.001");
+  expect(player?.muted).toBe(true);
+  expect(player?.loop).toBe(true);
+  expect(player?.controls).toBe(false);
+  await userEvent.click(screen.getByRole("button", { name: "Sound on" }));
+  expect(player?.muted).toBe(false);
+  expect(screen.getByRole("button", { name: "Sound off" })).toHaveAttribute("aria-pressed", "true");
+  unmount();
+
+  renderApp("/settings");
+  const autoplay = await screen.findByRole("switch", { name: /Play videos automatically/ });
+  expect(autoplay).toHaveAttribute("aria-checked", "true");
+  await userEvent.click(autoplay);
+  expect(autoplay).toHaveAttribute("aria-checked", "false");
+  expect(localStorage.getItem("homeloom.autoplayVideos")).toBe("0");
+  await userEvent.click(autoplay);
+  expect(localStorage.getItem("homeloom.autoplayVideos")).toBeNull();
+});
+
 test("keeping a moment sends what happened and the day", async () => {
   const calls = serve(
     ...signedIn(),
@@ -440,7 +472,7 @@ test("settings hides notifications when the server has none", async () => {
   serve(...signedIn(), at("GET", "/v1/push", () => json({ code: "push_unavailable", message: "" }, 503)));
   renderApp("/settings");
   expect(await screen.findByRole("button", { name: "Invite someone" })).toBeInTheDocument();
-  expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+  expect(screen.queryByRole("switch", { name: /Notifications/ })).not.toBeInTheDocument();
 });
 
 test("an invite link waits through sign-in, then joins", async () => {
@@ -789,6 +821,18 @@ test("done reminders stay hidden until shown", async () => {
   expect(screen.queryByText("Pay rent")).not.toBeInTheDocument();
 });
 
+test("the calendar never shows reminders while its events load", async () => {
+  serve(
+    ...signedIn(),
+    // Events never arrive, so whatever the calendar shows is what it shows while loading.
+    (req) => (new URL(req.url).searchParams.get("kind") === "reminder" ? at("GET", `/v1/households/${home.id}/entries`, () => json([entry({ text: "Bins out" })]))(req) : undefined),
+  );
+  renderApp("/lists");
+  expect(await screen.findByText("Bins out")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("tab", { name: "Calendar" }));
+  expect(screen.queryByText("Bins out")).not.toBeInTheDocument();
+});
+
 test("the quick-add sheet suggests reminders set before", async () => {
   const calls = serve(
     ...signedIn(),
@@ -985,6 +1029,52 @@ test("today lists what's due and today's events", async () => {
   expect(within(next).getByText("Water the plants")).toBeInTheDocument();
   expect(within(next).getByText("Dinner with Jo")).toBeInTheDocument();
   expect(screen.queryByText("Next year")).not.toBeInTheDocument();
+});
+
+const chore = (over: Record<string, unknown> = {}) => ({
+  id: "99999999-9999-4999-8999-999999999999", title: "Bins", points: 2, repeat: "weekly", rotate: true, assigneeId: marius.id, dueOn: "2026-01-01", createdAt: "2026-01-01T08:00:00Z", ...over,
+});
+
+test("today's chores are ticked off on Today", async () => {
+  let done = false;
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([])),
+    at("GET", `/v1/households/${home.id}/chores`, () => json(done ? [chore({ dueOn: "2099-01-01", assigneeId: jo.id })] : [chore(), chore({ id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", title: "Windows", dueOn: "2099-01-01" })])),
+    at("POST", `/v1/households/${home.id}/chores/${chore().id}/done`, () => {
+      done = true;
+      return json({ id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", title: "Bins", points: 2, userId: marius.id, day: "2026-01-01", doneAt: "2026-01-01T08:00:00Z", thankedBy: [] }, 201);
+    }),
+  );
+  renderApp("/");
+  const card = await screen.findByRole("region", { name: "Chores today" });
+  expect(within(card).queryByText("Windows")).not.toBeInTheDocument();
+  await userEvent.click(within(card).getByRole("checkbox", { name: "Bins" }));
+  await waitFor(() => expect(screen.queryByRole("region", { name: "Chores today" })).not.toBeInTheDocument());
+  expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/done"))).toBe(true);
+});
+
+test("the chores page shows who did what and thanks into the gratitude wall", async () => {
+  const completion = { id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", choreId: chore().id, title: "Bins", points: 2, userId: jo.id, day: "2026-01-01", doneAt: "2026-01-01T08:00:00Z", thankedBy: [] as string[] };
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/chores`, () => json([chore({ assigneeId: marius.id })])),
+    at("GET", `/v1/households/${home.id}/chore-completions`, () => json([completion])),
+    at("GET", `/v1/households/${home.id}/chore-fairness`, () =>
+      json({
+        week: { from: "2025-12-29", members: [{ userId: marius.id, points: 0, count: 0 }, { userId: jo.id, points: 2, count: 1 }] },
+        month: { from: "2026-01-01", members: [{ userId: marius.id, points: 0, count: 0 }, { userId: jo.id, points: 2, count: 1 }] },
+      }),
+    ),
+    at("POST", `/v1/households/${home.id}/chore-completions/${completion.id}/thanks`, () => json({ completion: { ...completion, thankedBy: [marius.id] }, gratitude: { id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", kind: "gratitude", authorId: marius.id, day: "2026-01-01", visibility: "shared", sealed: false, createdAt: "2026-01-01T08:00:00Z", updatedAt: "2026-01-01T08:00:00Z" } })),
+  );
+  renderApp("/chores");
+  const fair = await screen.findByRole("region", { name: "Who did what" });
+  expect(within(fair).getByText("2 points")).toBeInTheDocument();
+  await userEvent.click(await screen.findByRole("button", { name: "Thank Jo" }));
+  expect(await screen.findByText("Jo hears your thanks, and it's on your gratitude wall.")).toBeInTheDocument();
+  const post = calls.find((c) => c.method === "POST");
+  expect(await post?.json()).toEqual({ gratitude: "Thank you, Jo, for “Bins”." });
 });
 
 test("today greets you and brings back a thank-you", async () => {

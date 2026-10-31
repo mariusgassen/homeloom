@@ -2,6 +2,7 @@ package port
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -97,6 +98,12 @@ type MomentService interface {
 	// Photo returns domain.ErrNotFound unless the actor can see the moment and its photo.
 	Photo(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Photo, error)
 	DeletePhoto(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Moment, error)
+	// SetVideo streams r in as the video of the actor's moment. It is domain.ErrUnavailable without
+	// a VideoStore.
+	SetVideo(ctx context.Context, actor domain.User, id uuid.UUID, contentType string, r io.Reader) (domain.Moment, error)
+	// Video returns domain.ErrNotFound unless the actor can see the moment and its video.
+	Video(ctx context.Context, actor domain.User, id uuid.UUID) (domain.VideoStream, error)
+	DeleteVideo(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Moment, error)
 }
 
 // EntrySyncService lets a calendar app (over CalDAV) or a notes app (over WebDAV) read and change
@@ -129,6 +136,20 @@ type CookService interface {
 	Find(ctx context.Context, actor domain.User, householdID uuid.UUID, query string, n int) ([]domain.RecipeSummary, error)
 }
 
+// BudgetService is the household's shared money: expenses split between members, where everyone
+// stands, and settling up. Every member sees and changes everything in it.
+type BudgetService interface {
+	// Month returns one month of expenses and settlements; this month when month is zero.
+	Month(ctx context.Context, actor domain.User, householdID uuid.UUID, month time.Time) (domain.ExpenseMonth, error)
+	Add(ctx context.Context, actor domain.User, householdID uuid.UUID, f domain.ExpenseFields) (domain.Expense, error)
+	// Update replaces an expense's fields; a settlement can't be changed (domain.ErrSettlement).
+	Update(ctx context.Context, actor domain.User, householdID, id uuid.UUID, f domain.ExpenseFields) (domain.Expense, error)
+	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
+	// Settle records that from gave to the amount, on day (today when zero).
+	Settle(ctx context.Context, actor domain.User, householdID, from, to uuid.UUID, cents int64, day time.Time) (domain.Expense, error)
+	Balance(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Balance, error)
+}
+
 type ShoppingService interface {
 	Items(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.ShoppingItem, error)
 	// Add puts the texts on the list, noting the recipe they came from ("" for none).
@@ -141,6 +162,26 @@ type ShoppingService interface {
 	ClearDone(ctx context.Context, actor domain.User, householdID uuid.UUID) error
 	// Suggestions returns what was on the list before, to put on it again.
 	Suggestions(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.TitleSuggestion, error)
+}
+
+// ChoreService is the household's chores: who does what, in turns, and who did how much.
+type ChoreService interface {
+	// List returns the chores still to do, soonest due first.
+	List(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.Chore, error)
+	Create(ctx context.Context, actor domain.User, householdID uuid.UUID, f domain.ChoreFields) (domain.Chore, error)
+	Update(ctx context.Context, actor domain.User, householdID, id uuid.UUID, f domain.ChoreFields) (domain.Chore, error)
+	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
+	// Complete ticks the chore off as done by the actor: it moves to its next day and, when it
+	// rotates, to the next member.
+	Complete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) (domain.ChoreCompletion, error)
+	// Undo takes back the actor's own latest completion of a chore.
+	Undo(ctx context.Context, actor domain.User, householdID, completionID uuid.UUID) error
+	// Thank tells whoever did it thanks. With a line, it also becomes the actor's gratitude line
+	// for today, unless they wrote one already; the line is returned when it was written.
+	Thank(ctx context.Context, actor domain.User, householdID, completionID uuid.UUID, line string) (domain.ChoreCompletion, *domain.Moment, error)
+	// History returns what was done in the last weeks, newest first.
+	History(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.ChoreCompletion, error)
+	Fairness(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.ChoreFairness, error)
 }
 
 type HomeService interface {

@@ -17,9 +17,11 @@ func TestPushSubscriptions(t *testing.T)   { storetest.PushSubscriptions(t, memo
 func TestEntries(t *testing.T)             { storetest.Entries(t, memory.NewStore()) }
 func TestCalendarFeeds(t *testing.T)       { storetest.CalendarFeeds(t, memory.NewStore()) }
 func TestShoppingItems(t *testing.T)       { storetest.ShoppingItems(t, memory.NewStore()) }
+func TestExpenses(t *testing.T)            { storetest.Expenses(t, memory.NewStore()) }
 func TestShoppingSuggestions(t *testing.T) { storetest.ShoppingSuggestions(t, memory.NewStore()) }
 func TestReminderSuggestions(t *testing.T) { storetest.ReminderSuggestions(t, memory.NewStore()) }
 func TestConversations(t *testing.T)       { storetest.Conversations(t, memory.NewStore()) }
 func TestMCPTokens(t *testing.T)           { storetest.MCPTokens(t, memory.NewStore()) }
 func TestMoments(t *testing.T)             { storetest.Moments(t, memory.NewStore()) }
 func TestVoiceSettings(t *testing.T)       { storetest.VoiceSettings(t, memory.NewStore()) }
+func TestChores(t *testing.T)              { storetest.Chores(t, memory.NewStore()) }

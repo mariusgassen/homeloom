@@ -676,7 +676,7 @@ export interface paths {
          */
         put: operations["updateMoment"];
         post?: never;
-        /** Delete your moment or line, with its photo */
+        /** Delete your moment or line, with its photo and video */
         delete: operations["deleteMoment"];
         options?: never;
         head?: never;
@@ -705,6 +705,35 @@ export interface paths {
         post?: never;
         /** Remove the photo of your moment */
         delete: operations["deleteMomentPhoto"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/moments/{momentId}/video": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A moment's video
+         * @description Use the moment's `videoUrl`; it changes with the video, so the answer may be cached. Send
+         *     `Range` to stream it: one range comes back as 206, several as the whole video.
+         */
+        get: operations["getMomentVideo"];
+        /**
+         * Add or replace the video of your moment
+         * @description An MP4 or QuickTime video of at most 200 MB, sent as it is. Gratitude lines have no video.
+         *     Videos need the S3 store; without it this answers 503.
+         */
+        put: operations["setMomentVideo"];
+        post?: never;
+        /** Remove the video of your moment */
+        delete: operations["deleteMomentVideo"];
         options?: never;
         head?: never;
         patch?: never;
@@ -900,6 +929,263 @@ export interface paths {
         post?: never;
         /** Remove every ticked item */
         delete: operations["clearShoppingItems"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/expenses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * One month of expenses and settlements (members only)
+         * @description Newest day first. At most 1000.
+         */
+        get: operations["listExpenses"];
+        put?: never;
+        /**
+         * Add an expense
+         * @description Without `shares` it is split evenly between all members; the first members carry odd cents.
+         */
+        post: operations["createExpense"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/expenses/{expenseId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                expenseId: components["parameters"]["ExpenseId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change an expense
+         * @description Every member may. A settlement can't be changed (`409 settlement_fixed`); delete it and settle again.
+         */
+        put: operations["updateExpense"];
+        post?: never;
+        /** Delete an expense or a settlement */
+        delete: operations["deleteExpense"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /** Where everyone stands, and the payments that settle it (members only) */
+        get: operations["getBalance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/settlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record that one member paid another back */
+        post: operations["settleUp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/chores": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The household's chores still to do (members only)
+         * @description Soonest due first; overdue ones are due before today. A one-off chore leaves the list once done. At most 200.
+         */
+        get: operations["listChores"];
+        put?: never;
+        /**
+         * Set up a chore
+         * @description A rotating chore without `assigneeId` starts with you.
+         */
+        post: operations["createChore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/chores/{choreId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                choreId: components["parameters"]["ChoreId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a chore
+         * @description Chores are shared, so every member can change them.
+         */
+        put: operations["updateChore"];
+        post?: never;
+        /**
+         * Delete a chore
+         * @description What was done stays in the history and the tally.
+         */
+        delete: operations["deleteChore"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/chores/{choreId}/done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                choreId: components["parameters"]["ChoreId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tick a chore off as done by you
+         * @description A repeating chore moves to its next day after today or its due day, whichever is later; a
+         *     one-off is done. A rotating chore becomes the turn of the member after you, in the order
+         *     they joined. Once a day per chore.
+         */
+        post: operations["completeChore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/chore-completions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * What was done in the last six weeks (members only)
+         * @description Newest first, also of chores deleted since. At most 300.
+         */
+        get: operations["listChoreCompletions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/chore-completions/{completionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                completionId: components["parameters"]["CompletionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Take back that you did a chore
+         * @description Only your own, and only the chore's latest; the chore goes back to its day and turn before.
+         */
+        delete: operations["undoChoreCompletion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/chore-completions/{completionId}/thanks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                completionId: components["parameters"]["CompletionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Say thanks for a chore someone did
+         * @description Whoever did it hears it, the first time you say it. With `gratitude`, the line also becomes
+         *     your gratitude line for today, shared, unless you wrote one already today.
+         */
+        post: operations["thankChoreCompletion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/chore-fairness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Who did how much this week and this month (members only)
+         * @description Points and chores done per current member, the week from Monday, in the household's time zone.
+         */
+        get: operations["getChoreFairness"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1698,11 +1984,13 @@ export interface components {
             visibility: components["schemas"]["Visibility"];
             /** Format: date-time */
             revealAt?: string;
-            /** @description True while you may not read it yet; `text` and `photoUrl` are then absent. */
+            /** @description True while you may not read it yet; `text`, `photoUrl` and `videoUrl` are then absent. */
             sealed: boolean;
             text?: string;
             /** @description Where its photo is */
             photoUrl?: string;
+            /** @description Where its video is */
+            videoUrl?: string;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -1813,6 +2101,195 @@ export interface components {
             text: string;
             /** @description How often it was used. */
             uses: number;
+        };
+        /**
+         * @description What it was spent on. Settlements are `other`.
+         * @enum {string}
+         */
+        ExpenseCategory: "groceries" | "dining" | "home" | "utilities" | "transport" | "travel" | "fun" | "health" | "gifts" | "other";
+        ExpenseShare: {
+            /** Format: uuid */
+            userId: string;
+            /**
+             * Format: int64
+             * @description This member's part, in cents.
+             */
+            cents: number;
+        };
+        ExpenseFields: {
+            /**
+             * Format: int64
+             * @description The amount in cents (EUR).
+             */
+            cents: number;
+            category: components["schemas"]["ExpenseCategory"];
+            note?: string;
+            /**
+             * Format: uuid
+             * @description The member who paid.
+             */
+            paidBy: string;
+            /**
+             * Format: date
+             * @description The day it was spent; today when absent.
+             */
+            day?: string;
+            /** @description Who carries how much: members, each once, adding up to `cents`. Absent or empty: evenly between all members. */
+            shares?: components["schemas"]["ExpenseShare"][];
+        };
+        Expense: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description A settlement is money `paidBy` gave the member in its one share.
+             * @enum {string}
+             */
+            kind: "expense" | "settlement";
+            /** Format: int64 */
+            cents: number;
+            category: components["schemas"]["ExpenseCategory"];
+            note?: string;
+            /** Format: uuid */
+            paidBy: string;
+            /** Format: date */
+            day: string;
+            /** @description Members with a part above zero. */
+            shares: components["schemas"]["ExpenseShare"][];
+            /**
+             * Format: uuid
+             * @description Who wrote it down; absent once they left.
+             */
+            addedBy?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        ExpenseMonth: {
+            month: components["schemas"]["Month"];
+            expenses: components["schemas"]["Expense"][];
+            /** @description The latest earlier month with an expense; absent when there is none. */
+            earlier?: components["schemas"]["Month"];
+        };
+        NewSettlement: {
+            /**
+             * Format: uuid
+             * @description The member who paid.
+             */
+            from: string;
+            /**
+             * Format: uuid
+             * @description The member who got the money.
+             */
+            to: string;
+            /** Format: int64 */
+            cents: number;
+            /**
+             * Format: date
+             * @description Today when absent.
+             */
+            day?: string;
+        };
+        Balance: {
+            /** @description Every member, and anyone who left while still owing or being owed. */
+            members: components["schemas"]["MemberBalance"][];
+            /** @description Payments that settle everything; empty when everyone is even. */
+            transfers: components["schemas"]["Transfer"][];
+        };
+        MemberBalance: {
+            /** Format: uuid */
+            userId: string;
+            /**
+             * Format: int64
+             * @description What they paid minus their shares: above zero they are owed, below zero they owe.
+             */
+            cents: number;
+        };
+        Transfer: {
+            /** Format: uuid */
+            from: string;
+            /** Format: uuid */
+            to: string;
+            /** Format: int64 */
+            cents: number;
+        };
+        ChoreFields: {
+            title: string;
+            /** @description The effort: 1 small, 2 medium, 3 big. */
+            points: number;
+            repeat?: components["schemas"]["Repeat"];
+            /** @description Each time it is done it becomes the next member's turn. */
+            rotate?: boolean;
+            /**
+             * Format: uuid
+             * @description Whose turn it is; absent means anyone's.
+             */
+            assigneeId?: string;
+            /**
+             * Format: date
+             * @description The day it is due; today when absent.
+             */
+            dueOn?: string;
+        };
+        Chore: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            points: number;
+            repeat: components["schemas"]["Repeat"];
+            rotate: boolean;
+            /** Format: uuid */
+            assigneeId?: string;
+            /** Format: date */
+            dueOn: string;
+            /** Format: uuid */
+            createdBy?: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        ChoreCompletion: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: uuid
+             * @description Absent once the chore was deleted.
+             */
+            choreId?: string;
+            title: string;
+            points: number;
+            /**
+             * Format: uuid
+             * @description Who did it.
+             */
+            userId: string;
+            /** Format: date */
+            day: string;
+            /** Format: date-time */
+            doneAt: string;
+            thankedBy: string[];
+        };
+        ChoreThanks: {
+            /** @description A line for your gratitude wall, written if you have none today. */
+            gratitude?: string;
+        };
+        ChoreThanked: {
+            completion: components["schemas"]["ChoreCompletion"];
+            gratitude?: components["schemas"]["Moment"];
+        };
+        ChoreFairness: {
+            week: components["schemas"]["ChoreTally"];
+            month: components["schemas"]["ChoreTally"];
+        };
+        ChoreTally: {
+            /** Format: date */
+            from: string;
+            members: components["schemas"]["ChoreShare"][];
+        };
+        ChoreShare: {
+            /** Format: uuid */
+            userId: string;
+            points: number;
+            count: number;
         };
         Home: {
             /** @description Whether you have connected your Home Assistant account. */
@@ -2160,6 +2637,9 @@ export interface components {
         MomentId: string;
         CallId: string;
         ShoppingItemId: string;
+        ExpenseId: string;
+        ChoreId: string;
+        CompletionId: string;
         ConversationId: string;
         RecipeSlug: string;
     };
@@ -3507,6 +3987,130 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getMomentVideo: {
+        parameters: {
+            query?: {
+                /** @description The video's version, part of `videoUrl`. */
+                v?: string;
+            };
+            header?: {
+                /** @description One byte range, `bytes=from-to`, `bytes=from-` or `bytes=-last`. */
+                Range?: string;
+            };
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The whole video. */
+            200: {
+                headers: {
+                    "Accept-Ranges"?: string;
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "video/*": string;
+                };
+            };
+            /** @description The range asked for. */
+            206: {
+                headers: {
+                    "Accept-Ranges"?: string;
+                    "Cache-Control"?: string;
+                    "Content-Range": string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "video/*": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description The range lies outside the video. */
+            416: {
+                headers: {
+                    "Content-Range": string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    setMomentVideo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "video/*": string;
+            };
+        };
+        responses: {
+            /** @description The moment with its video. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description You can see it but not change it (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    deleteMomentVideo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The moment without a video. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description You can see it but not change it (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
     suggestRecipes: {
         parameters: {
             query?: never;
@@ -3817,6 +4421,446 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listExpenses: {
+        parameters: {
+            query?: {
+                /** @description `YYYY-MM`; this month in the household's time zone when absent. */
+                month?: components["schemas"]["Month"];
+            };
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The month. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExpenseMonth"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createExpense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExpenseFields"];
+            };
+        };
+        responses: {
+            /** @description The expense. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Expense"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateExpense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                expenseId: components["parameters"]["ExpenseId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExpenseFields"];
+            };
+        };
+        responses: {
+            /** @description The expense. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Expense"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description It is a settlement (code `settlement_fixed`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    deleteExpense: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                expenseId: components["parameters"]["ExpenseId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getBalance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The balance. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Balance"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    settleUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewSettlement"];
+            };
+        };
+        responses: {
+            /** @description The settlement, as an expense of kind `settlement`. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Expense"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listChores: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The chores. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Chore"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createChore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChoreFields"];
+            };
+        };
+        responses: {
+            /** @description The new chore. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Chore"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateChore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                choreId: components["parameters"]["ChoreId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChoreFields"];
+            };
+        };
+        responses: {
+            /** @description The chore. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Chore"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteChore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                choreId: components["parameters"]["ChoreId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    completeChore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                choreId: components["parameters"]["ChoreId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What was done. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChoreCompletion"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description Done already today, or a one-off done before (code `chore_done`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    listChoreCompletions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The history. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChoreCompletion"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    undoChoreCompletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                completionId: components["parameters"]["CompletionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Undone. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description Someone else did it (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description The chore was done again since (code `chore_not_latest`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    thankChoreCompletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                completionId: components["parameters"]["CompletionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ChoreThanks"];
+            };
+        };
+        responses: {
+            /** @description The completion, and the gratitude line if one was written. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChoreThanked"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            /** @description You did it yourself (code `own_chore`). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    getChoreFairness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tallies. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChoreFairness"];
+                };
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
