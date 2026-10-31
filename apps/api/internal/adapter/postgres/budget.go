@@ -96,6 +96,21 @@ func (s *Store) DeleteExpense(ctx context.Context, householdID, id uuid.UUID) er
 	return nil
 }
 
+func (s *Store) SetExpenseReceipt(ctx context.Context, householdID, id uuid.UUID, at *time.Time) (domain.Expense, error) {
+	row, err := s.q.SetExpenseReceipt(ctx, sqlcgen.SetExpenseReceiptParams{ReceiptAt: at, ID: id, HouseholdID: householdID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.Expense{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.Expense{}, err
+	}
+	es, err := withShares(ctx, s.q, []sqlcgen.Expense{row})
+	if err != nil {
+		return domain.Expense{}, err
+	}
+	return es[0], nil
+}
+
 func (s *Store) Nets(ctx context.Context, householdID uuid.UUID) ([]domain.Net, error) {
 	rows, err := s.q.BudgetNets(ctx, householdID)
 	if err != nil {
@@ -145,7 +160,7 @@ func toExpense(r sqlcgen.Expense) domain.Expense {
 	e := domain.Expense{
 		ID: r.ID, HouseholdID: r.HouseholdID, Kind: domain.ExpenseKind(r.Kind), Cents: r.Cents,
 		Category: domain.ExpenseCategory(r.Category), PaidBy: r.PaidBy, Day: r.Day, AddedBy: r.AddedBy,
-		Created: r.CreatedAt, Updated: r.UpdatedAt,
+		ReceiptAt: r.ReceiptAt, Created: r.CreatedAt, Updated: r.UpdatedAt,
 	}
 	if r.Note != nil {
 		e.Note = *r.Note

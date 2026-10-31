@@ -70,7 +70,7 @@ func (s *Store) UpdateExpense(_ context.Context, e domain.Expense) (domain.Expen
 	defer s.mu.Unlock()
 	for i, old := range s.expenses {
 		if old.ID == e.ID && old.HouseholdID == e.HouseholdID {
-			e.Kind, e.AddedBy, e.Created, e.Updated = old.Kind, old.AddedBy, old.Created, time.Now()
+			e.Kind, e.AddedBy, e.ReceiptAt, e.Created, e.Updated = old.Kind, old.AddedBy, old.ReceiptAt, old.Created, time.Now()
 			s.expenses[i] = cloneExpense(e)
 			return cloneExpense(e), nil
 		}
@@ -87,6 +87,18 @@ func (s *Store) DeleteExpense(_ context.Context, householdID, id uuid.UUID) erro
 		return domain.ErrNotFound
 	}
 	return nil
+}
+
+func (s *Store) SetExpenseReceipt(_ context.Context, householdID, id uuid.UUID, at *time.Time) (domain.Expense, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, e := range s.expenses {
+		if e.ID == id && e.HouseholdID == householdID {
+			s.expenses[i].ReceiptAt = at
+			return cloneExpense(s.expenses[i]), nil
+		}
+	}
+	return domain.Expense{}, domain.ErrNotFound
 }
 
 func (s *Store) Nets(_ context.Context, householdID uuid.UUID) ([]domain.Net, error) {

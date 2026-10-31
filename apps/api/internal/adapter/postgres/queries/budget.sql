@@ -44,3 +44,8 @@ SELECT t.user_id, sum(t.cents)::bigint AS cents FROM (
     SELECT s.user_id, -s.cents FROM expense_shares s JOIN expenses e ON e.id = s.expense_id WHERE e.household_id = @household_id
 ) t
 GROUP BY t.user_id;
+
+-- name: SetExpenseReceipt :one
+UPDATE expenses SET receipt_at = @receipt_at
+WHERE id = @id AND household_id = @household_id
+RETURNING *;

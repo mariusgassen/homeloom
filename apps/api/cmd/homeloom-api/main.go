@@ -197,6 +197,11 @@ func run() error {
 		entries.WithPhotos(bucket)
 	}
 	shopping := service.NewShopping(store, store, grocer)
+	// Receipts are kept in S3 only; without it the rest of the budget works.
+	budget := service.NewBudget(store, store, cfg.TimeZone)
+	if bucket != nil {
+		budget.WithReceipts(bucket)
+	}
 	go notifyDue(ctx, entries)
 	moments := service.NewMoments(store, store, store, push, cfg.TimeZone)
 	if bucket != nil {
@@ -223,7 +228,7 @@ func run() error {
 		Cook:           cook,
 		Shopping:       shopping,
 		Chores:         chores,
-		Budget:         service.NewBudget(store, store, cfg.TimeZone),
+		Budget:         budget,
 		Home:           homeService,
 		Watch:          watch,
 		Push:           push,

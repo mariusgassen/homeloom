@@ -984,6 +984,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/expenses/{expenseId}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                expenseId: components["parameters"]["ExpenseId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The photo of an expense's receipt
+         * @description Use the expense's `receiptUrl`; it changes with the photo, so the answer may be cached.
+         */
+        get: operations["getExpenseReceipt"];
+        /**
+         * Add or replace the photo of an expense's receipt
+         * @description A JPEG of at most 5 MB, kept in S3; `503 receipts_unavailable` when S3 isn't set up or reachable.
+         */
+        put: operations["setExpenseReceipt"];
+        post?: never;
+        /** Remove the photo of an expense's receipt */
+        delete: operations["deleteExpenseReceipt"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/balance": {
         parameters: {
             query?: never;
@@ -2160,6 +2188,8 @@ export interface components {
              * @description Who wrote it down; absent once they left.
              */
             addedBy?: string;
+            /** @description The photo of the receipt, if there is one; it changes with the photo. */
+            receiptUrl?: string;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -2168,8 +2198,20 @@ export interface components {
         ExpenseMonth: {
             month: components["schemas"]["Month"];
             expenses: components["schemas"]["Expense"][];
+            /**
+             * Format: int64
+             * @description What was spent this month, in cents. Settlements don't count.
+             */
+            total: number;
+            /** @description What was spent per category, most first; categories without spending are left out. */
+            categories: components["schemas"]["CategoryTotal"][];
             /** @description The latest earlier month with an expense; absent when there is none. */
             earlier?: components["schemas"]["Month"];
+        };
+        CategoryTotal: {
+            category: components["schemas"]["ExpenseCategory"];
+            /** Format: int64 */
+            cents: number;
         };
         NewSettlement: {
             /**
@@ -4543,6 +4585,94 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getExpenseReceipt: {
+        parameters: {
+            query?: {
+                /** @description The photo's version, part of `receiptUrl`. */
+                v?: string;
+            };
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                expenseId: components["parameters"]["ExpenseId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The photo. */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    setExpenseReceipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                expenseId: components["parameters"]["ExpenseId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            /** @description The expense with its receipt. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Expense"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    deleteExpenseReceipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                expenseId: components["parameters"]["ExpenseId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The expense without a receipt. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Expense"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
         };
     };
     getBalance: {

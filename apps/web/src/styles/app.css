@@ -280,6 +280,14 @@ html:has(.sheet-backdrop, .assistant) { overflow: hidden; }
 .money-input { font: 600 28px/34px var(--font-text); min-height: 56px; font-variant-numeric: tabular-nums; }
 .money-part { flex: 0 0 7.5em; width: 7.5em; min-width: 0; text-align: right; font-variant-numeric: tabular-nums; }
 .money-transfer { display: block; }
+.money-summary { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-raised); }
+.money-summary-total { display: flex; flex-direction: column; gap: 2px; font-variant-numeric: tabular-nums; }
+.money-bars { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.money-bars li { display: grid; grid-template-columns: 7.5em 1fr auto; align-items: center; gap: var(--space-2); }
+.money-bars li > .caption:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.money-bar { height: 8px; border-radius: 4px; background: var(--surface-sunken); overflow: hidden; }
+.money-bar > span { display: block; height: 100%; border-radius: 4px; background: var(--spruce); }
+.money-bar-amount { font-variant-numeric: tabular-nums; text-align: right; }
 /* Titles used before: the text as written, not shouted like a tag. */
 .suggestions .hl-chip { text-transform: none; letter-spacing: 0; font-size: 14px; }
 .hl-list > .shopping-item + .shopping-item, .hl-list > .shopping-item + .shopping-item .swipe-content { box-shadow: inset 0 1px 0 var(--line); }

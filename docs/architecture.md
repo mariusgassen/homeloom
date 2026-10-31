@@ -101,6 +101,8 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 - One shared budget per household (`expenses`, `expense_shares`), opened from Today. Every member sees, adds, changes and deletes every expense; the service checks membership and every query is scoped to the household.
 - **Expenses** are whole cents in euros, paid by one member, in a category, on a day, and split into shares that add up to the amount, each member at most once. Without shares the service splits evenly between the current members; the first ones carry odd cents.
 - **Settling up** is stored as an expense of kind `settlement`: the payer paid it, the receiver has the one share. So where someone stands is one sum over everything, what they paid minus their shares, and settlements need no rules of their own. A settlement can't be changed, only deleted.
+- **Month summary:** `GET …/expenses?month=YYYY-MM` also returns the month's `total` and what was spent per category, most first. Settlements count in neither: paying back isn't spending.
+- **Receipts** are JPEGs of at most 5 MB kept in S3 only (`receipts/<id>.jpg`, the same `PhotoStore` as photos); Postgres records `receipt_at`. Without S3, or while it is down, receipts answer `503 receipts_unavailable` and the rest of the budget works. Deleting an expense deletes its receipt first.
 - **Balance** (`GET …/balance`) lists every member and anyone who left while still owing or being owed, plus the payments that settle it, largest debts first; for two people that is one payment.
 
 ## Smart home

@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { api, type Expense, type ExpenseCategory, type ExpenseMonth, type HouseholdDetail, type Transfer, type User } from "../api/client";
 import { centsText, parseCents, useBalance, useMoney, useStanding } from "../money";
-import { today } from "../moments";
+import { shrink, today } from "../moments";
 import { useRefresh } from "../refresh";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
@@ -120,6 +120,7 @@ export function Money() {
         m.expenses.length === 0 ? null : (
           <section className="group" key={m.month}>
             <h2 className="label group-title">{monthName.format(new Date(`${m.month}-01T00:00`))}</h2>
+            {m.total > 0 && <MonthSummary month={m} />}
             <div className="hl-list">
               {m.expenses.map((e) => (
                 <ExpenseRow key={e.id} expense={e} household={household} me={me} onOpen={() => setSheet(e)} onDelete={() => remove(e)} />
@@ -219,8 +220,25 @@ function ExpenseSheet({ household, me, expense, onClose, onSaved }: {
   const [parts, setParts] = useState<Record<string, string>>(() =>
     Object.fromEntries(members.map((m) => [m.id, expense ? centsText(expense.shares.find((s) => s.userId === m.id)?.cents ?? 0, i18n.language) : ""])),
   );
+  // undefined keeps the receipt as it is, null removes it, a Blob replaces it.
+  const [receipt, setReceipt] = useState<Blob | null | undefined>(undefined);
+  const [preview, setPreview] = useState<string | undefined>(expense?.receiptUrl);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // An expense saved before its receipt failed is changed, not added again, on the next try.
+  const saved = useRef<Expense | undefined>(expense);
+  useEffect(() => () => {
+    if (preview?.startsWith("blob:")) URL.revokeObjectURL(preview);
+  }, [preview]);
+
+  async function pick(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    const small = await shrink(file).catch(() => undefined);
+    if (!small) return setError(t("money.receiptFailed"));
+    setReceipt(small);
+    setPreview(URL.createObjectURL(small));
+  }
 
   const cents = parseCents(amount);
   const partCents = members.map((m) => (parts[m.id]?.trim() ? parseCents(parts[m.id] ?? "") : 0));
@@ -240,13 +258,35 @@ function ExpenseSheet({ household, me, expense, onClose, onSaved }: {
       day,
       shares: split === "custom" ? members.map((m, i) => ({ userId: m.id, cents: partCents[i] ?? 0 })) : undefined,
     };
-    const res = await (expense
-      ? api.PUT("/v1/households/{householdId}/expenses/{expenseId}", { params: { path: { householdId: household.id, expenseId: expense.id } }, body })
+    const current = saved.current;
+    const res = await (current
+      ? api.PUT("/v1/households/{householdId}/expenses/{expenseId}", { params: { path: { householdId: household.id, expenseId: current.id } }, body })
       : api.POST("/v1/households/{householdId}/expenses", { params: { path: { householdId: household.id } }, body })
     ).catch(() => undefined);
+    if (!res?.data) {
+      setBusy(false);
+      setError(res?.error?.message ?? t("money.failed"));
+      return;
+    }
+    saved.current = res.data;
+    const path = { params: { path: { householdId: household.id, expenseId: res.data.id } } };
+    let photo: { error?: { message: string } } | undefined = {};
+    if (receipt) {
+      photo = await api
+        .PUT("/v1/households/{householdId}/expenses/{expenseId}/receipt", {
+          ...path,
+          // The contract types a binary body as a string; the photo goes as it is.
+          body: receipt as unknown as string,
+          bodySerializer: (b) => b,
+          headers: { "Content-Type": "image/jpeg" },
+        })
+        .catch(() => undefined);
+    } else if (receipt === null && res.data.receiptUrl) {
+      photo = await api.DELETE("/v1/households/{householdId}/expenses/{expenseId}/receipt", path).catch(() => undefined);
+    }
     setBusy(false);
-    if (res?.data) onSaved();
-    else setError(res?.error?.message ?? t("money.failed"));
+    if (photo && !photo.error) onSaved();
+    else setError(photo?.error?.message ?? t("money.receiptFailed"));
   }
 
   async function remove() {
@@ -322,6 +362,24 @@ function ExpenseSheet({ household, me, expense, onClose, onSaved }: {
         </div>
       )}
 
+      {preview && (
+        <a href={preview} target="_blank" rel="noreferrer">
+          <img className="moment-photo" src={preview} alt={t("money.receipt")} />
+        </a>
+      )}
+      <div className="moment-photo-actions">
+        <label className="hl-btn hl-btn-secondary hl-btn-sm">
+          <Icon name="camera" size="sm" />
+          {t(preview ? "money.receiptChange" : "money.receiptAdd")}
+          <input className="visually-hidden" type="file" accept="image/*" onChange={(e) => pick(e.target.files?.[0])} />
+        </label>
+        {preview && (
+          <Button variant="plain" size="sm" onClick={() => (setReceipt(null), setPreview(undefined))}>
+            {t("money.receiptRemove")}
+          </Button>
+        )}
+      </div>
+
       {error && (
         <p className="callout error" role="alert">
           {error}
@@ -333,6 +391,32 @@ function ExpenseSheet({ household, me, expense, onClose, onSaved }: {
         </Button>
       )}
     </Sheet>
+  );
+}
+
+// What a month spent, and on what: a bar per category, most first.
+function MonthSummary({ month }: { month: ExpenseMonth }) {
+  const { t } = useTranslation();
+  const money = useMoney();
+  const top = month.categories[0]?.cents ?? 1;
+  return (
+    <div className="money-summary">
+      <div className="money-summary-total">
+        <span className="caption muted">{t("money.spent")}</span>
+        <span className="title">{money(month.total)}</span>
+      </div>
+      <ul className="money-bars">
+        {month.categories.map((c) => (
+          <li key={c.category}>
+            <span className="caption">{t(`money.category.${c.category}`)}</span>
+            <span className="money-bar" aria-hidden="true">
+              <span style={{ width: `${Math.max(2, (c.cents / top) * 100)}%` }} />
+            </span>
+            <span className="caption money-bar-amount">{money(c.cents)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

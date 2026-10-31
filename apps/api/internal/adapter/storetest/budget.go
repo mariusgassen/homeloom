@@ -91,6 +91,19 @@ func Expenses(t *testing.T, s interface {
 	if err := s.DeleteExpense(ctx, other.Household.ID, groceries.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("delete from another household: %v", err)
 	}
+	at := time.Date(2026, 10, 30, 9, 0, 0, 0, time.UTC)
+	if e, err := s.SetExpenseReceipt(ctx, hh, groceries.ID, &at); err != nil || e.ReceiptAt == nil || !e.ReceiptAt.Equal(at) || len(e.Shares) != 1 {
+		t.Fatalf("set receipt: %+v, %v", e, err)
+	}
+	if e, err := s.UpdateExpense(ctx, updated); err != nil || e.ReceiptAt == nil {
+		t.Fatalf("an update drops the receipt: %+v, %v", e, err)
+	}
+	if _, err := s.SetExpenseReceipt(ctx, other.Household.ID, groceries.ID, nil); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("receipt from another household: %v", err)
+	}
+	if e, err := s.SetExpenseReceipt(ctx, hh, groceries.ID, nil); err != nil || e.ReceiptAt != nil {
+		t.Fatalf("clear receipt: %+v, %v", e, err)
+	}
 	if err := s.DeleteExpense(ctx, hh, groceries.ID); err != nil {
 		t.Fatal(err)
 	}

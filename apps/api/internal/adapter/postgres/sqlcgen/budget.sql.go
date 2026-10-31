@@ -74,7 +74,7 @@ func (q *Queries) ClearExpenseShares(ctx context.Context, expenseID uuid.UUID) e
 const createExpense = `-- name: CreateExpense :one
 INSERT INTO expenses (household_id, kind, cents, category, note, paid_by, day, added_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, household_id, kind, cents, category, note, paid_by, day, added_by, created_at, updated_at
+RETURNING id, household_id, kind, cents, category, note, paid_by, day, added_by, created_at, updated_at, receipt_at
 `
 
 type CreateExpenseParams struct {
@@ -112,6 +112,7 @@ func (q *Queries) CreateExpense(ctx context.Context, arg CreateExpenseParams) (E
 		&i.AddedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ReceiptAt,
 	)
 	return i, err
 }
@@ -158,7 +159,7 @@ func (q *Queries) ExpenseShares(ctx context.Context, ids []uuid.UUID) ([]Expense
 }
 
 const getExpense = `-- name: GetExpense :one
-SELECT id, household_id, kind, cents, category, note, paid_by, day, added_by, created_at, updated_at FROM expenses WHERE id = $1 AND household_id = $2
+SELECT id, household_id, kind, cents, category, note, paid_by, day, added_by, created_at, updated_at, receipt_at FROM expenses WHERE id = $1 AND household_id = $2
 `
 
 type GetExpenseParams struct {
@@ -181,6 +182,7 @@ func (q *Queries) GetExpense(ctx context.Context, arg GetExpenseParams) (Expense
 		&i.AddedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ReceiptAt,
 	)
 	return i, err
 }
@@ -205,7 +207,7 @@ func (q *Queries) LatestExpenseDay(ctx context.Context, arg LatestExpenseDayPara
 }
 
 const listExpenses = `-- name: ListExpenses :many
-SELECT id, household_id, kind, cents, category, note, paid_by, day, added_by, created_at, updated_at FROM expenses
+SELECT id, household_id, kind, cents, category, note, paid_by, day, added_by, created_at, updated_at, receipt_at FROM expenses
 WHERE household_id = $1 AND day >= $2 AND day < $3
 ORDER BY day DESC, created_at DESC, id
 LIMIT $4
@@ -245,6 +247,7 @@ func (q *Queries) ListExpenses(ctx context.Context, arg ListExpensesParams) ([]E
 			&i.AddedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ReceiptAt,
 		); err != nil {
 			return nil, err
 		}
@@ -256,10 +259,42 @@ func (q *Queries) ListExpenses(ctx context.Context, arg ListExpensesParams) ([]E
 	return items, nil
 }
 
+const setExpenseReceipt = `-- name: SetExpenseReceipt :one
+UPDATE expenses SET receipt_at = $1
+WHERE id = $2 AND household_id = $3
+RETURNING id, household_id, kind, cents, category, note, paid_by, day, added_by, created_at, updated_at, receipt_at
+`
+
+type SetExpenseReceiptParams struct {
+	ReceiptAt   *time.Time
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+}
+
+func (q *Queries) SetExpenseReceipt(ctx context.Context, arg SetExpenseReceiptParams) (Expense, error) {
+	row := q.db.QueryRow(ctx, setExpenseReceipt, arg.ReceiptAt, arg.ID, arg.HouseholdID)
+	var i Expense
+	err := row.Scan(
+		&i.ID,
+		&i.HouseholdID,
+		&i.Kind,
+		&i.Cents,
+		&i.Category,
+		&i.Note,
+		&i.PaidBy,
+		&i.Day,
+		&i.AddedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ReceiptAt,
+	)
+	return i, err
+}
+
 const updateExpense = `-- name: UpdateExpense :one
 UPDATE expenses SET cents = $1, category = $2, note = $3, paid_by = $4, day = $5, updated_at = now()
 WHERE id = $6 AND household_id = $7
-RETURNING id, household_id, kind, cents, category, note, paid_by, day, added_by, created_at, updated_at
+RETURNING id, household_id, kind, cents, category, note, paid_by, day, added_by, created_at, updated_at, receipt_at
 `
 
 type UpdateExpenseParams struct {
@@ -295,6 +330,7 @@ func (q *Queries) UpdateExpense(ctx context.Context, arg UpdateExpenseParams) (E
 		&i.AddedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ReceiptAt,
 	)
 	return i, err
 }

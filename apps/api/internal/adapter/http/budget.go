@@ -1,8 +1,12 @@
 package http
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
+	"io"
+	"log/slog"
 	"time"
 
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -29,7 +33,13 @@ func (h *handlers) ListExpenses(ctx context.Context, req oapi.ListExpensesReques
 	if err != nil {
 		return nil, err
 	}
-	out := oapi.ListExpenses200JSONResponse{Month: em.Month.Format(monthLayout), Expenses: make([]oapi.Expense, len(em.Expenses))}
+	out := oapi.ListExpenses200JSONResponse{
+		Month: em.Month.Format(monthLayout), Expenses: make([]oapi.Expense, len(em.Expenses)),
+		Total: em.Total, Categories: make([]oapi.CategoryTotal, len(em.Categories)),
+	}
+	for i, c := range em.Categories {
+		out.Categories[i] = oapi.CategoryTotal{Category: oapi.ExpenseCategory(c.Category), Cents: c.Cents}
+	}
 	for i, e := range em.Expenses {
 		out.Expenses[i] = toExpense(e)
 	}
@@ -85,6 +95,8 @@ func (h *handlers) DeleteExpense(ctx context.Context, req oapi.DeleteExpenseRequ
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
 		return oapi.DeleteExpense404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.Is(err, domain.ErrUnavailable):
+		return oapi.DeleteExpense503JSONResponse{UnavailableJSONResponse: receiptsUnavailable(ctx, err)}, nil
 	case err != nil:
 		return nil, err
 	}
@@ -175,5 +187,76 @@ func toExpense(e domain.Expense) oapi.Expense {
 	for i, sh := range e.Shares {
 		out.Shares[i] = oapi.ExpenseShare{UserId: sh.UserID, Cents: sh.Cents}
 	}
+	if e.ReceiptAt != nil {
+		url := fmt.Sprintf("/v1/households/%s/expenses/%s/receipt?v=%d", e.HouseholdID, e.ID, e.ReceiptAt.UnixMilli())
+		out.ReceiptUrl = &url
+	}
 	return out
+}
+
+func (h *handlers) GetExpenseReceipt(ctx context.Context, req oapi.GetExpenseReceiptRequestObject) (oapi.GetExpenseReceiptResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	p, err := h.budget.Receipt(ctx, u, req.HouseholdId, req.ExpenseId)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.GetExpenseReceipt404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.Is(err, domain.ErrUnavailable):
+		return oapi.GetExpenseReceipt503JSONResponse{UnavailableJSONResponse: receiptsUnavailable(ctx, err)}, nil
+	case err != nil:
+		return nil, err
+	}
+	// receiptUrl names the photo's version, so the browser may keep it; it is private to the viewer.
+	cache := "private, max-age=31536000, immutable"
+	return oapi.GetExpenseReceipt200ImagejpegResponse{
+		Body: bytes.NewReader(p.Data), ContentLength: int64(len(p.Data)), Headers: oapi.GetExpenseReceipt200ResponseHeaders{CacheControl: &cache},
+	}, nil
+}
+
+func (h *handlers) SetExpenseReceipt(ctx context.Context, req oapi.SetExpenseReceiptRequestObject) (oapi.SetExpenseReceiptResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// One byte more than allowed is enough to tell the photo is too big.
+	data, err := io.ReadAll(io.LimitReader(req.Body, domain.MaxPhotoBytes+1))
+	if err != nil {
+		return oapi.SetExpenseReceipt400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "invalid_photo", err.Error(), "max", domain.MaxPhotoBytes>>20))}, nil
+	}
+	e, err := h.budget.SetReceipt(ctx, u, req.HouseholdId, req.ExpenseId, domain.Photo{ContentType: "image/jpeg", Data: data})
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.SetExpenseReceipt404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.Is(err, domain.ErrInvalid):
+		return oapi.SetExpenseReceipt400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "invalid_photo", err.Error(), "max", domain.MaxPhotoBytes>>20))}, nil
+	case errors.Is(err, domain.ErrUnavailable):
+		return oapi.SetExpenseReceipt503JSONResponse{UnavailableJSONResponse: receiptsUnavailable(ctx, err)}, nil
+	case err != nil:
+		return nil, err
+	}
+	return oapi.SetExpenseReceipt200JSONResponse(toExpense(e)), nil
+}
+
+func (h *handlers) DeleteExpenseReceipt(ctx context.Context, req oapi.DeleteExpenseReceiptRequestObject) (oapi.DeleteExpenseReceiptResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	e, err := h.budget.DeleteReceipt(ctx, u, req.HouseholdId, req.ExpenseId)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.DeleteExpenseReceipt404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.Is(err, domain.ErrUnavailable):
+		return oapi.DeleteExpenseReceipt503JSONResponse{UnavailableJSONResponse: receiptsUnavailable(ctx, err)}, nil
+	case err != nil:
+		return nil, err
+	}
+	return oapi.DeleteExpenseReceipt200JSONResponse(toExpense(e)), nil
+}
+
+func receiptsUnavailable(ctx context.Context, err error) oapi.UnavailableJSONResponse {
+	slog.WarnContext(ctx, "receipts unavailable", "err", err)
+	return oapi.UnavailableJSONResponse(errorBody(ctx, "receipts_unavailable", ""))
 }

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.30.0
+  version: 0.31.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -1391,6 +1391,67 @@ paths:
         "204": { description: Deleted. }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/expenses/{expenseId}/receipt:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/ExpenseId"
+    get:
+      tags: [budget]
+      operationId: getExpenseReceipt
+      summary: The photo of an expense's receipt
+      description: Use the expense's `receiptUrl`; it changes with the photo, so the answer may be cached.
+      parameters:
+        - name: v
+          in: query
+          description: The photo's version, part of `receiptUrl`.
+          schema: { type: string, maxLength: 40 }
+      responses:
+        "200":
+          description: The photo.
+          headers:
+            Cache-Control:
+              schema: { type: string }
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    put:
+      tags: [budget]
+      operationId: setExpenseReceipt
+      summary: Add or replace the photo of an expense's receipt
+      description: A JPEG of at most 5 MB, kept in S3; `503 receipts_unavailable` when S3 isn't set up or reachable.
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+      responses:
+        "200":
+          description: The expense with its receipt.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Expense" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [budget]
+      operationId: deleteExpenseReceipt
+      summary: Remove the photo of an expense's receipt
+      responses:
+        "200":
+          description: The expense without a receipt.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Expense" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
 
   /v1/households/{householdId}/balance:
     parameters:
@@ -2745,18 +2806,31 @@ components:
           description: Members with a part above zero.
           items: { $ref: "#/components/schemas/ExpenseShare" }
         addedBy: { type: string, format: uuid, description: Who wrote it down; absent once they left. }
+        receiptUrl: { type: string, description: "The photo of the receipt, if there is one; it changes with the photo." }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
     ExpenseMonth:
       type: object
-      required: [month, expenses]
+      required: [month, expenses, total, categories]
       properties:
         month: { $ref: "#/components/schemas/Month" }
         expenses:
           type: array
           items: { $ref: "#/components/schemas/Expense" }
+        total: { type: integer, format: int64, description: "What was spent this month, in cents. Settlements don't count." }
+        categories:
+          type: array
+          description: What was spent per category, most first; categories without spending are left out.
+          items: { $ref: "#/components/schemas/CategoryTotal" }
         earlier: { $ref: "#/components/schemas/Month", description: "The latest earlier month with an expense; absent when there is none." }
+
+    CategoryTotal:
+      type: object
+      required: [category, cents]
+      properties:
+        category: { $ref: "#/components/schemas/ExpenseCategory" }
+        cents: { type: integer, format: int64 }
 
     NewSettlement:
       type: object
