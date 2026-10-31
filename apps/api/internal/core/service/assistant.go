@@ -35,8 +35,10 @@ type Assistant struct {
 	cook          port.CookService
 	shopping      port.ShoppingService
 	home          port.HomeService
-	loc           *time.Location
-	now           func() time.Time
+	// budget is nil when the money tools aren't wired; they then answer that it isn't available.
+	budget port.BudgetService
+	loc    *time.Location
+	now    func() time.Time
 }
 
 func NewAssistant(households port.HouseholdRepository, conversations port.ConversationRepository, llm port.Assistant,
@@ -46,6 +48,12 @@ func NewAssistant(households port.HouseholdRepository, conversations port.Conver
 		households: households, conversations: conversations, llm: llm,
 		entries: entries, cook: cook, shopping: shopping, home: home, loc: loc, now: time.Now,
 	}
+}
+
+// WithBudget gives the assistant the household's money: adding expenses and reading the balance.
+func (s *Assistant) WithBudget(budget port.BudgetService) *Assistant {
+	s.budget = budget
+	return s
 }
 
 func (s *Assistant) Conversations(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.Conversation, error) {

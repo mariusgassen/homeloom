@@ -62,7 +62,7 @@ func (h *handlers) CreateEntry(ctx context.Context, req oapi.CreateEntryRequestO
 	b := req.Body
 	e, err := h.entries.Create(ctx, u, req.HouseholdId, domain.EntryKind(b.Kind), toEntryFields(oapi.EntryFields{
 		Text: b.Text, Visibility: b.Visibility, RevealAt: b.RevealAt, DueAt: b.DueAt, StartsAt: b.StartsAt, EndsAt: b.EndsAt,
-		AllDay: b.AllDay, AlertMinutes: b.AlertMinutes, Repeat: b.Repeat, AssigneeId: b.AssigneeId,
+		AllDay: b.AllDay, AlertMinutes: b.AlertMinutes, Repeat: b.Repeat, AssigneeId: b.AssigneeId, Bill: b.Bill,
 	}))
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
@@ -225,6 +225,8 @@ func invalidEntry(ctx context.Context, err error) oapi.Error {
 		return errorBody(ctx, "invalid_assignee", err.Error())
 	case errors.Is(err, domain.ErrEventTime):
 		return errorBody(ctx, "invalid_event_time", err.Error())
+	case errors.Is(err, domain.ErrBill):
+		return errorBody(ctx, "invalid_bill", err.Error())
 	}
 	return errorBody(ctx, "invalid_entry", err.Error())
 }
@@ -237,6 +239,9 @@ func toEntryFields(b oapi.EntryFields) domain.EntryFields {
 	if b.Repeat != nil {
 		f.Repeat = domain.Repeat(*b.Repeat)
 	}
+	if b.Bill != nil {
+		f.Bill = &domain.Bill{Cents: b.Bill.Cents, Category: domain.ExpenseCategory(b.Bill.Category), PaidBy: b.Bill.PaidBy}
+	}
 	return f
 }
 
@@ -246,6 +251,9 @@ func toEntry(e domain.Entry) oapi.Entry {
 		RevealAt: e.RevealAt, Sealed: e.Sealed, DueAt: e.DueAt, StartsAt: e.StartsAt, EndsAt: e.EndsAt, AllDay: e.AllDay,
 		AlertMinutes: e.AlertMinutes, Repeat: oapi.Repeat(e.Repeat), AssigneeId: e.AssigneeID,
 		DoneAt: e.DoneAt, DoneBy: e.DoneBy, CreatedAt: e.CreatedAt, UpdatedAt: e.UpdatedAt,
+	}
+	if e.Bill != nil {
+		out.Bill = &oapi.Bill{Cents: e.Bill.Cents, Category: oapi.ExpenseCategory(e.Bill.Category), PaidBy: e.Bill.PaidBy}
 	}
 	if !e.Sealed {
 		out.Text = &e.Text

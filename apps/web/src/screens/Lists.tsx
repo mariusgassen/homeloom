@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
 import { api, type Entry, type EntryKind, type HouseholdDetail, type User } from "../api/client";
 import { removeEntry, sameDay, setDone, startOfDay, useEntries, useShowDone } from "../entries";
+import { useMoney } from "../money";
 import { excerpt, firstPhoto } from "../notes";
 import { useSession } from "../session";
 import { Empty } from "../ui/Empty";
@@ -148,6 +149,7 @@ function Reminders({ entries, household, me, onOpen, onChange }: {
 }) {
   const { t } = useTranslation();
   const { moment } = useWhen();
+  const money = useMoney();
   const actions = useEntryActions(me, onChange);
   const [showDone, toggleDone] = useShowDone(me.id, "reminders");
   const open = entries.filter((e) => !e.doneAt);
@@ -156,6 +158,7 @@ function Reminders({ entries, household, me, onOpen, onChange }: {
     [
       e.dueAt && moment(e.dueAt),
       e.repeat !== "never" && t(`entries.repeats.${e.repeat}`),
+      e.bill && money(e.bill.cents),
       e.visibility === "private" ? t("entries.visibility.private") : e.assigneeId ? (e.assigneeId === me.id ? t("entries.forMe") : household.members.find((m) => m.user.id === e.assigneeId)?.user.name) : t("entries.forBoth"),
     ]
       .filter(Boolean)

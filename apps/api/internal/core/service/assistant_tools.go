@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"strings"
 	"time"
 
@@ -16,8 +17,9 @@ import (
 )
 
 // The assistant's tools are its whitelist: it can read and add entries, tick reminders off, look
-// recipes up, read and add to the shopping list, and read the home and switch its scenes and lights. It can't delete anything, and
-// every call goes through the services with the person as the actor.
+// recipes up, read and add to the shopping list, add expenses and read the money, and read the home
+// and switch its scenes and lights. It can't delete anything, and every call goes through the
+// services with the person as the actor.
 var tools = []domain.Tool{
 	{
 		Name: "list_entries",
@@ -36,6 +38,7 @@ var tools = []domain.Tool{
 			"due":        str("When it is due."),
 			"repeat":     repeatEnum,
 			"for":        str("Name of the member it is for."),
+			"bill":       billSchema,
 		}, "text", "visibility"),
 	},
 	{
@@ -93,6 +96,29 @@ var tools = []domain.Tool{
 		}, "items"),
 	},
 	{
+		Name: "add_expense",
+		Description: "Write down money one member paid for the household, in euros. It is split evenly between all members " +
+			"unless shares say otherwise; shares must add up to the amount. paid_by is a member's name; leave it out when the person paid. " +
+			"day is YYYY-MM-DD, today when left out.",
+		Schema: object(map[string]any{
+			"amount":   map[string]any{"type": "number", "exclusiveMinimum": 0, "maximum": domain.MaxExpenseCents / 100, "description": "Euros, e.g. 12.5."},
+			"category": categoryEnum,
+			"note":     str("What it was for, at most 200 characters."),
+			"paid_by":  str("Name of the member who paid."),
+			"day":      str("The day it was spent."),
+			"shares": map[string]any{
+				"type": "object", "description": "Euros per member name, when not split evenly.",
+				"additionalProperties": map[string]any{"type": "number", "minimum": 0},
+			},
+		}, "amount", "category"),
+	},
+	{
+		Name: "get_money",
+		Description: "Read where the members stand with money (who owes whom how much) and this month's expenses " +
+			"and settlements, with what was spent per category. month is YYYY-MM for another month.",
+		Schema: object(map[string]any{"month": str("The month, YYYY-MM.")}),
+	},
+	{
 		Name: "get_home",
 		Description: "Read the home: its rooms with their scenes, lights (on or off) and readings such as temperature " +
 			"or an open window. Only the person's own connection is used.",
@@ -111,6 +137,20 @@ var tools = []domain.Tool{
 }
 
 var repeatEnum = enum("never", "daily", "weekly", "monthly", "yearly")
+
+var categoryEnum = func() map[string]any {
+	values := make([]string, len(domain.ExpenseCategories))
+	for i, c := range domain.ExpenseCategories {
+		values[i] = string(c)
+	}
+	return enum(values...)
+}()
+
+var billSchema = object(map[string]any{
+	"amount":   map[string]any{"type": "number", "exclusiveMinimum": 0, "maximum": domain.MaxExpenseCents / 100, "description": "Euros."},
+	"category": categoryEnum,
+	"paid_by":  str("Name of the member who pays it; leave out for whoever ticks it off."),
+}, "amount", "category")
 
 func object(props map[string]any, required ...string) map[string]any {
 	o := map[string]any{"type": "object", "properties": props, "additionalProperties": false}
@@ -182,6 +222,11 @@ func (t *toolbox) call(ctx context.Context, call domain.ToolCall) (any, error) {
 			Due        string            `json:"due"`
 			Repeat     domain.Repeat     `json:"repeat"`
 			For        string            `json:"for"`
+			Bill       *struct {
+				Amount   float64                `json:"amount"`
+				Category domain.ExpenseCategory `json:"category"`
+				PaidBy   string                 `json:"paid_by"`
+			} `json:"bill"`
 		}
 		if err := decode(call.Input, &in); err != nil {
 			return nil, err
@@ -194,6 +239,14 @@ func (t *toolbox) call(ctx context.Context, call domain.ToolCall) (any, error) {
 		if in.For != "" {
 			if f.AssigneeID, err = t.member(in.For); err != nil {
 				return nil, err
+			}
+		}
+		if b := in.Bill; b != nil {
+			f.Bill = &domain.Bill{Cents: cents(b.Amount), Category: b.Category}
+			if b.PaidBy != "" {
+				if f.Bill.PaidBy, err = t.member(b.PaidBy); err != nil {
+					return nil, err
+				}
 			}
 		}
 		return t.add(ctx, domain.KindReminder, f)
@@ -305,6 +358,27 @@ func (t *toolbox) call(ctx context.Context, call domain.ToolCall) (any, error) {
 			return nil, err
 		}
 		return shoppingView(items), nil
+	case "add_expense":
+		var in struct {
+			Amount   float64                `json:"amount"`
+			Category domain.ExpenseCategory `json:"category"`
+			Note     string                 `json:"note"`
+			PaidBy   string                 `json:"paid_by"`
+			Day      string                 `json:"day"`
+			Shares   map[string]float64     `json:"shares"`
+		}
+		if err := decode(call.Input, &in); err != nil {
+			return nil, err
+		}
+		return t.addExpense(ctx, in.Amount, in.Category, in.Note, in.PaidBy, in.Day, in.Shares)
+	case "get_money":
+		var in struct {
+			Month string `json:"month"`
+		}
+		if err := decode(call.Input, &in); err != nil {
+			return nil, err
+		}
+		return t.money(ctx, in.Month)
 	case "get_home":
 		if err := decode(call.Input, &struct{}{}); err != nil {
 			return nil, err
@@ -347,6 +421,118 @@ func (t *toolbox) add(ctx context.Context, kind domain.EntryKind, f domain.Entry
 		return nil, err
 	}
 	return t.view(e), nil
+}
+
+func (t *toolbox) addExpense(ctx context.Context, amount float64, category domain.ExpenseCategory, note, paidBy, day string, shares map[string]float64) (any, error) {
+	if t.s.budget == nil {
+		return nil, domain.ErrUnavailable
+	}
+	f := domain.ExpenseFields{Cents: cents(amount), Category: category, Note: note, PaidBy: t.actor.ID}
+	if paidBy != "" {
+		id, err := t.member(paidBy)
+		if err != nil {
+			return nil, err
+		}
+		f.PaidBy = *id
+	}
+	if day != "" {
+		d, err := time.Parse(time.DateOnly, strings.TrimSpace(day))
+		if err != nil {
+			return nil, fmt.Errorf("%w: day %q is not YYYY-MM-DD", domain.ErrInvalid, day)
+		}
+		f.Day = d
+	}
+	for name, amount := range shares {
+		id, err := t.member(name)
+		if err != nil {
+			return nil, err
+		}
+		f.Shares = append(f.Shares, domain.Share{UserID: *id, Cents: cents(amount)})
+	}
+	e, err := t.s.budget.Add(ctx, t.actor, t.householdID, f)
+	if err != nil {
+		return nil, err
+	}
+	return t.expenseView(e), nil
+}
+
+func (t *toolbox) money(ctx context.Context, month string) (any, error) {
+	if t.s.budget == nil {
+		return nil, domain.ErrUnavailable
+	}
+	var m time.Time
+	if month != "" {
+		var err error
+		if m, err = time.Parse("2006-01", strings.TrimSpace(month)); err != nil {
+			return nil, fmt.Errorf("%w: month %q is not YYYY-MM", domain.ErrInvalid, month)
+		}
+	}
+	b, err := t.s.budget.Balance(ctx, t.actor, t.householdID)
+	if err != nil {
+		return nil, err
+	}
+	em, err := t.s.budget.Month(ctx, t.actor, t.householdID, m)
+	if err != nil {
+		return nil, err
+	}
+	standing := make(map[string]string, len(b.Members))
+	for _, n := range b.Members {
+		standing[t.name(n.UserID)] = euros(n.Cents)
+	}
+	settle := make([]string, len(b.Transfers))
+	for i, x := range b.Transfers {
+		settle[i] = fmt.Sprintf("%s pays %s %s EUR", t.name(x.From), t.name(x.To), euros(x.Cents))
+	}
+	spent := make(map[string]string, len(em.Categories))
+	for _, c := range em.Categories {
+		spent[string(c.Category)] = euros(c.Cents)
+	}
+	expenses := make([]expenseView, len(em.Expenses))
+	for i, e := range em.Expenses {
+		expenses[i] = t.expenseView(e)
+	}
+	return map[string]any{
+		"standing_eur":  standing,
+		"to_settle":     settle,
+		"month":         em.Month.Format("2006-01"),
+		"spent_eur":     euros(em.Total),
+		"by_category":   spent,
+		"expenses":      expenses,
+		"earlier_month": formatMonth(em.Earlier),
+	}, nil
+}
+
+type expenseView struct {
+	Kind     domain.ExpenseKind     `json:"kind"`
+	Amount   string                 `json:"amount_eur"`
+	Category domain.ExpenseCategory `json:"category,omitempty"`
+	Note     string                 `json:"note,omitempty"`
+	PaidBy   string                 `json:"paid_by"`
+	Day      string                 `json:"day"`
+	Shares   map[string]string      `json:"shares_eur"`
+}
+
+func (t *toolbox) expenseView(e domain.Expense) expenseView {
+	v := expenseView{Kind: e.Kind, Amount: euros(e.Cents), Note: e.Note, PaidBy: t.name(e.PaidBy), Day: e.Day.Format(time.DateOnly), Shares: map[string]string{}}
+	if e.Kind == domain.KindExpense {
+		v.Category = e.Category
+	}
+	for _, sh := range e.Shares {
+		v.Shares[t.name(sh.UserID)] = euros(sh.Cents)
+	}
+	return v
+}
+
+// cents turns euros as the model writes them into cents.
+func cents(euros float64) int64 { return int64(math.Round(euros * 100)) }
+
+func euros(cents int64) string { return fmt.Sprintf("%.2f", float64(cents)/100) }
+
+func formatMonth(m time.Time) string {
+	if m.IsZero() {
+		return ""
+	}
+	return m.Format("2006-01")
 }
 
 // setLight switches only when the light isn't in that state yet; the port can only toggle.

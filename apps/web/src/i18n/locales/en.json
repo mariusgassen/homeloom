@@ -34,7 +34,7 @@
     "dinner": { "eyebrow": "Dinner tonight", "title": "What do you feel like?" },
     "watch": { "eyebrow": "Watch tonight", "title": "Something to watch?" },
     "chores": { "eyebrow": "Chores today", "all": "All", "more_one": "{{count}} more", "more_other": "{{count}} more", "setUp": "Share the housework" },
-    "money": { "eyebrow": "Money", "title": "Who owes whom?" },
+    "money": { "eyebrow": "Money", "title": "Who owes whom?", "bill": "Next: {{name}}, {{amount}}, {{when}}" },
     "thanks": "What made you smile today?"
   },
   "cook": {
@@ -143,6 +143,9 @@
     "failed": "That didn't work. Please try again."
   },
   "entries": {
+    "bill": "It's a bill",
+    "billWhoever": "Whoever ticks it",
+    "billHint": "Ticking it off adds the amount to Money, split evenly. Repeat it for a recurring bill.",
     "add": "Add",
     "kind": "What to add",
     "kinds": { "reminder": "Reminder", "event": "Event", "note": "Note" },

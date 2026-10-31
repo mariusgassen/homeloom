@@ -34,7 +34,7 @@
     "dinner": { "eyebrow": "Heute Abend", "title": "Worauf habt ihr Lust?" },
     "watch": { "eyebrow": "Heute schauen", "title": "Lust auf einen Film?" },
     "chores": { "eyebrow": "Heute im Haushalt", "all": "Alle", "more_one": "{{count}} weitere", "more_other": "{{count}} weitere", "setUp": "Teilt euch den Haushalt" },
-    "money": { "eyebrow": "Geld", "title": "Wer schuldet wem?" },
+    "money": { "eyebrow": "Geld", "title": "Wer schuldet wem?", "bill": "Als Nächstes: {{name}}, {{amount}}, {{when}}" },
     "thanks": "Was hat dich heute zum Lächeln gebracht?"
   },
   "cook": {
@@ -143,6 +143,9 @@
     "failed": "Das hat nicht geklappt. Versuch es bitte noch mal."
   },
   "entries": {
+    "bill": "Ist eine Rechnung",
+    "billWhoever": "Wer abhakt",
+    "billHint": "Beim Abhaken landet der Betrag gleich aufgeteilt bei Geld. Wiederhole sie für eine regelmäßige Rechnung.",
     "add": "Hinzufügen",
     "kind": "Was hinzufügen",
     "kinds": { "reminder": "Erinnerung", "event": "Termin", "note": "Notiz" },

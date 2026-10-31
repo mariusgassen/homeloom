@@ -5,7 +5,7 @@ import type { Entry, HouseholdDetail, Moment, Question, TonightPick, User } from
 import { completeChore, dueToday as choreDueToday, useChores } from "../chores";
 import { dueToday, useEntries } from "../entries";
 import { nextDays, useMealPlan } from "../meals";
-import { useBalance, useStanding } from "../money";
+import { nextBill, useBalance, useMoney, useStanding } from "../money";
 import { dayOf, useResurfaced } from "../moments";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
@@ -314,6 +314,10 @@ function Money({ household, me }: { household: HouseholdDetail; me: User }) {
   const navigate = useNavigate();
   const { balance } = useBalance(household.id);
   const standing = useStanding(household, me.id);
+  const money = useMoney();
+  const { entries } = useEntries(household.id, "reminder");
+  const { moment } = useWhen();
+  const bill = entries && nextBill(entries);
   return (
     <button type="button" className="today-tile today-money" onClick={() => navigate("/money")}>
       <span className="today-tile-icon">
@@ -322,6 +326,9 @@ function Money({ household, me }: { household: HouseholdDetail; me: User }) {
       <span className="today-tile-text">
         <span className="label">{t("today.money.eyebrow")}</span>
         <span className="headline">{balance ? standing(balance) : t("today.money.title")}</span>
+        {bill?.bill && bill.dueAt && (
+          <span className="caption muted">{t("today.money.bill", { name: bill.text, amount: money(bill.bill.cents), when: moment(bill.dueAt) })}</span>
+        )}
       </span>
       <Icon name="chevron" size="sm" />
     </button>

@@ -103,6 +103,17 @@ type EntryFields struct {
 	Repeat       Repeat
 	// AssigneeID is who a shared reminder is for; nil means everyone.
 	AssigneeID *uuid.UUID
+	// Bill makes a shared reminder a bill; nil for everything else.
+	Bill *Bill
+}
+
+// Bill is what ticking off a shared reminder books as an expense, split evenly, with the
+// reminder's text as its note. Repeating it makes it a recurring bill.
+type Bill struct {
+	Cents    int64
+	Category ExpenseCategory
+	// PaidBy is who pays it; nil means whoever ticks it off.
+	PaidBy *uuid.UUID
 }
 
 // SyncList is one list a calendar app syncs: the household's shared events or reminders, or the

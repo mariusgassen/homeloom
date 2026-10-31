@@ -140,6 +140,9 @@ type Entry struct {
 	UpdatedAt    time.Time
 	IcalUid      *string
 	IcalName     *string
+	BillCents    *int64
+	BillCategory *string
+	BillPaidBy   *uuid.UUID
 }
 
 type EntryPhoto struct {

@@ -25,7 +25,10 @@ var (
 	// ErrPayer means the payer (or a settlement's receiver) is not a member, or a settlement pays oneself.
 	ErrPayer    = fmt.Errorf("%w: who paid must be a member", ErrInvalid)
 	ErrCategory = fmt.Errorf("%w: unknown category", ErrInvalid)
-	ErrReceipt  = fmt.Errorf("%w: a receipt must be a JPEG of at most %d MB", ErrInvalid, MaxPhotoBytes>>20)
+	// ErrBill means a bill on something other than a shared reminder, or with a wrong amount,
+	// category or payer.
+	ErrBill    = fmt.Errorf("%w: only shared reminders can be bills, of 0.01-%d.00 in a category, paid by a member", ErrInvalid, MaxExpenseCents/100)
+	ErrReceipt = fmt.Errorf("%w: a receipt must be a JPEG of at most %d MB", ErrInvalid, MaxPhotoBytes>>20)
 	// ErrSettlement means a settlement was to be changed like an expense; delete it and settle again.
 	ErrSettlement = fmt.Errorf("%w: a settlement can't be changed, only deleted", ErrConflict)
 )

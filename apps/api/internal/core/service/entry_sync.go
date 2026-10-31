@@ -77,6 +77,8 @@ func (s *Entry) SyncPut(ctx context.Context, actor domain.User, householdID uuid
 	if l.Visibility == domain.VisibilityShared {
 		in.AssigneeID = e.AssigneeID
 	}
+	// Calendar apps know nothing of bills, so an entry keeps its bill.
+	in.Bill = e.Bill
 	if e, err = s.Update(ctx, actor, e.ID, in.EntryFields, nil); err != nil {
 		return domain.Entry{}, false, err
 	}

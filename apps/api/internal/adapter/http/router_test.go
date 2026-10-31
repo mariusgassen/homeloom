@@ -60,6 +60,8 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 	shopping := service.NewShopping(store, store, nil)
 	smart := memory.NewSmartHome([]domain.Scene{{ID: "scene.dinner", Name: "Dinner"}}, []domain.Light{{ID: "light.kitchen", Name: "Kitchen"}})
 	entries := service.NewEntry(store, store, store, push, time.UTC)
+	budget := service.NewBudget(store, store, time.UTC)
+	entries.WithBills(budget)
 	cook := service.NewCook(store, recipes, memory.Chef{}, shopping).WithPlan(store)
 	home := service.NewHome(store, store, sessions, smart)
 	agents := service.NewAgentAccess(store, sessions, store)
@@ -77,7 +79,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Cook:          cook,
 		Shopping:      shopping,
 		Chores:        service.NewChores(store, store, store, moments, push, time.UTC),
-		Budget:        service.NewBudget(store, store, time.UTC),
+		Budget:        budget,
 		Home:          home,
 		Push:          push,
 		Calls:         service.NewCall(store, sessions, memory.NewCallServer(), push).WithVoiceAgent("homeloom", agents).WithVoice(voice),

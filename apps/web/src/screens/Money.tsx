@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { api, type Expense, type ExpenseCategory, type ExpenseMonth, type HouseholdDetail, type Transfer, type User } from "../api/client";
-import { centsText, parseCents, useBalance, useMoney, useStanding } from "../money";
+import { categories, centsText, parseCents, useBalance, useMoney, useStanding } from "../money";
 import { shrink, today } from "../moments";
 import { useRefresh } from "../refresh";
 import { useSession } from "../session";
@@ -16,8 +16,6 @@ import { Sheet } from "../ui/Sheet";
 import { Swipe } from "../ui/Swipe";
 import { ThreadAvatar, threadFor } from "../ui/ThreadAvatar";
 import { Screen } from "./Screen";
-
-export const categories: ExpenseCategory[] = ["groceries", "dining", "home", "utilities", "transport", "travel", "fun", "health", "gifts", "other"];
 
 // The months shown so far, newest first; loadEarlier adds the one before the last.
 function useExpenses(householdId: string) {

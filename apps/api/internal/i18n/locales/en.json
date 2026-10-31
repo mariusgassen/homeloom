@@ -17,6 +17,7 @@
   "error.invalid": "The request is not valid.",
   "error.invalid_aisle": "Pick one of the aisles.",
   "error.invalid_amount": "Enter an amount between 0.01 and {max}.",
+  "error.invalid_bill": "A bill needs an amount and a category, and only shared reminders can be bills.",
   "error.invalid_assignee": "Pick someone from your household. The reminder has to be shared for that.",
   "error.invalid_chore": "Pick how big the chore is and how often it comes back.",
   "error.invalid_chore_assignee": "Pick someone from your household.",
