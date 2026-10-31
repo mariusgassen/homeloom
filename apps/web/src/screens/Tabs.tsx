@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
 import type { Entry, HouseholdDetail, Moment, Question, TonightPick, User } from "../api/client";
+import { completeChore, dueToday as choreDueToday, useChores } from "../chores";
 import { dueToday, useEntries } from "../entries";
 import { useBalance, useStanding } from "../money";
 import { dayOf, useResurfaced } from "../moments";
@@ -10,7 +11,9 @@ import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Empty } from "../ui/Empty";
 import { Icon } from "../ui/Icon";
+import { ListRow } from "../ui/ListRow";
 import { CallButton } from "./Call";
+import { choreAvatar, useChoreDay } from "./Chores";
 import { EntrySheet } from "./EntrySheet";
 import { useWhen } from "./Lists";
 import { MomentSheet } from "./MomentSheet";
@@ -61,6 +64,7 @@ export function Today() {
     <Screen title={t("tabs.today")} overline={date} add={{ label: t("entries.add"), onClick: () => setAdding(true) }}>
       <Greeting household={household} me={me} />
       <NextUp key={generation} household={household} />
+      <TodayChores household={household} me={me} />
       <TodayQuestion household={household} me={me} />
       <Dinner />
       <Watch household={household} />
@@ -156,6 +160,69 @@ function NextUp({ household }: { household: HouseholdDetail }) {
           )}
         </ul>
       )}
+    </section>
+  );
+}
+
+// The chores on for today, yours first, each ticked off right here. A household without chores
+// gets one tap to set them up; once today's are done, the card goes away.
+function TodayChores({ household, me }: { household: HouseholdDetail; me: User }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { chores, reload } = useChores(household.id);
+  const [error, setError] = useState<string | null>(null);
+  const when = useChoreDay();
+  if (!chores) return null;
+  if (chores.length === 0) {
+    return (
+      <button type="button" className="today-tile today-chores" onClick={() => navigate("/chores")}>
+        <span className="today-tile-icon">
+          <Icon name="check" />
+        </span>
+        <span className="today-tile-text">
+          <span className="label">{t("chores.title")}</span>
+          <span className="headline">{t("today.chores.setUp")}</span>
+        </span>
+        <Icon name="chevron" size="sm" />
+      </button>
+    );
+  }
+  const mine = (id?: string) => (id === me.id ? 0 : id ? 2 : 1);
+  const due = chores.filter(choreDueToday).sort((a, b) => mine(a.assigneeId) - mine(b.assigneeId));
+  if (due.length === 0) return null;
+  const shown = due.slice(0, 5);
+  return (
+    <section className="group" aria-label={t("today.chores.eyebrow")}>
+      <div className="today-chores-head">
+        <h2 className="label group-title">{t("today.chores.eyebrow")}</h2>
+        <Button variant="plain" size="sm" onClick={() => navigate("/chores")}>
+          {due.length > shown.length ? t("today.chores.more", { count: due.length - shown.length }) : t("today.chores.all")}
+        </Button>
+      </div>
+      {error && (
+        <p className="callout error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="hl-list">
+        {shown.map((c) => (
+          <div className="entry-row" key={c.id}>
+            <button
+              type="button"
+              className="tick"
+              role="checkbox"
+              aria-checked={false}
+              aria-label={c.title}
+              onClick={async () => {
+                const err = await completeChore(household.id, c);
+                setError(err === null ? null : err || t("chores.failed"));
+                reload();
+              }}
+            />
+            <ListRow title={c.title} subtitle={when(c)} trailing={choreAvatar(household, c.assigneeId)} onClick={() => navigate("/chores")} />
+          </div>
+        ))}
+      </div>
     </section>
   );
 }

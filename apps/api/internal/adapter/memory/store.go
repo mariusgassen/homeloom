@@ -56,7 +56,9 @@ type Store struct {
 
 	voices map[uuid.UUID]domain.VoiceSettings
 
-	expenses []domain.Expense
+	chores           []domain.Chore
+	choreCompletions []domain.ChoreCompletion
+	expenses         []domain.Expense
 }
 
 func NewStore() *Store {
