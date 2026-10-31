@@ -62,7 +62,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 	entries := service.NewEntry(store, store, store, push, time.UTC)
 	budget := service.NewBudget(store, store, time.UTC)
 	entries.WithBills(budget)
-	cook := service.NewCook(store, recipes, memory.Chef{}, shopping)
+	cook := service.NewCook(store, recipes, memory.Chef{}, shopping).WithPlan(store)
 	home := service.NewHome(store, store, sessions, smart)
 	agents := service.NewAgentAccess(store, sessions, store)
 	voice := service.NewVoice(store, &memory.Speaker{})
@@ -761,6 +761,45 @@ func TestCookFlow(t *testing.T) {
 	}
 	if code, body := do(t, h, "POST", base+"/shopping-list", "token-alice", `{"recipe":"green-curry","ingredientIds":["x"]}`); code != 400 || body["code"] != "invalid_ingredients" {
 		t.Fatalf("foreign ingredient: %d %v", code, body)
+	}
+}
+
+func TestMealPlanFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	base := "/v1/households/" + created["id"].(string)
+
+	code, ideas := do(t, h, "POST", base+"/meal-plan/suggestions", "token-alice", `{"from":"2026-11-02","days":2,"wish":"curry"}`, "Accept-Language", "de")
+	meals, _ := ideas["meals"].([]any)
+	if code != 200 || ideas["chef"] != true || len(meals) != 1 || meals[0].(map[string]any)["day"] != "2026-11-02" || meals[0].(map[string]any)["reason"] != "de: uses curry" {
+		t.Fatalf("ideas: %d %v", code, ideas)
+	}
+	code, m := do(t, h, "PUT", base+"/meal-plan/2026-11-03", "token-alice", `{"recipe":"green-curry"}`)
+	if code != 200 || m["day"] != "2026-11-03" || m["recipe"].(map[string]any)["imageUrl"] != base+"/recipes/green-curry/image?v=v1" {
+		t.Fatalf("plan: %d %v", code, m)
+	}
+	if code, body := do(t, h, "PUT", base+"/meal-plan/2026-11-04", "token-alice", `{"recipe":"made-up"}`); code != 404 {
+		t.Fatalf("unknown recipe: %d %v", code, body)
+	}
+	if code, plan := doList(t, h, base+"/meal-plan?from=2026-11-02", "token-alice"); code != 200 || len(plan) != 1 || plan[0]["recipe"].(map[string]any)["name"] != "Green curry" {
+		t.Fatalf("week: %d %v", code, plan)
+	}
+	if code, body := do(t, h, "GET", base+"/meal-plan?from=2026-11-02&days=15", "token-alice", ""); code != 400 {
+		t.Fatalf("too many days: %d %v", code, body)
+	}
+	if code, body := do(t, h, "GET", base+"/meal-plan?from=2026-11-02", "token-eve", ""); code != 404 {
+		t.Fatalf("non-member: %d %v", code, body)
+	}
+
+	code, added := do(t, h, "POST", base+"/meal-plan/shopping-list", "token-alice", `{"recipes":[{"recipe":"green-curry","ingredientIds":["i1","i2"]}]}`)
+	if code != 200 || added["added"] != 2.0 {
+		t.Fatalf("add week: %d %v", code, added)
+	}
+	if code, _ := do(t, h, "DELETE", base+"/meal-plan/2026-11-03", "token-alice", ""); code != 204 {
+		t.Fatalf("unplan: %d", code)
+	}
+	if code, plan := doList(t, h, base+"/meal-plan?from=2026-11-02", "token-alice"); code != 200 || len(plan) != 0 {
+		t.Fatalf("after unplanning: %d %v", code, plan)
 	}
 }
 

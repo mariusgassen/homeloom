@@ -210,7 +210,7 @@ func run() error {
 	}
 	chores := service.NewChores(store, store, store, moments, push, cfg.TimeZone)
 	go notifyDaily(ctx, map[string]dailyJob{"moments": moments, "chores": chores})
-	cook := service.NewCook(store, book, chef, shopping)
+	cook := service.NewCook(store, book, chef, shopping).WithPlan(store)
 	homeService := service.NewHome(store, homeConnections, sessions, home)
 	households := service.NewHousehold(store)
 	watch := service.NewWatch(store, watchConnections, sessions, media, critic).WithTonight(store, push, cfg.TimeZone)

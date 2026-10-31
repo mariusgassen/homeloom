@@ -211,6 +211,17 @@ type McpToken struct {
 	Access      string
 }
 
+type MealPlan struct {
+	HouseholdID uuid.UUID
+	Day         time.Time
+	RecipeSlug  string
+	RecipeName  string
+	RecipeImage string
+	TotalTime   string
+	PlannedBy   uuid.UUID
+	PlannedAt   time.Time
+}
+
 type Membership struct {
 	HouseholdID uuid.UUID
 	UserID      uuid.UUID

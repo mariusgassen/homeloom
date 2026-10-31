@@ -218,6 +218,16 @@ type RecipeBook interface {
 	Image(ctx context.Context, slug string) (domain.RecipeImage, error)
 }
 
+// MealPlanRepository keeps each household's dinners, one per day.
+type MealPlanRepository interface {
+	// SaveMeal replaces the household's dinner on m.Day.
+	SaveMeal(ctx context.Context, m domain.PlannedMeal) error
+	// Meals returns the dinners with from <= Day < to, by day.
+	Meals(ctx context.Context, householdID uuid.UUID, from, to time.Time) ([]domain.PlannedMeal, error)
+	// DeleteMeal removes the day's dinner; nothing planned is fine.
+	DeleteMeal(ctx context.Context, householdID uuid.UUID, day time.Time) error
+}
+
 // ShoppingRepository keeps the household's shopping list. Calls that name an item return
 // domain.ErrNotFound when it isn't on that household's list.
 type ShoppingRepository interface {
@@ -294,6 +304,10 @@ type Chef interface {
 	// Pick chooses up to n of the candidates that fit the mood and says why, in the language
 	// given as a BCP 47 tag. It returns domain.ErrUnavailable when the LLM can't be asked.
 	Pick(ctx context.Context, mood, lang string, candidates []domain.RecipeSummary, n int) ([]domain.Pick, error)
+	// Plan chooses n different dinners from the candidates, in the order to cook them, unlike the
+	// recent ones (by name) and using up what is on hand. wish may be empty. Reasons are in the
+	// language given as a BCP 47 tag. It returns domain.ErrUnavailable when the LLM can't be asked.
+	Plan(ctx context.Context, wish, lang string, onHand, recent []string, candidates []domain.RecipeSummary, n int) ([]domain.Pick, error)
 }
 
 // Muse is the LLM writing questions for the household to answer together.

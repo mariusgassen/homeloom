@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.32.0
+  version: 0.33.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -1155,6 +1155,114 @@ paths:
           content:
             image/*:
               schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/meal-plan:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [cook]
+      operationId: getMealPlan
+      summary: The household's dinners for some days (members only)
+      description: |
+        One dinner per day. Days are calendar dates, as the household lives them. Planned dinners
+        stay readable when Mealie is down.
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string, format: date } }
+        - { name: days, in: query, schema: { type: integer, minimum: 1, maximum: 14, default: 7 } }
+      responses:
+        "200":
+          description: The planned dinners from `from` on, by day; days without one are left out.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PlannedMeal" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/meal-plan/{day}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - { name: day, in: path, required: true, schema: { type: string, format: date } }
+    put:
+      tags: [cook]
+      operationId: planMeal
+      summary: Make a recipe the day's dinner, replacing what was planned
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MealChoice" }
+      responses:
+        "200":
+          description: The planned dinner.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PlannedMeal" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [cook]
+      operationId: unplanMeal
+      summary: Take the day's dinner off the plan
+      responses:
+        "204": { description: Removed, or nothing was planned. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/meal-plan/suggestions:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [cook]
+      operationId: suggestMealPlan
+      summary: Ideas for the days without a dinner (members only)
+      description: |
+        Claude picks one recipe for each unplanned day, different from each other, from what is
+        planned and from the dinners of the last three weeks. It favours what is on hand: the
+        `wish`, and what was ticked off the shopping list. Nothing is planned until a member
+        accepts an idea with planMeal. Without Claude the ideas are random (`chef` is false).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MealPlanWish" }
+      responses:
+        "200":
+          description: One idea per unplanned day, by day; empty when every day is planned or Mealie has no recipes.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MealIdeas" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/meal-plan/shopping-list:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [cook]
+      operationId: addMealPlanToShoppingList
+      summary: Put the chosen ingredients of several recipes on the shopping list at once
+      description: Each item notes the recipe it is for and goes to its aisle, like addToShoppingList.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddMealsToShoppingList" }
+      responses:
+        "200":
+          description: What was added, and to which list.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ShoppingListAdded" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
@@ -2713,6 +2821,55 @@ components:
           minItems: 1
           maxItems: 100
           items: { type: string, maxLength: 100 }
+
+    PlannedMeal:
+      type: object
+      required: [day, recipe, plannedBy]
+      properties:
+        day: { type: string, format: date }
+        recipe: { $ref: "#/components/schemas/RecipeSummary" }
+        plannedBy: { type: string, format: uuid, description: The member who planned it. }
+
+    MealChoice:
+      type: object
+      required: [recipe]
+      properties:
+        recipe: { type: string, pattern: "^[A-Za-z0-9_-]{1,200}$", description: The recipe's slug. }
+
+    MealPlanWish:
+      type: object
+      required: [from]
+      properties:
+        from: { type: string, format: date }
+        days: { type: integer, minimum: 1, maximum: 14, default: 7 }
+        wish: { type: string, maxLength: 200, description: "What to use up or what you feel like, in your own words." }
+
+    MealIdeas:
+      type: object
+      required: [meals, chef]
+      properties:
+        meals:
+          type: array
+          items: { $ref: "#/components/schemas/MealIdea" }
+        chef: { type: boolean, description: True when Claude picked; false for the random fallback. }
+
+    MealIdea:
+      type: object
+      required: [day, recipe]
+      properties:
+        day: { type: string, format: date }
+        recipe: { $ref: "#/components/schemas/RecipeSummary" }
+        reason: { type: string, description: Why it fits, in the request's language. Absent for random picks. }
+
+    AddMealsToShoppingList:
+      type: object
+      required: [recipes]
+      properties:
+        recipes:
+          type: array
+          minItems: 1
+          maxItems: 14
+          items: { $ref: "#/components/schemas/AddToShoppingList" }
 
     ShoppingListAdded:
       type: object
