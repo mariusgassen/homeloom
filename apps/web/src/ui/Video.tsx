@@ -6,6 +6,7 @@ import { Icon } from "./Icon";
 // button for sound, a thin line for how far it is. It plays on repeat and stops once it is out
 // of view. With autoplay it starts by itself, muted, whenever most of it is in view; without, it
 // waits for a tap and plays with sound. "#t=0.001" makes iOS show the first frame, not black.
+// The other corner goes fullscreen, with sound.
 export function Video({ src, autoplay }: { src: string; autoplay: boolean }) {
   const { t } = useTranslation();
   const ref = useRef<HTMLVideoElement>(null);
@@ -14,6 +15,7 @@ export function Video({ src, autoplay }: { src: string; autoplay: boolean }) {
   const [progress, setProgress] = useState(0);
   // Paused by a tap: autoplay leaves it until it has been out of view.
   const held = useRef(false);
+  const box = useRef<HTMLDivElement>(null);
 
   // React doesn't keep the muted property in step with its prop.
   useEffect(() => {
@@ -50,8 +52,20 @@ export function Video({ src, autoplay }: { src: string; autoplay: boolean }) {
     }
   }
 
+  function fullscreen() {
+    const v = ref.current;
+    if (!v) return;
+    held.current = false;
+    setMuted(false);
+    v.muted = false;
+    v.play().catch(() => undefined);
+    // The iPhone has no fullscreen for elements, only its own player for a video.
+    if (box.current?.requestFullscreen && document.fullscreenEnabled) box.current.requestFullscreen().catch(() => undefined);
+    else (v as AppleVideo).webkitEnterFullscreen?.();
+  }
+
   return (
-    <div className="hl-video">
+    <div className="hl-video" ref={box}>
       <video
         ref={ref}
         className="hl-video-media"
@@ -70,10 +84,21 @@ export function Video({ src, autoplay }: { src: string; autoplay: boolean }) {
           </span>
         )}
       </button>
-      <button type="button" className="hl-video-sound" aria-label={t(muted ? "video.soundOn" : "video.soundOff")} aria-pressed={!muted} onClick={() => setMuted(!muted)}>
+      {canFullscreen() && (
+        <button type="button" className="hl-video-corner hl-video-full" aria-label={t("video.fullscreen")} onClick={fullscreen}>
+          <Icon name="expand" size="sm" />
+        </button>
+      )}
+      <button type="button" className="hl-video-corner hl-video-sound" aria-label={t(muted ? "video.soundOn" : "video.soundOff")} aria-pressed={!muted} onClick={() => setMuted(!muted)}>
         <Icon name={muted ? "soundOff" : "sound"} size="sm" />
       </button>
       <span className="hl-video-progress" style={{ transform: `scaleX(${progress})` }} aria-hidden="true" />
     </div>
   );
+}
+
+type AppleVideo = HTMLVideoElement & { webkitEnterFullscreen?: () => void };
+
+function canFullscreen() {
+  return (typeof document !== "undefined" && document.fullscreenEnabled) || "webkitEnterFullscreen" in HTMLVideoElement.prototype;
 }
