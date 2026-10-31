@@ -150,6 +150,26 @@ type EntryPhoto struct {
 	CreatedAt   time.Time
 }
 
+type Expense struct {
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+	Kind        string
+	Cents       int64
+	Category    string
+	Note        *string
+	PaidBy      uuid.UUID
+	Day         time.Time
+	AddedBy     *uuid.UUID
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type ExpenseShare struct {
+	ExpenseID uuid.UUID
+	UserID    uuid.UUID
+	Cents     int64
+}
+
 type HomeConnection struct {
 	UserID       uuid.UUID
 	RefreshToken string
@@ -206,6 +226,7 @@ type Moment struct {
 	PhotoAt     *time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	VideoAt     *time.Time
 }
 
 type MomentPhoto struct {

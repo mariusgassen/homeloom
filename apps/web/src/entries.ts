@@ -5,7 +5,9 @@ import { useRefresh } from "./refresh";
 // The household's entries of one kind, or all of them, with helpers to keep the list current.
 // kind null loads nothing, for a tab that shows something else.
 export function useEntries(householdId: string, kind?: EntryKind | null) {
-  const [entries, setEntries] = useState<Entry[] | null>(null);
+  // Kept with what they were loaded for, so another tab's list never shows while this one loads.
+  const key = `${householdId}/${kind ?? ""}`;
+  const [loaded, setLoaded] = useState<{ key: string; entries: Entry[] } | null>(null);
   const [failed, setFailed] = useState(false);
   const [generation, setGeneration] = useState(0);
   const { generation: refreshed, track } = useRefresh();
@@ -17,7 +19,7 @@ export function useEntries(householdId: string, kind?: EntryKind | null) {
       .GET("/v1/households/{householdId}/entries", { params: { path: { householdId }, query: kind ? { kind } : {} } })
       .then((res) => {
         if (!current) return;
-        if (res.data) setEntries(res.data);
+        if (res.data) setLoaded({ key, entries: res.data });
         setFailed(!res.data);
       })
       .catch(() => current && setFailed(true));
@@ -25,10 +27,10 @@ export function useEntries(householdId: string, kind?: EntryKind | null) {
     return () => {
       current = false;
     };
-  }, [householdId, kind, generation, refreshed, track]);
+  }, [householdId, kind, key, generation, refreshed, track]);
 
   const reload = useCallback(() => setGeneration((g) => g + 1), []);
-  return { entries, failed, reload };
+  return { entries: loaded?.key === key ? loaded.entries : null, failed, reload };
 }
 
 export async function setDone(entry: Entry, done: boolean) {

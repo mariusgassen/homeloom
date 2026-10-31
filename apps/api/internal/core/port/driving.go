@@ -2,6 +2,7 @@ package port
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -97,6 +98,12 @@ type MomentService interface {
 	// Photo returns domain.ErrNotFound unless the actor can see the moment and its photo.
 	Photo(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Photo, error)
 	DeletePhoto(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Moment, error)
+	// SetVideo streams r in as the video of the actor's moment. It is domain.ErrUnavailable without
+	// a VideoStore.
+	SetVideo(ctx context.Context, actor domain.User, id uuid.UUID, contentType string, r io.Reader) (domain.Moment, error)
+	// Video returns domain.ErrNotFound unless the actor can see the moment and its video.
+	Video(ctx context.Context, actor domain.User, id uuid.UUID) (domain.VideoStream, error)
+	DeleteVideo(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Moment, error)
 }
 
 // EntrySyncService lets a calendar app (over CalDAV) or a notes app (over WebDAV) read and change
@@ -127,6 +134,20 @@ type CookService interface {
 	// Find returns up to n recipes whose name, tags or description hold the query's words, best
 	// first; an empty query returns n at random.
 	Find(ctx context.Context, actor domain.User, householdID uuid.UUID, query string, n int) ([]domain.RecipeSummary, error)
+}
+
+// BudgetService is the household's shared money: expenses split between members, where everyone
+// stands, and settling up. Every member sees and changes everything in it.
+type BudgetService interface {
+	// Month returns one month of expenses and settlements; this month when month is zero.
+	Month(ctx context.Context, actor domain.User, householdID uuid.UUID, month time.Time) (domain.ExpenseMonth, error)
+	Add(ctx context.Context, actor domain.User, householdID uuid.UUID, f domain.ExpenseFields) (domain.Expense, error)
+	// Update replaces an expense's fields; a settlement can't be changed (domain.ErrSettlement).
+	Update(ctx context.Context, actor domain.User, householdID, id uuid.UUID, f domain.ExpenseFields) (domain.Expense, error)
+	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
+	// Settle records that from gave to the amount, on day (today when zero).
+	Settle(ctx context.Context, actor domain.User, householdID, from, to uuid.UUID, cents int64, day time.Time) (domain.Expense, error)
+	Balance(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Balance, error)
 }
 
 type ShoppingService interface {

@@ -15,7 +15,7 @@ func (s *Store) CreateMoment(_ context.Context, m domain.Moment) (domain.Moment,
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	now := time.Now()
-	m.ID, m.CreatedAt, m.UpdatedAt, m.PhotoAt = uuid.New(), now, now, nil
+	m.ID, m.CreatedAt, m.UpdatedAt, m.PhotoAt, m.VideoAt = uuid.New(), now, now, nil, nil
 	s.moments = append(s.moments, m)
 	return m, nil
 }
@@ -161,6 +161,30 @@ func (s *Store) DeleteMomentPhoto(_ context.Context, id uuid.UUID) error {
 	for i, m := range s.moments {
 		if m.ID == id {
 			m.PhotoAt, m.UpdatedAt = nil, time.Now()
+			s.moments[i] = m
+		}
+	}
+	return nil
+}
+
+func (s *Store) MarkMomentVideo(_ context.Context, id uuid.UUID) error {
+	return s.setMomentVideo(id, true)
+}
+
+func (s *Store) ClearMomentVideo(_ context.Context, id uuid.UUID) error {
+	return s.setMomentVideo(id, false)
+}
+
+func (s *Store) setMomentVideo(id uuid.UUID, set bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, m := range s.moments {
+		if m.ID == id {
+			now := time.Now()
+			m.VideoAt, m.UpdatedAt = nil, now
+			if set {
+				m.VideoAt = &now
+			}
 			s.moments[i] = m
 		}
 	}

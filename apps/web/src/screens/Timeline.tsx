@@ -1,13 +1,14 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type HouseholdDetail, type Moment, type MomentMonth, type User } from "../api/client";
-import { dayOf, today, useResurfaced, useTimeline } from "../moments";
+import { dayOf, today, useAutoplay, useResurfaced, useTimeline } from "../moments";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Empty } from "../ui/Empty";
 import { Icon } from "../ui/Icon";
 import { ListRow } from "../ui/ListRow";
 import { ThreadAvatar, threadFor } from "../ui/ThreadAvatar";
+import { Video } from "../ui/Video";
 
 // The Us tab's timeline: what comes back today, today's gratitude lines, then month by month.
 export function Timeline({ household, me, month, onOpen }: {
@@ -31,6 +32,7 @@ export function Timeline({ household, me, month, onOpen }: {
         <article className="hl-card" key={m.id}>
           <div className="hl-eyebrow">{t("moments.onThisDay", { year: dayOf(m).getFullYear() })}</div>
           {m.photoUrl && <img className="moment-photo" src={m.photoUrl} alt="" loading="lazy" />}
+          {m.videoUrl && <MomentVideo src={m.videoUrl} />}
           <p className="note-text">{m.text}</p>
         </article>
       ))}
@@ -224,18 +226,44 @@ function MomentCard({ moment: m, me, people, onOpen }: { moment: Moment; me: Use
       </article>
     );
   }
-  const body = (
+  const photo = m.photoUrl && <img className="moment-photo" src={m.photoUrl} alt="" loading="lazy" />;
+  const text = (
     <>
-      {m.photoUrl && <img className="moment-photo" src={m.photoUrl} alt="" loading="lazy" />}
       <span className="hl-eyebrow">{eyebrow}</span>
       <span className="note-text">{m.text}</span>
     </>
   );
+  if (m.videoUrl) {
+    // The video's controls can't sit inside a button, so only the text opens your moment.
+    return (
+      <article className="hl-card">
+        {photo}
+        <MomentVideo src={m.videoUrl} />
+        {m.authorId === me.id ? (
+          <button type="button" className="note moment-open" onClick={() => onOpen(m)}>
+            {text}
+          </button>
+        ) : (
+          text
+        )}
+      </article>
+    );
+  }
   return m.authorId === me.id ? (
     <button type="button" className="hl-card note" onClick={() => onOpen(m)}>
-      {body}
+      {photo}
+      {text}
     </button>
   ) : (
-    <article className="hl-card">{body}</article>
+    <article className="hl-card">
+      {photo}
+      {text}
+    </article>
   );
+}
+
+// A moment's video, playing by itself or not as set on this device.
+function MomentVideo({ src }: { src: string }) {
+  const [autoplay] = useAutoplay();
+  return <Video src={src} autoplay={autoplay} />;
 }

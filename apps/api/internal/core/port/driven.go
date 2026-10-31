@@ -5,6 +5,7 @@ package port
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -175,6 +176,9 @@ type MomentRepository interface {
 	// MomentPhoto returns domain.ErrNotFound when the moment has none.
 	MomentPhoto(ctx context.Context, id uuid.UUID) (domain.Photo, error)
 	DeleteMomentPhoto(ctx context.Context, id uuid.UUID) error
+	// MarkMomentVideo sets VideoAt for a video kept in the VideoStore.
+	MarkMomentVideo(ctx context.Context, id uuid.UUID) error
+	ClearMomentVideo(ctx context.Context, id uuid.UUID) error
 }
 
 // PhotoStore keeps photos outside the database (S3), under keys the service chooses. GetPhoto
@@ -183,6 +187,18 @@ type PhotoStore interface {
 	PutPhoto(ctx context.Context, key string, p domain.Photo) error
 	GetPhoto(ctx context.Context, key string) (domain.Photo, error)
 	DeletePhoto(ctx context.Context, key string) error
+}
+
+// VideoStore keeps videos (S3), under keys the service chooses. They are streamed, never held in
+// memory whole. StatVideo returns domain.ErrNotFound for a key it doesn't hold; deleting a missing
+// key is no error.
+type VideoStore interface {
+	// PutVideo stores what r yields; an error from r aborts it and leaves nothing behind.
+	PutVideo(ctx context.Context, key, contentType string, r io.Reader) error
+	StatVideo(ctx context.Context, key string) (domain.Video, error)
+	// OpenVideo reads length bytes from offset; closing it ends the read.
+	OpenVideo(ctx context.Context, key string, offset, length int64) (io.ReadCloser, error)
+	DeleteVideo(ctx context.Context, key string) error
 }
 
 // JobRepository lets a daily job run once per day across all API instances.
@@ -246,6 +262,22 @@ type ChoreRepository interface {
 	ChoreCompletions(ctx context.Context, householdID uuid.UUID, since time.Time, limit int) ([]domain.ChoreCompletion, error)
 	// ThankChoreCompletion records the user's thanks; false when they had already said it.
 	ThankChoreCompletion(ctx context.Context, householdID, id, userID uuid.UUID) (bool, error)
+}
+
+// BudgetRepository keeps the household's expenses and settlements. Calls that name an expense
+// return domain.ErrNotFound when the household has none with that id.
+type BudgetRepository interface {
+	// Expenses returns those spent on days in [from, to), newest day first, with their shares.
+	Expenses(ctx context.Context, householdID uuid.UUID, from, to time.Time, limit int) ([]domain.Expense, error)
+	// LatestExpenseDay returns the newest day before `before` with an expense; domain.ErrNotFound when none.
+	LatestExpenseDay(ctx context.Context, householdID uuid.UUID, before time.Time) (time.Time, error)
+	Expense(ctx context.Context, householdID, id uuid.UUID) (domain.Expense, error)
+	// CreateExpense and UpdateExpense store the expense with its shares, all or none.
+	CreateExpense(ctx context.Context, e domain.Expense) (domain.Expense, error)
+	UpdateExpense(ctx context.Context, e domain.Expense) (domain.Expense, error)
+	DeleteExpense(ctx context.Context, householdID, id uuid.UUID) error
+	// Nets returns, for everyone with an expense or share, what they paid minus their shares.
+	Nets(ctx context.Context, householdID uuid.UUID) ([]domain.Net, error)
 }
 
 // Grocer is the LLM's sense of where things are in a shop.

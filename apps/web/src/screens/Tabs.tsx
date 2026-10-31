@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import type { Entry, HouseholdDetail, Moment, Question, TonightPick, User } from "../api/client";
 import { completeChore, dueToday as choreDueToday, useChores } from "../chores";
 import { dueToday, useEntries } from "../entries";
+import { useBalance, useStanding } from "../money";
 import { dayOf, useResurfaced } from "../moments";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
@@ -67,6 +68,7 @@ export function Today() {
       <TodayQuestion household={household} me={me} />
       <Dinner />
       <Watch household={household} />
+      <Money household={household} me={me} />
       <TodayMoment household={household} me={me} />
       {adding && (
         <EntrySheet
@@ -277,6 +279,26 @@ function WatchPicked({ pick }: { pick: TonightPick }) {
         <span className="label">{t("watch.tonight.eyebrow")}</span>
         <span className="headline">{pick.name}</span>
         {by && <span className="caption muted">{by}</span>}
+      </span>
+      <Icon name="chevron" size="sm" />
+    </button>
+  );
+}
+
+// Where the two of you stand with money, one tap from what was spent.
+function Money({ household, me }: { household: HouseholdDetail; me: User }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { balance } = useBalance(household.id);
+  const standing = useStanding(household, me.id);
+  return (
+    <button type="button" className="today-tile today-money" onClick={() => navigate("/money")}>
+      <span className="today-tile-icon">
+        <Icon name="wallet" />
+      </span>
+      <span className="today-tile-text">
+        <span className="label">{t("today.money.eyebrow")}</span>
+        <span className="headline">{balance ? standing(balance) : t("today.money.title")}</span>
       </span>
       <Icon name="chevron" size="sm" />
     </button>

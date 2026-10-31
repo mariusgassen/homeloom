@@ -96,6 +96,13 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 - **Thanks** (`POST …/chore-completions/{id}/thanks`) is kept once per person (`chore_thanks`) and tells whoever did it. A line sent with it becomes the thanker's gratitude line for today through the Moments service, unless they wrote one already, so a thank-you never replaces what they wrote.
 - **Nudge** (`Chores.NotifyDaily`, every minute on each instance, claimed in `job_runs` as `chores-due`): from 18:00, once a day, everyone with a chore due today or overdue hears which ones: their turn, and anyone's.
 
+## Money
+
+- One shared budget per household (`expenses`, `expense_shares`), opened from Today. Every member sees, adds, changes and deletes every expense; the service checks membership and every query is scoped to the household.
+- **Expenses** are whole cents in euros, paid by one member, in a category, on a day, and split into shares that add up to the amount, each member at most once. Without shares the service splits evenly between the current members; the first ones carry odd cents.
+- **Settling up** is stored as an expense of kind `settlement`: the payer paid it, the receiver has the one share. So where someone stands is one sum over everything, what they paid minus their shares, and settlements need no rules of their own. A settlement can't be changed, only deleted.
+- **Balance** (`GET …/balance`) lists every member and anyone who left while still owing or being owed, plus the payments that settle it, largest debts first; for two people that is one payment.
+
 ## Smart home
 
 - **Home Assistant** (`adapter/homeassistant`, port `SmartHome`) is optional: without `HOME_ASSISTANT_URL` the home endpoints answer `503 home_unavailable`, and so do they when Home Assistant is down. Each call is bounded to 5 s.
@@ -116,7 +123,7 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 apps/web/
   src/api/            typed client; schema.gen.ts is generated from the OpenAPI contract
   src/ui/, styles/    the design system's tokens and components, ported to React
-  src/screens/        one file per screen; tabs: Today, Us, Lists, Home; dinner, movies and chores open from Today
+  src/screens/        one file per screen; tabs: Today, Us, Lists, Home; dinner, movies, money and chores open from Today
   src/i18n/           German and English copy
   Caddyfile           static files plus the reverse proxy to the API
 ```
@@ -147,6 +154,7 @@ apps/web/
 - One `moments` table holds the Us tab's timeline: **moments** (a line, the day it happened, maybe a photo) and **gratitude lines** (one per person and day; writing again that day replaces the line, enforced by a partial unique index). Both use the entries' visibility model; only the author changes or deletes theirs. `reveal` (sealed until `revealAt`, photo included) is ready for letters to the future; the app doesn't offer it yet.
 - `GET /v1/households/{id}/moments?month=YYYY-MM` returns one month, newest day first, and the latest earlier month with anything in it, so the app pages month by month. `…/moments/resurfaced` returns this day in earlier years and one gratitude line older than a week, at random.
 - **Photos** are JPEGs of at most 5 MB. With `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` set they go to S3 (`adapter/s3`, port `PhotoStore`, key `moments/<id>.jpg`; the bundled `homeloom-garage` by default) and Postgres only records `photo_at`. Without them they stay in Postgres (`moment_photos`, apart from the rows so lists never read them). Photos stored in Postgres before S3 was set up are still served from there and move to S3 when replaced. Deleting a photo or its moment deletes the object first, so nothing is left behind; while S3 is down, photos can't be set, shown or deleted, and everything else works. Each S3 call is bounded to 10 s. The PWA makes them at most 1600 px on the long side before upload. `photoUrl` carries the photo's version, so browsers may cache it privately. The API checks the JPEG signature and bounds every request body.
+- **Videos** on moments are MP4 or QuickTime files of at most 200 MB, only kept in S3 (port `VideoStore`, key `moments/<id>.video`); without S3 the upload answers 503 (`videos_unavailable`). An upload is streamed through to S3 in 16 MB parts, never held whole: the router lets it skip the request validator's body read and raises its body limit, and the core checks the `ftyp` box and stops the stream past the limit. `GET …/video` answers one `Range` with 206 straight from S3, which iOS needs to play it; `videoUrl` carries the version, like `photoUrl`. Video calls to S3 are bounded to 15 minutes. The PWA first compresses a picked video in the browser (Mediabunny over WebCodecs, loaded on demand) to H.264/AAC MP4 at most 1280 px on the long side, so longer videos fit; where it can't, or the result is not smaller, the video goes as it is. Whether videos play by themselves (muted, while in view) is a per-device setting in the PWA.
 - **Daily notifications** (`Moments.NotifyDaily`, every minute on each instance): this day in earlier years at 9:00, last month's look back on the 1st at 19:00, and at 20:00, with a one-in-three chance per person, a gratitude line from more than two weeks ago. Each job claims its day in `job_runs`, so it runs once across instances. Days count in `TIME_ZONE`.
 
 ## Assistant
