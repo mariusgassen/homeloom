@@ -75,6 +75,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Moments:       service.NewMoments(store, store, store, push, time.UTC).WithVideos(memory.NewVideos()),
 		Cook:          cook,
 		Shopping:      shopping,
+		Budget:        service.NewBudget(store, store, time.UTC),
 		Home:          home,
 		Push:          push,
 		Calls:         service.NewCall(store, sessions, memory.NewCallServer(), push).WithVoiceAgent("homeloom", agents).WithVoice(voice),
@@ -443,6 +444,61 @@ func TestShoppingListFlow(t *testing.T) {
 	}
 	if code, _ := do(t, h, "DELETE", item, "token-alice", ""); code != 404 {
 		t.Fatalf("delete a cleared item: %d", code)
+	}
+}
+
+func TestBudgetFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	id := created["id"].(string)
+	_, inv := do(t, h, "POST", "/v1/households/"+id+"/invites", "token-alice", "")
+	do(t, h, "POST", "/v1/invites/"+inv["code"].(string), "token-bob", "")
+	_, alice := do(t, h, "GET", "/v1/me", "token-alice", "")
+	_, bob := do(t, h, "GET", "/v1/me", "token-bob", "")
+	a, b := alice["id"].(string), bob["id"].(string)
+	expenses := "/v1/households/" + id + "/expenses"
+
+	code, e := do(t, h, "POST", expenses, "token-alice", `{"cents":4200,"category":"dining","note":"Pizza","paidBy":"`+a+`","day":"2026-10-12"}`)
+	if code != 201 || e["kind"] != "expense" || e["day"] != "2026-10-12" || len(e["shares"].([]any)) != 2 {
+		t.Fatalf("add: %d %v", code, e)
+	}
+	if code, body := do(t, h, "POST", expenses, "token-alice", `{"cents":100,"category":"fun","paidBy":"`+a+`","shares":[{"userId":"`+b+`","cents":50}]}`); code != 400 || body["code"] != "invalid_shares" {
+		t.Fatalf("shares off: %d %v", code, body)
+	}
+	if code, body := do(t, h, "POST", expenses, "token-alice", `{"cents":100,"category":"yachts","paidBy":"`+a+`"}`); code != 400 {
+		t.Fatalf("unknown category: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "POST", expenses, "token-eve", `{"cents":100,"category":"fun","paidBy":"`+a+`"}`); code != 404 {
+		t.Fatalf("non-member adds: %d", code)
+	}
+
+	code, bal := do(t, h, "GET", "/v1/households/"+id+"/balance", "token-bob", "")
+	transfers := bal["transfers"].([]any)
+	if code != 200 || len(transfers) != 1 || transfers[0].(map[string]any)["from"] != b || transfers[0].(map[string]any)["cents"] != float64(2100) {
+		t.Fatalf("balance: %d %v", code, bal)
+	}
+	code, s := do(t, h, "POST", "/v1/households/"+id+"/settlements", "token-bob", `{"from":"`+b+`","to":"`+a+`","cents":2100}`)
+	if code != 201 || s["kind"] != "settlement" {
+		t.Fatalf("settle: %d %v", code, s)
+	}
+	if code, body := do(t, h, "PUT", expenses+"/"+s["id"].(string), "token-alice", `{"cents":100,"category":"other","paidBy":"`+b+`"}`); code != 409 || body["code"] != "settlement_fixed" {
+		t.Fatalf("change a settlement: %d %v", code, body)
+	}
+	if _, bal := do(t, h, "GET", "/v1/households/"+id+"/balance", "token-alice", ""); len(bal["transfers"].([]any)) != 0 {
+		t.Fatalf("after settling: %v", bal)
+	}
+	if code, e := do(t, h, "PUT", expenses+"/"+e["id"].(string), "token-bob", `{"cents":5000,"category":"dining","paidBy":"`+a+`","day":"2026-10-12"}`); code != 200 || e["cents"] != float64(5000) {
+		t.Fatalf("update: %d %v", code, e)
+	}
+	code, month := do(t, h, "GET", expenses+"?month=2026-10", "token-bob", "")
+	if code != 200 || month["month"] != "2026-10" || len(month["expenses"].([]any)) < 1 {
+		t.Fatalf("month: %d %v", code, month)
+	}
+	if code, _ := do(t, h, "DELETE", expenses+"/"+e["id"].(string), "token-eve", ""); code != 404 {
+		t.Fatalf("non-member deletes: %d", code)
+	}
+	if code, _ := do(t, h, "DELETE", expenses+"/"+e["id"].(string), "token-bob", ""); code != 204 {
+		t.Fatalf("delete: %d", code)
 	}
 }
 

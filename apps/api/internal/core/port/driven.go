@@ -238,6 +238,22 @@ type ShoppingRepository interface {
 	RememberAisles(ctx context.Context, householdID uuid.UUID, aisles map[string]domain.Aisle) error
 }
 
+// BudgetRepository keeps the household's expenses and settlements. Calls that name an expense
+// return domain.ErrNotFound when the household has none with that id.
+type BudgetRepository interface {
+	// Expenses returns those spent on days in [from, to), newest day first, with their shares.
+	Expenses(ctx context.Context, householdID uuid.UUID, from, to time.Time, limit int) ([]domain.Expense, error)
+	// LatestExpenseDay returns the newest day before `before` with an expense; domain.ErrNotFound when none.
+	LatestExpenseDay(ctx context.Context, householdID uuid.UUID, before time.Time) (time.Time, error)
+	Expense(ctx context.Context, householdID, id uuid.UUID) (domain.Expense, error)
+	// CreateExpense and UpdateExpense store the expense with its shares, all or none.
+	CreateExpense(ctx context.Context, e domain.Expense) (domain.Expense, error)
+	UpdateExpense(ctx context.Context, e domain.Expense) (domain.Expense, error)
+	DeleteExpense(ctx context.Context, householdID, id uuid.UUID) error
+	// Nets returns, for everyone with an expense or share, what they paid minus their shares.
+	Nets(ctx context.Context, householdID uuid.UUID) ([]domain.Net, error)
+}
+
 // Grocer is the LLM's sense of where things are in a shop.
 type Grocer interface {
 	// Aisles returns one aisle for each of the texts, in order. It returns domain.ErrUnavailable

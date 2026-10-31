@@ -55,6 +55,8 @@ type Store struct {
 	jobRuns      map[string]bool
 
 	voices map[uuid.UUID]domain.VoiceSettings
+
+	expenses []domain.Expense
 }
 
 func NewStore() *Store {

@@ -31,6 +31,7 @@
     "next": { "eyebrow": "Als Nächstes", "clear": "Heute steht nichts an. Zeit für euch.", "more_one": "Noch {{count}} heute", "more_other": "Noch {{count}} heute" },
     "dinner": { "eyebrow": "Heute Abend", "title": "Worauf habt ihr Lust?" },
     "watch": { "eyebrow": "Heute schauen", "title": "Lust auf einen Film?" },
+    "money": { "eyebrow": "Geld", "title": "Wer schuldet wem?" },
     "thanks": "Was hat dich heute zum Lächeln gebracht?"
   },
   "cook": {
@@ -225,6 +226,7 @@
     ]
   },
   "shopping": { "tab": "Einkauf", "placeholder": "Was fehlt?", "add": "Hinzufügen", "remove": "{{item}} entfernen", "clear": "Leeren", "emptyTitle": "Nichts zu kaufen", "emptyBody": "Schreib auf, was fehlt.", "moveTo": "Verschieben nach", "aisle": { "produce": "Obst & Gemüse", "bakery": "Brot & Backwaren", "meat": "Fleisch & Fisch", "dairy": "Milch & Eier", "frozen": "Tiefkühl", "pantry": "Vorrat", "drinks": "Getränke", "household": "Haushalt", "other": "Sonstiges" }, "open": "Zur Liste" },
+  "money": { "title": "Geld", "balance": "So steht ihr", "even": "Ihr seid quitt", "youOwe": "Du schuldest {{name}} {{amount}}", "owesYou": "{{name}} schuldet dir {{amount}}", "youOweTotal": "Du schuldest insgesamt {{amount}}", "owedTotal": "Du bekommst insgesamt {{amount}}", "pays": "{{from}} zahlt {{to}} {{amount}}", "settle": "Ausgleichen", "settled": "Bezahlt", "settleYouPay": "Du zahlst {{name}} zurück. Ändere den Betrag, wenn es nur ein Teil ist.", "settlePaysYou": "{{name}} zahlt dir zurück. Ändere den Betrag, wenn es nur ein Teil ist.", "settleHint": "{{from}} zahlt {{to}} zurück. Ändere den Betrag, wenn es nur ein Teil ist.", "someone": "Jemand", "you": "Du", "add": "Ausgabe hinzufügen", "new": "Neue Ausgabe", "edit": "Ausgabe", "amount": "Betrag", "note": "Wofür?", "notePlaceholder": "z. B. Wocheneinkauf", "categoryLabel": "Kategorie", "paidByLabel": "Bezahlt von", "paidBy": "{{name}} hat bezahlt", "day": "Tag", "split": "Aufteilen", "splits": { "even": "Gleich", "custom": "Individuell" }, "evenHint": "{{amount}} pro Person", "left": "Noch {{amount}} aufzuteilen", "over": "{{amount}} zu viel", "yours": "dein Teil {{amount}}", "paidBackByYou": "Du hast {{name}} zurückgezahlt", "paidYouBack": "{{name}} hat dir zurückgezahlt", "paidBack": "{{from}} hat {{to}} zurückgezahlt", "deleteConfirm": "Für euch beide löschen?", "emptyTitle": "Noch nichts ausgegeben", "emptyBody": "Trag ein, was einer von euch bezahlt hat, und Homeloom merkt sich, wer wem was schuldet.", "earlier": "{{month}} zeigen", "failed": "Das hat nicht geklappt. Bitte versuch es noch mal.", "category": { "groceries": "Lebensmittel", "dining": "Essen gehen", "home": "Zuhause", "utilities": "Rechnungen", "transport": "Unterwegs", "travel": "Reisen", "fun": "Freizeit", "health": "Gesundheit", "gifts": "Geschenke", "other": "Sonstiges" }},
   "invite": {
     "create": "Jemanden einladen",
     "body": "Schick diesen Link an deinen Schatz. Er gilt einmal und bis {{date}}.",

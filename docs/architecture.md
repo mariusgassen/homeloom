@@ -87,6 +87,13 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 - The service checks membership, and every query is scoped to the household, so an item id from another household is `404`.
 - **Aisles:** each item sits in an aisle (produce, bakery, meat, dairy, frozen, pantry, drinks, household, other) and the list shows them in that order. A new item goes where the household put the same text before (`shopping_aisles`, by lower-cased text, outliving the items), else where Claude says (`adapter/claude`, port `Grocer`, one call per addition for all unknown items, bounded to 8 s), else `other`. Moving an item (`PATCH …/items/{id}`) also updates that memory, so a correction sticks.
 
+## Money
+
+- One shared budget per household (`expenses`, `expense_shares`), opened from Today. Every member sees, adds, changes and deletes every expense; the service checks membership and every query is scoped to the household.
+- **Expenses** are whole cents in euros, paid by one member, in a category, on a day, and split into shares that add up to the amount, each member at most once. Without shares the service splits evenly between the current members; the first ones carry odd cents.
+- **Settling up** is stored as an expense of kind `settlement`: the payer paid it, the receiver has the one share. So where someone stands is one sum over everything, what they paid minus their shares, and settlements need no rules of their own. A settlement can't be changed, only deleted.
+- **Balance** (`GET …/balance`) lists every member and anyone who left while still owing or being owed, plus the payments that settle it, largest debts first; for two people that is one payment.
+
 ## Smart home
 
 - **Home Assistant** (`adapter/homeassistant`, port `SmartHome`) is optional: without `HOME_ASSISTANT_URL` the home endpoints answer `503 home_unavailable`, and so do they when Home Assistant is down. Each call is bounded to 5 s.
@@ -107,7 +114,7 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 apps/web/
   src/api/            typed client; schema.gen.ts is generated from the OpenAPI contract
   src/ui/, styles/    the design system's tokens and components, ported to React
-  src/screens/        one file per screen; tabs: Today, Us, Lists, Home; dinner and movies open from Today
+  src/screens/        one file per screen; tabs: Today, Us, Lists, Home; dinner, movies and money open from Today
   src/i18n/           German and English copy
   Caddyfile           static files plus the reverse proxy to the API
 ```
