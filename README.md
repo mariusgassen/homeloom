@@ -66,10 +66,6 @@ Homeloom grows around how you live together. Features are grouped by what you do
 - **Almost home:** a gentle nudge when one of you is on the way ("start the oven? tonight's plan: ...").
 - **Weekly Sunday digest:** one page that sums up the week.
 
-**Around the table**
-- **Taste profiles:** rate meals, get dinner ideas that suit both of you.
-- **Meal memories:** keep photos and notes with the dishes you cook, on your timeline, plus a yearly recap.
-
 **Around the two of you**
 - **Time-capsule letters:** write to each other, sealed until a date or milestone.
 - **Gratitude wall:** one line a day, resurfaced at random (started).

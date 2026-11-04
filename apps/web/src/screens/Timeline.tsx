@@ -231,6 +231,12 @@ function MomentCard({ moment: m, me, people, onOpen }: { moment: Moment; me: Use
     <>
       <span className="hl-eyebrow">{eyebrow}</span>
       <span className="note-text">{m.text}</span>
+      {m.meal && (
+        <span className="moment-dish">
+          <Icon name="cook" size="sm" />
+          <span>{m.meal.name}</span>
+        </span>
+      )}
     </>
   );
   if (m.videoUrl) {

@@ -93,3 +93,56 @@ type RecipeIngredients struct {
 	Slug          string
 	IngredientIDs []string
 }
+
+// Rating is how a member liked a dish.
+type Rating string
+
+const (
+	RatingLove Rating = "love"
+	RatingFine Rating = "fine"
+	// RatingNope means not again: the dish is left out of ideas.
+	RatingNope Rating = "nope"
+)
+
+func (r Rating) Valid() bool { return r == RatingLove || r == RatingFine || r == RatingNope }
+
+// MealRating is one member's rating of a dish. The name is kept as it was when rated, so ratings
+// stay readable while Mealie is down.
+type MealRating struct {
+	HouseholdID uuid.UUID
+	UserID      uuid.UUID
+	Slug        string
+	Name        string
+	Rating      Rating
+	RatedAt     time.Time
+}
+
+const (
+	// MaxRecapDishes caps the most-cooked dishes in a recap; MaxRecapPhotos its photos.
+	MaxRecapDishes = 5
+	MaxRecapPhotos = 12
+	// MaxRecapMoments caps how many moments of a year the recap reads.
+	MaxRecapMoments = 2000
+)
+
+// CookedDish is a dish a household kept memories of.
+type CookedDish struct {
+	Slug  string
+	Name  string
+	Times int
+	// Last is the day it was cooked last.
+	Last time.Time
+}
+
+// MealRecap is a year of meal memories.
+type MealRecap struct {
+	Year int
+	// Memories is how many meal memories the viewer can read from the year.
+	Memories int
+	// Dishes are the most cooked, most first.
+	Dishes []CookedDish
+	// Favourites are the year's dishes that every member who rated them loved, at least two members.
+	Favourites []CookedDish
+	// Photos are the newest meal memories with a photo.
+	Photos []Moment
+}

@@ -66,10 +66,6 @@ Homeloom wächst mit eurem gemeinsamen Alltag. Die Funktionen sind danach sortie
 - **Fast zu Hause:** ein sanfter Hinweis, wenn jemand von euch auf dem Heimweg ist („Ofen schon an? Heute Abend: ...“).
 - **Wochenrückblick am Sonntag:** eine Seite, die die Woche zusammenfasst.
 
-**Rund um den Tisch**
-- **Geschmacksprofile:** bewertet Gerichte und bekommt Ideen, die euch beiden schmecken.
-- **Essenserinnerungen:** Fotos und Notizen zu euren Gerichten, auf eurem Zeitstrahl, dazu ein Jahresrückblick.
-
 **Rund um euch zwei**
 - **Briefe an die Zukunft:** schreibt euch, versiegelt bis zu einem Datum oder Meilenstein.
 - **Dankbarkeitswand:** eine Zeile am Tag, die zufällig wieder auftaucht (begonnen).

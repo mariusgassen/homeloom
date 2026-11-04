@@ -244,6 +244,11 @@ button.form-row { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .moment-open { display: flex; flex-direction: column; gap: var(--space-2); padding: 0; background: none; }
 .moment-photo-actions { display: flex; align-items: center; gap: var(--space-2); }
 .moment-photo-actions label { cursor: pointer; }
+.moment-dish { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--spruce); font: 600 13px/18px var(--font-text); }
+.recap-year { display: flex; align-items: center; justify-content: space-between; }
+.recap-prev { display: inline-flex; transform: rotate(180deg); }
+.recap-photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-1); }
+.recap-photo { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-sm); background: var(--surface-sunken); }
 .avatar-actions { display: flex; align-items: center; gap: var(--space-2); margin: 0 var(--space-1); }
 .avatar-actions label { cursor: pointer; }
 .gratitude-line { display: flex; align-items: center; gap: var(--space-3); margin: 0; font: 400 17px/22px var(--font-text); overflow-wrap: anywhere; }

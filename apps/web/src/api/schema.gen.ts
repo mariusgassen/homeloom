@@ -805,6 +805,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/recipes/{slug}/rating": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                slug: components["parameters"]["RecipeSlug"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Rate a dish as you, replacing your earlier rating (members only)
+         * @description Both of you see each other's ratings. Dishes either of you rated `nope` are left out of
+         *     dinner ideas and the meal plan's suggestions; dishes you loved steer them. Needs Mealie, for
+         *     the dish's name.
+         */
+        put: operations["rateRecipe"];
+        post?: never;
+        /** Take back your rating of a dish */
+        delete: operations["unrateRecipe"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/taste": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * How each of you rated the dishes (members only)
+         * @description Works without Mealie.
+         */
+        get: operations["getTaste"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/meal-recap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A year of meal memories (members only)
+         * @description What you can read of the year's moments that are about a dish: how many, the dishes cooked
+         *     most, the ones you both loved, and the newest with a photo. Works without Mealie.
+         */
+        get: operations["getMealRecap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/meal-plan": {
         parameters: {
             query?: never;
@@ -2090,6 +2161,12 @@ export interface components {
              * @description Moments only: the day it happened, not after today. Today when absent.
              */
             day?: string;
+            /** @description Moments only: the dish it is about, which makes it a meal memory. Absent for any other moment. */
+            meal?: components["schemas"]["MealRef"];
+        };
+        MealRef: {
+            slug: string;
+            name: string;
         };
         CreateMoment: components["schemas"]["MomentFields"] & {
             kind: components["schemas"]["MomentKind"];
@@ -2112,6 +2189,8 @@ export interface components {
             photoUrl?: string;
             /** @description Where its video is */
             videoUrl?: string;
+            /** @description The dish it is about, if it is a meal memory; absent while sealed. */
+            meal?: components["schemas"]["MealRef"];
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -2203,6 +2282,48 @@ export interface components {
             days: number;
             /** @description What to use up or what you feel like, in your own words. */
             wish?: string;
+        };
+        /**
+         * @description Nope means not again.
+         * @enum {string}
+         */
+        Rating: "love" | "fine" | "nope";
+        RatingChoice: {
+            rating: components["schemas"]["Rating"];
+        };
+        MealRating: {
+            slug: string;
+            name: string;
+            /** Format: uuid */
+            userId: string;
+            rating: components["schemas"]["Rating"];
+            /** Format: date-time */
+            ratedAt: string;
+        };
+        Taste: {
+            ratings: components["schemas"]["MealRating"][];
+        };
+        CookedDish: {
+            slug: string;
+            name: string;
+            /** @description How many meal memories the year holds of it. */
+            times: number;
+            /**
+             * Format: date
+             * @description The day it was cooked last.
+             */
+            last: string;
+        };
+        MealRecap: {
+            year: number;
+            /** @description How many meal memories you can read from the year. */
+            memories: number;
+            /** @description The dishes cooked most, most first; at most five. */
+            dishes: components["schemas"]["CookedDish"][];
+            /** @description The year's dishes every member who rated them loved, when at least two did. */
+            favourites: components["schemas"]["CookedDish"][];
+            /** @description The newest meal memories with a photo; at most twelve. */
+            photos: components["schemas"]["Moment"][];
         };
         MealIdeas: {
             meals: components["schemas"]["MealIdea"][];
@@ -4372,6 +4493,115 @@ export interface operations {
                     "image/*": string;
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    rateRecipe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                slug: components["parameters"]["RecipeSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RatingChoice"];
+            };
+        };
+        responses: {
+            /** @description Your rating. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MealRating"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    unrateRecipe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                slug: components["parameters"]["RecipeSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getTaste: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every rating in the household, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Taste"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getMealRecap: {
+        parameters: {
+            query?: {
+                /** @description The current year when absent. */
+                year?: number;
+            };
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The recap. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MealRecap"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             503: components["responses"]["Unavailable"];

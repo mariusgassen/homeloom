@@ -144,6 +144,15 @@ type CookService interface {
 	// SuggestPlan has an idea for each of the days without a dinner, favouring what the wish
 	// (which may be empty) and the ticked-off shopping list say is on hand.
 	SuggestPlan(ctx context.Context, actor domain.User, householdID uuid.UUID, from time.Time, days int, wish, lang string) (domain.MealIdeas, error)
+	// Rate sets the actor's rating of a dish, replacing an earlier one. It needs Mealie, for the
+	// dish's name.
+	Rate(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string, rating domain.Rating) (domain.MealRating, error)
+	// Unrate removes the actor's rating of a dish; nothing rated is fine.
+	Unrate(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string) error
+	// Ratings returns every member's ratings. It works without Mealie.
+	Ratings(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.MealRating, error)
+	// Recap sums up the year's meal memories the actor can read; the current year when year is 0.
+	Recap(ctx context.Context, actor domain.User, householdID uuid.UUID, year int) (domain.MealRecap, error)
 	// AddMealsToShoppingList is AddToShoppingList for several recipes at once.
 	AddMealsToShoppingList(ctx context.Context, actor domain.User, householdID uuid.UUID, recipes []domain.RecipeIngredients) (int, error)
 }

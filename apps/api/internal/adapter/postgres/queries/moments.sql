@@ -1,6 +1,6 @@
 -- name: CreateMoment :one
-INSERT INTO moments (household_id, author_id, kind, day, visibility, reveal_at, text)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO moments (household_id, author_id, kind, day, visibility, reveal_at, text, recipe_slug, recipe_name)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: SaveGratitude :one
@@ -15,7 +15,7 @@ RETURNING *;
 SELECT * FROM moments WHERE id = $1;
 
 -- name: UpdateMoment :one
-UPDATE moments SET day = $2, visibility = $3, reveal_at = $4, text = $5, updated_at = now()
+UPDATE moments SET day = $2, visibility = $3, reveal_at = $4, text = $5, recipe_slug = $6, recipe_name = $7, updated_at = now()
 WHERE id = $1
 RETURNING *;
 
