@@ -154,6 +154,6 @@ func toMoment(r sqlcgen.Moment) domain.Moment {
 		ID: r.ID, HouseholdID: r.HouseholdID, AuthorID: r.AuthorID, Kind: domain.MomentKind(r.Kind),
 		MomentFields: domain.MomentFields{Day: r.Day, Visibility: domain.Visibility(r.Visibility), RevealAt: r.RevealAt, Text: r.Text,
 			RecipeSlug: r.RecipeSlug, RecipeName: r.RecipeName},
-		PhotoAt:      r.PhotoAt, VideoAt: r.VideoAt, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+		PhotoAt: r.PhotoAt, VideoAt: r.VideoAt, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
 	}
 }
