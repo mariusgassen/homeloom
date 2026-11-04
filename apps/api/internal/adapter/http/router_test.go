@@ -78,6 +78,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Moments:       moments,
 		Cook:          cook,
 		Shopping:      shopping,
+		Wishes:        service.NewWishes(store, store),
 		Chores:        service.NewChores(store, store, store, moments, push, time.UTC),
 		Budget:        budget,
 		Home:          home,
@@ -399,6 +400,56 @@ func TestMomentsFlow(t *testing.T) {
 	}
 	if code, _ := do(t, h, "DELETE", "/v1/moments/"+trip["id"].(string), "token-alice", ""); code != 204 {
 		t.Fatalf("delete: %d", code)
+	}
+}
+
+func TestWishlistFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	id := created["id"].(string)
+	_, inv := do(t, h, "POST", "/v1/households/"+id+"/invites", "token-alice", "")
+	do(t, h, "POST", "/v1/invites/"+inv["code"].(string), "token-bob", "")
+	list := "/v1/households/" + id + "/wishes"
+
+	if code, body := do(t, h, "POST", list, "token-alice", `{"kind":"read","text":"  "}`); code != 400 || body["code"] != "invalid_text" {
+		t.Fatalf("blank wish: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "POST", list, "token-alice", `{"kind":"eat","text":"Cake"}`); code != 400 {
+		t.Fatalf("unknown kind: %d", code)
+	}
+	code, dune := do(t, h, "POST", list, "token-alice", `{"kind":"read","text":" Dune "}`)
+	if code != 201 || dune["text"] != "Dune" || dune["kind"] != "read" || dune["done"] != false {
+		t.Fatalf("add: %d %v", code, dune)
+	}
+	do(t, h, "POST", list, "token-bob", `{"kind":"watch","text":"Alien"}`)
+	wish := list + "/" + dune["id"].(string)
+
+	if code, _ := doList(t, h, list, "token-eve"); code != 404 {
+		t.Fatalf("non-member sees the wishlist: %d", code)
+	}
+	if code, _ := do(t, h, "PUT", wish+"/done", "token-eve", ""); code != 404 {
+		t.Fatalf("non-member ticks: %d", code)
+	}
+	if code, items := doList(t, h, list+"?kind=watch", "token-alice"); code != 200 || len(items) != 1 || items[0]["text"] != "Alien" {
+		t.Fatalf("filter: %d %v", code, items)
+	}
+	if code, _ := doList(t, h, list+"?kind=eat", "token-alice"); code != 400 {
+		t.Fatalf("filter by unknown kind: %d", code)
+	}
+	if code, body := do(t, h, "PUT", wish+"/done", "token-bob", ""); code != 200 || body["done"] != true || body["doneAt"] == nil {
+		t.Fatalf("tick: %d %v", code, body)
+	}
+	if code, items := doList(t, h, list, "token-alice"); code != 200 || len(items) != 2 || items[0]["text"] != "Alien" || items[1]["done"] != true {
+		t.Fatalf("list: %d %v", code, items)
+	}
+	if code, body := do(t, h, "DELETE", wish+"/done", "token-alice", ""); code != 200 || body["done"] != false {
+		t.Fatalf("untick: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "DELETE", wish, "token-alice", ""); code != 204 {
+		t.Fatalf("delete: %d", code)
+	}
+	if code, _ := do(t, h, "DELETE", wish, "token-alice", ""); code != 404 {
+		t.Fatalf("delete twice: %d", code)
 	}
 }
 

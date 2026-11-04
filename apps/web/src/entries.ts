@@ -87,7 +87,7 @@ export function dueToday(e: Entry, now: Date) {
 }
 
 // Whether a list shows its done items, remembered per person on this device; hidden by default.
-export function useShowDone(userId: string, list: "reminders" | "shopping") {
+export function useShowDone(userId: string, list: "reminders" | "shopping" | "wishes") {
   const key = `homeloom.showDone.${userId}.${list}`;
   const [show, setShow] = useState(() => {
     try {

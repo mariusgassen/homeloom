@@ -335,3 +335,13 @@ type WatchTonight struct {
 	PickedBy    uuid.UUID
 	PickedAt    time.Time
 }
+
+type Wish struct {
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+	Kind        string
+	Text        string
+	AddedBy     *uuid.UUID
+	DoneAt      *time.Time
+	CreatedAt   time.Time
+}

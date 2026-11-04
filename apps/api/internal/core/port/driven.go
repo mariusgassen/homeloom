@@ -248,6 +248,17 @@ type ShoppingRepository interface {
 	RememberAisles(ctx context.Context, householdID uuid.UUID, aisles map[string]domain.Aisle) error
 }
 
+// WishRepository keeps the household's wishlist. Calls that name a wish return
+// domain.ErrNotFound when it isn't on that household's list.
+type WishRepository interface {
+	// Wishes returns open wishes oldest first, then ticked ones, most recently ticked first; kind
+	// "" means every kind.
+	Wishes(ctx context.Context, householdID uuid.UUID, kind domain.WishKind, limit int) ([]domain.Wish, error)
+	AddWish(ctx context.Context, w domain.Wish) (domain.Wish, error)
+	SetWishDone(ctx context.Context, householdID, id uuid.UUID, done bool) (domain.Wish, error)
+	DeleteWish(ctx context.Context, householdID, id uuid.UUID) error
+}
+
 // ChoreRepository keeps the household's chores and what was done. Calls that name a chore or a
 // completion return domain.ErrNotFound when it isn't that household's.
 type ChoreRepository interface {

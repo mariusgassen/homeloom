@@ -1025,6 +1025,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/wishes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The household's wishlist (members only)
+         * @description Things to watch, read or visit some day. Open wishes oldest first, then ticked ones, most
+         *     recently ticked first. At most 500.
+         */
+        get: operations["listWishes"];
+        put?: never;
+        /** Wish for something */
+        post: operations["addWish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/wishes/{wishId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Take a wish off the list */
+        delete: operations["deleteWish"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/wishes/{wishId}/done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Tick a wish off (watched, read, been there) */
+        put: operations["tickWish"];
+        post?: never;
+        /** Open a wish again */
+        delete: operations["untickWish"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/expenses": {
         parameters: {
             query?: never;
@@ -2254,6 +2319,32 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        /**
+         * @description Something to watch, to read, or a place to visit.
+         * @enum {string}
+         */
+        WishKind: "watch" | "read" | "visit";
+        NewWish: {
+            kind: components["schemas"]["WishKind"];
+            text: string;
+        };
+        Wish: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["WishKind"];
+            text: string;
+            /**
+             * Format: uuid
+             * @description Who added it; absent once they left.
+             */
+            addedBy?: string;
+            /** @description Watched */
+            done: boolean;
+            /** Format: date-time */
+            doneAt?: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
         TitleSuggestion: {
             /** @description The title, as it was last written. */
             text: string;
@@ -2820,6 +2911,7 @@ export interface components {
         MomentId: string;
         CallId: string;
         ShoppingItemId: string;
+        WishId: string;
         ExpenseId: string;
         ChoreId: string;
         CompletionId: string;
@@ -4745,6 +4837,135 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listWishes: {
+        parameters: {
+            query?: {
+                /** @description Only wishes of this kind. */
+                kind?: components["schemas"]["WishKind"];
+            };
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The wishes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addWish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewWish"];
+            };
+        };
+        responses: {
+            /** @description The new wish. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteWish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    tickWish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The wish, ticked. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    untickWish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The wish, open again. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"];
+                };
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];

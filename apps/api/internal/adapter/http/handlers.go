@@ -23,6 +23,7 @@ type handlers struct {
 	moments    port.MomentService
 	cook       port.CookService
 	shopping   port.ShoppingService
+	wishes     port.WishService
 	chores     port.ChoreService
 	budget     port.BudgetService
 	home       port.HomeService

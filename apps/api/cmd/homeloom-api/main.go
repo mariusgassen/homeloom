@@ -208,6 +208,7 @@ func run() error {
 	if bucket != nil {
 		moments.WithPhotos(bucket).WithVideos(bucket)
 	}
+	wishes := service.NewWishes(store, store)
 	chores := service.NewChores(store, store, store, moments, push, cfg.TimeZone)
 	go notifyDaily(ctx, map[string]dailyJob{"moments": moments, "chores": chores})
 	cook := service.NewCook(store, book, chef, shopping).WithPlan(store)
@@ -228,6 +229,7 @@ func run() error {
 		Moments:        moments,
 		Cook:           cook,
 		Shopping:       shopping,
+		Wishes:         wishes,
 		Chores:         chores,
 		Budget:         budget,
 		Home:           homeService,

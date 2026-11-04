@@ -183,6 +183,16 @@ type ShoppingService interface {
 	Suggestions(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.TitleSuggestion, error)
 }
 
+// WishService is the household's wishlist of things to watch, read or visit.
+type WishService interface {
+	// List returns the wishes of a kind ("" for all): open ones oldest first, then ticked ones.
+	List(ctx context.Context, actor domain.User, householdID uuid.UUID, kind domain.WishKind) ([]domain.Wish, error)
+	Add(ctx context.Context, actor domain.User, householdID uuid.UUID, kind domain.WishKind, text string) (domain.Wish, error)
+	// SetDone ticks a wish off (watched, read, been there) or opens it again.
+	SetDone(ctx context.Context, actor domain.User, householdID, id uuid.UUID, done bool) (domain.Wish, error)
+	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
+}
+
 // ChoreService is the household's chores: who does what, in turns, and who did how much.
 type ChoreService interface {
 	// List returns the chores still to do, soonest due first.

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.33.0
+  version: 0.34.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -29,6 +29,7 @@ tags:
   - name: moments
   - name: cook
   - name: shopping
+  - name: wishes
   - name: chores
   - name: budget
   - name: home
@@ -1421,6 +1422,93 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/households/{householdId}/wishes:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [wishes]
+      operationId: listWishes
+      summary: The household's wishlist (members only)
+      description: |
+        Things to watch, read or visit some day. Open wishes oldest first, then ticked ones, most
+        recently ticked first. At most 500.
+      parameters:
+        - name: kind
+          in: query
+          required: false
+          description: Only wishes of this kind.
+          schema: { $ref: "#/components/schemas/WishKind" }
+      responses:
+        "200":
+          description: The wishes.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Wish" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [wishes]
+      operationId: addWish
+      summary: Wish for something
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NewWish" }
+      responses:
+        "201":
+          description: The new wish.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Wish" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/wishes/{wishId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/WishId"
+    delete:
+      tags: [wishes]
+      operationId: deleteWish
+      summary: Take a wish off the list
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/wishes/{wishId}/done:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/WishId"
+    put:
+      tags: [wishes]
+      operationId: tickWish
+      summary: Tick a wish off (watched, read, been there)
+      responses:
+        "200":
+          description: The wish, ticked.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Wish" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [wishes]
+      operationId: untickWish
+      summary: Open a wish again
+      responses:
+        "200":
+          description: The wish, open again.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Wish" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/households/{householdId}/expenses:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -2470,6 +2558,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    WishId:
+      name: wishId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     ExpenseId:
       name: expenseId
       in: path
@@ -2907,6 +3000,30 @@ components:
         recipe: { type: string, description: "The recipe the item came from, if any." }
         addedBy: { type: string, format: uuid, description: Who added it; absent once they left. }
         done: { type: boolean }
+        doneAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    WishKind:
+      type: string
+      enum: [watch, read, visit]
+      description: Something to watch, to read, or a place to visit.
+
+    NewWish:
+      type: object
+      required: [kind, text]
+      properties:
+        kind: { $ref: "#/components/schemas/WishKind" }
+        text: { type: string, minLength: 1, maxLength: 200 }
+
+    Wish:
+      type: object
+      required: [id, kind, text, done, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: "#/components/schemas/WishKind" }
+        text: { type: string }
+        addedBy: { type: string, format: uuid, description: Who added it; absent once they left. }
+        done: { type: boolean, description: Watched, read or been there. }
         doneAt: { type: string, format: date-time }
         createdAt: { type: string, format: date-time }
 
