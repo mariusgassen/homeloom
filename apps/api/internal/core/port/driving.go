@@ -203,6 +203,25 @@ type ChoreService interface {
 	Fairness(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.ChoreFairness, error)
 }
 
+// WishService is the household's wishlist: things wanted for the home, ranked by hearts.
+type WishService interface {
+	// List returns the wishes, the most wanted first; those that came true come last.
+	List(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.Wish, error)
+	Create(ctx context.Context, actor domain.User, householdID uuid.UUID, f domain.WishFields) (domain.Wish, error)
+	// Update changes a wish; every member may, as the list is shared.
+	Update(ctx context.Context, actor domain.User, householdID, id uuid.UUID, f domain.WishFields) (domain.Wish, error)
+	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
+	// Vote sets the actor's hearts for a wish, 1 to 3; 0 takes them back.
+	Vote(ctx context.Context, actor domain.User, householdID, id uuid.UUID, hearts int) (domain.Wish, error)
+	// Got marks a wish as come true, or as a wish again.
+	Got(ctx context.Context, actor domain.User, householdID, id uuid.UUID, got bool) (domain.Wish, error)
+	// SetPhoto, Photo and DeletePhoto keep a picture with a wish. They return domain.ErrUnavailable
+	// when no photo store is set up or it fails.
+	SetPhoto(ctx context.Context, actor domain.User, householdID, id uuid.UUID, p domain.Photo) (domain.Wish, error)
+	Photo(ctx context.Context, actor domain.User, householdID, id uuid.UUID) (domain.Photo, error)
+	DeletePhoto(ctx context.Context, actor domain.User, householdID, id uuid.UUID) (domain.Wish, error)
+}
+
 type HomeService interface {
 	// Connect starts the actor's sign-in at Home Assistant and returns where to send the browser.
 	Connect(ctx context.Context, actor domain.User, householdID uuid.UUID) (string, error)

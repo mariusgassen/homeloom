@@ -11,6 +11,7 @@ import { Onboarding } from "./screens/Onboarding";
 import { Settings } from "./screens/Settings";
 import { RefreshProvider } from "./refresh";
 import { Chores } from "./screens/Chores";
+import { Wishes } from "./screens/Wishes";
 import { Cook, RecipeScreen } from "./screens/Cook";
 import { Week, WeekShopping } from "./screens/Week";
 import { Home } from "./screens/Home";
@@ -77,6 +78,7 @@ export function App() {
               <Route path="/lists" element={<Lists />} />
               <Route path="/lists/notes/:id" element={<NotePage />} />
               <Route path="/chores" element={<Chores />} />
+              <Route path="/wishes" element={<Wishes />} />
               <Route path="/home" element={<Home />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/call/:callId" element={<IncomingCall />} />

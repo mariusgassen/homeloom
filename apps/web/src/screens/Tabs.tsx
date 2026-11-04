@@ -15,6 +15,7 @@ import { Icon } from "../ui/Icon";
 import { ListRow } from "../ui/ListRow";
 import { CallButton } from "./Call";
 import { choreAvatar, useChoreDay } from "./Chores";
+import { useWishes } from "../wishes";
 import { EntrySheet } from "./EntrySheet";
 import { useWhen } from "./Lists";
 import { MomentSheet } from "./MomentSheet";
@@ -70,6 +71,7 @@ export function Today() {
       <Dinner household={household} />
       <Watch household={household} />
       <Money household={household} me={me} />
+      <Wishlist household={household} />
       <TodayMoment household={household} me={me} />
       {adding && (
         <EntrySheet
@@ -329,6 +331,31 @@ function Money({ household, me }: { household: HouseholdDetail; me: User }) {
         {bill?.bill && bill.dueAt && (
           <span className="caption muted">{t("today.money.bill", { name: bill.text, amount: money(bill.bill.cents), when: moment(bill.dueAt) })}</span>
         )}
+      </span>
+      <Icon name="chevron" size="sm" />
+    </button>
+  );
+}
+
+// The most wanted wish of the two of you, one tap from the whole list.
+function Wishlist({ household }: { household: HouseholdDetail }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { wishes } = useWishes(household.id);
+  if (!wishes) return null;
+  const top = wishes.find((w) => !w.gotAt);
+  return (
+    <button type="button" className="today-tile today-wishes" onClick={() => navigate("/wishes")}>
+      {top?.photoUrl ? (
+        <img className="today-tile-photo" src={top.photoUrl} alt="" loading="lazy" />
+      ) : (
+        <span className="today-tile-icon">
+          <Icon name="sofa" />
+        </span>
+      )}
+      <span className="today-tile-text">
+        <span className="label">{t("today.wishes.eyebrow")}</span>
+        <span className="headline">{top ? top.title : t("today.wishes.title")}</span>
       </span>
       <Icon name="chevron" size="sm" />
     </button>
