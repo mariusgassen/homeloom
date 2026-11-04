@@ -28,6 +28,11 @@ updates:
     commit-message:
       prefix: fix
       include: scope
+    # typescript-eslint caps its typescript peer below 6.1, so TypeScript 7 breaks `npm ci`.
+    # Lift this once typescript-eslint supports it.
+    ignore:
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
     groups:
       npm:
         patterns: ["*"]
@@ -48,8 +53,12 @@ updates:
       prefix: fix
       include: scope
     # Silero pins onnxruntime-node and two versions can't share a process; a test keeps them equal.
+    # typescript-eslint caps its typescript peer below 6.1, so TypeScript 7 breaks `npm ci`.
+    # Lift the typescript rule once typescript-eslint supports it.
     ignore:
       - dependency-name: onnxruntime-node
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
     groups:
       npm:
         patterns: ["*"]
