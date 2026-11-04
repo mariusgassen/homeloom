@@ -45,6 +45,10 @@ Homeloom's notes are also Markdown files over WebDAV, so a notes app or file man
 
 Under Us › Movies & shows, each of you signs in with your own Plex account. Homeloom then shows the movie and series libraries on your own servers and on servers friends share with you, with what you haven't seen yet and a random pick. It only reads: nothing is played or changed, and the Plex token stays on the server, encrypted with `HOMELOOM_SECRET_KEY`. The API must be able to reach your Plex server (on the same network, or through Plex's remote access).
 
+## Date night
+
+Today › Date night suggests a few evenings out or in from the weather, what's on nearby, a budget and a mood, and adds the one you pick to the shared calendar. It needs `ANTHROPIC_API_KEY` and nothing else. Type your town once and the forecast comes from [Open-Meteo](https://open-meteo.com) (no key); events come from Claude's web search, so they appear only if web search is enabled for your Anthropic account. Without either, you still get ideas.
+
 ## Photo storage
 
 Photos of moments and notes are kept in Postgres unless you set an S3 key pair. Then they go to `homeloom-garage`, a small S3 store ([Garage](https://garagehq.deuxfleurs.fr)) that runs in the stack and sets itself up on start: it creates the bucket and imports your key. Make the key once, in the format Garage wants:
@@ -82,7 +86,6 @@ Homeloom grows around how you live together. Features are grouped by what you do
 - **Ask about your memories:** the assistant looks things up on your timeline ("what did we do last May?").
 
 **Going out and staying in**
-- **Date-night generator:** ideas based on weather, local events, budget and mood.
 - **Movie and game night picker:** you each swipe through your Plex libraries, the overlap wins, the room sets itself.
 
 **Connected apps**

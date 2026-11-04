@@ -121,6 +121,12 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 - **Servers** come from plex.tv's resource list: the person's own and those friends share, each with its own access token. The adapter tries every address of a server at once and keeps the most direct that answers (local, then remote, then Plex's relay); a server that can't be reached is left out rather than failing the rest. Lists and addresses are cached for 5 minutes per person. Ids are `<server>.<key>` and only resolve on the caller's own servers, so they can't be probed.
 - **Posters** go through the API (`/watch/titles/{id}/poster`, transcoded by Plex to 342×513), so the token never reaches the client.
 
+## Date night
+
+- **Weather** (`adapter/openmeteo`, port `Weather`) geocodes the typed place and reads the day's forecast from Open-Meteo, which needs no key. A failure only drops the weather from the answer.
+- **Ideas** (`adapter/claude`, port `Planner`) come from Claude with the forecast, budget and mood in the prompt. With a place it may use Anthropic's server-side web search for local events; if the call fails it asks again without. Without `ANTHROPIC_API_KEY` the endpoint answers `503 ideas_unavailable`.
+- **The place is not stored** on the server; the PWA remembers it on the device. Saving an idea is the ordinary `createEntry` call with an event, so it needs nothing extra from the API.
+
 ## PWA
 
 ```
