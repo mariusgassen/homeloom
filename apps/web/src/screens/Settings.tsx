@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
 import { api, type McpToken, type TokenAccess, type VoiceSettings } from "../api/client";
 import { ownAvatar, removeAvatar, square, uploadAvatar } from "../avatar";
 import { useAutoplay } from "../moments";
@@ -42,6 +43,7 @@ export function Settings() {
           <Invite householdId={household.id} />
         </section>
       )}
+      {household && <GiftsLink />}
       {household && <CalendarLink householdId={household.id} />}
       {household && <OtherApps householdId={household.id} />}
       <Voice />
@@ -303,6 +305,19 @@ function Notifications() {
           {t(`push.${error}`)}
         </p>
       )}
+    </section>
+  );
+}
+
+// One row to the gift ideas, which only you see.
+function GiftsLink() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  return (
+    <section className="group">
+      <div className="hl-list">
+        <ListRow title={t("gifts.title")} subtitle={t("gifts.private")} onClick={() => navigate("/gifts")} />
+      </div>
     </section>
   );
 }

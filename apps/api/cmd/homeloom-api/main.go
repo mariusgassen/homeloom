@@ -209,12 +209,13 @@ func run() error {
 		moments.WithPhotos(bucket).WithVideos(bucket)
 	}
 	chores := service.NewChores(store, store, store, moments, push, cfg.TimeZone)
-	go notifyDaily(ctx, map[string]dailyJob{"moments": moments, "chores": chores})
+	gifts := service.NewGifts(store, store, store, push, cfg.TimeZone)
+	go notifyDaily(ctx, map[string]dailyJob{"moments": moments, "chores": chores, "gifts": gifts})
 	cook := service.NewCook(store, book, chef, shopping).WithPlan(store)
 	homeService := service.NewHome(store, homeConnections, sessions, home)
 	households := service.NewHousehold(store)
 	watch := service.NewWatch(store, watchConnections, sessions, media, critic).WithTonight(store, push, cfg.TimeZone)
-	assistant := service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone).WithBudget(budget)
+	assistant := service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone).WithBudget(budget).WithGifts(gifts)
 	agents := service.NewAgentAccess(store, sessions, store)
 
 	handler, err := httpadapter.NewRouter(httpadapter.Deps{
@@ -229,6 +230,7 @@ func run() error {
 		Cook:           cook,
 		Shopping:       shopping,
 		Chores:         chores,
+		Gifts:          gifts,
 		Budget:         budget,
 		Home:           homeService,
 		Watch:          watch,

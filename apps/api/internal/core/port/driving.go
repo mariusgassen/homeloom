@@ -321,3 +321,17 @@ type AgentAccessService interface {
 	CreateToken(ctx context.Context, actor domain.User, householdID uuid.UUID, name string, access domain.TokenAccess) (domain.MCPToken, string, error)
 	DeleteToken(ctx context.Context, actor domain.User, id uuid.UUID) error
 }
+
+// GiftService is a member's private gift ideas for the other members, and the birthdays they
+// are for. A caller only ever gets their own ideas.
+type GiftService interface {
+	// Overview returns the caller's birthday, the other members soonest birthday first, and the
+	// caller's own ideas.
+	Overview(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Gifts, error)
+	// SetBirthday sets the caller's own birthday; nil removes it.
+	SetBirthday(ctx context.Context, actor domain.User, b *domain.Birthday) error
+	// Add keeps an idea for another member of the household.
+	Add(ctx context.Context, actor domain.User, householdID, forID uuid.UUID, text string) (domain.GiftIdea, error)
+	SetGiven(ctx context.Context, actor domain.User, householdID, id uuid.UUID, given bool) (domain.GiftIdea, error)
+	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
+}

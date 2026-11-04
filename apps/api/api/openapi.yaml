@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.33.0
+  version: 0.34.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -30,6 +30,7 @@ tags:
   - name: cook
   - name: shopping
   - name: chores
+  - name: gifts
   - name: budget
   - name: home
   - name: watch
@@ -235,6 +236,102 @@ paths:
           content:
             image/jpeg:
               schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/me/birthday:
+    put:
+      tags: [gifts]
+      operationId: setBirthday
+      summary: Set your own birthday
+      description: Month and day only; the household sees it, so the others can think of a gift in time.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Birthday" }
+      responses:
+        "204": { description: Saved. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    delete:
+      tags: [gifts]
+      operationId: deleteBirthday
+      summary: Remove your own birthday
+      responses:
+        "204": { description: Removed. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/households/{householdId}/gifts:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [gifts]
+      operationId: getGifts
+      summary: Your gift ideas and the birthdays they are for (members only)
+      description: |
+        Gift ideas are private to whoever wrote them: this lists only the caller's own, and nothing
+        in the API, the assistant or a notification shows an idea to anyone else.
+      responses:
+        "200":
+          description: Your birthday, the other members soonest birthday first, and your own ideas.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Gifts" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/gifts/ideas:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [gifts]
+      operationId: addGiftIdea
+      summary: Keep a gift idea for another member (private to you)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NewGiftIdea" }
+      responses:
+        "201":
+          description: The idea.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GiftIdea" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/gifts/ideas/{ideaId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/GiftIdeaId"
+    patch:
+      tags: [gifts]
+      operationId: updateGiftIdea
+      summary: Mark one of your ideas as given, or as an idea again
+      description: Someone else's idea is not found.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GiftIdeaUpdate" }
+      responses:
+        "200":
+          description: The idea.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GiftIdea" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [gifts]
+      operationId: deleteGiftIdea
+      summary: Delete one of your ideas
+      description: Someone else's idea is not found.
+      responses:
+        "204": { description: Deleted. }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
@@ -2475,6 +2572,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    GiftIdeaId:
+      name: ideaId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     ChoreId:
       name: choreId
       in: path
@@ -3049,6 +3151,64 @@ components:
         rotate: { type: boolean, description: Each time it is done it becomes the next member's turn. }
         assigneeId: { type: string, format: uuid, description: "Whose turn it is; absent means anyone's." }
         dueOn: { type: string, format: date, description: "The day it is due; today when absent." }
+
+    Birthday:
+      type: object
+      required: [month, day]
+      properties:
+        month: { type: integer, minimum: 1, maximum: 12 }
+        day: { type: integer, minimum: 1, maximum: 31 }
+
+    GiftIdea:
+      type: object
+      required: [id, forId, text, given, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        forId: { type: string, format: uuid, description: The member it is for. }
+        text: { type: string }
+        given: { type: boolean }
+        givenAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    NewGiftIdea:
+      type: object
+      required: [forId, text]
+      properties:
+        forId: { type: string, format: uuid, description: Another member of the household. }
+        text: { type: string, minLength: 1, maxLength: 200 }
+
+    GiftIdeaUpdate:
+      type: object
+      required: [given]
+      properties:
+        given: { type: boolean }
+
+    GiftPerson:
+      type: object
+      required: [user, ideas]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        birthday: { $ref: "#/components/schemas/Birthday" }
+        next:
+          type: string
+          format: date
+          description: Their next birthday. Absent without a birthday.
+        days: { type: integer, description: How many days until `next`; 0 is today. Absent without a birthday. }
+        ideas: { type: integer, description: How many of your own open ideas are for them. }
+
+    Gifts:
+      type: object
+      required: [people, ideas]
+      properties:
+        myBirthday: { $ref: "#/components/schemas/Birthday" }
+        people:
+          type: array
+          description: The other members, soonest birthday first.
+          items: { $ref: "#/components/schemas/GiftPerson" }
+        ideas:
+          type: array
+          description: Only the caller's own ideas, open ones first.
+          items: { $ref: "#/components/schemas/GiftIdea" }
 
     Chore:
       type: object

@@ -60,6 +60,8 @@ type Store struct {
 	chores           []domain.Chore
 	choreCompletions []domain.ChoreCompletion
 	expenses         []domain.Expense
+	birthdays        map[uuid.UUID]domain.Birthday
+	giftIdeas        []domain.GiftIdea
 }
 
 func NewStore() *Store {

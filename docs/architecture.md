@@ -97,6 +97,13 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 - **Thanks** (`POST …/chore-completions/{id}/thanks`) is kept once per person (`chore_thanks`) and tells whoever did it. A line sent with it becomes the thanker's gratitude line for today through the Moments service, unless they wrote one already, so a thank-you never replaces what they wrote.
 - **Nudge** (`Chores.NotifyDaily`, every minute on each instance, claimed in `job_runs` as `chores-due`): from 18:00, once a day, everyone with a chore due today or overdue hears which ones: their turn, and anyone's.
 
+## Gift ideas
+
+- `gift_ideas` holds what one member thinks of giving another: text, the author (`author_id`), who it is for (`for_id`) and when it was given. **They are private to the author, enforced below the HTTP layer:** every repository call that reads, ticks off or deletes an idea takes the author's id and filters on it (someone else's idea is `ErrNotFound`, never a 403), and `Gifts.Overview` only ever returns the caller's own. The assistant's `list_gift_ideas` and `add_gift_idea` tools run as the person asking through the same service, so the assistant, `/mcp` and the voice agent cannot show one member's ideas to the other either.
+- `birthdays` holds each member's month and day (no year), set with `PUT /v1/me/birthday`. The household sees it, as the ideas need it. 29 February falls on the 28th in common years.
+- `GET …/gifts` returns the caller's birthday, the other members with days to their next birthday and how many of the caller's own open ideas are for them, and the caller's ideas. Today shows a tile for the next birthday within 21 days.
+- **Nudge** (`Gifts.NotifyDaily`, from 09:00, claimed in `job_runs` as `gift-birthdays`): seven days and one day before a member's birthday, every *other* member gets a push with only their own count of open ideas for them.
+
 ## Money
 
 - One shared budget per household (`expenses`, `expense_shares`), opened from Today. Every member sees, adds, changes and deletes every expense; the service checks membership and every query is scoped to the household.
