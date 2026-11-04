@@ -325,6 +325,17 @@ type WatchConnection struct {
 	HiddenLibraries []string
 }
 
+type WatchSwipe struct {
+	HouseholdID uuid.UUID
+	UserID      uuid.UUID
+	Key         string
+	TitleID     string
+	Name        string
+	Year        int32
+	Liked       bool
+	SwipedAt    time.Time
+}
+
 type WatchTonight struct {
 	HouseholdID uuid.UUID
 	TitleID     string

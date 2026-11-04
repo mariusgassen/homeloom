@@ -19,6 +19,7 @@ import { NotePage } from "./screens/NotePage";
 import { Today, Us } from "./screens/Tabs";
 import { Money } from "./screens/Money";
 import { Watch } from "./screens/Watch";
+import { WatchNight } from "./screens/WatchNight";
 import { Loading, Unavailable, Welcome } from "./screens/Welcome";
 import { useSession } from "./session";
 import { TabBar } from "./ui/TabBar";
@@ -73,6 +74,7 @@ export function App() {
               <Route path="/cook/:slug" element={<RecipeScreen />} />
               <Route path="/us" element={<Us />} />
               <Route path="/watch" element={<Watch />} />
+              <Route path="/watch/night" element={<WatchNight />} />
               <Route path="/money" element={<Money />} />
               <Route path="/lists" element={<Lists />} />
               <Route path="/lists/notes/:id" element={<NotePage />} />

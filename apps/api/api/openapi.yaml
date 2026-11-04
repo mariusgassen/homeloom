@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.33.0
+  version: 0.34.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -1964,6 +1964,58 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/households/{householdId}/watch/night:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [watch]
+      operationId: getWatchNight
+      summary: Your movie night - films to swipe on and the ones you both like (members only)
+      description: |
+        Unseen movies from your own libraries, shuffled; those your partner already liked come
+        first. Swipes last until 5 a.m. the morning after. A film is the same film across Plex
+        accounts when name and year agree.
+      responses:
+        "200":
+          description: The deck and the matches.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatchNight" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [watch]
+      operationId: resetWatchNight
+      summary: Start movie night over - forget everyone's swipes
+      responses:
+        "204": { description: Forgotten. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/watch/night/swipes:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [watch]
+      operationId: swipeWatchNight
+      summary: Say whether you would watch one of your movies; a match tells your partner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WatchSwipe" }
+      responses:
+        "200":
+          description: Recorded. `match` is set when your partner liked the same film.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatchSwipeResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
   /v1/households/{householdId}/watch/libraries/{libraryId}:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -3205,6 +3257,31 @@ components:
         episodes: { type: integer, description: Episodes of a series. }
         watched: { type: boolean, description: "You have seen the movie, or every episode." }
         url: { type: string, format: uri, description: Opens the title in Plex. }
+
+    WatchNight:
+      type: object
+      required: [deck, matches, partners]
+      properties:
+        deck:
+          type: array
+          items: { $ref: "#/components/schemas/WatchTitle" }
+        matches:
+          type: array
+          description: Films you both liked, as your own titles.
+          items: { $ref: "#/components/schemas/WatchTitle" }
+        partners: { type: integer, description: How many other members could swipe. }
+
+    WatchSwipe:
+      type: object
+      required: [titleId, liked]
+      properties:
+        titleId: { $ref: "#/components/schemas/MediaId" }
+        liked: { type: boolean }
+
+    WatchSwipeResult:
+      type: object
+      properties:
+        match: { $ref: "#/components/schemas/WatchTitle" }
 
     WatchTonight:
       type: object

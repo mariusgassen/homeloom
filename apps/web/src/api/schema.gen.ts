@@ -1461,6 +1461,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/watch/night": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Your movie night - films to swipe on and the ones you both like (members only)
+         * @description Unseen movies from your own libraries, shuffled; those your partner already liked come
+         *     first. Swipes last until 5 a.m. the morning after. A film is the same film across Plex
+         *     accounts when name and year agree.
+         */
+        get: operations["getWatchNight"];
+        put?: never;
+        post?: never;
+        /** Start movie night over - forget everyone's swipes */
+        delete: operations["resetWatchNight"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/watch/night/swipes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Say whether you would watch one of your movies; a match tells your partner */
+        post: operations["swipeWatchNight"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/watch/libraries/{libraryId}": {
         parameters: {
             query?: never;
@@ -2542,6 +2586,20 @@ export interface components {
              * @description Opens the title in Plex.
              */
             url?: string;
+        };
+        WatchNight: {
+            deck: components["schemas"]["WatchTitle"][];
+            /** @description Films you both liked, as your own titles. */
+            matches: components["schemas"]["WatchTitle"][];
+            /** @description How many other members could swipe. */
+            partners: number;
+        };
+        WatchSwipe: {
+            titleId: components["schemas"]["MediaId"];
+            liked: boolean;
+        };
+        WatchSwipeResult: {
+            match?: components["schemas"]["WatchTitle"];
         };
         WatchTonight: {
             pick?: components["schemas"]["TonightPick"];
@@ -5527,6 +5585,83 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getWatchNight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The deck and the matches. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchNight"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    resetWatchNight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Forgotten. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    swipeWatchNight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WatchSwipe"];
+            };
+        };
+        responses: {
+            /** @description Recorded. `match` is set when your partner liked the same film. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchSwipeResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
         };
     };
     setWatchLibrary: {

@@ -232,6 +232,13 @@ type WatchService interface {
 	// Tonight returns nil when nothing is picked for tonight.
 	Tonight(ctx context.Context, actor domain.User, householdID uuid.UUID) (*domain.TonightPick, error)
 	ClearTonight(ctx context.Context, actor domain.User, householdID uuid.UUID) error
+	// Night returns the actor's movie night: unseen films to swipe on and the films both partners liked.
+	Night(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.MovieNight, error)
+	// Swipe records whether the actor would watch one of their titles. It returns the match when
+	// the partner liked the same film, else nil.
+	Swipe(ctx context.Context, actor domain.User, householdID uuid.UUID, titleID string, liked bool) (*domain.NightMatch, error)
+	// ResetNight forgets everyone's swipes.
+	ResetNight(ctx context.Context, actor domain.User, householdID uuid.UUID) error
 	// Suggest returns ideas that fit the mood, from the actor's libraries when connected and from
 	// outside them; domain.ErrUnavailable without an LLM.
 	Suggest(ctx context.Context, actor domain.User, householdID uuid.UUID, mood, lang string) ([]domain.WatchIdea, error)
