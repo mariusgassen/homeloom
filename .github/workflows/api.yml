@@ -3,11 +3,8 @@ name: api
 on:
   push:
     branches: [main]
+  # No path filter: required checks must report on every PR, e.g. Dependabot's workflow bumps.
   pull_request:
-    paths:
-      - "apps/api/**"
-      - "docker-compose*.yml"
-      - ".github/workflows/api.yml"
 
 permissions:
   contents: read

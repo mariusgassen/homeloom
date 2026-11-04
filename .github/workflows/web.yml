@@ -3,11 +3,8 @@ name: web
 on:
   push:
     branches: [main]
+  # No path filter: required checks must report on every PR, e.g. Dependabot's workflow bumps.
   pull_request:
-    paths:
-      - "apps/web/**"
-      - "apps/api/api/openapi.yaml"
-      - ".github/workflows/web.yml"
 
 permissions:
   contents: read
