@@ -158,3 +158,38 @@ func TestReplyIsUnavailableWhenClaudeFails(t *testing.T) {
 		}
 	}
 }
+
+func TestReplyOffersCodeModeForReadOnlyToolsAndKeepsTheContainer(t *testing.T) {
+	first := message("tool_use", toolBlock(0, "tu_1", "get_home", `{"room":"Küche"}`)...)
+	first[0] = strings.Replace(first[0], `"content":[]`, `"content":[],"container":{"id":"ctr_1","expires_at":"2026-10-28T13:00:00Z","skills":[]}`, 1)
+	srv, seen := streamAPI(t, first, message("end_turn", textBlock(0, "Fertig.")...))
+	a := claude.NewAssistant("key", "claude-opus-5-5", option.WithBaseURL(srv.URL))
+
+	scripted := []domain.Tool{
+		{Name: "get_home", Description: "Read the home.", ReadOnly: true, Schema: map[string]any{"type": "object", "properties": map[string]any{}}},
+		{Name: "set_light", Description: "Switch a light.", Schema: map[string]any{"type": "object", "properties": map[string]any{}}},
+	}
+	_, err := a.Reply(context.Background(), brief, []domain.ChatMessage{{Role: domain.RoleUser, Text: "Hi"}}, scripted,
+		func(context.Context, domain.ToolCall) (string, error) { return "{}", nil }, func(domain.ChatEvent) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	byName := map[string]map[string]any{}
+	for _, raw := range (*seen)[0]["tools"].([]any) {
+		tool := raw.(map[string]any)
+		byName[tool["name"].(string)] = tool
+	}
+	if byName["code_execution"] == nil {
+		t.Fatal("code execution tool not offered")
+	}
+	if got := fmt.Sprint(byName["get_home"]["allowed_callers"]); got != "[direct code_execution_20260521]" {
+		t.Errorf("read-only tool callers = %s", got)
+	}
+	if _, ok := byName["set_light"]["allowed_callers"]; ok {
+		t.Error("a tool that changes something must not be callable from a script")
+	}
+	if got := (*seen)[1]["container"]; got != "ctr_1" {
+		t.Errorf("container = %v, want ctr_1", got)
+	}
+}

@@ -45,6 +45,9 @@ type Tool struct {
 	Name        string
 	Description string
 	Schema      map[string]any
+	// ReadOnly marks a tool that only reads. Only these may be called from a script the model
+	// writes (code mode); everything that changes something stays a single, visible step.
+	ReadOnly bool
 }
 
 // ToolCall is the assistant asking for a tool.
