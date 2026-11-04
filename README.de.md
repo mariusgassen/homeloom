@@ -76,7 +76,7 @@ Homeloom wächst mit eurem gemeinsamen Alltag. Die Funktionen sind danach sortie
 - **„Wir“-Zeitstrahl:** eure gemeinsamen Momente, mit Monatsrückblick und „Heute vor …“ (begonnen).
 - **Dankbarkeit auf Heute:** die Zeile des Tages direkt unter Heute schreiben, mit einem optionalen Hinweis am Abend, falls sie noch fehlt.
 - **Antworten aufheben:** eine geöffnete Frage mit einem Tipp auf euren Zeitstrahl legen.
-- **Reaktionen auf Momente:** ein Herz oder eine kurze Antwort auf die Momente des anderen.
+- **Reaktionen auf Momente:** ein Herz oder ein anderes Emoji auf die Momente des anderen (begonnen).
 - **Gemeinsame Serien:** wie viele Tage am Stück ihr beide eine Zeile geschrieben habt, ohne schlechtes Gewissen für einen verpassten Tag.
 - **Jahresrückblick:** zu Neujahr ein geschriebener Blick zurück auf eure Momente und euer Danke.
 - **Frag nach Erinnerungen:** der Assistent schaut auf eurem Zeitstrahl nach („Was haben wir letzten Mai gemacht?“).

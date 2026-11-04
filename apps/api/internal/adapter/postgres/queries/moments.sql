@@ -95,3 +95,18 @@ SELECT id FROM households ORDER BY id;
 
 -- name: ClaimJobRun :execrows
 INSERT INTO job_runs (job, day) VALUES ($1, $2) ON CONFLICT DO NOTHING;
+
+-- name: SetMomentReaction :execrows
+-- Affects no row when the user already gave this emoji, so the author is told once.
+INSERT INTO moment_reactions (moment_id, user_id, emoji)
+VALUES (@moment_id, @user_id, @emoji)
+ON CONFLICT (moment_id, user_id) DO UPDATE SET emoji = EXCLUDED.emoji, created_at = now()
+WHERE moment_reactions.emoji <> EXCLUDED.emoji;
+
+-- name: DeleteMomentReaction :exec
+DELETE FROM moment_reactions WHERE moment_id = @moment_id AND user_id = @user_id;
+
+-- name: ListMomentReactions :many
+SELECT moment_id, user_id, emoji FROM moment_reactions
+WHERE moment_id = ANY(@ids::uuid[])
+ORDER BY created_at, user_id;

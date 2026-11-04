@@ -127,6 +127,7 @@
     "alone": { "title": "It takes two", "body": "Invite your partner first." }
   },
   "moments": {
+    "react": "React",
     "add": "Keep a moment", "new": "New moment", "edit": "Moment",
     "text": "What happened", "day": "Day",
     "photo": "Add a photo", "photoChange": "Other photo", "photoRemove": "Remove photo",

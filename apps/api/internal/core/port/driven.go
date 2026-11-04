@@ -177,6 +177,12 @@ type MomentRepository interface {
 	MomentPhoto(ctx context.Context, id uuid.UUID) (domain.Photo, error)
 	DeleteMomentPhoto(ctx context.Context, id uuid.UUID) error
 	// MarkMomentVideo sets VideoAt for a video kept in the VideoStore.
+	// SetMomentReaction gives the user's emoji on the moment, replacing an earlier one, and says
+	// whether it is new or different.
+	SetMomentReaction(ctx context.Context, id, userID uuid.UUID, emoji string) (bool, error)
+	DeleteMomentReaction(ctx context.Context, id, userID uuid.UUID) error
+	// MomentReactions returns the reactions of the moments, oldest first, keyed by moment.
+	MomentReactions(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]domain.MomentReaction, error)
 	MarkMomentVideo(ctx context.Context, id uuid.UUID) error
 	ClearMomentVideo(ctx context.Context, id uuid.UUID) error
 }

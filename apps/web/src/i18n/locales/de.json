@@ -127,6 +127,7 @@
     "alone": { "title": "Zu zweit geht's besser", "body": "Lade zuerst deinen Schatz ein." }
   },
   "moments": {
+    "react": "Reagieren",
     "add": "Moment festhalten", "new": "Neuer Moment", "edit": "Moment",
     "text": "Was war?", "day": "Tag",
     "photo": "Foto hinzufügen", "photoChange": "Anderes Foto", "photoRemove": "Foto entfernen",

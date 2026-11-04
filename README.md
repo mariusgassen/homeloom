@@ -76,7 +76,7 @@ Homeloom grows around how you live together. Features are grouped by what you do
 - **"Us" timeline:** a shared stream of moments, with a monthly digest and "on this day" (started).
 - **Gratitude on Today:** write today's line right on Today, with an optional nudge in the evening if you haven't yet.
 - **Answers to keep:** put an opened question on your timeline in one tap.
-- **Moment reactions:** a heart or a short reply to each other's moments.
+- **Moment reactions:** a heart or another emoji on each other's moments (started).
 - **Shared streaks:** how many days in a row you both kept a line, with no guilt for a missed one.
 - **Year in review:** at New Year, a written look back at your moments and thank-yous.
 - **Ask about your memories:** the assistant looks things up on your timeline ("what did we do last May?").
