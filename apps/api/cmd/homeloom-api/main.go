@@ -24,6 +24,7 @@ import (
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/notesdav"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/oidc"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/openai"
+	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/openmeteo"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/plex"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/postgres"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/redis"
@@ -209,7 +210,11 @@ func run() error {
 		moments.WithPhotos(bucket).WithVideos(bucket)
 	}
 	chores := service.NewChores(store, store, store, moments, push, cfg.TimeZone)
-	go notifyDaily(ctx, map[string]dailyJob{"moments": moments, "chores": chores})
+	briefing := service.NewBriefing(store, entries, chores, store, push, cfg.TimeZone)
+	if cfg.WeatherSet {
+		briefing.WithWeather(openmeteo.New(cfg.WeatherLatitude, cfg.WeatherLongitude))
+	}
+	go notifyDaily(ctx, map[string]dailyJob{"moments": moments, "chores": chores, "briefing": briefing})
 	cook := service.NewCook(store, book, chef, shopping).WithPlan(store)
 	homeService := service.NewHome(store, homeConnections, sessions, home)
 	households := service.NewHousehold(store)

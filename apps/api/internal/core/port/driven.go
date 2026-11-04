@@ -404,6 +404,12 @@ type PushSubscriptionRepository interface {
 	DeletePushEndpoint(ctx context.Context, endpoint string) error
 }
 
+// Forecaster tells the day's weather where the household lives.
+type Forecaster interface {
+	// Today returns domain.ErrUnavailable when the forecast can't be had.
+	Today(ctx context.Context) (domain.Weather, error)
+}
+
 // Pusher delivers Web Push notifications (VAPID).
 type Pusher interface {
 	PublicKey() string

@@ -22,3 +22,11 @@ type Notification struct {
 	// Tag lets a later notification replace an earlier one about the same thing.
 	Tag string
 }
+
+// Weather is the day's forecast where the household lives.
+type Weather struct {
+	// Code is the WMO weather code of the day.
+	Code int
+	// High and Low are the day's temperatures in °C.
+	High, Low float64
+}

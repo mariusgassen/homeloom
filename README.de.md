@@ -45,6 +45,10 @@ Die Notizen aus Homeloom gibt es auch als Markdown-Dateien über WebDAV. So kann
 
 Unter Wir › Filme & Serien meldet ihr euch jeweils mit eurem eigenen Plex-Konto an. Homeloom zeigt dann die Film- und Serien-Mediatheken auf euren eigenen Servern und auf Servern, die Freunde mit euch teilen, mit dem, was ihr noch nicht gesehen habt, und einem Zufallsvorschlag. Homeloom liest nur: Nichts wird abgespielt oder geändert, und das Plex-Token bleibt verschlüsselt mit `HOMELOOM_SECRET_KEY` auf dem Server. Die API muss deinen Plex-Server erreichen können (im selben Netz oder über Plex' Fernzugriff).
 
+## Morgen-Überblick
+
+Jeden Morgen ab 7:00 bekommt ihr beide eine Mitteilung mit dem Wetter des Tages, den Plänen für heute und dem, was ansteht. Für das Wetter braucht es eure Koordinaten (`WEATHER_LATITUDE` und `WEATHER_LONGITUDE` in der `.env`); ohne sie lässt der Überblick das Wetter weg. Steht nichts an, gibt es keine Mitteilung.
+
 ## Fotospeicher
 
 Fotos von Momenten und Notizen liegen in Postgres, solange du kein S3-Schlüsselpaar setzt. Mit einem landen sie in `homeloom-garage`, einem kleinen S3-Speicher ([Garage](https://garagehq.deuxfleurs.fr)) im Stack, der sich beim Start selbst einrichtet: Er legt den Bucket an und importiert deinen Schlüssel. Erstell den Schlüssel einmal, im Format, das Garage erwartet:
@@ -123,7 +127,6 @@ Noch nicht sortiert und nicht versprochen.
 - **Gemeinsame Orte:** speichert die Orte, an denen ihr zusammen wart.
 
 **Alltag**
-- **Heute-Überblick:** eine Mitteilung am Morgen mit Wetter, Plänen und dem, was ansteht.
 - **Budget im Blick:** ein einfacher Überblick über gemeinsame Ausgaben.
 - **Reisen und Packlisten:** Reisen planen und mit gemeinsamen Listen packen.
 - **Dokumentenablage:** wichtige Unterlagen an einem privaten Ort.

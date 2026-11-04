@@ -47,6 +47,8 @@
   "push.call.title": "{name} ruft an",
   "push.chore_thanks.body": "Für „{chore}“.",
   "push.chore_thanks.title": "{name} sagt danke",
+  "push.briefing.body": "{day}",
+  "push.briefing.title": "Guten Morgen",
   "push.chores_due.body": "{chores}",
   "push.chores_due.title": "Heute noch offen",
   "push.event.body": "Beginnt um {time}.",

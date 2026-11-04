@@ -45,6 +45,10 @@ Homeloom's notes are also Markdown files over WebDAV, so a notes app or file man
 
 Under Us › Movies & shows, each of you signs in with your own Plex account. Homeloom then shows the movie and series libraries on your own servers and on servers friends share with you, with what you haven't seen yet and a random pick. It only reads: nothing is played or changed, and the Plex token stays on the server, encrypted with `HOMELOOM_SECRET_KEY`. The API must be able to reach your Plex server (on the same network, or through Plex's remote access).
 
+## Morning briefing
+
+Every morning from 7:00, each of you gets one notification with the day's weather, today's plans and what's due. The weather needs your coordinates (`WEATHER_LATITUDE` and `WEATHER_LONGITUDE` in `.env`); without them the briefing just leaves it out. Nothing planned, no notification.
+
 ## Photo storage
 
 Photos of moments and notes are kept in Postgres unless you set an S3 key pair. Then they go to `homeloom-garage`, a small S3 store ([Garage](https://garagehq.deuxfleurs.fr)) that runs in the stack and sets itself up on start: it creates the bucket and imports your key. Make the key once, in the format Garage wants:
@@ -123,7 +127,6 @@ Not sorted or promised yet.
 - **Shared location moments:** save the places you've been together.
 
 **Everyday life**
-- **Today briefing:** one morning push with the weather, plans and what's due.
 - **Budget glance:** a simple view of shared spending.
 - **Trips and packing lists:** plan trips and pack from shared lists.
 - **Documents vault:** important papers in one private place.
