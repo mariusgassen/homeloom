@@ -14,19 +14,19 @@
     "adm-zip": "^0.6.1"
   },
   "dependencies": {
-    "@livekit/agents": "^1.9.4",
-    "@livekit/agents-plugin-anthropic": "^1.9.4",
-    "@livekit/agents-plugin-openai": "^1.9.4",
-    "@livekit/agents-plugin-silero": "^1.9.4",
+    "@livekit/agents": "^1.9.5",
+    "@livekit/agents-plugin-anthropic": "^1.9.5",
+    "@livekit/agents-plugin-openai": "^1.9.5",
+    "@livekit/agents-plugin-silero": "^1.9.5",
     "@livekit/rtc-node": "^1.2.1",
     "onnxruntime-node": "1.24.3"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^26.6.5",
-    "eslint": "^10.13.0",
-    "globals": "^17.13.0",
-    "typescript": "^6.0.3",
+    "@types/node": "^26.6.6",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
+    "typescript": "^7.0.2",
     "typescript-eslint": "^8.72.1",
     "vitest": "^5.0.5"
   }
