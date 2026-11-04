@@ -22,7 +22,8 @@ import (
 // services with the person as the actor.
 var tools = []domain.Tool{
 	{
-		Name: "list_entries",
+		Name:     "list_entries",
+		ReadOnly: true,
 		Description: "List the household's reminders, calendar events or notes that the person can see. " +
 			"Events are upcoming ones, a repeating event at its next time. Reminders include those done in the last week. " +
 			"A note that opens later shows only that it exists and when it opens.",
@@ -71,18 +72,21 @@ var tools = []domain.Tool{
 		Schema:      object(map[string]any{"id": str("The reminder's id.")}, "id"),
 	},
 	{
-		Name: "search_recipes",
+		Name:     "search_recipes",
+		ReadOnly: true,
 		Description: "Search the household's recipe collection by words in the name, tags or description " +
 			"(the recipes are mostly German, so search in German too). Returns up to 10 matches; an empty query returns a random few.",
 		Schema: object(map[string]any{"query": str("Search words.")}),
 	},
 	{
 		Name:        "get_recipe",
+		ReadOnly:    true,
 		Description: "Get one recipe with its ingredients and steps, by its slug from search_recipes.",
 		Schema:      object(map[string]any{"slug": str("The recipe's slug.")}, "slug"),
 	},
 	{
 		Name:        "list_shopping",
+		ReadOnly:    true,
 		Description: "List the household's shared shopping list; done items are ticked off but not removed yet.",
 		Schema:      object(map[string]any{}),
 	},
@@ -113,13 +117,15 @@ var tools = []domain.Tool{
 		}, "amount", "category"),
 	},
 	{
-		Name: "get_money",
+		Name:     "get_money",
+		ReadOnly: true,
 		Description: "Read where the members stand with money (who owes whom how much) and this month's expenses " +
 			"and settlements, with what was spent per category. month is YYYY-MM for another month.",
 		Schema: object(map[string]any{"month": str("The month, YYYY-MM.")}),
 	},
 	{
-		Name: "get_home",
+		Name:     "get_home",
+		ReadOnly: true,
 		Description: "Read the home: its rooms with their scenes, lights (on or off) and readings such as temperature " +
 			"or an open window. Only the person's own connection is used.",
 		Schema: object(map[string]any{}),

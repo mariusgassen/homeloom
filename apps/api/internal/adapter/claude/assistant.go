@@ -3,6 +3,7 @@ package claude
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/domain"
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/port"
 )
+
+const codeExecution = "code_execution_20260521"
 
 const (
 	// maxRounds bounds how often one answer may go back to the model with tool results.
@@ -87,6 +90,13 @@ func (a *Assistant) Reply(ctx context.Context, brief domain.AssistantBrief, hist
 		}
 		switch msg.StopReason {
 		case anthropic.BetaStopReasonToolUse:
+		case anthropic.BetaStopReasonPauseTurn:
+			// A script is still running in the sandbox: send it back as it is to carry on.
+			if msg.Container.ID != "" {
+				params.Container = anthropic.BetaMessageNewParamsContainerUnion{OfString: anthropic.String(msg.Container.ID)}
+			}
+			params.Messages = append(params.Messages, echo(msg))
+			continue
 		case anthropic.BetaStopReasonRefusal:
 			return "", fmt.Errorf("%w: claude declined", domain.ErrUnavailable)
 		default:
@@ -107,6 +117,10 @@ func (a *Assistant) Reply(ctx context.Context, brief domain.AssistantBrief, hist
 				continue
 			}
 			results = append(results, anthropic.NewBetaToolResultBlock(b.ID, out, false))
+		}
+		// A script that called tools continues in the same sandbox container.
+		if msg.Container.ID != "" {
+			params.Container = anthropic.BetaMessageNewParamsContainerUnion{OfString: anthropic.String(msg.Container.ID)}
 		}
 		params.Messages = append(params.Messages, echo(msg), anthropic.NewBetaUserMessage(results...))
 	}
@@ -164,9 +178,17 @@ func toolParams(tools []domain.Tool) []anthropic.BetaToolUnionParam {
 		if v, ok := t.Schema["additionalProperties"]; ok {
 			schema.ExtraFields["additionalProperties"] = v
 		}
-		out[i] = anthropic.BetaToolUnionParam{OfTool: &anthropic.BetaToolParam{
-			Name: t.Name, Description: anthropic.String(t.Description), InputSchema: schema,
-		}}
+		p := &anthropic.BetaToolParam{Name: t.Name, Description: anthropic.String(t.Description), InputSchema: schema}
+		if t.ReadOnly {
+			p.AllowedCallers = []string{"direct", codeExecution}
+		}
+		out[i] = anthropic.BetaToolUnionParam{OfTool: p}
+	}
+	// Code mode: the model may write a short script that calls the read-only tools above in loops
+	// and chains. The script runs in Anthropic's sandbox; each tool call still comes back here and
+	// goes through the same runner, so the person, permissions and whitelist are unchanged.
+	if slices.ContainsFunc(tools, func(t domain.Tool) bool { return t.ReadOnly }) {
+		out = append(out, anthropic.BetaToolUnionParam{OfCodeExecutionTool20260521: &anthropic.BetaCodeExecutionTool20260521Param{}})
 	}
 	return out
 }
