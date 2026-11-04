@@ -208,6 +208,12 @@ func run() error {
 	if bucket != nil {
 		moments.WithPhotos(bucket).WithVideos(bucket)
 	}
+	// The vault keeps its files in S3 only; without it the rest of the app works.
+	var vaultFiles port.FileStore
+	if bucket != nil {
+		vaultFiles = bucket
+	}
+	documents := service.NewDocuments(store, store, vaultFiles)
 	chores := service.NewChores(store, store, store, moments, push, cfg.TimeZone)
 	go notifyDaily(ctx, map[string]dailyJob{"moments": moments, "chores": chores})
 	cook := service.NewCook(store, book, chef, shopping).WithPlan(store)
@@ -229,6 +235,7 @@ func run() error {
 		Cook:           cook,
 		Shopping:       shopping,
 		Chores:         chores,
+		Documents:      documents,
 		Budget:         budget,
 		Home:           homeService,
 		Watch:          watch,

@@ -189,6 +189,24 @@ type PhotoStore interface {
 	DeletePhoto(ctx context.Context, key string) error
 }
 
+// DocumentRepository keeps what is known about the vault's files. A document is visible to its
+// owner and, once shared, to the household; every call takes the viewer and returns
+// domain.ErrNotFound for what they may not see. Changing or deleting is the owner's alone.
+type DocumentRepository interface {
+	// Documents returns what the viewer can see in the household, newest first.
+	Documents(ctx context.Context, householdID, viewer uuid.UUID, limit int) ([]domain.Document, error)
+	GetDocument(ctx context.Context, householdID, viewer, id uuid.UUID) (domain.Document, error)
+	// CreateDocument keeps d under its ID.
+	CreateDocument(ctx context.Context, d domain.Document) (domain.Document, error)
+	// UpdateDocument sets the name and sharing of the owner's document.
+	UpdateDocument(ctx context.Context, householdID, owner, id uuid.UUID, name string, shared bool) (domain.Document, error)
+	DeleteDocument(ctx context.Context, householdID, owner, id uuid.UUID) error
+}
+
+// FileStore keeps the vault's files (S3), under keys the service chooses, with the same streaming
+// rules as videos.
+type FileStore = VideoStore
+
 // VideoStore keeps videos (S3), under keys the service chooses. They are streamed, never held in
 // memory whole. StatVideo returns domain.ErrNotFound for a key it doesn't hold; deleting a missing
 // key is no error.

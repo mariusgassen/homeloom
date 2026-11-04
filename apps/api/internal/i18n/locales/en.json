@@ -72,5 +72,7 @@
   "shopping.list": "Shopping list",
   "voice.preview": "Hi, I'm Homeloom. This is how I'll sound when we talk.",
   "error.invalid_video": "Pick an MP4 or MOV video of at most {max} MB.",
-  "error.videos_unavailable": "Videos aren't set up on this server."
+  "error.videos_unavailable": "Videos aren't set up on this server.",
+  "error.documents_unavailable": "Documents aren't set up on this server.",
+  "error.invalid_document": "Pick a PDF, image, text or office file of at most {max} MB."
 }

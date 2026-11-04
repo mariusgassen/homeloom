@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.33.0
+  version: 0.34.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -30,6 +30,7 @@ tags:
   - name: cook
   - name: shopping
   - name: chores
+  - name: documents
   - name: budget
   - name: home
   - name: watch
@@ -1696,6 +1697,126 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
 
+  /v1/households/{householdId}/documents:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [documents]
+      operationId: listDocuments
+      summary: Your documents and those shared with the household (members only)
+      description: |
+        Newest first. A document is private to whoever added it until they share it; other
+        members never see a private one. At most 500.
+      responses:
+        "200":
+          description: The documents.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Document" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [documents]
+      operationId: addDocument
+      summary: Put a file in your documents
+      description: |
+        Send the file as the body, with its own `Content-Type`: a PDF, a JPEG, PNG, WebP or HEIC
+        image, plain text or CSV, or a Word, Excel, PowerPoint or OpenDocument file, of at most
+        50 MB. It starts private to you. Documents need the S3 store; without it this answers 503.
+      parameters:
+        - name: name
+          in: query
+          required: true
+          description: The file's name, such as `lease.pdf`.
+          schema: { type: string, maxLength: 200 }
+      requestBody:
+        required: true
+        content:
+          "*/*":
+            schema: { type: string, format: binary }
+      responses:
+        "201":
+          description: The new document.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/documents/{documentId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/DocumentId"
+    patch:
+      tags: [documents]
+      operationId: updateDocument
+      summary: Rename a document or share it with the household
+      description: Only the member who added it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DocumentChange" }
+      responses:
+        "200":
+          description: The document.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: You can see it but not change it (code `not_yours`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [documents]
+      operationId: deleteDocument
+      summary: Delete a document and its file
+      description: Only the member who added it.
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: You can see it but not delete it (code `not_yours`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/documents/{documentId}/file:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/DocumentId"
+    get:
+      tags: [documents]
+      operationId: getDocumentFile
+      summary: The file itself
+      description: |
+        PDFs and images open in the browser; everything else downloads. The answer is private to
+        the viewer and never cached by shared caches.
+      responses:
+        "200":
+          description: The file.
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+            Cache-Control:
+              schema: { type: string }
+            X-Content-Type-Options:
+              schema: { type: string }
+          content:
+            "*/*":
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/households/{householdId}/chore-completions:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -2480,6 +2601,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    DocumentId:
+      name: documentId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     CompletionId:
       name: completionId
       in: path
@@ -3063,6 +3189,27 @@ components:
         dueOn: { type: string, format: date }
         createdBy: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
+
+    Document:
+      type: object
+      required: [id, ownerId, mine, name, contentType, size, shared, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        ownerId: { type: string, format: uuid, description: Who added it. }
+        mine: { type: boolean }
+        name: { type: string }
+        contentType: { type: string }
+        size: { type: integer, format: int64, description: Bytes. }
+        shared:
+          type: boolean
+          description: Whether the whole household can see it. Private (false) until its owner shares it.
+        createdAt: { type: string, format: date-time }
+
+    DocumentChange:
+      type: object
+      properties:
+        name: { type: string, maxLength: 200 }
+        shared: { type: boolean }
 
     ChoreCompletion:
       type: object

@@ -118,6 +118,17 @@ type Conversation struct {
 	UpdatedAt   time.Time
 }
 
+type Document struct {
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+	OwnerID     uuid.UUID
+	Name        string
+	ContentType string
+	Size        int64
+	Shared      bool
+	CreatedAt   time.Time
+}
+
 type Entry struct {
 	ID           uuid.UUID
 	HouseholdID  uuid.UUID

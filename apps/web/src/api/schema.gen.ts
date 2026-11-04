@@ -1219,6 +1219,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/documents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Your documents and those shared with the household (members only)
+         * @description Newest first. A document is private to whoever added it until they share it; other
+         *     members never see a private one. At most 500.
+         */
+        get: operations["listDocuments"];
+        put?: never;
+        /**
+         * Put a file in your documents
+         * @description Send the file as the body, with its own `Content-Type`: a PDF, a JPEG, PNG, WebP or HEIC
+         *     image, plain text or CSV, or a Word, Excel, PowerPoint or OpenDocument file, of at most
+         *     50 MB. It starts private to you. Documents need the S3 store; without it this answers 503.
+         */
+        post: operations["addDocument"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/documents/{documentId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a document and its file
+         * @description Only the member who added it.
+         */
+        delete: operations["deleteDocument"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename a document or share it with the household
+         * @description Only the member who added it.
+         */
+        patch: operations["updateDocument"];
+        trace?: never;
+    };
+    "/v1/households/{householdId}/documents/{documentId}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The file itself
+         * @description PDFs and images open in the browser; everything else downloads. The answer is private to
+         *     the viewer and never cached by shared caches.
+         */
+        get: operations["getDocumentFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/chore-completions": {
         parameters: {
             query?: never;
@@ -2430,6 +2510,31 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        Document: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: uuid
+             * @description Who added it.
+             */
+            ownerId: string;
+            mine: boolean;
+            name: string;
+            contentType: string;
+            /**
+             * Format: int64
+             * @description Bytes.
+             */
+            size: number;
+            /** @description Whether the whole household can see it. Private (false) until its owner shares it. */
+            shared: boolean;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        DocumentChange: {
+            name?: string;
+            shared?: boolean;
+        };
         ChoreCompletion: {
             /** Format: uuid */
             id: string;
@@ -2822,6 +2927,7 @@ export interface components {
         ShoppingItemId: string;
         ExpenseId: string;
         ChoreId: string;
+        DocumentId: string;
         CompletionId: string;
         ConversationId: string;
         RecipeSlug: string;
@@ -5148,6 +5254,162 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+        };
+    };
+    listDocuments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The documents. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addDocument: {
+        parameters: {
+            query: {
+                /** @description The file's name, such as `lease.pdf`. */
+                name: string;
+            };
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "*/*": string;
+            };
+        };
+        responses: {
+            /** @description The new document. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    deleteDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            /** @description You can see it but not delete it (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateDocument: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentChange"];
+            };
+        };
+        responses: {
+            /** @description The document. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Document"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            /** @description You can see it but not change it (code `not_yours`). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getDocumentFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                documentId: components["parameters"]["DocumentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file. */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    "Cache-Control"?: string;
+                    "X-Content-Type-Options"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     listChoreCompletions: {

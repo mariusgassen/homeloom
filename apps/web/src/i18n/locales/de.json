@@ -25,7 +25,7 @@
     "create": "Haushalt anlegen",
     "failed": "Das hat nicht geklappt. Versuch es bitte noch mal."
   },
-  "settings": { "title": "Einstellungen", "you": "Du", "household": "Haushalt", "owner": "Inhaber:in", "member": "Mitglied", "open": "Haushalt und Einstellungen", "photo": "Foto hinzufügen", "photoChange": "Foto ändern", "photoRemove": "Foto entfernen", "photoFailed": "Das Foto hat nicht geklappt. Probier ein anderes.", "videos": "Videos", "autoplay": "Videos automatisch abspielen", "autoplayHint": "Ohne Ton, auf diesem Gerät" },
+  "settings": { "documents": "Dokumente", "title": "Einstellungen", "you": "Du", "household": "Haushalt", "owner": "Inhaber:in", "member": "Mitglied", "open": "Haushalt und Einstellungen", "photo": "Foto hinzufügen", "photoChange": "Foto ändern", "photoRemove": "Foto entfernen", "photoFailed": "Das Foto hat nicht geklappt. Probier ein anderes.", "videos": "Videos", "autoplay": "Videos automatisch abspielen", "autoplayHint": "Ohne Ton, auf diesem Gerät" },
   "push": { "title": "Mitteilungen", "switch": "Mitteilungen auf diesem Gerät", "hint": "Antworten, Erinnerungen und Termine", "install": "Für Mitteilungen auf dem iPhone leg Homeloom zuerst auf deinen Home-Bildschirm: Tipp auf Teilen, dann „Zum Home-Bildschirm“, und öffne es von dort.", "blocked": "Mitteilungen sind blockiert. Erlaube sie in den Einstellungen deines Handys unter Mitteilungen und versuch es nochmal.", "failed": "Das hat nicht geklappt. Versuch es bitte nochmal." },
   "today": {
     "question": { "eyebrow": "Frage des Tages", "title": "Noch keine Frage", "body": "Stell eine. Die Antworten öffnen sich, wenn ihr beide geantwortet habt." },
@@ -33,7 +33,8 @@
     "next": { "eyebrow": "Als Nächstes", "clear": "Heute steht nichts an. Zeit für euch.", "more_one": "Noch {{count}} heute", "more_other": "Noch {{count}} heute" },
     "dinner": { "eyebrow": "Heute Abend", "title": "Worauf habt ihr Lust?" },
     "watch": { "eyebrow": "Heute schauen", "title": "Lust auf einen Film?" },
-    "chores": { "eyebrow": "Heute im Haushalt", "all": "Alle", "more_one": "{{count}} weitere", "more_other": "{{count}} weitere", "setUp": "Teilt euch den Haushalt" },
+    "documents": { "title": "Dokumente", "add": "Datei hinzufügen", "open": "Öffnen", "name": "Name", "shareWith": "Mit dem Haushalt teilen", "private": "Nur du", "shared": "Geteilt", "from": "Von {{name}}", "kind": { "pdf": "PDF", "image": "Bild", "text": "Text", "office": "Dokument" }, "sending": "Wird gesendet… {{percent}}%", "delete": "Dokument löschen", "deleteConfirm": "Dieses Dokument löschen?", "tooBig": "Wähl eine Datei mit höchstens {{max}} MB.", "wrongType": "Wähl eine PDF-, Bild-, Text- oder Office-Datei.", "failed": "Das hat nicht geklappt. Versuch es noch mal.", "emptyTitle": "Noch keine Dokumente", "emptyBody": "Bewahr hier Mietvertrag, Police oder Belege auf. Nur du siehst sie, bis du sie teilst." },
+  "chores": { "eyebrow": "Heute im Haushalt", "all": "Alle", "more_one": "{{count}} weitere", "more_other": "{{count}} weitere", "setUp": "Teilt euch den Haushalt" },
     "money": { "eyebrow": "Geld", "title": "Wer schuldet wem?", "bill": "Als Nächstes: {{name}}, {{amount}}, {{when}}" },
     "thanks": "Was hat dich heute zum Lächeln gebracht?"
   },
