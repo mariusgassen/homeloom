@@ -41,11 +41,11 @@ func (c *Client) Today(ctx context.Context) (domain.Weather, error) {
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+"/v1/forecast?"+q.Encode(), nil)
 	if err != nil {
-		return domain.Weather{}, fmt.Errorf("%w: %v", domain.ErrUnavailable, err)
+		return domain.Weather{}, fmt.Errorf("%w: %w", domain.ErrUnavailable, err)
 	}
 	res, err := c.http.Do(req)
 	if err != nil {
-		return domain.Weather{}, fmt.Errorf("%w: %v", domain.ErrUnavailable, err)
+		return domain.Weather{}, fmt.Errorf("%w: %w", domain.ErrUnavailable, err)
 	}
 	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
@@ -59,7 +59,7 @@ func (c *Client) Today(ctx context.Context) (domain.Weather, error) {
 		} `json:"daily"`
 	}
 	if err := json.NewDecoder(io.LimitReader(res.Body, 1<<20)).Decode(&body); err != nil {
-		return domain.Weather{}, fmt.Errorf("%w: %v", domain.ErrUnavailable, err)
+		return domain.Weather{}, fmt.Errorf("%w: %w", domain.ErrUnavailable, err)
 	}
 	d := body.Daily
 	if len(d.Code) == 0 || len(d.Max) == 0 || len(d.Min) == 0 {
