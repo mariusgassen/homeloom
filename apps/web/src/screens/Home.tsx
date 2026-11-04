@@ -7,6 +7,7 @@ import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Empty } from "../ui/Empty";
+import { shortName } from "../home";
 import { cx, Icon, type IconName } from "../ui/Icon";
 import { Mark } from "../ui/Mark";
 import { Screen } from "./Screen";
@@ -136,19 +137,19 @@ export function Home() {
         {lights.length > 0 && (
           <div className="room-lights">
             {lights.map((l) => (
-              <button key={l.id} type="button" className={cx("light", l.on && "light-on")} role="switch" aria-checked={l.on} aria-label={l.name} disabled={disabled} onClick={() => toggle(l)}>
+              <button key={l.id} type="button" className={cx("light", l.on && "light-on")} role="switch" aria-checked={l.on} aria-label={shortName(l.name, room?.name)} disabled={disabled} onClick={() => toggle(l)}>
                 <span className="light-bulb">
                   <Icon name="bulb" />
                 </span>
                 <span className="light-text">
-                  <span className="light-name">{l.name}</span>
+                  <span className="light-name">{shortName(l.name, room?.name)}</span>
                   <span className="caption">{l.on ? t("home.on") : t("home.off")}</span>
                 </span>
               </button>
             ))}
           </div>
         )}
-        {room && scenes.length > 0 && <Scenes scenes={scenes} active={active} disabled={disabled} onPick={scene} />}
+        {room && scenes.length > 0 && <Scenes room={room.name} scenes={scenes} active={active} disabled={disabled} onPick={scene} />}
       </section>
     );
   };
@@ -222,13 +223,13 @@ export function Home() {
   );
 }
 
-function Scenes({ scenes, active, disabled, onPick }: { scenes: Scene[]; active: string | null; disabled: boolean; onPick: (id: string) => void }) {
+function Scenes({ room, scenes, active, disabled, onPick }: { room: string; scenes: Scene[]; active: string | null; disabled: boolean; onPick: (id: string) => void }) {
   return (
     <div className="room-scenes">
       {scenes.map((s) => (
         <button key={s.id} type="button" className="room-scene" disabled={disabled} onClick={() => onPick(s.id)} aria-pressed={active === s.id}>
           <Icon name="sparkle" />
-          {s.name}
+          {shortName(s.name, room)}
         </button>
       ))}
     </div>
