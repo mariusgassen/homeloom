@@ -2758,14 +2758,16 @@ components:
         reactions:
           type: array
           description: What members answered it with, oldest first; one per member.
-          items:
-            type: object
-            required: [userId, emoji]
-            properties:
-              userId: { type: string, format: uuid }
-              emoji: { type: string }
+          items: { $ref: "#/components/schemas/GivenReaction" }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    GivenReaction:
+      type: object
+      required: [userId, emoji]
+      properties:
+        userId: { type: string, format: uuid }
+        emoji: { type: string }
 
     MomentReaction:
       type: object

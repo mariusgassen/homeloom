@@ -406,12 +406,9 @@ func toMoment(m domain.Moment) oapi.Moment {
 	}
 	if !m.Sealed {
 		out.Text = &m.Text
-		rs := make([]struct {
-			Emoji  string             `json:"emoji"`
-			UserId openapi_types.UUID `json:"userId"`
-		}, len(m.Reactions))
+		rs := make([]oapi.GivenReaction, len(m.Reactions))
 		for i, r := range m.Reactions {
-			rs[i].Emoji, rs[i].UserId = r.Emoji, r.UserID
+			rs[i] = oapi.GivenReaction{Emoji: r.Emoji, UserId: r.UserID}
 		}
 		out.Reactions = &rs
 		if m.PhotoAt != nil {

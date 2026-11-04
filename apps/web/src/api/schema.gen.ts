@@ -2136,15 +2136,16 @@ export interface components {
             /** @description Where its video is */
             videoUrl?: string;
             /** @description What members answered it with, oldest first; one per member. */
-            reactions?: {
-                /** Format: uuid */
-                userId: string;
-                emoji: string;
-            }[];
+            reactions?: components["schemas"]["GivenReaction"][];
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        GivenReaction: {
+            /** Format: uuid */
+            userId: string;
+            emoji: string;
         };
         MomentReaction: {
             /** @enum {string} */
