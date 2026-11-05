@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.34.0
+  version: 0.35.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -343,6 +343,32 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/HouseholdDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [households]
+      operationId: updateHousehold
+      summary: Choose where the household lives (members only)
+      description: |
+        The place is a town or city, as typed. The morning briefing looks up its weather there.
+        An empty place clears it. A place the weather service doesn't know answers 400
+        `unknown_place`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [place]
+              properties:
+                place: { type: string, maxLength: 100 }
+      responses:
+        "200":
+          description: The household.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HouseholdDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
@@ -3477,6 +3503,9 @@ components:
         - type: object
           required: [members]
           properties:
+            place:
+              type: string
+              description: Where the household lives, as typed; absent until chosen.
             members:
               type: array
               items: { $ref: "#/components/schemas/Member" }

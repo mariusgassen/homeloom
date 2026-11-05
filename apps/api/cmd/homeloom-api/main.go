@@ -212,12 +212,15 @@ func run() error {
 		moments.WithPhotos(bucket).WithVideos(bucket)
 	}
 	chores := service.NewChores(store, store, store, moments, push, cfg.TimeZone)
-	go notifyDaily(ctx, map[string]dailyJob{"moments": moments, "chores": chores})
+	briefing := service.NewBriefing(store, entries, chores, store, push, cfg.TimeZone)
+	forecaster := openmeteo.New()
+	briefing.WithWeather(forecaster)
+	go notifyDaily(ctx, map[string]dailyJob{"moments": moments, "chores": chores, "briefing": briefing})
 	cook := service.NewCook(store, book, chef, shopping).WithPlan(store)
 	homeService := service.NewHome(store, homeConnections, sessions, home)
-	households := service.NewHousehold(store)
+	households := service.NewHousehold(store).WithWeather(forecaster)
 	watch := service.NewWatch(store, watchConnections, sessions, media, critic).WithTonight(store, push, cfg.TimeZone)
-	dateNight := service.NewDateNight(store, planner, openmeteo.New(), cfg.TimeZone)
+	dateNight := service.NewDateNight(store, planner, forecaster, cfg.TimeZone)
 	assistant := service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone).WithBudget(budget)
 	agents := service.NewAgentAccess(store, sessions, store)
 
