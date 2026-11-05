@@ -63,6 +63,7 @@ type Store struct {
 	chores           []domain.Chore
 	choreCompletions []domain.ChoreCompletion
 	expenses         []domain.Expense
+	wishes           []domain.Wish
 }
 
 func NewStore() *Store {

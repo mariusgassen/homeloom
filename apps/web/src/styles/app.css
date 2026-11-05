@@ -481,6 +481,15 @@ html:has(.sheet-backdrop, .assistant) { overflow: hidden; }
 .chore-thank { color: var(--ink-muted); }
 .chore-thanked { color: var(--berry); }
 .chore-thanked svg path { fill: currentColor; }
+.wish-row { display: flex; align-items: center; padding-right: var(--space-2); }
+.wish-row .hl-listrow { flex-grow: 1; min-width: 0; }
+.wish-row .hl-listrow .today-tile-icon, .wish-row .hl-listrow .today-tile-photo { width: 40px; height: 40px; }
+.wish-hearts { display: inline-flex; flex: none; }
+.wish-heart { min-width: 34px; color: var(--ink-muted); }
+.wish-heart-on { color: var(--berry); }
+.wish-heart-on svg path { fill: currentColor; }
+.wish-got .hl-listrow-title { color: var(--ink-muted); text-decoration: line-through; }
+.today-wishes .today-tile-icon { background: color-mix(in srgb, var(--berry) 14%, transparent); color: var(--berry); }
 .night-deck { display: flex; flex-direction: column; gap: var(--space-4); align-items: center; }
 .night-card { display: flex; flex-direction: column; gap: var(--space-2); width: 100%; touch-action: pan-y; user-select: none; cursor: grab; }
 .night-card .watch-poster { width: 55%; align-self: center; }
