@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.45.0
+  version: 0.46.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -3323,6 +3323,48 @@ paths:
         "204": { description: Unsubscribed, or was not subscribed. }
         "401": { $ref: "#/components/responses/Unauthorized" }
 
+  /v1/push/topics:
+    get:
+      tags: [push]
+      operationId: listPushTopics
+      summary: Which kinds of notification you get
+      description: |
+        Every topic with whether you get it. The choice is yours and applies to all your devices;
+        a topic you switched off is skipped before anything is sent.
+      responses:
+        "200":
+          description: All topics, in the order to show them.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PushTopic" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/push/topics/{topic}:
+    put:
+      tags: [push]
+      operationId: setPushTopic
+      summary: Switch one kind of notification on or off
+      parameters:
+        - name: topic
+          in: path
+          required: true
+          schema: { $ref: "#/components/schemas/PushTopicName" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: { type: boolean }
+      responses:
+        "204": { description: Saved. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
   /v1/households/{householdId}/conversations:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -4808,6 +4850,17 @@ components:
       required: [publicKey]
       properties:
         publicKey: { type: string, description: "The VAPID public key, base64url without padding." }
+
+    PushTopicName:
+      type: string
+      enum: [briefing, reminders, questions, chores, gifts, us, watch, calls]
+
+    PushTopic:
+      type: object
+      required: [topic, enabled]
+      properties:
+        topic: { $ref: "#/components/schemas/PushTopicName" }
+        enabled: { type: boolean }
 
     PushSubscription:
       type: object

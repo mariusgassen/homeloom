@@ -13,6 +13,7 @@ export const api = createClient<paths>({
   fetch: (req) => send(req, (r) => globalThis.fetch(r)),
 });
 
+export type PushTopic = components["schemas"]["PushTopic"];
 export type User = components["schemas"]["User"];
 export type Household = components["schemas"]["Household"];
 export type HouseholdDetail = components["schemas"]["HouseholdDetail"];

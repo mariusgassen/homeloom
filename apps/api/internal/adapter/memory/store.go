@@ -42,6 +42,7 @@ type Store struct {
 	meals             []domain.PlannedMeal
 	ratings           []domain.MealRating
 	pushSubscriptions []domain.PushSubscription
+	mutedPushTopics   []mutedPushTopic
 	shopping          []domain.ShoppingItem
 	shoppingHistory   map[historyKey]suggestion
 
@@ -185,4 +186,9 @@ func (s *Store) Members(_ context.Context, householdID uuid.UUID) ([]domain.Memb
 		}
 	}
 	return out, nil
+}
+
+type mutedPushTopic struct {
+	userID uuid.UUID
+	topic  domain.PushTopic
 }

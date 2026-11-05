@@ -306,6 +306,11 @@ type MomentReaction struct {
 	CreatedAt time.Time
 }
 
+type PushMutedTopic struct {
+	UserID uuid.UUID
+	Topic  string
+}
+
 type PushSubscription struct {
 	Endpoint  string
 	UserID    uuid.UUID

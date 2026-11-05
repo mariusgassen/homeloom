@@ -44,3 +44,38 @@ func (s *Store) DeletePushEndpoint(_ context.Context, endpoint string) error {
 	s.pushSubscriptions = slices.DeleteFunc(s.pushSubscriptions, func(p domain.PushSubscription) bool { return p.Endpoint == endpoint })
 	return nil
 }
+
+func (s *Store) MutedPushTopics(_ context.Context, userID uuid.UUID) ([]domain.PushTopic, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := []domain.PushTopic{}
+	for _, m := range s.mutedPushTopics {
+		if m.userID == userID {
+			out = append(out, m.topic)
+		}
+	}
+	return out, nil
+}
+
+func (s *Store) UsersMutingPushTopic(_ context.Context, userIDs []uuid.UUID, topic domain.PushTopic) ([]uuid.UUID, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := []uuid.UUID{}
+	for _, m := range s.mutedPushTopics {
+		if m.topic == topic && slices.Contains(userIDs, m.userID) {
+			out = append(out, m.userID)
+		}
+	}
+	return out, nil
+}
+
+func (s *Store) SetPushTopicMuted(_ context.Context, userID uuid.UUID, topic domain.PushTopic, muted bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	m := mutedPushTopic{userID, topic}
+	s.mutedPushTopics = slices.DeleteFunc(s.mutedPushTopics, func(p mutedPushTopic) bool { return p == m })
+	if muted {
+		s.mutedPushTopics = append(s.mutedPushTopics, m)
+	}
+	return nil
+}

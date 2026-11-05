@@ -332,6 +332,10 @@ type PushService interface {
 	// Subscribe stores the actor's device; lang is the language its notifications are written in.
 	Subscribe(ctx context.Context, actor domain.User, sub domain.PushSubscription) error
 	Unsubscribe(ctx context.Context, actor domain.User, endpoint string) error
+	// Topics lists every topic with whether the actor gets it, which applies to all their devices.
+	Topics(ctx context.Context, actor domain.User) ([]domain.PushTopicSetting, error)
+	// SetTopic returns domain.ErrInvalid for an unknown topic.
+	SetTopic(ctx context.Context, actor domain.User, topic domain.PushTopic, enabled bool) error
 }
 
 type CallService interface {
