@@ -2525,6 +2525,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/push/topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Which kinds of notification you get
+         * @description Every topic with whether you get it. The choice is yours and applies to all your devices;
+         *     a topic you switched off is skipped before anything is sent.
+         */
+        get: operations["listPushTopics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/push/topics/{topic}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Switch one kind of notification on or off */
+        put: operations["setPushTopic"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/conversations": {
         parameters: {
             query?: never;
@@ -3760,6 +3798,12 @@ export interface components {
         PushConfig: {
             /** @description The VAPID public key, base64url without padding. */
             publicKey: string;
+        };
+        /** @enum {string} */
+        PushTopicName: "briefing" | "reminders" | "questions" | "chores" | "gifts" | "us" | "watch" | "calls";
+        PushTopic: {
+            topic: components["schemas"]["PushTopicName"];
+            enabled: boolean;
         };
         /** @description What `PushSubscription.toJSON()` returns in the browser. */
         PushSubscription: {
@@ -8540,6 +8584,55 @@ export interface operations {
                 };
                 content?: never;
             };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listPushTopics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All topics, in the order to show them. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PushTopic"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    setPushTopic: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                topic: components["schemas"]["PushTopicName"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enabled: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
         };
     };

@@ -53,6 +53,37 @@ func (h *handlers) UnsubscribePush(ctx context.Context, req oapi.UnsubscribePush
 	return oapi.UnsubscribePush204Response{}, nil
 }
 
+func (h *handlers) ListPushTopics(ctx context.Context, _ oapi.ListPushTopicsRequestObject) (oapi.ListPushTopicsResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	topics, err := h.push.Topics(ctx, u)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]oapi.PushTopic, len(topics))
+	for i, t := range topics {
+		out[i] = oapi.PushTopic{Topic: oapi.PushTopicName(t.Topic), Enabled: t.Enabled}
+	}
+	return oapi.ListPushTopics200JSONResponse(out), nil
+}
+
+func (h *handlers) SetPushTopic(ctx context.Context, req oapi.SetPushTopicRequestObject) (oapi.SetPushTopicResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = h.push.SetTopic(ctx, u, domain.PushTopic(req.Topic), req.Body.Enabled)
+	if errors.Is(err, domain.ErrInvalid) {
+		return oapi.SetPushTopic400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "invalid", err.Error()))}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return oapi.SetPushTopic204Response{}, nil
+}
+
 func pushUnavailable(ctx context.Context) oapi.UnavailableJSONResponse {
 	return oapi.UnavailableJSONResponse(errorBody(ctx, "push_unavailable", ""))
 }

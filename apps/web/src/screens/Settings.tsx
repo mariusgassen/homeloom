@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
-import { api, type McpToken, type TokenAccess, type VoiceSettings } from "../api/client";
+import { api, type McpToken, type PushTopic, type TokenAccess, type VoiceSettings } from "../api/client";
 import { ownAvatar, removeAvatar, square, uploadAvatar } from "../avatar";
 import { useAutoplay } from "../moments";
 import { currentSubscription, pushKey, pushSupport, subscribe, unsubscribe } from "../push";
@@ -275,6 +275,28 @@ function Notifications() {
     };
   }, [support]);
 
+  // The topics are the person's own, for all their devices; they only matter once this one is on.
+  const [topics, setTopics] = useState<PushTopic[]>([]);
+  const subscribed = sub !== null;
+  useEffect(() => {
+    if (!subscribed) return;
+    let live = true;
+    api
+      .GET("/v1/push/topics")
+      .then((res) => live && res.data && setTopics(res.data))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [subscribed]);
+
+  async function setTopic(topic: PushTopic["topic"], enabled: boolean) {
+    const swap = (on: boolean) => setTopics((all) => all.map((x) => (x.topic === topic ? { ...x, enabled: on } : x)));
+    swap(enabled);
+    const res = await api.PUT("/v1/push/topics/{topic}", { params: { path: { topic } }, body: { enabled } }).catch(() => undefined);
+    if (!res?.response.ok) swap(!enabled);
+  }
+
   async function toggle() {
     if (!key) return;
     setBusy(true);
@@ -315,6 +337,18 @@ function Notifications() {
           <span className={sub ? "switch switch-on" : "switch"} aria-hidden="true" />
         </button>
       </div>
+      {sub && topics.length > 0 && (
+        <div className="hl-list">
+          {topics.map((x) => (
+            <button key={x.topic} type="button" className="hl-listrow" role="switch" aria-checked={x.enabled} onClick={() => setTopic(x.topic, !x.enabled)}>
+              <span className="hl-listrow-main">
+                <span className="hl-listrow-title">{t(`push.topics.${x.topic}`)}</span>
+              </span>
+              <span className={x.enabled ? "switch switch-on" : "switch"} aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+      )}
       {error && (
         <p className="callout error" role="alert">
           {t(`push.${error}`)}

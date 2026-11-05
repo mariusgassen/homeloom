@@ -66,3 +66,46 @@ func PushSubscriptions(t *testing.T, s interface {
 		t.Fatalf("no users: %+v, %v", subs, err)
 	}
 }
+
+// PushTopics: topics are on until a person switches them off; the choice is per person.
+func PushTopics(t *testing.T, s interface {
+	Store
+	port.PushSubscriptionRepository
+}) {
+	ctx := context.Background()
+	alice, bob := user(t, s, "Alice"), user(t, s, "Bob")
+	both := []uuid.UUID{alice.ID, bob.ID}
+	muting := func(topic domain.PushTopic) int {
+		t.Helper()
+		ids, err := s.UsersMutingPushTopic(ctx, both, topic)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(ids)
+	}
+	if muted, err := s.MutedPushTopics(ctx, alice.ID); err != nil || len(muted) != 0 {
+		t.Fatalf("all on by default: %v, %v", muted, err)
+	}
+	for range 2 {
+		if err := s.SetPushTopicMuted(ctx, alice.ID, domain.PushTopicUs, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if muted, _ := s.MutedPushTopics(ctx, alice.ID); len(muted) != 1 || muted[0] != domain.PushTopicUs {
+		t.Fatalf("alice muted us: %v", muted)
+	}
+	if muted, _ := s.MutedPushTopics(ctx, bob.ID); len(muted) != 0 {
+		t.Fatalf("bob unaffected: %v", muted)
+	}
+	if muting(domain.PushTopicUs) != 1 || muting(domain.PushTopicWatch) != 0 {
+		t.Fatal("muting users per topic")
+	}
+	for range 2 {
+		if err := s.SetPushTopicMuted(ctx, alice.ID, domain.PushTopicUs, false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if muting(domain.PushTopicUs) != 0 {
+		t.Fatal("alice switched it back on")
+	}
+}

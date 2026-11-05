@@ -17,6 +17,7 @@ func TestSwipes(t *testing.T)              { storetest.Swipes(t, memory.NewStore
 func TestMealPlan(t *testing.T)            { storetest.MealPlan(t, memory.NewStore()) }
 func TestTaste(t *testing.T)               { storetest.Taste(t, memory.NewStore()) }
 func TestPushSubscriptions(t *testing.T)   { storetest.PushSubscriptions(t, memory.NewStore()) }
+func TestPushTopics(t *testing.T)          { storetest.PushTopics(t, memory.NewStore()) }
 func TestEntries(t *testing.T)             { storetest.Entries(t, memory.NewStore()) }
 func TestCalendarFeeds(t *testing.T)       { storetest.CalendarFeeds(t, memory.NewStore()) }
 func TestShoppingItems(t *testing.T)       { storetest.ShoppingItems(t, memory.NewStore()) }

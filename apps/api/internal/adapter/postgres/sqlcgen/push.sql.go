@@ -34,6 +34,30 @@ func (q *Queries) DeletePushSubscription(ctx context.Context, arg DeletePushSubs
 	return err
 }
 
+const listMutedPushTopics = `-- name: ListMutedPushTopics :many
+SELECT topic FROM push_muted_topics WHERE user_id = $1
+`
+
+func (q *Queries) ListMutedPushTopics(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, listMutedPushTopics, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var topic string
+		if err := rows.Scan(&topic); err != nil {
+			return nil, err
+		}
+		items = append(items, topic)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPushSubscriptions = `-- name: ListPushSubscriptions :many
 SELECT endpoint, user_id, p256dh, auth, lang, created_at FROM push_subscriptions WHERE user_id = ANY($1::uuid[]) ORDER BY created_at
 `
@@ -63,6 +87,63 @@ func (q *Queries) ListPushSubscriptions(ctx context.Context, userIds []uuid.UUID
 		return nil, err
 	}
 	return items, nil
+}
+
+const listUsersMutingPushTopic = `-- name: ListUsersMutingPushTopic :many
+SELECT user_id FROM push_muted_topics WHERE topic = $1 AND user_id = ANY($2::uuid[])
+`
+
+type ListUsersMutingPushTopicParams struct {
+	Topic   string
+	UserIds []uuid.UUID
+}
+
+func (q *Queries) ListUsersMutingPushTopic(ctx context.Context, arg ListUsersMutingPushTopicParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listUsersMutingPushTopic, arg.Topic, arg.UserIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var user_id uuid.UUID
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const mutePushTopic = `-- name: MutePushTopic :exec
+INSERT INTO push_muted_topics (user_id, topic) VALUES ($1, $2) ON CONFLICT DO NOTHING
+`
+
+type MutePushTopicParams struct {
+	UserID uuid.UUID
+	Topic  string
+}
+
+func (q *Queries) MutePushTopic(ctx context.Context, arg MutePushTopicParams) error {
+	_, err := q.db.Exec(ctx, mutePushTopic, arg.UserID, arg.Topic)
+	return err
+}
+
+const unmutePushTopic = `-- name: UnmutePushTopic :exec
+DELETE FROM push_muted_topics WHERE user_id = $1 AND topic = $2
+`
+
+type UnmutePushTopicParams struct {
+	UserID uuid.UUID
+	Topic  string
+}
+
+func (q *Queries) UnmutePushTopic(ctx context.Context, arg UnmutePushTopicParams) error {
+	_, err := q.db.Exec(ctx, unmutePushTopic, arg.UserID, arg.Topic)
+	return err
 }
 
 const upsertPushSubscription = `-- name: UpsertPushSubscription :exec
