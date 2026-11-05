@@ -79,6 +79,8 @@ type HouseholdRepository interface {
 	// Role returns domain.ErrNotFound when the user is not a member.
 	Role(ctx context.Context, householdID, userID uuid.UUID) (domain.Role, error)
 	Get(ctx context.Context, id uuid.UUID) (domain.Household, error)
+	// SetPlace stores the household's place; domain.ErrNotFound for an unknown household.
+	SetPlace(ctx context.Context, id uuid.UUID, place string) error
 	Members(ctx context.Context, householdID uuid.UUID) ([]domain.Member, error)
 	// HouseholdIDs returns every household, for jobs that visit each one.
 	HouseholdIDs(ctx context.Context) ([]uuid.UUID, error)

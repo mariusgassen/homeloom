@@ -2,6 +2,7 @@
 package domain
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,9 +36,17 @@ const (
 // MaxHouseholdName is the longest household name, in characters.
 const MaxHouseholdName = 100
 
+// ErrUnknownPlace is a place the weather service can't find.
+var ErrUnknownPlace = fmt.Errorf("%w: unknown place", ErrInvalid)
+
+// MaxPlace is the longest place name, in characters.
+const MaxPlace = 100
+
 type Household struct {
-	ID        uuid.UUID
-	Name      string
+	ID   uuid.UUID
+	Name string
+	// Place is the town the household lives in, as typed; empty until chosen.
+	Place     string
 	CreatedAt time.Time
 }
 

@@ -282,7 +282,13 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Choose where the household lives (members only)
+         * @description The place is a town or city, as typed. The morning briefing looks up its weather there.
+         *     An empty place clears it. A place the weather service doesn't know answers 400
+         *     `unknown_place`.
+         */
+        patch: operations["updateHousehold"];
         trace?: never;
     };
     "/v1/households/{householdId}/invites": {
@@ -2770,6 +2776,8 @@ export interface components {
             role: components["schemas"]["Role"];
         };
         HouseholdDetail: components["schemas"]["Household"] & {
+            /** @description Where the household lives, as typed; absent until chosen. */
+            place?: string;
             members: components["schemas"]["Member"][];
         };
         Member: {
@@ -3305,6 +3313,37 @@ export interface operations {
                     "application/json": components["schemas"]["HouseholdDetail"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateHousehold: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    place: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The household. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HouseholdDetail"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };

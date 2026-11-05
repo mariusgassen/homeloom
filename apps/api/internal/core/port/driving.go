@@ -40,6 +40,9 @@ type HouseholdService interface {
 	List(ctx context.Context, actor domain.User) ([]domain.Membership, error)
 	Create(ctx context.Context, actor domain.User, name string) (domain.Membership, error)
 	Get(ctx context.Context, actor domain.User, id uuid.UUID) (domain.HouseholdDetail, error)
+	// SetPlace sets where the household lives (empty clears it). Any member may. It returns
+	// domain.ErrInvalid for a place that is too long or that the weather service doesn't know.
+	SetPlace(ctx context.Context, actor domain.User, id uuid.UUID, place string) (domain.HouseholdDetail, error)
 	Invite(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Invite, error)
 	Join(ctx context.Context, actor domain.User, code string) (domain.Membership, error)
 }

@@ -33,7 +33,8 @@ export function DateNight() {
   const householdId = session.state === "signedIn" ? session.household?.id : undefined;
   const today = new Date();
   const last = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
-  const [place, setPlace] = useState(rememberedPlace);
+  const householdPlace = session.state === "signedIn" ? session.household?.place : undefined;
+  const [place, setPlace] = useState(() => rememberedPlace() || householdPlace || "");
   const [day, setDay] = useState(isoDay(today));
   const [budget, setBudget] = useState<Budget>("easy");
   const [mood, setMood] = useState("");
