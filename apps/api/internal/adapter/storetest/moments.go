@@ -158,8 +158,32 @@ func Moments(t *testing.T, s interface {
 	if err := s.SetMomentPhoto(ctx, lake.ID, domain.Photo{ContentType: "image/jpeg", Data: []byte{1}}); err != nil {
 		t.Fatal(err)
 	}
+	// One reaction per person: the same emoji again changes nothing, another replaces it.
+	for _, c := range []struct {
+		emoji   string
+		changed bool
+	}{{"❤️", true}, {"❤️", false}, {"😂", true}} {
+		if changed, err := s.SetMomentReaction(ctx, lake.ID, bob.ID, c.emoji); err != nil || changed != c.changed {
+			t.Fatalf("react %s: %v, %v", c.emoji, changed, err)
+		}
+	}
+	if _, err := s.SetMomentReaction(ctx, lake.ID, alice.ID, "👍"); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := s.MomentReactions(ctx, []uuid.UUID{lake.ID, first.ID}); err != nil || len(got[lake.ID]) != 2 || got[lake.ID][0].UserID != bob.ID && got[lake.ID][1].UserID != bob.ID || len(got[first.ID]) != 0 {
+		t.Fatalf("reactions: %+v, %v", got, err)
+	}
+	if err := s.DeleteMomentReaction(ctx, lake.ID, bob.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := s.MomentReactions(ctx, []uuid.UUID{lake.ID}); len(got[lake.ID]) != 1 || got[lake.ID][0].UserID != alice.ID {
+		t.Fatalf("after unreact: %+v", got)
+	}
 	if err := s.DeleteMoment(ctx, lake.ID); err != nil {
 		t.Fatal(err)
+	}
+	if got, _ := s.MomentReactions(ctx, []uuid.UUID{lake.ID}); len(got[lake.ID]) != 0 {
+		t.Fatalf("reactions outlived their moment: %+v", got)
 	}
 	if _, err := s.MomentPhoto(ctx, lake.ID); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("photo outlived its moment: %v", err)

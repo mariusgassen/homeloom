@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.34.0
+  version: 0.41.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -31,8 +31,11 @@ tags:
   - name: shopping
   - name: chores
   - name: budget
+  - name: wishes
   - name: home
   - name: watch
+  - name: date-night
+  - name: places
   - name: push
   - name: assistant
   - name: calls
@@ -342,6 +345,32 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/HouseholdDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [households]
+      operationId: updateHousehold
+      summary: Choose where the household lives (members only)
+      description: |
+        The place is a town or city, as typed. The morning briefing looks up its weather there.
+        An empty place clears it. A place the weather service doesn't know answers 400
+        `unknown_place`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [place]
+              properties:
+                place: { type: string, maxLength: 100 }
+      responses:
+        "200":
+          description: The household.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HouseholdDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
@@ -930,6 +959,47 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/moments/{momentId}/reaction:
+    parameters:
+      - $ref: "#/components/parameters/MomentId"
+    put:
+      tags: [moments]
+      operationId: reactToMoment
+      summary: Answer a moment or line with an emoji
+      description: >
+        Any member who can read it can react; a new emoji replaces the member's earlier one, and
+        its author is told. A "later" moment that hasn't opened yet is not found.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MomentReaction" }
+      responses:
+        "200":
+          description: The moment with its reactions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        "400":
+          description: The emoji isn't one of the offered ones (code `invalid_reaction`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [moments]
+      operationId: unreactToMoment
+      summary: Take your emoji off a moment or line
+      responses:
+        "200":
+          description: The moment with its reactions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/moments/{momentId}/photo:
@@ -1677,6 +1747,205 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/households/{householdId}/wishes:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [wishes]
+      operationId: listWishes
+      summary: The household's wishlist (members only)
+      description: The most wanted first (the sum of everyone's hearts); wishes that came true come last. At most 500.
+      responses:
+        "200":
+          description: The wishes.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Wish" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [wishes]
+      operationId: createWish
+      summary: Add a wish
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WishFields" }
+      responses:
+        "201":
+          description: The new wish.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Wish" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/wishes/{wishId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/WishId"
+    put:
+      tags: [wishes]
+      operationId: updateWish
+      summary: Change a wish
+      description: The wishlist is shared, so every member can change it. Hearts and the photo stay.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WishFields" }
+      responses:
+        "200":
+          description: The wish.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Wish" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [wishes]
+      operationId: deleteWish
+      summary: Delete a wish and its photo
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/wishes/{wishId}/vote:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/WishId"
+    put:
+      tags: [wishes]
+      operationId: voteWish
+      summary: Say how much you want it
+      description: Your hearts replace the ones you gave before.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hearts]
+              properties:
+                hearts: { type: integer, minimum: 1, maximum: 3 }
+      responses:
+        "200":
+          description: The wish.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Wish" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [wishes]
+      operationId: unvoteWish
+      summary: Take your hearts back
+      responses:
+        "200":
+          description: The wish.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Wish" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/wishes/{wishId}/got:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/WishId"
+    put:
+      tags: [wishes]
+      operationId: gotWish
+      summary: The wish came true
+      responses:
+        "200":
+          description: The wish, with `gotAt`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Wish" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [wishes]
+      operationId: ungotWish
+      summary: Make it a wish again
+      responses:
+        "200":
+          description: The wish, without `gotAt`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Wish" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/wishes/{wishId}/photo:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/WishId"
+    get:
+      tags: [wishes]
+      operationId: getWishPhoto
+      summary: The photo of a wish
+      description: Use the wish's `photoUrl`; it changes with the photo, so the answer may be cached.
+      parameters:
+        - name: v
+          in: query
+          description: The photo's version, part of `photoUrl`.
+          schema: { type: string, maxLength: 40 }
+      responses:
+        "200":
+          description: The photo.
+          headers:
+            Cache-Control:
+              schema: { type: string }
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    put:
+      tags: [wishes]
+      operationId: setWishPhoto
+      summary: Add or replace the photo of a wish
+      description: A JPEG of at most 5 MB, kept in S3; `503 wish_photos_unavailable` when S3 isn't set up or reachable.
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+      responses:
+        "200":
+          description: The wish with its photo.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Wish" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [wishes]
+      operationId: deleteWishPhoto
+      summary: Remove the photo of a wish
+      responses:
+        "200":
+          description: The wish without a photo.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Wish" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
   /v1/households/{householdId}/chores:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -1997,6 +2266,60 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  /v1/places:
+    get:
+      tags: [places]
+      operationId: searchPlaces
+      summary: Towns and cities matching what is typed, for autocompletion
+      description: |
+        Up to five matches, most populous first, with names in the caller's language. Fewer than two
+        characters match nothing. A match's `label` is the text to keep as the place: the weather
+        lookup finds the same town again from it. When the search is down the answer is 503 and the
+        client lets people type the place.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, maxLength: 100 }
+      responses:
+        "200":
+          description: The matches, possibly none.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PlaceMatch" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/date-night/ideas:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [date-night]
+      operationId: suggestDateNight
+      summary: Ideas for an evening together, from the weather, what's on, a budget and a mood (members only)
+      description: |
+        Claude suggests a few evenings out or in for the day asked for. With a `place` it looks up
+        the forecast and events happening there; both are best effort, and the ideas still come
+        without them (`forecast` is then absent). Each idea carries a start time, so a client can
+        save the chosen one as a calendar event with `createEntry`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DateNightRequest" }
+      responses:
+        "200":
+          description: Up to three ideas.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DateNight" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
   /v1/households/{householdId}/watch/tonight:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -2041,6 +2364,58 @@ paths:
         "204": { description: Cleared. }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/watch/night:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [watch]
+      operationId: getWatchNight
+      summary: Your movie night - films to swipe on and the ones you both like (members only)
+      description: |
+        Unseen movies from your own libraries, shuffled; those your partner already liked come
+        first. Swipes last until 5 a.m. the morning after. A film is the same film across Plex
+        accounts when name and year agree.
+      responses:
+        "200":
+          description: The deck and the matches.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatchNight" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [watch]
+      operationId: resetWatchNight
+      summary: Start movie night over - forget everyone's swipes
+      responses:
+        "204": { description: Forgotten. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/watch/night/swipes:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [watch]
+      operationId: swipeWatchNight
+      summary: Say whether you would watch one of your movies; a match tells your partner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WatchSwipe" }
+      responses:
+        "200":
+          description: Recorded. `match` is set when your partner liked the same film.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatchSwipeResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
 
   /v1/households/{householdId}/watch/libraries/{libraryId}:
     parameters:
@@ -2558,6 +2933,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    WishId:
+      name: wishId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     CompletionId:
       name: completionId
       in: path
@@ -2801,8 +3181,25 @@ components:
         photoUrl: { type: string, description: Where its photo is, if it has one. }
         videoUrl: { type: string, description: Where its video is, if it has one. }
         meal: { $ref: "#/components/schemas/MealRef", description: "The dish it is about, if it is a meal memory; absent while sealed." }
+        reactions:
+          type: array
+          description: What members answered it with, oldest first; one per member.
+          items: { $ref: "#/components/schemas/GivenReaction" }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    GivenReaction:
+      type: object
+      required: [userId, emoji]
+      properties:
+        userId: { type: string, format: uuid }
+        emoji: { type: string }
+
+    MomentReaction:
+      type: object
+      required: [emoji]
+      properties:
+        emoji: { type: string, enum: ["❤️", "😂", "🥹", "🙌", "👍"] }
 
     MomentMonth:
       type: object
@@ -3183,6 +3580,38 @@ components:
         to: { type: string, format: uuid }
         cents: { type: integer, format: int64 }
 
+    WishFields:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 100 }
+        note: { type: string, maxLength: 500 }
+        url: { type: string, maxLength: 2000, description: "Where to see or buy it: an http or https address." }
+        priceCents: { type: integer, format: int64, minimum: 1, maximum: 100000000 }
+
+    WishVote:
+      type: object
+      required: [userId, hearts]
+      properties:
+        userId: { type: string, format: uuid }
+        hearts: { type: integer, minimum: 1, maximum: 3 }
+
+    Wish:
+      type: object
+      required: [id, title, note, url, hearts, votes, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        note: { type: string }
+        url: { type: string, description: Empty when there is none. }
+        priceCents: { type: integer, format: int64 }
+        photoUrl: { type: string, description: "The photo, if there is one; it changes with the photo." }
+        hearts: { type: integer, description: The sum of everyone's hearts, which ranks the list. }
+        votes: { type: array, items: { $ref: "#/components/schemas/WishVote" } }
+        gotAt: { type: string, format: date-time, description: When the wish came true. }
+        createdBy: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+
     ChoreFields:
       type: object
       required: [title, points]
@@ -3350,6 +3779,31 @@ components:
         watched: { type: boolean, description: "You have seen the movie, or every episode." }
         url: { type: string, format: uri, description: Opens the title in Plex. }
 
+    WatchNight:
+      type: object
+      required: [deck, matches, partners]
+      properties:
+        deck:
+          type: array
+          items: { $ref: "#/components/schemas/WatchTitle" }
+        matches:
+          type: array
+          description: Films you both liked, as your own titles.
+          items: { $ref: "#/components/schemas/WatchTitle" }
+        partners: { type: integer, description: How many other members could swipe. }
+
+    WatchSwipe:
+      type: object
+      required: [titleId, liked]
+      properties:
+        titleId: { $ref: "#/components/schemas/MediaId" }
+        liked: { type: boolean }
+
+    WatchSwipeResult:
+      type: object
+      properties:
+        match: { $ref: "#/components/schemas/WatchTitle" }
+
     WatchTonight:
       type: object
       properties:
@@ -3377,6 +3831,55 @@ components:
       type: object
       properties:
         mood: { type: string, maxLength: 200, description: "In your own words, e.g. \"something light, under two hours\"; may be empty." }
+
+    PlaceMatch:
+      type: object
+      required: [label]
+      properties:
+        label: { type: string, description: "How to write the place, e.g. \"Berlin, Germany\"." }
+
+    DateNightRequest:
+      type: object
+      properties:
+        place: { type: string, maxLength: 100, description: "A town or city; without it there is no forecast and no events." }
+        day: { type: string, format: date, description: "The evening, within 14 days from today in the household's time zone; defaults to today." }
+        budget: { $ref: "#/components/schemas/DateBudget" }
+        mood: { type: string, maxLength: 200, description: "In your own words, e.g. \"cosy, nothing loud\"; may be empty." }
+        constraints: { type: string, maxLength: 200, description: "Limits every idea must respect, e.g. \"in a hotel, no kitchen\" or \"no car\"; may be empty." }
+
+    DateBudget:
+      type: string
+      enum: [free, easy, treat]
+      description: How much the evening may cost; `easy` when absent.
+
+    DateNight:
+      type: object
+      required: [ideas]
+      properties:
+        ideas:
+          type: array
+          items: { $ref: "#/components/schemas/DateIdea" }
+        forecast: { $ref: "#/components/schemas/DateForecast" }
+
+    DateForecast:
+      type: object
+      required: [sky, highC, lowC, rainPercent]
+      properties:
+        sky: { type: string, enum: [clear, cloudy, fog, rain, snow, storm] }
+        highC: { type: number }
+        lowC: { type: number }
+        rainPercent: { type: integer, minimum: 0, maximum: 100, description: Chance of rain or snow. }
+
+    DateIdea:
+      type: object
+      required: [title, reason, indoor, startsAt]
+      properties:
+        title: { type: string }
+        reason: { type: string, description: One warm sentence on why it fits. }
+        where: { type: string, description: A venue or area; absent when it can be anywhere. }
+        cost: { type: string, description: "A short phrase such as \"about 30 €\"; absent when free." }
+        indoor: { type: boolean }
+        startsAt: { type: string, format: date-time, description: When to start, on the day asked for. }
 
     WatchIdeas:
       type: object
@@ -3550,6 +4053,9 @@ components:
         - type: object
           required: [members]
           properties:
+            place:
+              type: string
+              description: Where the household lives, as typed; absent until chosen.
             members:
               type: array
               items: { $ref: "#/components/schemas/Member" }

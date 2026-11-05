@@ -1,9 +1,13 @@
 package domain
 
 import (
+	"strconv"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
+	"golang.org/x/text/unicode/norm"
 )
 
 // MediaKind is what a library holds.
@@ -114,3 +118,47 @@ type PendingWatchConnection struct {
 	UserID uuid.UUID
 	Pin    string
 }
+
+// Swipe is one member's answer on movie night: they would watch the film, or not. Key names the
+// film across people's Plex accounts; TitleID is the swiper's own id for it.
+type Swipe struct {
+	HouseholdID uuid.UUID
+	UserID      uuid.UUID
+	Key         string
+	TitleID     string
+	Name        string
+	Year        int
+	Liked       bool
+	SwipedAt    time.Time
+}
+
+// FilmKey names a film regardless of whose Plex it comes from: case, accents and punctuation
+// don't matter.
+func FilmKey(name string, year int) string {
+	var b strings.Builder
+	for _, r := range norm.NFD.String(name) {
+		switch {
+		case unicode.Is(unicode.Mn, r):
+		case unicode.IsLetter(r) || unicode.IsDigit(r):
+			b.WriteRune(unicode.ToLower(r))
+		}
+	}
+	return b.String() + "." + strconv.Itoa(year)
+}
+
+// NightMatch is a film both partners would watch. Title is the asking member's own copy, so they
+// can pick it for tonight.
+type NightMatch struct {
+	Title Title
+}
+
+// MovieNight is a member's view of the swiping: films still to swipe on, and the matches so far.
+type MovieNight struct {
+	Deck    []Title
+	Matches []NightMatch
+	// Partners is how many other members are swiping; matches need at least one.
+	Partners int
+}
+
+// MaxNightDeck is how many films one view offers.
+const MaxNightDeck = 20

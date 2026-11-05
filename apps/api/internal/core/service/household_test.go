@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/memory"
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/domain"
@@ -73,5 +74,39 @@ func TestGetIsMembersOnly(t *testing.T) {
 	}
 	if list, _ := svc.List(ctx, eve); len(list) != 0 {
 		t.Fatalf("non-member sees %d households", len(list))
+	}
+}
+
+type placeWeather struct{ known string }
+
+func (w placeWeather) Forecast(_ context.Context, place string, _ time.Time) (domain.Forecast, error) {
+	if place != w.known {
+		return domain.Forecast{}, domain.ErrNotFound
+	}
+	return domain.Forecast{}, nil
+}
+
+func TestHouseholdSetPlace(t *testing.T) {
+	ctx := context.Background()
+	store := memory.NewStore()
+	alice, eve := newUser(t, store, "alice"), newUser(t, store, "eve")
+	svc := service.NewHousehold(store).WithWeather(placeWeather{known: "Berlin"})
+	m, err := svc.Create(ctx, alice, "Home")
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := m.Household.ID
+	d, err := svc.SetPlace(ctx, alice, id, "  Berlin ")
+	if err != nil || d.Household.Place != "Berlin" {
+		t.Fatalf("set: %+v, %v", d, err)
+	}
+	if _, err := svc.SetPlace(ctx, alice, id, "Nowhereville"); !errors.Is(err, domain.ErrUnknownPlace) {
+		t.Fatalf("unknown place: %v", err)
+	}
+	if _, err := svc.SetPlace(ctx, eve, id, "Berlin"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("non-member: %v", err)
+	}
+	if d, err = svc.SetPlace(ctx, alice, id, ""); err != nil || d.Household.Place != "" {
+		t.Fatalf("clear: %+v, %v", d, err)
 	}
 }

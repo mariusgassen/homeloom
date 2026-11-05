@@ -78,6 +78,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Moments:       moments,
 		Cook:          cook,
 		Shopping:      shopping,
+		Wishes:        service.NewWishes(store, store).WithPhotos(memory.NewPhotos()),
 		Chores:        service.NewChores(store, store, store, moments, push, time.UTC),
 		Budget:        budget,
 		Home:          home,
@@ -272,6 +273,16 @@ func TestMomentsFlow(t *testing.T) {
 	}
 	if code, body := do(t, h, "POST", moments, "token-alice", `{"kind":"moment","text":"Soon","visibility":"shared","day":"2999-01-01"}`); code != 400 || body["code"] != "invalid_moment_day" {
 		t.Fatalf("future moment: %d %v", code, body)
+	}
+	react := "/v1/moments/" + trip["id"].(string) + "/reaction"
+	if code, body := do(t, h, "PUT", react, "token-bob", `{"emoji":"❤️"}`); code != 200 || len(body["reactions"].([]any)) != 1 {
+		t.Fatalf("react: %d %v", code, body)
+	}
+	if code, body := do(t, h, "PUT", react, "token-bob", `{"emoji":"💩"}`); code != 400 {
+		t.Fatalf("unknown emoji: %d %v", code, body)
+	}
+	if code, body := do(t, h, "DELETE", react, "token-bob", ""); code != 200 || len(body["reactions"].([]any)) != 0 {
+		t.Fatalf("unreact: %d %v", code, body)
 	}
 	do(t, h, "POST", moments, "token-alice", `{"kind":"gratitude","text":"Coffee in bed","visibility":"shared"}`)
 	code, line := do(t, h, "POST", moments, "token-alice", `{"kind":"gratitude","text":"The walk","visibility":"shared","day":"2026-01-01"}`)
@@ -1363,5 +1374,45 @@ func TestNotePhotosFlow(t *testing.T) {
 	}
 	if rec := get("token-alice"); rec.Code != 404 {
 		t.Fatalf("unlinked photo: %d", rec.Code)
+	}
+}
+
+func TestWishlistFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	id := created["id"].(string)
+	_, inv := do(t, h, "POST", "/v1/households/"+id+"/invites", "token-alice", "")
+	do(t, h, "POST", "/v1/invites/"+inv["code"].(string), "token-bob", "")
+	wishes := "/v1/households/" + id + "/wishes"
+
+	code, w := do(t, h, "POST", wishes, "token-alice", `{"title":"Sofa","url":"https://example.com/sofa","priceCents":129900}`)
+	if code != 201 || w["title"] != "Sofa" || w["hearts"].(float64) != 0 || w["priceCents"].(float64) != 129900 {
+		t.Fatalf("add: %d %v", code, w)
+	}
+	one := wishes + "/" + w["id"].(string)
+	if code, body := do(t, h, "POST", wishes, "token-alice", `{"title":"Sofa","url":"ftp://example.com"}`); code != 400 || body["code"] != "invalid_wish_link" {
+		t.Fatalf("bad link: %d %v", code, body)
+	}
+	if code, w = do(t, h, "PUT", one+"/vote", "token-bob", `{"hearts":3}`); code != 200 || w["hearts"].(float64) != 3 || len(w["votes"].([]any)) != 1 {
+		t.Fatalf("vote: %d %v", code, w)
+	}
+	if code, _ := do(t, h, "PUT", one+"/vote", "token-bob", `{"hearts":4}`); code != 400 {
+		t.Fatalf("too many hearts: %d", code)
+	}
+	if code, w = do(t, h, "PUT", one+"/got", "token-alice", ""); code != 200 || w["gotAt"] == nil {
+		t.Fatalf("got: %d %v", code, w)
+	}
+	if code, w = do(t, h, "DELETE", one+"/vote", "token-bob", ""); code != 200 || w["hearts"].(float64) != 0 {
+		t.Fatalf("unvote: %d %v", code, w)
+	}
+	if code, _ := do(t, h, "GET", one+"/photo", "token-alice", ""); code != 404 {
+		t.Fatalf("no photo yet: %d", code)
+	}
+	// Someone outside the household sees nothing of it.
+	if code, _ := do(t, h, "GET", wishes, "token-eve", ""); code != 404 {
+		t.Fatalf("outsider lists: %d", code)
+	}
+	if code, _ := do(t, h, "DELETE", one, "token-alice", ""); code != 204 {
+		t.Fatalf("delete: %d", code)
 	}
 }

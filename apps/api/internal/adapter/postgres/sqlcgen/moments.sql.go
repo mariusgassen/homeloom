@@ -109,6 +109,20 @@ func (q *Queries) DeleteMomentPhoto(ctx context.Context, momentID uuid.UUID) err
 	return err
 }
 
+const deleteMomentReaction = `-- name: DeleteMomentReaction :exec
+DELETE FROM moment_reactions WHERE moment_id = $1 AND user_id = $2
+`
+
+type DeleteMomentReactionParams struct {
+	MomentID uuid.UUID
+	UserID   uuid.UUID
+}
+
+func (q *Queries) DeleteMomentReaction(ctx context.Context, arg DeleteMomentReactionParams) error {
+	_, err := q.db.Exec(ctx, deleteMomentReaction, arg.MomentID, arg.UserID)
+	return err
+}
+
 const getMoment = `-- name: GetMoment :one
 SELECT id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at, recipe_slug, recipe_name FROM moments WHERE id = $1
 `
@@ -191,6 +205,38 @@ func (q *Queries) ListHouseholdIDs(ctx context.Context) ([]uuid.UUID, error) {
 			return nil, err
 		}
 		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMomentReactions = `-- name: ListMomentReactions :many
+SELECT moment_id, user_id, emoji FROM moment_reactions
+WHERE moment_id = ANY($1::uuid[])
+ORDER BY created_at, user_id
+`
+
+type ListMomentReactionsRow struct {
+	MomentID uuid.UUID
+	UserID   uuid.UUID
+	Emoji    string
+}
+
+func (q *Queries) ListMomentReactions(ctx context.Context, ids []uuid.UUID) ([]ListMomentReactionsRow, error) {
+	rows, err := q.db.Query(ctx, listMomentReactions, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMomentReactionsRow
+	for rows.Next() {
+		var i ListMomentReactionsRow
+		if err := rows.Scan(&i.MomentID, &i.UserID, &i.Emoji); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -439,6 +485,28 @@ type SetMomentPhotoParams struct {
 func (q *Queries) SetMomentPhoto(ctx context.Context, arg SetMomentPhotoParams) error {
 	_, err := q.db.Exec(ctx, setMomentPhoto, arg.MomentID, arg.ContentType, arg.Data)
 	return err
+}
+
+const setMomentReaction = `-- name: SetMomentReaction :execrows
+INSERT INTO moment_reactions (moment_id, user_id, emoji)
+VALUES ($1, $2, $3)
+ON CONFLICT (moment_id, user_id) DO UPDATE SET emoji = EXCLUDED.emoji, created_at = now()
+WHERE moment_reactions.emoji <> EXCLUDED.emoji
+`
+
+type SetMomentReactionParams struct {
+	MomentID uuid.UUID
+	UserID   uuid.UUID
+	Emoji    string
+}
+
+// Affects no row when the user already gave this emoji, so the author is told once.
+func (q *Queries) SetMomentReaction(ctx context.Context, arg SetMomentReactionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setMomentReaction, arg.MomentID, arg.UserID, arg.Emoji)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateMoment = `-- name: UpdateMoment :one

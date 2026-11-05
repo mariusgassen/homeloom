@@ -64,6 +64,7 @@ func (s *Store) DeleteMoment(_ context.Context, id uuid.UUID) error {
 	defer s.mu.Unlock()
 	s.moments = slices.DeleteFunc(s.moments, func(m domain.Moment) bool { return m.ID == id })
 	delete(s.momentPhotos, id)
+	delete(s.momentReactions, id)
 	return nil
 }
 
@@ -210,4 +211,40 @@ func (s *Store) ClaimJobRun(_ context.Context, job string, day time.Time) (bool,
 	}
 	s.jobRuns[key] = true
 	return true, nil
+}
+
+func (s *Store) SetMomentReaction(_ context.Context, id, userID uuid.UUID, emoji string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	rs := s.momentReactions[id]
+	for i, r := range rs {
+		if r.UserID == userID {
+			if r.Emoji == emoji {
+				return false, nil
+			}
+			s.momentReactions[id] = append(slices.Delete(rs, i, i+1), domain.MomentReaction{UserID: userID, Emoji: emoji})
+			return true, nil
+		}
+	}
+	s.momentReactions[id] = append(rs, domain.MomentReaction{UserID: userID, Emoji: emoji})
+	return true, nil
+}
+
+func (s *Store) DeleteMomentReaction(_ context.Context, id, userID uuid.UUID) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.momentReactions[id] = slices.DeleteFunc(s.momentReactions[id], func(r domain.MomentReaction) bool { return r.UserID == userID })
+	return nil
+}
+
+func (s *Store) MomentReactions(_ context.Context, ids []uuid.UUID) (map[uuid.UUID][]domain.MomentReaction, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := map[uuid.UUID][]domain.MomentReaction{}
+	for _, id := range ids {
+		if rs := s.momentReactions[id]; len(rs) > 0 {
+			out[id] = slices.Clone(rs)
+		}
+	}
+	return out, nil
 }

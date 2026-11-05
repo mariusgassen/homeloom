@@ -60,7 +60,21 @@ type Moment struct {
 	UpdatedAt time.Time
 	// Sealed means the caller may not read Text or see the photo or video yet; Text is then empty.
 	Sealed bool
+	// Reactions are the emoji members answered it with, oldest first; one per member.
+	Reactions []MomentReaction
 }
+
+// MomentReaction is one member's emoji on a moment.
+type MomentReaction struct {
+	UserID uuid.UUID
+	Emoji  string
+}
+
+// ReactionEmojis are the emoji a moment can be answered with.
+var ReactionEmojis = []string{"❤️", "😂", "🥹", "🙌", "👍"}
+
+// ErrReaction means an emoji that isn't one of ReactionEmojis.
+var ErrReaction = fmt.Errorf("%w: pick one of the offered emoji", ErrInvalid)
 
 // MomentFields are what the author chooses.
 type MomentFields struct {
