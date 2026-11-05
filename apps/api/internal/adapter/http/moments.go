@@ -343,10 +343,44 @@ func invalidMoment(ctx context.Context, err error) oapi.Error {
 		return errorBody(ctx, "invalid_reveal", err.Error())
 	case errors.Is(err, domain.ErrMomentDay):
 		return errorBody(ctx, "invalid_moment_day", err.Error())
+	case errors.Is(err, domain.ErrReaction):
+		return errorBody(ctx, "invalid_reaction", err.Error())
 	case errors.Is(err, domain.ErrPhoto):
 		return errorBody(ctx, "invalid_photo", err.Error(), "max", domain.MaxPhotoBytes>>20)
 	}
 	return errorBody(ctx, "invalid_entry", err.Error())
+}
+
+func (h *handlers) ReactToMoment(ctx context.Context, req oapi.ReactToMomentRequestObject) (oapi.ReactToMomentResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	m, err := h.moments.React(ctx, u, req.MomentId, string(req.Body.Emoji))
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.ReactToMoment404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.Is(err, domain.ErrReaction):
+		return oapi.ReactToMoment400JSONResponse(invalidMoment(ctx, err)), nil
+	case err != nil:
+		return nil, err
+	}
+	return oapi.ReactToMoment200JSONResponse(toMoment(m)), nil
+}
+
+func (h *handlers) UnreactToMoment(ctx context.Context, req oapi.UnreactToMomentRequestObject) (oapi.UnreactToMomentResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	m, err := h.moments.Unreact(ctx, u, req.MomentId)
+	if errors.Is(err, domain.ErrNotFound) {
+		return oapi.UnreactToMoment404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return oapi.UnreactToMoment200JSONResponse(toMoment(m)), nil
 }
 
 func toMomentFields(b oapi.MomentFields) domain.MomentFields {
@@ -372,6 +406,11 @@ func toMoment(m domain.Moment) oapi.Moment {
 	}
 	if !m.Sealed {
 		out.Text = &m.Text
+		rs := make([]oapi.GivenReaction, len(m.Reactions))
+		for i, r := range m.Reactions {
+			rs[i] = oapi.GivenReaction{Emoji: r.Emoji, UserId: r.UserID}
+		}
+		out.Reactions = &rs
 		if m.PhotoAt != nil {
 			url := fmt.Sprintf("/v1/moments/%s/photo?v=%d", m.ID, m.PhotoAt.UnixMilli())
 			out.PhotoUrl = &url

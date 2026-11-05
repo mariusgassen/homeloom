@@ -45,6 +45,14 @@ Die Notizen aus Homeloom gibt es auch als Markdown-Dateien über WebDAV. So kann
 
 Unter Wir › Filme & Serien meldet ihr euch jeweils mit eurem eigenen Plex-Konto an. Homeloom zeigt dann die Film- und Serien-Mediatheken auf euren eigenen Servern und auf Servern, die Freunde mit euch teilen, mit dem, was ihr noch nicht gesehen habt, und einem Zufallsvorschlag. Homeloom liest nur: Nichts wird abgespielt oder geändert, und das Plex-Token bleibt verschlüsselt mit `HOMELOOM_SECRET_KEY` auf dem Server. Die API muss deinen Plex-Server erreichen können (im selben Netz oder über Plex' Fernzugriff).
 
+## Morgen-Überblick
+
+Jeden Morgen ab 7:00 bekommt ihr beide eine Mitteilung mit dem Wetter des Tages, den Plänen für heute und dem, was ansteht. Für das Wetter braucht es euren Ort: Wähle ihn in den Einstellungen; ohne ihn lässt der Überblick das Wetter weg. Steht nichts an, gibt es keine Mitteilung.
+
+## Date-Abend
+
+Unter Heute › Date-Abend schlägt Homeloom ein paar Abende zu Hause oder unterwegs vor, passend zu Wetter, Veranstaltungen in der Nähe, Budget und Laune. Was ihr aussucht, landet im gemeinsamen Kalender. Nötig ist nur `ANTHROPIC_API_KEY`. Gib einmal deinen Ort ein: Das Wetter kommt von [Open-Meteo](https://open-meteo.com) (ohne Schlüssel), Veranstaltungen findet Claude per Websuche, falls sie in deinem Anthropic-Konto aktiviert ist. Ohne beides bekommt ihr trotzdem Ideen.
+
 ## Fotospeicher
 
 Fotos von Momenten und Notizen liegen in Postgres, solange du kein S3-Schlüsselpaar setzt. Mit einem landen sie in `homeloom-garage`, einem kleinen S3-Speicher ([Garage](https://garagehq.deuxfleurs.fr)) im Stack, der sich beim Start selbst einrichtet: Er legt den Bucket an und importiert deinen Schlüssel. Erstell den Schlüssel einmal, im Format, das Garage erwartet:
@@ -76,13 +84,12 @@ Homeloom wächst mit eurem gemeinsamen Alltag. Die Funktionen sind danach sortie
 - **„Wir“-Zeitstrahl:** eure gemeinsamen Momente, mit Monatsrückblick und „Heute vor …“ (begonnen).
 - **Dankbarkeit auf Heute:** die Zeile des Tages direkt unter Heute schreiben, mit einem optionalen Hinweis am Abend, falls sie noch fehlt.
 - **Antworten aufheben:** eine geöffnete Frage mit einem Tipp auf euren Zeitstrahl legen.
-- **Reaktionen auf Momente:** ein Herz oder eine kurze Antwort auf die Momente des anderen.
+- **Reaktionen auf Momente:** ein Herz oder ein anderes Emoji auf die Momente des anderen (begonnen).
 - **Gemeinsame Serien:** wie viele Tage am Stück ihr beide eine Zeile geschrieben habt, ohne schlechtes Gewissen für einen verpassten Tag.
 - **Jahresrückblick:** zu Neujahr ein geschriebener Blick zurück auf eure Momente und euer Danke.
 - **Frag nach Erinnerungen:** der Assistent schaut auf eurem Zeitstrahl nach („Was haben wir letzten Mai gemacht?“).
 
 **Ausgehen und Daheimbleiben**
-- **Date-Night-Ideen:** Vorschläge nach Wetter, Veranstaltungen in der Nähe, Budget und Laune.
 - **Film- und Spieleabend:** ihr wischt beide durch eure Plex-Mediatheken, die Schnittmenge gewinnt, der Raum stellt sich passend ein.
 
 **Verbundene Apps**
@@ -123,7 +130,6 @@ Noch nicht sortiert und nicht versprochen.
 - **Gemeinsame Orte:** speichert die Orte, an denen ihr zusammen wart.
 
 **Alltag**
-- **Heute-Überblick:** eine Mitteilung am Morgen mit Wetter, Plänen und dem, was ansteht.
 - **Budget im Blick:** ein einfacher Überblick über gemeinsame Ausgaben.
 - **Reisen und Packlisten:** Reisen planen und mit gemeinsamen Listen packen.
 - **Dokumentenablage:** wichtige Unterlagen an einem privaten Ort.

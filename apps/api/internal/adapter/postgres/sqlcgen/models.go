@@ -184,6 +184,7 @@ type Household struct {
 	ID        uuid.UUID
 	Name      string
 	CreatedAt time.Time
+	Place     string
 }
 
 type Invite struct {
@@ -248,6 +249,13 @@ type MomentPhoto struct {
 	MomentID    uuid.UUID
 	ContentType string
 	Data        []byte
+}
+
+type MomentReaction struct {
+	MomentID  uuid.UUID
+	UserID    uuid.UUID
+	Emoji     string
+	CreatedAt time.Time
 }
 
 type PushSubscription struct {
