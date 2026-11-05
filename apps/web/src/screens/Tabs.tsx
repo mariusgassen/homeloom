@@ -72,6 +72,7 @@ export function Today() {
       <Dinner household={household} />
       <Watch household={household} />
       <DateNightTile />
+      <Someday />
       <Money household={household} me={me} />
       <TodayTrip household={household} />
       <Wishlist household={household} />
@@ -325,6 +326,24 @@ function WatchPicked({ pick }: { pick: TonightPick }) {
         <span className="label">{t("watch.tonight.eyebrow")}</span>
         <span className="headline">{pick.name}</span>
         {by && <span className="caption muted">{by}</span>}
+      </span>
+      <Icon name="chevron" size="sm" />
+    </button>
+  );
+}
+
+// One tap to the list of things to watch, read and visit some day.
+function Someday() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  return (
+    <button type="button" className="today-tile today-bucket" onClick={() => navigate("/bucket")}>
+      <span className="today-tile-icon">
+        <Icon name="heart" />
+      </span>
+      <span className="today-tile-text">
+        <span className="label">{t("today.bucket.eyebrow")}</span>
+        <span className="headline">{t("today.bucket.title")}</span>
       </span>
       <Icon name="chevron" size="sm" />
     </button>

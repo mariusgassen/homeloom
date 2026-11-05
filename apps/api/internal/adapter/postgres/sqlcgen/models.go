@@ -61,6 +61,16 @@ type Answer struct {
 	AnsweredAt time.Time
 }
 
+type BucketItem struct {
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+	Kind        string
+	Text        string
+	AddedBy     *uuid.UUID
+	DoneAt      *time.Time
+	CreatedAt   time.Time
+}
+
 type CalendarFeed struct {
 	TokenHash   []byte
 	UserID      uuid.UUID

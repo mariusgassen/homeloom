@@ -301,6 +301,17 @@ type ShoppingRepository interface {
 	RememberAisles(ctx context.Context, householdID uuid.UUID, aisles map[string]domain.Aisle) error
 }
 
+// BucketRepository keeps the household's someday list. Calls that name an item return
+// domain.ErrNotFound when it isn't on that household's list.
+type BucketRepository interface {
+	// BucketItems returns open items oldest first, then ticked ones, most recently ticked first; kind
+	// "" means every kind.
+	BucketItems(ctx context.Context, householdID uuid.UUID, kind domain.BucketKind, limit int) ([]domain.BucketItem, error)
+	AddBucketItem(ctx context.Context, w domain.BucketItem) (domain.BucketItem, error)
+	SetBucketItemDone(ctx context.Context, householdID, id uuid.UUID, done bool) (domain.BucketItem, error)
+	DeleteBucketItem(ctx context.Context, householdID, id uuid.UUID) error
+}
+
 // ChoreRepository keeps the household's chores and what was done. Calls that name a chore or a
 // completion return domain.ErrNotFound when it isn't that household's.
 type ChoreRepository interface {

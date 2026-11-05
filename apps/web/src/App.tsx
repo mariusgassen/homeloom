@@ -10,6 +10,7 @@ import { Join, pendingInvite } from "./screens/Join";
 import { Onboarding } from "./screens/Onboarding";
 import { Settings } from "./screens/Settings";
 import { RefreshProvider } from "./refresh";
+import { Bucket } from "./screens/Bucket";
 import { Chores } from "./screens/Chores";
 import { Documents } from "./screens/Documents";
 import { Wishes } from "./screens/Wishes";
@@ -87,6 +88,7 @@ export function App() {
               <Route path="/trips/:id" element={<TripPage />} />
               <Route path="/lists" element={<Lists />} />
               <Route path="/lists/notes/:id" element={<NotePage />} />
+              <Route path="/bucket" element={<Bucket />} />
               <Route path="/chores" element={<Chores />} />
               <Route path="/documents" element={<Documents />} />
               <Route path="/wishes" element={<Wishes />} />

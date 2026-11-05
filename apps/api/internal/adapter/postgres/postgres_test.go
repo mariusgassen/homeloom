@@ -52,6 +52,7 @@ func TestConversations(t *testing.T)       { storetest.Conversations(t, store(t)
 func TestMCPTokens(t *testing.T)           { storetest.MCPTokens(t, store(t)) }
 func TestMoments(t *testing.T)             { storetest.Moments(t, store(t)) }
 func TestVoiceSettings(t *testing.T)       { storetest.VoiceSettings(t, store(t)) }
+func TestBucket(t *testing.T)              { storetest.Bucket(t, store(t)) }
 func TestChores(t *testing.T)              { storetest.Chores(t, store(t)) }
 func TestTrips(t *testing.T)               { storetest.Trips(t, store(t)) }
 func TestDocuments(t *testing.T)           { storetest.Documents(t, store(t)) }
