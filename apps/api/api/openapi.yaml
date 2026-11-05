@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.40.0
+  version: 0.41.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -1225,6 +1225,84 @@ paths:
           content:
             image/*:
               schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/recipes/{slug}/rating:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/RecipeSlug"
+    put:
+      tags: [cook]
+      operationId: rateRecipe
+      summary: Rate a dish as you, replacing your earlier rating (members only)
+      description: |
+        Both of you see each other's ratings. Dishes either of you rated `nope` are left out of
+        dinner ideas and the meal plan's suggestions; dishes you loved steer them. Needs Mealie, for
+        the dish's name.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RatingChoice" }
+      responses:
+        "200":
+          description: Your rating.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MealRating" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [cook]
+      operationId: unrateRecipe
+      summary: Take back your rating of a dish
+      responses:
+        "204": { description: Removed, or nothing was rated. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/taste:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [cook]
+      operationId: getTaste
+      summary: How each of you rated the dishes (members only)
+      description: Works without Mealie.
+      responses:
+        "200":
+          description: Every rating in the household, newest first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Taste" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/meal-recap:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [cook]
+      operationId: getMealRecap
+      summary: A year of meal memories (members only)
+      description: |
+        What you can read of the year's moments that are about a dish: how many, the dishes cooked
+        most, the ones you both loved, and the newest with a photo. Works without Mealie.
+      parameters:
+        - { name: year, in: query, required: false, schema: { type: integer, minimum: 2000, maximum: 9999 }, description: The current year when absent. }
+      responses:
+        "200":
+          description: The recap.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MealRecap" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
@@ -3071,6 +3149,14 @@ components:
         visibility: { $ref: "#/components/schemas/Visibility" }
         revealAt: { type: string, format: date-time, description: "When a `reveal` moment opens; required for it." }
         day: { type: string, format: date, description: "Moments only: the day it happened, not after today. Today when absent." }
+        meal: { $ref: "#/components/schemas/MealRef", description: "Moments only: the dish it is about, which makes it a meal memory. Absent for any other moment." }
+
+    MealRef:
+      type: object
+      required: [slug, name]
+      properties:
+        slug: { type: string, maxLength: 200 }
+        name: { type: string, maxLength: 200 }
 
     CreateMoment:
       allOf:
@@ -3094,6 +3180,7 @@ components:
         text: { type: string }
         photoUrl: { type: string, description: Where its photo is, if it has one. }
         videoUrl: { type: string, description: Where its video is, if it has one. }
+        meal: { $ref: "#/components/schemas/MealRef", description: "The dish it is about, if it is a meal memory; absent while sealed." }
         reactions:
           type: array
           description: What members answered it with, oldest first; one per member.
@@ -3240,6 +3327,63 @@ components:
         from: { type: string, format: date }
         days: { type: integer, minimum: 1, maximum: 14, default: 7 }
         wish: { type: string, maxLength: 200, description: "What to use up or what you feel like, in your own words." }
+
+    Rating:
+      type: string
+      enum: [love, fine, nope]
+      description: Nope means not again.
+
+    RatingChoice:
+      type: object
+      required: [rating]
+      properties:
+        rating: { $ref: "#/components/schemas/Rating" }
+
+    MealRating:
+      type: object
+      required: [slug, name, userId, rating, ratedAt]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        userId: { type: string, format: uuid }
+        rating: { $ref: "#/components/schemas/Rating" }
+        ratedAt: { type: string, format: date-time }
+
+    Taste:
+      type: object
+      required: [ratings]
+      properties:
+        ratings:
+          type: array
+          items: { $ref: "#/components/schemas/MealRating" }
+
+    CookedDish:
+      type: object
+      required: [slug, name, times, last]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        times: { type: integer, description: How many meal memories the year holds of it. }
+        last: { type: string, format: date, description: The day it was cooked last. }
+
+    MealRecap:
+      type: object
+      required: [year, memories, dishes, favourites, photos]
+      properties:
+        year: { type: integer }
+        memories: { type: integer, description: How many meal memories you can read from the year. }
+        dishes:
+          type: array
+          description: The dishes cooked most, most first; at most five.
+          items: { $ref: "#/components/schemas/CookedDish" }
+        favourites:
+          type: array
+          description: The year's dishes every member who rated them loved, when at least two did.
+          items: { $ref: "#/components/schemas/CookedDish" }
+        photos:
+          type: array
+          description: The newest meal memories with a photo; at most twelve.
+          items: { $ref: "#/components/schemas/Moment" }
 
     MealIdeas:
       type: object

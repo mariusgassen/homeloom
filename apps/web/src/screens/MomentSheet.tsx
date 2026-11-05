@@ -1,24 +1,27 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { api, type HouseholdDetail, type Moment, type User, type Visibility } from "../api/client";
+import { api, type HouseholdDetail, type MealRef, type Moment, type User, type Visibility } from "../api/client";
 import { maxVideoMB, shrink, today, uploadPhoto, uploadVideo } from "../moments";
 import { Button } from "../ui/Button";
+import { Icon } from "../ui/Icon";
 import { DateRow, FormGroup, Segmented } from "../ui/Form";
 import { Sheet } from "../ui/Sheet";
 import { Video } from "../ui/Video";
 
 // Keep a moment: what happened, the day, a photo and a video if there are any, and who sees it. With a moment it
-// edits that one instead.
-export function MomentSheet({ household, me, moment, onClose, onSaved }: {
+// edits that one instead. With a meal it is a memory of that dish.
+export function MomentSheet({ household, me, moment, meal: dish, onClose, onSaved }: {
   household: HouseholdDetail;
   me: User;
   moment?: Moment;
+  meal?: MealRef;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
   const [text, setText] = useState(moment?.text ?? "");
   const [day, setDay] = useState(moment?.day ?? today());
+  const [meal, setMeal] = useState<MealRef | undefined>(moment ? moment.meal : dish);
   const [visibility, setVisibility] = useState<Visibility>(moment?.visibility === "private" ? "private" : "shared");
   // undefined keeps the photo as it is, null removes it, a Blob replaces it.
   const [photo, setPhoto] = useState<Blob | null | undefined>(undefined);
@@ -84,7 +87,7 @@ export function MomentSheet({ household, me, moment, onClose, onSaved }: {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const body = { text: text.trim(), visibility, day };
+    const body = { text: text.trim(), visibility, day, meal };
     const current = saved.current;
     const res = await (current
       ? api.PUT("/v1/moments/{momentId}", { params: { path: { momentId: current.id } }, body })
@@ -148,6 +151,16 @@ export function MomentSheet({ household, me, moment, onClose, onSaved }: {
         <span className="label">{t("moments.text")}</span>
         <textarea ref={textRef} className="input textarea" rows={4} value={text} maxLength={2000} onChange={(e) => setText(e.target.value)} required />
       </label>
+
+      {meal && (
+        <p className="moment-dish">
+          <Icon name="cook" size="sm" />
+          <span>{meal.name}</span>
+          <Button variant="plain" size="sm" onClick={() => setMeal(undefined)}>
+            {t("taste.dishRemove")}
+          </Button>
+        </p>
+      )}
 
       <FormGroup>
         <DateRow label={t("moments.day")} type="date" value={day} max={today()} onChange={setDay} placeholder={t("entries.pick")} required />

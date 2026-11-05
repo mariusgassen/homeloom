@@ -325,15 +325,26 @@ type Grocer interface {
 	Aisles(ctx context.Context, texts []string) ([]domain.Aisle, error)
 }
 
-// Chef is the LLM's cooking judgement.
+// TasteRepository keeps how each member rated the dishes they cooked.
+type TasteRepository interface {
+	// SaveRating replaces the member's rating of the dish.
+	SaveRating(ctx context.Context, r domain.MealRating) error
+	// DeleteRating removes the member's rating; nothing rated is fine.
+	DeleteRating(ctx context.Context, householdID, userID uuid.UUID, slug string) error
+	// Ratings returns every member's ratings, newest first.
+	Ratings(ctx context.Context, householdID uuid.UUID) ([]domain.MealRating, error)
+}
+
+// Chef is the LLM's cooking judgement. loved are the names of dishes the household loved, to
+// suggest more in that spirit.
 type Chef interface {
 	// Pick chooses up to n of the candidates that fit the mood and says why, in the language
 	// given as a BCP 47 tag. It returns domain.ErrUnavailable when the LLM can't be asked.
-	Pick(ctx context.Context, mood, lang string, candidates []domain.RecipeSummary, n int) ([]domain.Pick, error)
+	Pick(ctx context.Context, mood, lang string, loved []string, candidates []domain.RecipeSummary, n int) ([]domain.Pick, error)
 	// Plan chooses n different dinners from the candidates, in the order to cook them, unlike the
 	// recent ones (by name) and using up what is on hand. wish may be empty. Reasons are in the
 	// language given as a BCP 47 tag. It returns domain.ErrUnavailable when the LLM can't be asked.
-	Plan(ctx context.Context, wish, lang string, onHand, recent []string, candidates []domain.RecipeSummary, n int) ([]domain.Pick, error)
+	Plan(ctx context.Context, wish, lang string, onHand, recent, loved []string, candidates []domain.RecipeSummary, n int) ([]domain.Pick, error)
 }
 
 // Muse is the LLM writing questions for the household to answer together.

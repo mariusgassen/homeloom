@@ -65,6 +65,28 @@
     "steps": "Zubereitung",
     "openRecipe": "Ganzes Rezept öffnen"
   },
+  "taste": {
+    "title": "Wie war's?",
+    "rating": { "love": "Geliebt", "fine": "Ganz gut", "nope": "Nicht nochmal" },
+    "theirs": { "love": "{{name}} hat es geliebt.", "fine": "{{name}} fand es ganz gut.", "nope": "{{name}} sagt: nicht nochmal." },
+    "cooked": "Das haben wir gekocht",
+    "kept": "Auf eurer Timeline gespeichert.",
+    "dishRemove": "Entfernen"
+  },
+  "recap": {
+    "eyebrow": "Rückblick",
+    "title": "Unser Jahr am Tisch",
+    "earlier": "Früheres Jahr",
+    "later": "Späteres Jahr",
+    "empty": { "title": "Noch keine Mahlzeiten", "body": "Halte fest, was ihr kocht, dann taucht es hier auf." },
+    "memories_one": "{{count}} Mahlzeit festgehalten.",
+    "memories_other": "{{count}} Mahlzeiten festgehalten.",
+    "dishes": "Am häufigsten gekocht",
+    "times_one": "{{count}} Mal",
+    "times_other": "{{count}} Mal",
+    "favourites": "Ihr beide liebt",
+    "photos": "Fotos"
+  },
   "week": {
     "eyebrow": "Vorausplanen",
     "title": "Diese Woche",

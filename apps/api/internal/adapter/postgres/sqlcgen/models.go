@@ -223,6 +223,15 @@ type MealPlan struct {
 	PlannedAt   time.Time
 }
 
+type MealRating struct {
+	HouseholdID uuid.UUID
+	UserID      uuid.UUID
+	RecipeSlug  string
+	RecipeName  string
+	Rating      string
+	RatedAt     time.Time
+}
+
 type Membership struct {
 	HouseholdID uuid.UUID
 	UserID      uuid.UUID
@@ -243,6 +252,8 @@ type Moment struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	VideoAt     *time.Time
+	RecipeSlug  string
+	RecipeName  string
 }
 
 type MomentPhoto struct {

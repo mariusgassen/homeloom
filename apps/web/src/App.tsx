@@ -13,6 +13,7 @@ import { RefreshProvider } from "./refresh";
 import { Chores } from "./screens/Chores";
 import { Wishes } from "./screens/Wishes";
 import { Cook, RecipeScreen } from "./screens/Cook";
+import { MealRecap } from "./screens/MealRecap";
 import { Week, WeekShopping } from "./screens/Week";
 import { Home } from "./screens/Home";
 import { Lists } from "./screens/Lists";
@@ -72,6 +73,7 @@ export function App() {
               <Route path="/" element={<Today />} />
               <Route path="/cook" element={<Cook />} />
               <Route path="/cook/week" element={<Week />} />
+              <Route path="/cook/recap" element={<MealRecap />} />
               <Route path="/cook/week/shopping" element={<WeekShopping />} />
               <Route path="/cook/:slug" element={<RecipeScreen />} />
               <Route path="/us" element={<Us />} />

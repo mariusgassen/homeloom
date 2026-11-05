@@ -53,7 +53,7 @@ func (h *handlers) CreateMoment(ctx context.Context, req oapi.CreateMomentReques
 	}
 	b := req.Body
 	m, err := h.moments.Create(ctx, u, req.HouseholdId, domain.MomentKind(b.Kind), toMomentFields(oapi.MomentFields{
-		Text: b.Text, Visibility: b.Visibility, RevealAt: b.RevealAt, Day: b.Day,
+		Text: b.Text, Visibility: b.Visibility, RevealAt: b.RevealAt, Day: b.Day, Meal: b.Meal,
 	}))
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
@@ -388,6 +388,9 @@ func toMomentFields(b oapi.MomentFields) domain.MomentFields {
 	if b.Day != nil {
 		f.Day = b.Day.Time
 	}
+	if b.Meal != nil {
+		f.RecipeSlug, f.RecipeName = b.Meal.Slug, b.Meal.Name
+	}
 	return f
 }
 
@@ -406,6 +409,9 @@ func toMoment(m domain.Moment) oapi.Moment {
 	}
 	if !m.Sealed {
 		out.Text = &m.Text
+		if m.RecipeSlug != "" {
+			out.Meal = &oapi.MealRef{Slug: m.RecipeSlug, Name: m.RecipeName}
+		}
 		rs := make([]oapi.GivenReaction, len(m.Reactions))
 		for i, r := range m.Reactions {
 			rs[i] = oapi.GivenReaction{Emoji: r.Emoji, UserId: r.UserID}

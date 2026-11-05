@@ -62,7 +62,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 	entries := service.NewEntry(store, store, store, push, time.UTC)
 	budget := service.NewBudget(store, store, time.UTC)
 	entries.WithBills(budget)
-	cook := service.NewCook(store, recipes, memory.Chef{}, shopping).WithPlan(store)
+	cook := service.NewCook(store, recipes, memory.Chef{}, shopping).WithPlan(store).WithTaste(store, store)
 	home := service.NewHome(store, store, sessions, smart)
 	agents := service.NewAgentAccess(store, sessions, store)
 	voice := service.NewVoice(store, &memory.Speaker{})

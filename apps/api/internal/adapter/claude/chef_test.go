@@ -45,7 +45,7 @@ func TestPick(t *testing.T) {
 	srv := fakeAPI(t, "end_turn", `{"picks":[{"slug":"soup","reason":" Warm und cremig. "}]}`, &req)
 	chef := claude.NewChef("key", "claude-opus-5-5", option.WithBaseURL(srv.URL))
 
-	picks, err := chef.Pick(context.Background(), "cozy", "de", candidates, 3)
+	picks, err := chef.Pick(context.Background(), "cozy", "de", []string{"Lasagne"}, candidates, 3)
 	if err != nil || len(picks) != 1 || picks[0] != (domain.Pick{Slug: "soup", Reason: "Warm und cremig."}) {
 		t.Fatalf("pick: %+v, %v", picks, err)
 	}
@@ -54,7 +54,7 @@ func TestPick(t *testing.T) {
 		t.Errorf("collection not one clipped line per recipe: %s", system)
 	}
 	user := fmt.Sprint(req["messages"])
-	if !strings.Contains(user, "<mood>cozy</mood>") || !strings.Contains(user, "German") {
+	if !strings.Contains(user, "<loved>\n- Lasagne</loved>") || !strings.Contains(user, "<mood>cozy</mood>") || !strings.Contains(user, "German") {
 		t.Errorf("mood or language missing: %s", user)
 	}
 	if req["fallbacks"] != "default" {
@@ -67,7 +67,7 @@ func TestPlan(t *testing.T) {
 	srv := fakeAPI(t, "end_turn", `{"picks":[{"slug":"curry","reason":"Uses the spinach."},{"slug":"soup","reason":""}]}`, &req)
 	chef := claude.NewChef("key", "claude-opus-5-5", option.WithBaseURL(srv.URL))
 
-	picks, err := chef.Plan(context.Background(), "something light", "en", []string{"spinach"}, []string{"Lasagne"}, candidates, 2)
+	picks, err := chef.Plan(context.Background(), "something light", "en", []string{"spinach"}, []string{"Lasagne"}, []string{"Dal"}, candidates, 2)
 	if err != nil || len(picks) != 2 || picks[0] != (domain.Pick{Slug: "curry", Reason: "Uses the spinach."}) || picks[1].Slug != "soup" {
 		t.Fatalf("plan: %+v, %v", picks, err)
 	}
@@ -87,7 +87,7 @@ func TestPickFailuresAreUnavailable(t *testing.T) {
 	} {
 		t.Cleanup(srv.Close)
 		chef := claude.NewChef("key", "claude-opus-5-5", option.WithBaseURL(srv.URL), option.WithMaxRetries(0))
-		if _, err := chef.Pick(context.Background(), "cozy", "en", candidates, 3); !errors.Is(err, domain.ErrUnavailable) {
+		if _, err := chef.Pick(context.Background(), "cozy", "en", nil, candidates, 3); !errors.Is(err, domain.ErrUnavailable) {
 			t.Errorf("%s: want ErrUnavailable, got %v", name, err)
 		}
 	}

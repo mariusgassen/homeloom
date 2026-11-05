@@ -573,6 +573,11 @@ func (s *Moments) check(kind domain.MomentKind, f domain.MomentFields) (domain.M
 	if f.Text == "" || utf8.RuneCountInString(f.Text) > maxLen {
 		return f, domain.TextError{Max: maxLen}
 	}
+	f.RecipeSlug, f.RecipeName = strings.TrimSpace(f.RecipeSlug), strings.TrimSpace(f.RecipeName)
+	if (f.RecipeSlug == "") != (f.RecipeName == "") || (kind != domain.KindMoment && f.RecipeSlug != "") ||
+		utf8.RuneCountInString(f.RecipeSlug) > domain.MaxRecipeRef || utf8.RuneCountInString(f.RecipeName) > domain.MaxRecipeRef {
+		return f, fmt.Errorf("%w: a dish needs a slug and a name of at most %d characters, on a moment", domain.ErrInvalid, domain.MaxRecipeRef)
+	}
 	switch f.Visibility {
 	case domain.VisibilityPrivate, domain.VisibilityShared:
 		f.RevealAt = nil

@@ -12,6 +12,8 @@ import (
 const (
 	MaxMomentText    = 2000
 	MaxGratitudeText = 200
+	// MaxRecipeRef is the longest recipe slug or name a meal memory keeps.
+	MaxRecipeRef = 200
 	// MaxPhotoBytes is the largest photo a moment can have; the app makes photos smaller first.
 	MaxPhotoBytes = 5 << 20
 	// MaxVideoBytes is the largest video a moment can have; videos are sent as they are.
@@ -81,6 +83,10 @@ type MomentFields struct {
 	Visibility Visibility
 	RevealAt   *time.Time
 	Text       string
+	// RecipeSlug and RecipeName make it a meal memory: the dish it is about. Both are empty for
+	// any other moment.
+	RecipeSlug string
+	RecipeName string
 }
 
 // MomentMonth is one month of the timeline.

@@ -221,7 +221,7 @@ func run() error {
 	forecaster := openmeteo.New()
 	briefing.WithWeather(forecaster)
 	go notifyDaily(ctx, map[string]dailyJob{"moments": moments, "chores": chores, "briefing": briefing})
-	cook := service.NewCook(store, book, chef, shopping).WithPlan(store)
+	cook := service.NewCook(store, book, chef, shopping).WithPlan(store).WithTaste(store, store)
 	homeService := service.NewHome(store, homeConnections, sessions, home)
 	households := service.NewHousehold(store).WithWeather(forecaster)
 	watch := service.NewWatch(store, watchConnections, sessions, media, critic).WithTonight(store, push, cfg.TimeZone).WithNight(store)
