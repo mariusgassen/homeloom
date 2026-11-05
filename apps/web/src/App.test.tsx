@@ -271,7 +271,7 @@ test("date night asks with the place, shows the weather and saves a chosen idea 
     ...signedIn(),
     at("POST", `/v1/households/${home.id}/date-night/ideas`, () =>
       json({
-        forecast: { sky: "rain", highC: 9.4, lowC: 4.2, rainPercent: 80 },
+        forecast: { place: "Berlin", sky: "rain", condition: "drizzle", highC: 9.4, lowC: 4.2, rainPercent: 80 },
         ideas: [{ title: "Pasta night", reason: "Cosy on a wet evening.", indoor: true, cost: "about 15 €", startsAt: "2026-11-07T18:30:00Z" }],
       }),
     ),
@@ -283,7 +283,7 @@ test("date night asks with the place, shows the weather and saves a chosen idea 
   await userEvent.type(screen.getByRole("textbox", { name: "Limits" }), "in a hotel");
   await userEvent.click(screen.getByRole("button", { name: "Get ideas" }));
   expect(await screen.findByText("Pasta night")).toBeInTheDocument();
-  expect(screen.getByText(/Rain · 4–9°/)).toBeInTheDocument();
+  expect(screen.getByText(/Berlin: Drizzle · 4–9°/)).toBeInTheDocument();
   const asked = await calls.find((c) => c.url.endsWith("/date-night/ideas"))?.json();
   expect(asked).toMatchObject({ place: "Berlin", budget: "treat", constraints: "in a hotel" });
   expect(localStorage.getItem("homeloom.datePlace")).toBe("Berlin");

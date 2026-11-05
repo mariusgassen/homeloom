@@ -19,7 +19,7 @@ func TestForecast(t *testing.T) {
 			_, _ = w.Write([]byte(`{}`))
 			return
 		}
-		_, _ = w.Write([]byte(`{"results":[{"latitude":52.5,"longitude":13.4}]}`))
+		_, _ = w.Write([]byte(`{"results":[{"name":"Berlin","country":"Germany","latitude":52.5,"longitude":13.4}]}`))
 	}))
 	defer geo.Close()
 	var query string
@@ -32,7 +32,7 @@ func TestForecast(t *testing.T) {
 
 	day := time.Date(2026, 11, 7, 0, 0, 0, 0, time.UTC)
 	got, err := c.Forecast(context.Background(), "Berlin", day)
-	if err != nil || got != (domain.Forecast{Sky: domain.SkyRain, HighC: 11.5, LowC: 4, RainPercent: 70}) {
+	if err != nil || got != (domain.Forecast{Place: "Berlin", Sky: domain.SkyRain, Condition: domain.CondRain, HighC: 11.5, LowC: 4, RainPercent: 70}) {
 		t.Fatalf("forecast: %+v, %v", got, err)
 	}
 	if want := "2026-11-07"; !contains(query, "start_date="+want) || !contains(query, "end_date="+want) {

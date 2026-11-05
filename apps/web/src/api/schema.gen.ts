@@ -3657,8 +3657,18 @@ export interface components {
             forecast?: components["schemas"]["DateForecast"];
         };
         DateForecast: {
-            /** @enum {string} */
+            /** @description The town the forecast is for, such as "Berlin"; absent when unknown. */
+            place?: string;
+            /**
+             * @description The weather in a word; good for an icon.
+             * @enum {string}
+             */
             sky: "clear" | "cloudy" | "fog" | "rain" | "snow" | "storm";
+            /**
+             * @description The weather described closely
+             * @enum {string}
+             */
+            condition: "clear" | "mostlyClear" | "partlyCloudy" | "overcast" | "fog" | "drizzle" | "rain" | "freezingRain" | "showers" | "snow" | "snowShowers" | "thunderstorm";
             highC: number;
             lowC: number;
             /** @description Chance of rain or snow. */

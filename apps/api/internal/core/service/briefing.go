@@ -107,39 +107,48 @@ func (s *Briefing) send(ctx context.Context, householdID uuid.UUID, now time.Tim
 			}
 		}
 		var parts []string
-		if weather != "" {
-			parts = append(parts, weather)
-		}
 		if len(plans) > 0 {
 			parts = append(parts, "📅 "+names(plans))
 		}
 		if len(due) > 0 {
 			parts = append(parts, "✅ "+names(due))
 		}
-		if len(parts) == 0 {
+		if len(parts) == 0 && weather == nil {
 			continue
 		}
+		day := strings.Join(parts, " · ")
+		if weather != nil && day != "" {
+			day = " · " + day
+		}
+		args := []any{"day", day, "weather", ""}
+		if weather != nil {
+			args[3] = *weather
+		}
 		s.notify.Notify(ctx, []uuid.UUID{m.User.ID}, domain.Notification{
-			Key: "push.briefing", Args: []any{"day", strings.Join(parts, " · ")}, URL: "/", Tag: "briefing",
+			Key: "push.briefing", Args: args, URL: "/", Tag: "briefing",
 		})
 	}
 	return nil
 }
 
-// forecast is the weather line for the household's place, empty without a place or forecast.
-func (s *Briefing) forecast(ctx context.Context, householdID uuid.UUID, now time.Time) (string, error) {
+// forecast is the weather line for the household's place, nil without a place or forecast.
+func (s *Briefing) forecast(ctx context.Context, householdID uuid.UUID, now time.Time) (*domain.Phrase, error) {
 	if s.weather == nil {
-		return "", nil
+		return nil, nil
 	}
 	h, err := s.households.Get(ctx, householdID)
 	if err != nil || h.Place == "" {
-		return "", err
+		return nil, err
 	}
 	f, err := s.weather.Forecast(ctx, h.Place, time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return weatherText(f), nil
+	if f.Place == "" {
+		f.Place = h.Place
+	}
+	p := weatherPhrase(f)
+	return &p, nil
 }
 
 // planText is an event's title with its start time, unless it lasts all day.
@@ -158,9 +167,13 @@ func names(xs []string) string {
 	return strings.Join(xs, ", ")
 }
 
-// weatherText is an emoji for the sky and the day's low to high, like "🌧️ 8–14°".
-func weatherText(f domain.Forecast) string {
-	return fmt.Sprintf("%s %.0f–%.0f°", skyEmoji(f.Sky), f.LowC, f.HighC)
+// weatherPhrase is the place, the weather in words with an emoji for the sky, and the day's low to
+// high, like "🌧️ Berlin: light rain, 8–14°".
+func weatherPhrase(f domain.Forecast) domain.Phrase {
+	return domain.Phrase{Key: "weather.line", Args: []any{
+		"emoji", skyEmoji(f.Sky), "place", f.Place, "condition", domain.Phrase{Key: "weather." + string(f.Condition)},
+		"low", fmt.Sprintf("%.0f", f.LowC), "high", fmt.Sprintf("%.0f", f.HighC),
+	}}
 }
 
 func skyEmoji(s domain.Sky) string {

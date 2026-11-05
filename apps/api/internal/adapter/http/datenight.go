@@ -41,7 +41,7 @@ func (h *handlers) SuggestDateNight(ctx context.Context, req oapi.SuggestDateNig
 		}
 	}
 	if f := res.Forecast; f != nil {
-		out.Forecast = &oapi.DateForecast{Sky: oapi.DateForecastSky(f.Sky), HighC: float32(f.HighC), LowC: float32(f.LowC), RainPercent: f.RainPercent}
+		out.Forecast = &oapi.DateForecast{Place: optional(f.Place), Sky: oapi.DateForecastSky(f.Sky), Condition: oapi.DateForecastCondition(f.Condition), HighC: float32(f.HighC), LowC: float32(f.LowC), RainPercent: f.RainPercent}
 	}
 	return out, nil
 }

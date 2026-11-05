@@ -133,7 +133,7 @@ func (c *Client) Forecast(ctx context.Context, text string, day time.Time) (doma
 	if len(f.Daily.Code) == 0 || len(f.Daily.High) == 0 || len(f.Daily.Low) == 0 || f.Daily.High[0] == nil || f.Daily.Low[0] == nil {
 		return domain.Forecast{}, fmt.Errorf("%w: open-meteo gave no forecast for %s", domain.ErrUnavailable, d)
 	}
-	out := domain.Forecast{Sky: sky(f.Daily.Code[0]), HighC: *f.Daily.High[0], LowC: *f.Daily.Low[0]}
+	out := domain.Forecast{Place: chosen.Name, Sky: sky(f.Daily.Code[0]), Condition: condition(f.Daily.Code[0]), HighC: *f.Daily.High[0], LowC: *f.Daily.Low[0]}
 	if len(f.Daily.Rain) > 0 && f.Daily.Rain[0] != nil {
 		out.RainPercent = *f.Daily.Rain[0]
 	}
@@ -175,4 +175,33 @@ func sky(code int) domain.Sky {
 	default: // drizzle, rain, showers
 		return domain.SkyRain
 	}
+}
+
+// condition maps a WMO weather code to a closer description than sky.
+func condition(code int) domain.Condition {
+	switch code {
+	case 0:
+		return domain.CondClear
+	case 1:
+		return domain.CondMostlyClear
+	case 2:
+		return domain.CondPartlyCloudy
+	case 3:
+		return domain.CondOvercast
+	case 45, 48:
+		return domain.CondFog
+	case 51, 53, 55:
+		return domain.CondDrizzle
+	case 56, 57, 66, 67:
+		return domain.CondFreezingRain
+	case 80, 81, 82:
+		return domain.CondShowers
+	case 71, 73, 75, 77:
+		return domain.CondSnow
+	case 85, 86:
+		return domain.CondSnowShowers
+	case 95, 96, 99:
+		return domain.CondThunderstorm
+	}
+	return domain.CondRain // 61-65 and anything unknown
 }

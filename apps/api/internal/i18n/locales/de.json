@@ -65,7 +65,7 @@
   "push.call.title": "{name} ruft an",
   "push.chore_thanks.body": "Für „{chore}“.",
   "push.chore_thanks.title": "{name} sagt danke",
-  "push.briefing.body": "{day}",
+  "push.briefing.body": "{weather}{day}",
   "push.briefing.title": "Guten Morgen",
   "push.chores_due.body": "{chores}",
   "push.chores_due.title": "Heute noch offen",
@@ -102,5 +102,18 @@
   "error.invalid_video": "Wähl ein MP4- oder MOV-Video mit höchstens {max} MB.",
   "error.videos_unavailable": "Videos sind auf diesem Server nicht eingerichtet.",
   "error.documents_unavailable": "Dokumente sind auf diesem Server nicht eingerichtet.",
-  "error.invalid_document": "Wähl eine PDF-, Bild-, Text- oder Office-Datei mit höchstens {max} MB."
+  "error.invalid_document": "Wähl eine PDF-, Bild-, Text- oder Office-Datei mit höchstens {max} MB.",
+  "weather.mostlyClear": "überwiegend klar",
+  "weather.clear": "klar",
+  "weather.partlyCloudy": "teils bewölkt",
+  "weather.overcast": "bedeckt",
+  "weather.fog": "neblig",
+  "weather.drizzle": "Nieselregen",
+  "weather.rain": "Regen",
+  "weather.freezingRain": "gefrierender Regen",
+  "weather.showers": "Schauer",
+  "weather.snow": "Schnee",
+  "weather.snowShowers": "Schneeschauer",
+  "weather.thunderstorm": "Gewitter",
+  "weather.line": "{emoji} {place}: {condition}, {low}–{high}°"
 }
