@@ -689,6 +689,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/moments/{momentId}/reaction": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Answer a moment or line with an emoji
+         * @description Any member who can read it can react; a new emoji replaces the member's earlier one, and its author is told. A "later" moment that hasn't opened yet is not found.
+         */
+        put: operations["reactToMoment"];
+        post?: never;
+        /** Take your emoji off a moment or line */
+        delete: operations["unreactToMoment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/moments/{momentId}/photo": {
         parameters: {
             query?: never;
@@ -2166,10 +2189,21 @@ export interface components {
             photoUrl?: string;
             /** @description Where its video is */
             videoUrl?: string;
+            /** @description What members answered it with, oldest first; one per member. */
+            reactions?: components["schemas"]["GivenReaction"][];
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        GivenReaction: {
+            /** Format: uuid */
+            userId: string;
+            emoji: string;
+        };
+        MomentReaction: {
+            /** @enum {string} */
+            emoji: "❤️" | "😂" | "🥹" | "🙌" | "👍";
         };
         MomentMonth: {
             month: components["schemas"]["Month"];
@@ -4203,6 +4237,67 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            404: components["responses"]["NotFound"];
+        };
+    };
+    reactToMoment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MomentReaction"];
+            };
+        };
+        responses: {
+            /** @description The moment with its reactions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            /** @description The emoji isn't one of the offered ones (code `invalid_reaction`). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    unreactToMoment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The moment with its reactions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };
     };

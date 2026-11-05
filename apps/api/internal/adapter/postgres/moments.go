@@ -131,6 +131,27 @@ func (s *Store) ClearMomentVideo(ctx context.Context, id uuid.UUID) error {
 	return s.q.ClearMomentVideo(ctx, id)
 }
 
+func (s *Store) SetMomentReaction(ctx context.Context, id, userID uuid.UUID, emoji string) (bool, error) {
+	n, err := s.q.SetMomentReaction(ctx, sqlcgen.SetMomentReactionParams{MomentID: id, UserID: userID, Emoji: emoji})
+	return n == 1, err
+}
+
+func (s *Store) DeleteMomentReaction(ctx context.Context, id, userID uuid.UUID) error {
+	return s.q.DeleteMomentReaction(ctx, sqlcgen.DeleteMomentReactionParams{MomentID: id, UserID: userID})
+}
+
+func (s *Store) MomentReactions(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]domain.MomentReaction, error) {
+	rows, err := s.q.ListMomentReactions(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := map[uuid.UUID][]domain.MomentReaction{}
+	for _, r := range rows {
+		out[r.MomentID] = append(out[r.MomentID], domain.MomentReaction{UserID: r.UserID, Emoji: r.Emoji})
+	}
+	return out, nil
+}
+
 func (s *Store) HouseholdIDs(ctx context.Context) ([]uuid.UUID, error) {
 	return s.q.ListHouseholdIDs(ctx)
 }

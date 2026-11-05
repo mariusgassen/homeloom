@@ -273,6 +273,16 @@ func TestMomentsFlow(t *testing.T) {
 	if code, body := do(t, h, "POST", moments, "token-alice", `{"kind":"moment","text":"Soon","visibility":"shared","day":"2999-01-01"}`); code != 400 || body["code"] != "invalid_moment_day" {
 		t.Fatalf("future moment: %d %v", code, body)
 	}
+	react := "/v1/moments/" + trip["id"].(string) + "/reaction"
+	if code, body := do(t, h, "PUT", react, "token-bob", `{"emoji":"❤️"}`); code != 200 || len(body["reactions"].([]any)) != 1 {
+		t.Fatalf("react: %d %v", code, body)
+	}
+	if code, body := do(t, h, "PUT", react, "token-bob", `{"emoji":"💩"}`); code != 400 {
+		t.Fatalf("unknown emoji: %d %v", code, body)
+	}
+	if code, body := do(t, h, "DELETE", react, "token-bob", ""); code != 200 || len(body["reactions"].([]any)) != 0 {
+		t.Fatalf("unreact: %d %v", code, body)
+	}
 	do(t, h, "POST", moments, "token-alice", `{"kind":"gratitude","text":"Coffee in bed","visibility":"shared"}`)
 	code, line := do(t, h, "POST", moments, "token-alice", `{"kind":"gratitude","text":"The walk","visibility":"shared","day":"2026-01-01"}`)
 	if code != 201 || line["text"] != "The walk" || line["day"] != today {

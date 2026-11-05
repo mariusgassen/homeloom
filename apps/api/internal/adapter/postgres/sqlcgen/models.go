@@ -251,6 +251,13 @@ type MomentPhoto struct {
 	Data        []byte
 }
 
+type MomentReaction struct {
+	MomentID  uuid.UUID
+	UserID    uuid.UUID
+	Emoji     string
+	CreatedAt time.Time
+}
+
 type PushSubscription struct {
 	Endpoint  string
 	UserID    uuid.UUID

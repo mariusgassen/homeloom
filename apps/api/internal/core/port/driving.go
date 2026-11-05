@@ -107,6 +107,11 @@ type MomentService interface {
 	// Video returns domain.ErrNotFound unless the actor can see the moment and its video.
 	Video(ctx context.Context, actor domain.User, id uuid.UUID) (domain.VideoStream, error)
 	DeleteVideo(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Moment, error)
+	// React sets the actor's emoji on a moment they can read, replacing their earlier one, and
+	// tells its author. The emoji must be one of domain.ReactionEmojis.
+	React(ctx context.Context, actor domain.User, id uuid.UUID, emoji string) (domain.Moment, error)
+	// Unreact takes the actor's emoji off.
+	Unreact(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Moment, error)
 }
 
 // EntrySyncService lets a calendar app (over CalDAV) or a notes app (over WebDAV) read and change

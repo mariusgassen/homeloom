@@ -52,8 +52,10 @@ type Store struct {
 
 	moments      []domain.Moment
 	momentPhotos map[uuid.UUID]domain.Photo
-	entryPhotos  []entryPhoto
-	jobRuns      map[string]bool
+	// momentReactions are each moment's reactions, oldest first.
+	momentReactions map[uuid.UUID][]domain.MomentReaction
+	entryPhotos     []entryPhoto
+	jobRuns         map[string]bool
 
 	voices map[uuid.UUID]domain.VoiceSettings
 
@@ -74,8 +76,9 @@ func NewStore() *Store {
 
 		shoppingHistory: map[historyKey]suggestion{},
 
-		momentPhotos: map[uuid.UUID]domain.Photo{},
-		jobRuns:      map[string]bool{},
+		momentPhotos:    map[uuid.UUID]domain.Photo{},
+		momentReactions: map[uuid.UUID][]domain.MomentReaction{},
+		jobRuns:         map[string]bool{},
 
 		voices: map[uuid.UUID]domain.VoiceSettings{},
 	}

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.36.0
+  version: 0.37.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -958,6 +958,47 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/moments/{momentId}/reaction:
+    parameters:
+      - $ref: "#/components/parameters/MomentId"
+    put:
+      tags: [moments]
+      operationId: reactToMoment
+      summary: Answer a moment or line with an emoji
+      description: >
+        Any member who can read it can react; a new emoji replaces the member's earlier one, and
+        its author is told. A "later" moment that hasn't opened yet is not found.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MomentReaction" }
+      responses:
+        "200":
+          description: The moment with its reactions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        "400":
+          description: The emoji isn't one of the offered ones (code `invalid_reaction`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [moments]
+      operationId: unreactToMoment
+      summary: Take your emoji off a moment or line
+      responses:
+        "200":
+          description: The moment with its reactions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/moments/{momentId}/photo:
@@ -2796,8 +2837,25 @@ components:
         text: { type: string }
         photoUrl: { type: string, description: Where its photo is, if it has one. }
         videoUrl: { type: string, description: Where its video is, if it has one. }
+        reactions:
+          type: array
+          description: What members answered it with, oldest first; one per member.
+          items: { $ref: "#/components/schemas/GivenReaction" }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    GivenReaction:
+      type: object
+      required: [userId, emoji]
+      properties:
+        userId: { type: string, format: uuid }
+        emoji: { type: string }
+
+    MomentReaction:
+      type: object
+      required: [emoji]
+      properties:
+        emoji: { type: string, enum: ["❤️", "😂", "🥹", "🙌", "👍"] }
 
     MomentMonth:
       type: object
