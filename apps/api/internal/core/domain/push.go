@@ -12,6 +12,13 @@ type PushSubscription struct {
 	Lang string
 }
 
+// Phrase is a notification argument that is itself a catalog message: the push adapter writes it in
+// the device's language before filling it into the notification.
+type Phrase struct {
+	Key  string
+	Args []any
+}
+
 // Notification is written by the push adapter from catalog keys "<Key>.title" and "<Key>.body",
 // in each device's language, so the core never formats user-facing text itself.
 type Notification struct {

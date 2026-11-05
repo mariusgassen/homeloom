@@ -35,9 +35,30 @@ const (
 	SkyStorm  Sky = "storm"
 )
 
+// Condition is the weather described more closely than Sky, from the forecast's weather code.
+type Condition string
+
+const (
+	CondClear        Condition = "clear"
+	CondMostlyClear  Condition = "mostlyClear"
+	CondPartlyCloudy Condition = "partlyCloudy"
+	CondOvercast     Condition = "overcast"
+	CondFog          Condition = "fog"
+	CondDrizzle      Condition = "drizzle"
+	CondRain         Condition = "rain"
+	CondFreezingRain Condition = "freezingRain"
+	CondShowers      Condition = "showers"
+	CondSnow         Condition = "snow"
+	CondSnowShowers  Condition = "snowShowers"
+	CondThunderstorm Condition = "thunderstorm"
+)
+
 // Forecast is the weather in a place on a day.
 type Forecast struct {
-	Sky Sky
+	// Place is the name of the town the forecast is for, such as "Berlin".
+	Place     string
+	Sky       Sky
+	Condition Condition
 	// HighC and LowC are degrees Celsius.
 	HighC, LowC float64
 	// RainPercent is the chance of rain or snow, 0-100.

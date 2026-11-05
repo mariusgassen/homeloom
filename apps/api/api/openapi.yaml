@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.46.0
+  version: 0.47.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -4726,9 +4726,11 @@ components:
 
     DateForecast:
       type: object
-      required: [sky, highC, lowC, rainPercent]
+      required: [sky, condition, highC, lowC, rainPercent]
       properties:
-        sky: { type: string, enum: [clear, cloudy, fog, rain, snow, storm] }
+        place: { type: string, description: "The town the forecast is for, such as \"Berlin\"; absent when unknown." }
+        sky: { type: string, enum: [clear, cloudy, fog, rain, snow, storm], description: The weather in a word; good for an icon. }
+        condition: { type: string, enum: [clear, mostlyClear, partlyCloudy, overcast, fog, drizzle, rain, freezingRain, showers, snow, snowShowers, thunderstorm], description: The weather described closely, from the forecast's weather code. }
         highC: { type: number }
         lowC: { type: number }
         rainPercent: { type: integer, minimum: 0, maximum: 100, description: Chance of rain or snow. }

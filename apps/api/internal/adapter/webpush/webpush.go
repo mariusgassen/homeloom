@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"golang.org/x/text/language"
 	"net/http"
 	"time"
 
@@ -56,8 +57,21 @@ type message struct {
 	Tag   string `json:"tag,omitempty"`
 }
 
+// translate writes the arguments that are phrases in lang.
+func translate(lang language.Tag, args []any) []any {
+	out := make([]any, len(args))
+	for i, a := range args {
+		if ph, ok := a.(domain.Phrase); ok {
+			a = i18n.T(lang, ph.Key, translate(lang, ph.Args)...)
+		}
+		out[i] = a
+	}
+	return out
+}
+
 func render(sub domain.PushSubscription, n domain.Notification) ([]byte, error) {
 	lang := i18n.Negotiate(sub.Lang)
+	n.Args = translate(lang, n.Args)
 	return json.Marshal(message{
 		Title: i18n.T(lang, n.Key+".title", n.Args...),
 		Body:  i18n.T(lang, n.Key+".body", n.Args...),

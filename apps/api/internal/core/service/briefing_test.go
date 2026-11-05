@@ -13,7 +13,7 @@ import (
 type briefingWeather struct{}
 
 func (briefingWeather) Forecast(context.Context, string, time.Time) (domain.Forecast, error) {
-	return domain.Forecast{Sky: domain.SkyRain, HighC: 14.2, LowC: 7.9}, nil
+	return domain.Forecast{Place: "Berlin", Sky: domain.SkyRain, Condition: domain.CondDrizzle, HighC: 14.2, LowC: 7.9}, nil
 }
 
 func TestBriefingInTheMorning(t *testing.T) {
@@ -56,8 +56,14 @@ func TestBriefingInTheMorning(t *testing.T) {
 	for _, p := range f.pusher.Sent() {
 		bodies[strings.TrimPrefix(p.Subscription.Endpoint, "https://web.push.apple.com/")] = p.Notification.Args[1].(string)
 	}
-	if bodies["alice"] != "🌧️ 8–14° · 📅 10:00 Dentist" || bodies["bob"] != "🌧️ 8–14° · 📅 10:00 Dentist · ✅ Bins" {
+	if bodies["alice"] != " · 📅 10:00 Dentist" || bodies["bob"] != " · 📅 10:00 Dentist · ✅ Bins" {
 		t.Fatalf("briefed %q", bodies)
+	}
+	for _, p := range f.pusher.Sent() {
+		w, _ := p.Notification.Args[3].(domain.Phrase)
+		if w.Key != "weather.line" || w.Args[3] != "Berlin" || w.Args[5].(domain.Phrase).Key != "weather.drizzle" || w.Args[7] != "8" || w.Args[9] != "14" {
+			t.Fatalf("weather %+v", p.Notification.Args[3])
+		}
 	}
 	n := len(f.pusher.Sent())
 	if err := b.NotifyDaily(ctx); err != nil {

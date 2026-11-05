@@ -100,3 +100,24 @@ func TestRenderUsesTheDevicesLanguage(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderWritesPhrasesInTheDevicesLanguage(t *testing.T) {
+	weather := domain.Phrase{Key: "weather.line", Args: []any{
+		"emoji", "🌧️", "place", "Berlin", "condition", domain.Phrase{Key: "weather.drizzle"}, "low", "8", "high", "14",
+	}}
+	n := domain.Notification{Key: "push.briefing", Args: []any{"day", " · 📅 10:00 Dentist", "weather", weather}}
+	for lang, want := range map[string]string{
+		"en": "🌧️ Berlin: drizzle, 8–14° · 📅 10:00 Dentist",
+		"de": "🌧️ Berlin: Nieselregen, 8–14° · 📅 10:00 Dentist",
+	} {
+		raw, err := render(domain.PushSubscription{Lang: lang}, n)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var m message
+		_ = json.Unmarshal(raw, &m)
+		if m.Body != want {
+			t.Fatalf("%s: %q", lang, m.Body)
+		}
+	}
+}

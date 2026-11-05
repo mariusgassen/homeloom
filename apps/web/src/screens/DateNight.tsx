@@ -25,6 +25,8 @@ function rememberedPlace() {
   }
 }
 
+const SKY_ICON = { clear: "☀️", cloudy: "☁️", fog: "🌫️", rain: "🌧️", snow: "❄️", storm: "⛈️" } as const;
+
 // A few ideas for an evening together, from the weather where you are, what's on, a budget and a
 // mood. A chosen idea goes into the shared calendar.
 export function DateNight() {
@@ -116,7 +118,8 @@ export function DateNight() {
       </form>
       {result?.forecast && (
         <p className="callout muted date-weather">
-          {t(`dateNight.sky.${result.forecast.sky}`)} · {Math.round(result.forecast.lowC)}–{Math.round(result.forecast.highC)}°
+          {SKY_ICON[result.forecast.sky]} {result.forecast.place ? `${result.forecast.place}: ` : ""}
+          {t(`dateNight.condition.${result.forecast.condition}`)} · {Math.round(result.forecast.lowC)}–{Math.round(result.forecast.highC)}°
           {result.forecast.rainPercent >= 20 && ` · ${t("dateNight.rain", { percent: result.forecast.rainPercent })}`}
         </p>
       )}
