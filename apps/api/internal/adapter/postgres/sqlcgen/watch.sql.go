@@ -30,6 +30,15 @@ func (q *Queries) DeleteWatchConnection(ctx context.Context, userID uuid.UUID) e
 	return err
 }
 
+const deleteWatchSwipes = `-- name: DeleteWatchSwipes :exec
+DELETE FROM watch_swipes WHERE household_id = $1
+`
+
+func (q *Queries) DeleteWatchSwipes(ctx context.Context, householdID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteWatchSwipes, householdID)
+	return err
+}
+
 const getTonight = `-- name: GetTonight :one
 SELECT household_id, title_id, kind, name, year, url, picked_by, picked_at FROM watch_tonight WHERE household_id = $1
 `
@@ -64,6 +73,44 @@ func (q *Queries) GetWatchConnection(ctx context.Context, userID uuid.UUID) (Wat
 		&i.HiddenLibraries,
 	)
 	return i, err
+}
+
+const listWatchSwipes = `-- name: ListWatchSwipes :many
+SELECT household_id, user_id, key, title_id, name, year, liked, swiped_at FROM watch_swipes WHERE household_id = $1 AND swiped_at >= $2
+`
+
+type ListWatchSwipesParams struct {
+	HouseholdID uuid.UUID
+	SwipedAt    time.Time
+}
+
+func (q *Queries) ListWatchSwipes(ctx context.Context, arg ListWatchSwipesParams) ([]WatchSwipe, error) {
+	rows, err := q.db.Query(ctx, listWatchSwipes, arg.HouseholdID, arg.SwipedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WatchSwipe
+	for rows.Next() {
+		var i WatchSwipe
+		if err := rows.Scan(
+			&i.HouseholdID,
+			&i.UserID,
+			&i.Key,
+			&i.TitleID,
+			&i.Name,
+			&i.Year,
+			&i.Liked,
+			&i.SwipedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const setWatchLibraryHidden = `-- name: SetWatchLibraryHidden :execrows
@@ -132,5 +179,37 @@ type UpsertWatchConnectionParams struct {
 
 func (q *Queries) UpsertWatchConnection(ctx context.Context, arg UpsertWatchConnectionParams) error {
 	_, err := q.db.Exec(ctx, upsertWatchConnection, arg.UserID, arg.Token)
+	return err
+}
+
+const upsertWatchSwipe = `-- name: UpsertWatchSwipe :exec
+INSERT INTO watch_swipes (household_id, user_id, key, title_id, name, year, liked, swiped_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+ON CONFLICT (household_id, user_id, key) DO UPDATE SET title_id = EXCLUDED.title_id, name = EXCLUDED.name,
+    year = EXCLUDED.year, liked = EXCLUDED.liked, swiped_at = EXCLUDED.swiped_at
+`
+
+type UpsertWatchSwipeParams struct {
+	HouseholdID uuid.UUID
+	UserID      uuid.UUID
+	Key         string
+	TitleID     string
+	Name        string
+	Year        int32
+	Liked       bool
+	SwipedAt    time.Time
+}
+
+func (q *Queries) UpsertWatchSwipe(ctx context.Context, arg UpsertWatchSwipeParams) error {
+	_, err := q.db.Exec(ctx, upsertWatchSwipe,
+		arg.HouseholdID,
+		arg.UserID,
+		arg.Key,
+		arg.TitleID,
+		arg.Name,
+		arg.Year,
+		arg.Liked,
+		arg.SwipedAt,
+	)
 	return err
 }

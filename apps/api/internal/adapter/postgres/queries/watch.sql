@@ -26,3 +26,15 @@ SELECT * FROM watch_tonight WHERE household_id = $1;
 
 -- name: DeleteTonight :exec
 DELETE FROM watch_tonight WHERE household_id = $1;
+
+-- name: UpsertWatchSwipe :exec
+INSERT INTO watch_swipes (household_id, user_id, key, title_id, name, year, liked, swiped_at)
+VALUES (@household_id, @user_id, @key, @title_id, @name, @year, @liked, @swiped_at)
+ON CONFLICT (household_id, user_id, key) DO UPDATE SET title_id = EXCLUDED.title_id, name = EXCLUDED.name,
+    year = EXCLUDED.year, liked = EXCLUDED.liked, swiped_at = EXCLUDED.swiped_at;
+
+-- name: ListWatchSwipes :many
+SELECT * FROM watch_swipes WHERE household_id = $1 AND swiped_at >= $2;
+
+-- name: DeleteWatchSwipes :exec
+DELETE FROM watch_swipes WHERE household_id = $1;

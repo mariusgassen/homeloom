@@ -266,3 +266,66 @@ func toTonightPick(p domain.TonightPick) oapi.TonightPick {
 	}
 	return out
 }
+
+func (h *handlers) GetWatchNight(ctx context.Context, req oapi.GetWatchNightRequestObject) (oapi.GetWatchNightResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	n, err := h.watch.Night(ctx, u, req.HouseholdId)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.GetWatchNight404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.Is(err, domain.ErrUnavailable):
+		return oapi.GetWatchNight503JSONResponse{UnavailableJSONResponse: watchUnavailable(ctx, err)}, nil
+	case err != nil:
+		return nil, err
+	}
+	out := oapi.GetWatchNight200JSONResponse{
+		Deck: make([]oapi.WatchTitle, len(n.Deck)), Matches: make([]oapi.WatchTitle, len(n.Matches)), Partners: n.Partners,
+	}
+	for i, t := range n.Deck {
+		out.Deck[i] = toWatchTitle(t)
+	}
+	for i, m := range n.Matches {
+		out.Matches[i] = toWatchTitle(m.Title)
+	}
+	return out, nil
+}
+
+func (h *handlers) ResetWatchNight(ctx context.Context, req oapi.ResetWatchNightRequestObject) (oapi.ResetWatchNightResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = h.watch.ResetNight(ctx, u, req.HouseholdId)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.ResetWatchNight404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.Is(err, domain.ErrUnavailable):
+		return oapi.ResetWatchNight503JSONResponse{UnavailableJSONResponse: watchUnavailable(ctx, err)}, nil
+	case err != nil:
+		return nil, err
+	}
+	return oapi.ResetWatchNight204Response{}, nil
+}
+
+func (h *handlers) SwipeWatchNight(ctx context.Context, req oapi.SwipeWatchNightRequestObject) (oapi.SwipeWatchNightResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	m, err := h.watch.Swipe(ctx, u, req.HouseholdId, req.Body.TitleId, req.Body.Liked)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.SwipeWatchNight404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.Is(err, domain.ErrUnavailable):
+		return oapi.SwipeWatchNight503JSONResponse{UnavailableJSONResponse: watchUnavailable(ctx, err)}, nil
+	case err != nil:
+		return nil, err
+	case m == nil:
+		return oapi.SwipeWatchNight200JSONResponse{}, nil
+	}
+	t := toWatchTitle(m.Title)
+	return oapi.SwipeWatchNight200JSONResponse{Match: &t}, nil
+}

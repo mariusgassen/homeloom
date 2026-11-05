@@ -79,6 +79,8 @@ type HouseholdRepository interface {
 	// Role returns domain.ErrNotFound when the user is not a member.
 	Role(ctx context.Context, householdID, userID uuid.UUID) (domain.Role, error)
 	Get(ctx context.Context, id uuid.UUID) (domain.Household, error)
+	// SetPlace stores the household's place; domain.ErrNotFound for an unknown household.
+	SetPlace(ctx context.Context, id uuid.UUID, place string) error
 	Members(ctx context.Context, householdID uuid.UUID) ([]domain.Member, error)
 	// HouseholdIDs returns every household, for jobs that visit each one.
 	HouseholdIDs(ctx context.Context) ([]uuid.UUID, error)
@@ -177,6 +179,12 @@ type MomentRepository interface {
 	MomentPhoto(ctx context.Context, id uuid.UUID) (domain.Photo, error)
 	DeleteMomentPhoto(ctx context.Context, id uuid.UUID) error
 	// MarkMomentVideo sets VideoAt for a video kept in the VideoStore.
+	// SetMomentReaction gives the user's emoji on the moment, replacing an earlier one, and says
+	// whether it is new or different.
+	SetMomentReaction(ctx context.Context, id, userID uuid.UUID, emoji string) (bool, error)
+	DeleteMomentReaction(ctx context.Context, id, userID uuid.UUID) error
+	// MomentReactions returns the reactions of the moments, oldest first, keyed by moment.
+	MomentReactions(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]domain.MomentReaction, error)
 	MarkMomentVideo(ctx context.Context, id uuid.UUID) error
 	ClearMomentVideo(ctx context.Context, id uuid.UUID) error
 }
@@ -336,6 +344,29 @@ type Muse interface {
 	Questions(ctx context.Context, lang string, themes, recent []string, n int) ([]string, error)
 }
 
+// Weather forecasts the weather for a place.
+type Weather interface {
+	// Forecast returns the weather in the place (a town or city, as typed) on the day, a calendar
+	// date at midnight UTC. It returns domain.ErrNotFound for an unknown place and
+	// domain.ErrUnavailable when the forecast service can't be reached.
+	Forecast(ctx context.Context, place string, day time.Time) (domain.Forecast, error)
+}
+
+// PlaceSearch finds towns and cities by the start of their name.
+type PlaceSearch interface {
+	// Search returns up to n matches for the text, names in the language given as a BCP 47 tag. It
+	// returns domain.ErrUnavailable when the search service can't be reached.
+	Search(ctx context.Context, text, lang string, n int) ([]domain.PlaceMatch, error)
+}
+
+// Planner is the LLM's sense of a good evening out or in.
+type Planner interface {
+	// Ideas suggests up to n evenings that fit the brief, in the language given as a BCP 47 tag,
+	// drawing on events happening in the place when it can look them up. It returns
+	// domain.ErrUnavailable when the LLM can't be asked.
+	Ideas(ctx context.Context, brief domain.DateBrief, lang string, n int) ([]domain.DateIdea, error)
+}
+
 // Critic is the LLM's judgement on films and series.
 type Critic interface {
 	// Pick chooses up to n titles that fit the mood (which may be empty): mostly from candidates,
@@ -399,6 +430,15 @@ type TonightRepository interface {
 	// Tonight returns domain.ErrNotFound when nothing was picked.
 	Tonight(ctx context.Context, householdID uuid.UUID) (domain.TonightPick, error)
 	DeleteTonight(ctx context.Context, householdID uuid.UUID) error
+}
+
+// SwipeRepository keeps what members swiped on movie night. A member's swipe on a film replaces
+// their last one.
+type SwipeRepository interface {
+	SaveSwipe(ctx context.Context, s domain.Swipe) error
+	// Swipes returns the household's swipes made at or after since.
+	Swipes(ctx context.Context, householdID uuid.UUID, since time.Time) ([]domain.Swipe, error)
+	DeleteSwipes(ctx context.Context, householdID uuid.UUID) error
 }
 
 type WatchConnectionRepository interface {

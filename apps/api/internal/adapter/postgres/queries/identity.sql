@@ -17,6 +17,9 @@ INSERT INTO memberships (household_id, user_id, role) VALUES ($1, $2, $3);
 -- name: GetHousehold :one
 SELECT * FROM households WHERE id = $1;
 
+-- name: SetHouseholdPlace :exec
+UPDATE households SET place = $2 WHERE id = $1;
+
 -- name: GetMembershipRole :one
 SELECT role FROM memberships WHERE household_id = $1 AND user_id = $2;
 

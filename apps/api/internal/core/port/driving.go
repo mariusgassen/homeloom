@@ -40,6 +40,9 @@ type HouseholdService interface {
 	List(ctx context.Context, actor domain.User) ([]domain.Membership, error)
 	Create(ctx context.Context, actor domain.User, name string) (domain.Membership, error)
 	Get(ctx context.Context, actor domain.User, id uuid.UUID) (domain.HouseholdDetail, error)
+	// SetPlace sets where the household lives (empty clears it). Any member may. It returns
+	// domain.ErrInvalid for a place that is too long or that the weather service doesn't know.
+	SetPlace(ctx context.Context, actor domain.User, id uuid.UUID, place string) (domain.HouseholdDetail, error)
 	Invite(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Invite, error)
 	Join(ctx context.Context, actor domain.User, code string) (domain.Membership, error)
 }
@@ -104,6 +107,11 @@ type MomentService interface {
 	// Video returns domain.ErrNotFound unless the actor can see the moment and its video.
 	Video(ctx context.Context, actor domain.User, id uuid.UUID) (domain.VideoStream, error)
 	DeleteVideo(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Moment, error)
+	// React sets the actor's emoji on a moment they can read, replacing their earlier one, and
+	// tells its author. The emoji must be one of domain.ReactionEmojis.
+	React(ctx context.Context, actor domain.User, id uuid.UUID, emoji string) (domain.Moment, error)
+	// Unreact takes the actor's emoji off.
+	Unreact(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Moment, error)
 }
 
 // EntrySyncService lets a calendar app (over CalDAV) or a notes app (over WebDAV) read and change
@@ -251,6 +259,13 @@ type WatchService interface {
 	// Tonight returns nil when nothing is picked for tonight.
 	Tonight(ctx context.Context, actor domain.User, householdID uuid.UUID) (*domain.TonightPick, error)
 	ClearTonight(ctx context.Context, actor domain.User, householdID uuid.UUID) error
+	// Night returns the actor's movie night: unseen films to swipe on and the films both partners liked.
+	Night(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.MovieNight, error)
+	// Swipe records whether the actor would watch one of their titles. It returns the match when
+	// the partner liked the same film, else nil.
+	Swipe(ctx context.Context, actor domain.User, householdID uuid.UUID, titleID string, liked bool) (*domain.NightMatch, error)
+	// ResetNight forgets everyone's swipes.
+	ResetNight(ctx context.Context, actor domain.User, householdID uuid.UUID) error
 	// Suggest returns ideas that fit the mood, from the actor's libraries when connected and from
 	// outside them; domain.ErrUnavailable without an LLM.
 	Suggest(ctx context.Context, actor domain.User, householdID uuid.UUID, mood, lang string) ([]domain.WatchIdea, error)
@@ -339,4 +354,19 @@ type AgentAccessService interface {
 	// returns its secret.
 	CreateToken(ctx context.Context, actor domain.User, householdID uuid.UUID, name string, access domain.TokenAccess) (domain.MCPToken, string, error)
 	DeleteToken(ctx context.Context, actor domain.User, id uuid.UUID) error
+}
+
+// DateNightService suggests evenings for the household.
+type DateNightService interface {
+	// Ideas returns a few ideas for the evening in q. The forecast is nil when the weather is
+	// unknown. It returns domain.ErrInvalid for a bad query and domain.ErrUnavailable when the LLM
+	// is down.
+	Ideas(ctx context.Context, actor domain.User, householdID uuid.UUID, q domain.DateQuery, lang string) (domain.DateNight, error)
+}
+
+// PlaceService suggests places while someone types one.
+type PlaceService interface {
+	// Search returns towns and cities matching the text; fewer than domain.MinPlaceQuery characters
+	// match nothing. It returns domain.ErrUnavailable when the search is down.
+	Search(ctx context.Context, actor domain.User, text, lang string) ([]domain.PlaceMatch, error)
 }
