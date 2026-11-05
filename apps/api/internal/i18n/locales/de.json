@@ -77,6 +77,8 @@
   "push.revealed.title": "{name} hat auch geantwortet",
   "push.watch_tonight.body": "{title}",
   "push.watch_tonight.title": "{name} hat was für heute Abend ausgesucht",
+  "push.watch_match.body": "{title}",
+  "push.watch_match.title": "Ihr wollt beide diesen Film sehen",
   "shopping.list": "Einkaufsliste",
   "voice.preview": "Hi, ich bin Homeloom. So klinge ich, wenn wir reden.",
   "error.invalid_video": "Wähl ein MP4- oder MOV-Video mit höchstens {max} MB.",

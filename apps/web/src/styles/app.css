@@ -481,6 +481,13 @@ html:has(.sheet-backdrop, .assistant) { overflow: hidden; }
 .chore-thank { color: var(--ink-muted); }
 .chore-thanked { color: var(--berry); }
 .chore-thanked svg path { fill: currentColor; }
+.night-deck { display: flex; flex-direction: column; gap: var(--space-4); align-items: center; }
+.night-card { display: flex; flex-direction: column; gap: var(--space-2); width: 100%; touch-action: pan-y; user-select: none; cursor: grab; }
+.night-card .watch-poster { width: 55%; align-self: center; }
+.night-summary { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.night-actions { display: flex; gap: var(--space-4); }
+.night-match { display: flex; flex-direction: column; gap: var(--space-3); align-items: flex-start; }
+.night-scenes { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .date-form { display: flex; flex-direction: column; gap: var(--space-3); }
 .date-idea { display: flex; flex-direction: column; gap: var(--space-1); }
 .date-weather { margin: 0; }

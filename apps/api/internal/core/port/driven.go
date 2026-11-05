@@ -414,6 +414,15 @@ type TonightRepository interface {
 	DeleteTonight(ctx context.Context, householdID uuid.UUID) error
 }
 
+// SwipeRepository keeps what members swiped on movie night. A member's swipe on a film replaces
+// their last one.
+type SwipeRepository interface {
+	SaveSwipe(ctx context.Context, s domain.Swipe) error
+	// Swipes returns the household's swipes made at or after since.
+	Swipes(ctx context.Context, householdID uuid.UUID, since time.Time) ([]domain.Swipe, error)
+	DeleteSwipes(ctx context.Context, householdID uuid.UUID) error
+}
+
 type WatchConnectionRepository interface {
 	// SaveWatchConnection replaces the person's connection.
 	SaveWatchConnection(ctx context.Context, c domain.WatchConnection) error

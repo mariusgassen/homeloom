@@ -30,9 +30,11 @@ type Watch struct {
 	critic port.Critic
 	// tonight is nil until WithTonight; picking for tonight is then unavailable.
 	tonight port.TonightRepository
-	notify  notifier
-	loc     *time.Location
-	now     func() time.Time
+	// swipes is nil until WithNight; movie night is then unavailable.
+	swipes port.SwipeRepository
+	notify notifier
+	loc    *time.Location
+	now    func() time.Time
 }
 
 // tonightEnds is the hour of the morning after a pick when it stops being tonight's.
@@ -52,6 +54,12 @@ func NewWatch(households port.HouseholdRepository, connections port.WatchConnect
 // and loc says when the night is over.
 func (s *Watch) WithTonight(tonight port.TonightRepository, notify notifier, loc *time.Location) *Watch {
 	s.tonight, s.notify, s.loc = tonight, notify, loc
+	return s
+}
+
+// WithNight lets the household's members swipe through films together.
+func (s *Watch) WithNight(swipes port.SwipeRepository) *Watch {
+	s.swipes = swipes
 	return s
 }
 
@@ -364,4 +372,141 @@ func (s *Watch) ready(ctx context.Context, actor domain.User, householdID uuid.U
 		return fmt.Errorf("%w: Plex is not configured", domain.ErrUnavailable)
 	}
 	return nil
+}
+
+// Movie night: each member swipes through the unseen films in their own libraries, and a film
+// both like is a match. Films are compared by name and year, so it works across Plex accounts and
+// servers. Swipes last until the morning, like tonight's pick.
+
+// nightStart is the last tonightEnds o'clock: swipes before it belong to an earlier night.
+func (s *Watch) nightStart() time.Time {
+	now := s.now().In(s.loc)
+	y, m, d := now.Date()
+	start := time.Date(y, m, d, tonightEnds, 0, 0, 0, s.loc)
+	if now.Before(start) {
+		start = start.AddDate(0, 0, -1)
+	}
+	return start
+}
+
+func (s *Watch) Night(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.MovieNight, error) {
+	if err := s.nightReady(ctx, actor, householdID); err != nil {
+		return domain.MovieNight{}, err
+	}
+	swipes, err := s.swipes.Swipes(ctx, householdID, s.nightStart())
+	if err != nil {
+		return domain.MovieNight{}, err
+	}
+	mine := map[string]domain.Swipe{}
+	theirs := map[string]bool{}
+	partners := map[uuid.UUID]bool{}
+	for _, w := range swipes {
+		if w.UserID == actor.ID {
+			mine[w.Key] = w
+		} else if w.Liked {
+			theirs[w.Key] = true
+		}
+	}
+	members, err := s.households.Members(ctx, householdID)
+	if err != nil {
+		return domain.MovieNight{}, err
+	}
+	for _, m := range members {
+		if m.User.ID != actor.ID {
+			partners[m.User.ID] = true
+		}
+	}
+	night := domain.MovieNight{Deck: []domain.Title{}, Matches: []domain.NightMatch{}, Partners: len(partners)}
+	var liked, rest []domain.Title
+	for _, t := range s.everything(ctx, actor) {
+		if t.Kind != domain.Movies || t.Watched {
+			continue
+		}
+		key := domain.FilmKey(t.Name, t.Year)
+		switch w, swiped := mine[key]; {
+		case swiped && w.Liked && theirs[key]:
+			night.Matches = append(night.Matches, domain.NightMatch{Title: t})
+		case swiped:
+		case theirs[key]:
+			liked = append(liked, t)
+		default:
+			rest = append(rest, t)
+		}
+	}
+	// What a partner liked comes first, so matches turn up quickly.
+	rand.Shuffle(len(rest), func(i, j int) { rest[i], rest[j] = rest[j], rest[i] }) //nolint:gosec // picking a film, not a secret
+	night.Deck = append(liked, rest...)
+	night.Deck = night.Deck[:min(domain.MaxNightDeck, len(night.Deck))]
+	return night, nil
+}
+
+func (s *Watch) Swipe(ctx context.Context, actor domain.User, householdID uuid.UUID, titleID string, liked bool) (*domain.NightMatch, error) {
+	token, err := s.token(ctx, actor, householdID)
+	if err != nil {
+		return nil, err
+	}
+	if s.swipes == nil {
+		return nil, fmt.Errorf("%w: movie night is not set up", domain.ErrUnavailable)
+	}
+	t, err := s.media.Title(ctx, token, titleID)
+	if err != nil {
+		return nil, unavailable(err)
+	}
+	if t.Kind != domain.Movies {
+		return nil, fmt.Errorf("%w: not a movie", domain.ErrNotFound)
+	}
+	key := domain.FilmKey(t.Name, t.Year)
+	err = s.swipes.SaveSwipe(ctx, domain.Swipe{
+		HouseholdID: householdID, UserID: actor.ID, Key: key, TitleID: t.ID, Name: t.Name, Year: t.Year, Liked: liked, SwipedAt: s.now(),
+	})
+	if err != nil || !liked {
+		return nil, err
+	}
+	swipes, err := s.swipes.Swipes(ctx, householdID, s.nightStart())
+	if err != nil {
+		return nil, err
+	}
+	for _, w := range swipes {
+		if w.UserID != actor.ID && w.Key == key && w.Liked {
+			s.notifyMatch(ctx, actor, householdID, t)
+			return &domain.NightMatch{Title: t}, nil
+		}
+	}
+	return nil, nil
+}
+
+func (s *Watch) ResetNight(ctx context.Context, actor domain.User, householdID uuid.UUID) error {
+	if err := s.nightReady(ctx, actor, householdID); err != nil {
+		return err
+	}
+	return s.swipes.DeleteSwipes(ctx, householdID)
+}
+
+// nightReady checks membership first, then that movie night is set up.
+func (s *Watch) nightReady(ctx context.Context, actor domain.User, householdID uuid.UUID) error {
+	if _, err := s.households.Role(ctx, householdID, actor.ID); err != nil {
+		return err
+	}
+	if s.swipes == nil || s.media == nil {
+		return fmt.Errorf("%w: movie night is not set up", domain.ErrUnavailable)
+	}
+	return nil
+}
+
+// notifyMatch tells the partner who swiped earlier that they agree on a film.
+func (s *Watch) notifyMatch(ctx context.Context, actor domain.User, householdID uuid.UUID, t domain.Title) {
+	members, err := s.households.Members(ctx, householdID)
+	if err != nil {
+		slog.WarnContext(ctx, "movie night: list members", "err", err)
+		return
+	}
+	var others []uuid.UUID
+	for _, m := range members {
+		if m.User.ID != actor.ID {
+			others = append(others, m.User.ID)
+		}
+	}
+	s.notify.Notify(ctx, others, domain.Notification{
+		Key: "push.watch_match", Args: []any{"title", t.Name}, URL: "/watch/night", Tag: "watch-match-" + householdID.String(),
+	})
 }

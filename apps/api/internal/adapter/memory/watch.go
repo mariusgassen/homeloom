@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -191,5 +192,34 @@ func (s *Store) DeleteTonight(_ context.Context, householdID uuid.UUID) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.tonight, householdID)
+	return nil
+}
+
+func (s *Store) SaveSwipe(_ context.Context, w domain.Swipe) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.swipes = slices.DeleteFunc(s.swipes, func(x domain.Swipe) bool {
+		return x.HouseholdID == w.HouseholdID && x.UserID == w.UserID && x.Key == w.Key
+	})
+	s.swipes = append(s.swipes, w)
+	return nil
+}
+
+func (s *Store) Swipes(_ context.Context, householdID uuid.UUID, since time.Time) ([]domain.Swipe, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []domain.Swipe
+	for _, w := range s.swipes {
+		if w.HouseholdID == householdID && !w.SwipedAt.Before(since) {
+			out = append(out, w)
+		}
+	}
+	return out, nil
+}
+
+func (s *Store) DeleteSwipes(_ context.Context, householdID uuid.UUID) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.swipes = slices.DeleteFunc(s.swipes, func(x domain.Swipe) bool { return x.HouseholdID == householdID })
 	return nil
 }
