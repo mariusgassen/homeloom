@@ -46,6 +46,7 @@ fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .today-tile-icon { width: 44px; height: 44px; display: grid; place-items: center; border-radius: var(--radius-md); background: var(--spruce-tint); color: var(--spruce); flex: none; }
 .today-tile-text { display: flex; flex-direction: column; gap: 2px; flex-grow: 1; min-width: 0; }
 .today-tile-text .label { color: var(--ink-muted); text-transform: uppercase; }
+.today-trips .today-tile-icon { background: color-mix(in srgb, var(--spruce) 14%, transparent); color: var(--spruce); }
 .today-watch .today-tile-icon { background: color-mix(in srgb, var(--saffron) 18%, transparent); color: var(--ink); }
 .today-thanks .today-tile-icon { background: color-mix(in srgb, var(--berry) 14%, transparent); color: var(--berry); }
 .today-memory { display: flex; flex-direction: column; width: 100%; padding: 0; border: 0; border-radius: var(--radius-lg); background: var(--surface-raised); color: var(--ink); font: inherit; text-align: left; overflow: hidden; cursor: pointer; -webkit-tap-highlight-color: transparent; }
@@ -477,3 +478,31 @@ html:has(.sheet-backdrop, .assistant) { overflow: hidden; }
 .chore-thank { color: var(--ink-muted); }
 .chore-thanked { color: var(--berry); }
 .chore-thanked svg path { fill: currentColor; }
+
+/* Trips: a cover in the list, a place as a card with its photos side by side. */
+.trip-cover { flex: none; width: 44px; height: 44px; border-radius: var(--radius-sm); object-fit: cover; background: var(--surface-sunken); }
+.trip-cover-empty { display: grid; place-items: center; color: var(--ink-muted); }
+.trip-notes { margin: 0 var(--space-1); font: 400 17px/24px var(--font-text); white-space: pre-wrap; overflow-wrap: anywhere; }
+.trip-options { display: flex; flex-direction: column; gap: var(--space-3); }
+.trip-option { display: flex; flex-direction: column; gap: var(--space-2); overflow: hidden; }
+.trip-option-chosen { box-shadow: inset 0 0 0 2px var(--spruce); }
+.trip-photos { display: flex; gap: var(--space-2); overflow-x: auto; scroll-snap-type: x mandatory; margin: calc(var(--space-4) * -1) calc(var(--space-4) * -1) 0; scrollbar-width: none; }
+.trip-photos::-webkit-scrollbar { display: none; }
+.trip-photos a { flex: none; width: 82%; scroll-snap-align: start; }
+.trip-photos a:only-child { width: 100%; }
+.trip-photos img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--surface-sunken); }
+.trip-option-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.trip-option-head .hl-card-title { margin: 0; overflow-wrap: anywhere; }
+.trip-badge { color: var(--spruce); }
+.trip-link { color: var(--spruce); overflow-wrap: anywhere; }
+.trip-option-actions { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.trip-option-actions > :last-child { margin-left: auto; }
+.trip-vote { display: inline-flex; align-items: center; gap: var(--space-1); min-height: 36px; padding: 0 var(--space-3); border: 0; border-radius: 999px; background: var(--surface-sunken); color: var(--ink); font: 600 15px/20px var(--font-text); cursor: pointer; }
+.trip-vote-on { background: color-mix(in srgb, var(--spruce) 16%, transparent); color: var(--spruce); }
+.trip-packed { color: var(--ink-muted); text-decoration: line-through; }
+.trip-add { display: flex; gap: var(--space-2); align-items: center; margin-top: var(--space-2); }
+.trip-add .input { flex: 1; min-width: 0; }
+.trip-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.trip-thumbs li { position: relative; }
+.trip-thumbs img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-sm); background: var(--surface-sunken); }
+.trip-thumb-x { position: absolute; top: 4px; right: 4px; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 50%; background: color-mix(in srgb, var(--ink) 70%, transparent); color: var(--surface); cursor: pointer; }

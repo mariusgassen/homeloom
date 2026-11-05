@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.33.0
+  version: 0.34.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -31,6 +31,7 @@ tags:
   - name: shopping
   - name: chores
   - name: budget
+  - name: trips
   - name: home
   - name: watch
   - name: push
@@ -1561,6 +1562,298 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  /v1/households/{householdId}/trips:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [trips]
+      operationId: listTrips
+      summary: The household's trips with their options, votes and packing lists (members only)
+      description: Soonest start first; trips without dates last. At most 50.
+      responses:
+        "200":
+          description: The trips.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Trip" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [trips]
+      operationId: createTrip
+      summary: Start planning a trip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TripFields" }
+      responses:
+        "201":
+          description: The new trip.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/TripFull" }
+
+  /v1/households/{householdId}/trips/{tripId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/TripId"
+    put:
+      tags: [trips]
+      operationId: updateTrip
+      summary: Change a trip, or decide on one of its options
+      description: Trips are shared, so every member can change them. `chosenOptionId` must be one of the trip's options.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TripFields" }
+      responses:
+        "200":
+          description: The trip.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [trips]
+      operationId: deleteTrip
+      summary: Delete a trip with its options, photos and packing list
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/trips/{tripId}/options:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/TripId"
+    post:
+      tags: [trips]
+      operationId: addTripOption
+      summary: Add a place or plan to weigh up (at most 20 per trip)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TripOptionFields" }
+      responses:
+        "201":
+          description: The trip with the new option.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/TripFull" }
+
+  /v1/households/{householdId}/trips/{tripId}/options/{optionId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/TripId"
+      - $ref: "#/components/parameters/OptionId"
+    put:
+      tags: [trips]
+      operationId: updateTripOption
+      summary: Change an option
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TripOptionFields" }
+      responses:
+        "200":
+          description: The trip.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [trips]
+      operationId: deleteTripOption
+      summary: Remove an option with its photos and votes
+      responses:
+        "200":
+          description: The trip without the option.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/trips/{tripId}/options/{optionId}/vote:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/TripId"
+      - $ref: "#/components/parameters/OptionId"
+    put:
+      tags: [trips]
+      operationId: voteTripOption
+      summary: Make this option your favourite of the trip
+      description: Each member has one favourite per trip; this moves yours here.
+      responses:
+        "200":
+          description: The trip.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/trips/{tripId}/vote:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/TripId"
+    delete:
+      tags: [trips]
+      operationId: unvoteTrip
+      summary: Take back your favourite of the trip
+      responses:
+        "200":
+          description: The trip.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/trips/{tripId}/options/{optionId}/photos:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/TripId"
+      - $ref: "#/components/parameters/OptionId"
+    post:
+      tags: [trips]
+      operationId: addTripPhoto
+      summary: Add a photo to an option
+      description: A JPEG of at most 5 MB, kept in S3, at most 12 per option; `503 photos_unavailable` when S3 isn't set up or reachable.
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+      responses:
+        "201":
+          description: The trip with the photo.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/TripFull" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/trips/{tripId}/photos/{photoId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/TripId"
+      - $ref: "#/components/parameters/PhotoId"
+    get:
+      tags: [trips]
+      operationId: getTripPhoto
+      summary: A photo of an option
+      description: Use the photo's `url`; a photo never changes, so the answer may be cached.
+      responses:
+        "200":
+          description: The photo.
+          headers:
+            Cache-Control:
+              schema: { type: string }
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [trips]
+      operationId: deleteTripPhoto
+      summary: Remove a photo
+      responses:
+        "200":
+          description: The trip without the photo.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/trips/{tripId}/packing:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/TripId"
+    post:
+      tags: [trips]
+      operationId: addPackingItem
+      summary: Add something to pack (at most 200 per trip)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PackingFields" }
+      responses:
+        "201":
+          description: The trip with the new item.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/TripFull" }
+
+  /v1/households/{householdId}/trips/{tripId}/packing/{itemId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/TripId"
+      - $ref: "#/components/parameters/PackingItemId"
+    put:
+      tags: [trips]
+      operationId: updatePackingItem
+      summary: Change or tick off something to pack
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PackingFields" }
+      responses:
+        "200":
+          description: The trip.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [trips]
+      operationId: deletePackingItem
+      summary: Remove something from the packing list
+      responses:
+        "200":
+          description: The trip.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/households/{householdId}/balance:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -2475,6 +2768,26 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    TripId:
+      name: tripId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    OptionId:
+      name: optionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    PhotoId:
+      name: photoId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    PackingItemId:
+      name: itemId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     ChoreId:
       name: choreId
       in: path
@@ -2524,6 +2837,12 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
+    TripFull:
+      description: That list has reached its limit (code `trip_full`).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
     Unavailable:
       description: A dependency (authentik, Redis, Mealie, Home Assistant, Web Push, the LLM, LiveKit) cannot be reached or isn't set up.
       content:
@@ -3049,6 +3368,85 @@ components:
         rotate: { type: boolean, description: Each time it is done it becomes the next member's turn. }
         assigneeId: { type: string, format: uuid, description: "Whose turn it is; absent means anyone's." }
         dueOn: { type: string, format: date, description: "The day it is due; today when absent." }
+
+    TripFields:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        destination: { type: string, maxLength: 80 }
+        startOn: { type: string, format: date }
+        endOn: { type: string, format: date, description: On or after `startOn`. }
+        notes: { type: string, maxLength: 1000 }
+        chosenOptionId: { type: string, format: uuid, description: The option the household decided on; one of the trip's options. }
+
+    TripOptionFields:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 100 }
+        url: { type: string, maxLength: 500, description: A link to the listing, http or https. }
+        notes: { type: string, maxLength: 1000 }
+
+    TripPhoto:
+      type: object
+      required: [id, url]
+      properties:
+        id: { type: string, format: uuid }
+        url: { type: string, description: Where to get the photo. }
+
+    TripOption:
+      type: object
+      required: [id, title, photos, votes]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        url: { type: string }
+        notes: { type: string }
+        photos:
+          type: array
+          description: Oldest first; the first is the cover.
+          items: { $ref: "#/components/schemas/TripPhoto" }
+        votes:
+          type: array
+          description: The members whose favourite this is.
+          items: { type: string, format: uuid }
+        addedBy: { type: string, format: uuid, description: Absent once they left. }
+
+    PackingFields:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, minLength: 1, maxLength: 100 }
+        done: { type: boolean, description: Packed already; false when absent. }
+
+    PackingItem:
+      type: object
+      required: [id, text, done]
+      properties:
+        id: { type: string, format: uuid }
+        text: { type: string }
+        done: { type: boolean }
+
+    Trip:
+      type: object
+      required: [id, name, options, packing, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        destination: { type: string }
+        startOn: { type: string, format: date }
+        endOn: { type: string, format: date }
+        notes: { type: string }
+        chosenOptionId: { type: string, format: uuid }
+        options:
+          type: array
+          items: { $ref: "#/components/schemas/TripOption" }
+        packing:
+          type: array
+          description: Oldest first.
+          items: { $ref: "#/components/schemas/PackingItem" }
+        createdAt: { type: string, format: date-time }
 
     Chore:
       type: object

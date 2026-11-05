@@ -203,6 +203,29 @@ type ChoreService interface {
 	Fairness(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.ChoreFairness, error)
 }
 
+// TripService is the household's trips: where to, when, the places it is weighing up with their
+// photos, who favours which, and what to pack. Every mutation returns the trip as it is then.
+type TripService interface {
+	// List returns the trips, soonest start first.
+	List(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.Trip, error)
+	Create(ctx context.Context, actor domain.User, householdID uuid.UUID, f domain.TripFields) (domain.Trip, error)
+	Update(ctx context.Context, actor domain.User, householdID, id uuid.UUID, f domain.TripFields) (domain.Trip, error)
+	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
+	AddOption(ctx context.Context, actor domain.User, householdID, tripID uuid.UUID, f domain.TripOptionFields) (domain.Trip, error)
+	UpdateOption(ctx context.Context, actor domain.User, householdID, tripID, optionID uuid.UUID, f domain.TripOptionFields) (domain.Trip, error)
+	DeleteOption(ctx context.Context, actor domain.User, householdID, tripID, optionID uuid.UUID) (domain.Trip, error)
+	// Vote makes the option the actor's favourite of the trip; Unvote takes it back.
+	Vote(ctx context.Context, actor domain.User, householdID, tripID, optionID uuid.UUID) (domain.Trip, error)
+	Unvote(ctx context.Context, actor domain.User, householdID, tripID uuid.UUID) (domain.Trip, error)
+	// AddPhoto adds a photo to an option. It returns domain.ErrUnavailable when photos aren't kept.
+	AddPhoto(ctx context.Context, actor domain.User, householdID, tripID, optionID uuid.UUID, p domain.Photo) (domain.Trip, error)
+	Photo(ctx context.Context, actor domain.User, householdID, tripID, photoID uuid.UUID) (domain.Photo, error)
+	DeletePhoto(ctx context.Context, actor domain.User, householdID, tripID, photoID uuid.UUID) (domain.Trip, error)
+	AddPacking(ctx context.Context, actor domain.User, householdID, tripID uuid.UUID, text string) (domain.Trip, error)
+	UpdatePacking(ctx context.Context, actor domain.User, householdID, tripID, itemID uuid.UUID, f domain.PackingFields) (domain.Trip, error)
+	DeletePacking(ctx context.Context, actor domain.User, householdID, tripID, itemID uuid.UUID) (domain.Trip, error)
+}
+
 type HomeService interface {
 	// Connect starts the actor's sign-in at Home Assistant and returns where to send the browser.
 	Connect(ctx context.Context, actor domain.User, householdID uuid.UUID) (string, error)

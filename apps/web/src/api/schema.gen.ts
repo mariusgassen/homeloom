@@ -1103,6 +1103,230 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/trips": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The household's trips with their options, votes and packing lists (members only)
+         * @description Soonest start first; trips without dates last. At most 50.
+         */
+        get: operations["listTrips"];
+        put?: never;
+        /** Start planning a trip */
+        post: operations["createTrip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/trips/{tripId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a trip, or decide on one of its options
+         * @description Trips are shared, so every member can change them. `chosenOptionId` must be one of the trip's options.
+         */
+        put: operations["updateTrip"];
+        post?: never;
+        /** Delete a trip with its options, photos and packing list */
+        delete: operations["deleteTrip"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/trips/{tripId}/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a place or plan to weigh up (at most 20 per trip) */
+        post: operations["addTripOption"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/trips/{tripId}/options/{optionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+                optionId: components["parameters"]["OptionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Change an option */
+        put: operations["updateTripOption"];
+        post?: never;
+        /** Remove an option with its photos and votes */
+        delete: operations["deleteTripOption"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/trips/{tripId}/options/{optionId}/vote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+                optionId: components["parameters"]["OptionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Make this option your favourite of the trip
+         * @description Each member has one favourite per trip; this moves yours here.
+         */
+        put: operations["voteTripOption"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/trips/{tripId}/vote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Take back your favourite of the trip */
+        delete: operations["unvoteTrip"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/trips/{tripId}/options/{optionId}/photos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+                optionId: components["parameters"]["OptionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a photo to an option
+         * @description A JPEG of at most 5 MB, kept in S3, at most 12 per option; `503 photos_unavailable` when S3 isn't set up or reachable.
+         */
+        post: operations["addTripPhoto"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/trips/{tripId}/photos/{photoId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+                photoId: components["parameters"]["PhotoId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A photo of an option
+         * @description Use the photo's `url`; a photo never changes, so the answer may be cached.
+         */
+        get: operations["getTripPhoto"];
+        put?: never;
+        post?: never;
+        /** Remove a photo */
+        delete: operations["deleteTripPhoto"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/trips/{tripId}/packing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add something to pack (at most 200 per trip) */
+        post: operations["addPackingItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/trips/{tripId}/packing/{itemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+                itemId: components["parameters"]["PackingItemId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Change or tick off something to pack */
+        put: operations["updatePackingItem"];
+        post?: never;
+        /** Remove something from the packing list */
+        delete: operations["deletePackingItem"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/balance": {
         parameters: {
             query?: never;
@@ -2414,6 +2638,80 @@ export interface components {
              */
             dueOn?: string;
         };
+        TripFields: {
+            name: string;
+            destination?: string;
+            /** Format: date */
+            startOn?: string;
+            /**
+             * Format: date
+             * @description On or after `startOn`.
+             */
+            endOn?: string;
+            notes?: string;
+            /**
+             * Format: uuid
+             * @description The option the household decided on; one of the trip's options.
+             */
+            chosenOptionId?: string;
+        };
+        TripOptionFields: {
+            title: string;
+            /** @description A link to the listing */
+            url?: string;
+            notes?: string;
+        };
+        TripPhoto: {
+            /** Format: uuid */
+            id: string;
+            /** @description Where to get the photo. */
+            url: string;
+        };
+        TripOption: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            url?: string;
+            notes?: string;
+            /** @description Oldest first; the first is the cover. */
+            photos: components["schemas"]["TripPhoto"][];
+            /** @description The members whose favourite this is. */
+            votes: string[];
+            /**
+             * Format: uuid
+             * @description Absent once they left.
+             */
+            addedBy?: string;
+        };
+        PackingFields: {
+            text: string;
+            /** @description Packed already; false when absent. */
+            done?: boolean;
+        };
+        PackingItem: {
+            /** Format: uuid */
+            id: string;
+            text: string;
+            done: boolean;
+        };
+        Trip: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            destination?: string;
+            /** Format: date */
+            startOn?: string;
+            /** Format: date */
+            endOn?: string;
+            notes?: string;
+            /** Format: uuid */
+            chosenOptionId?: string;
+            options: components["schemas"]["TripOption"][];
+            /** @description Oldest first. */
+            packing: components["schemas"]["PackingItem"][];
+            /** Format: date-time */
+            createdAt: string;
+        };
         Chore: {
             /** Format: uuid */
             id: string;
@@ -2804,6 +3102,15 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description That list has reached its limit (code `trip_full`). */
+        TripFull: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description A dependency (authentik, Redis, Mealie, Home Assistant, Web Push, the LLM, LiveKit) cannot be reached or isn't set up. */
         Unavailable: {
             headers: {
@@ -2821,6 +3128,10 @@ export interface components {
         CallId: string;
         ShoppingItemId: string;
         ExpenseId: string;
+        TripId: string;
+        OptionId: string;
+        PhotoId: string;
+        PackingItemId: string;
         ChoreId: string;
         CompletionId: string;
         ConversationId: string;
@@ -4955,6 +5266,431 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             503: components["responses"]["Unavailable"];
+        };
+    };
+    listTrips: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The trips. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createTrip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TripFields"];
+            };
+        };
+        responses: {
+            /** @description The new trip. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["TripFull"];
+        };
+    };
+    updateTrip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TripFields"];
+            };
+        };
+        responses: {
+            /** @description The trip. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    deleteTrip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    addTripOption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TripOptionFields"];
+            };
+        };
+        responses: {
+            /** @description The trip with the new option. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["TripFull"];
+        };
+    };
+    updateTripOption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+                optionId: components["parameters"]["OptionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TripOptionFields"];
+            };
+        };
+        responses: {
+            /** @description The trip. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteTripOption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+                optionId: components["parameters"]["OptionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The trip without the option. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    voteTripOption: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+                optionId: components["parameters"]["OptionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The trip. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    unvoteTrip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The trip. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addTripPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+                optionId: components["parameters"]["OptionId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            /** @description The trip with the photo. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["TripFull"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getTripPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+                photoId: components["parameters"]["PhotoId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The photo. */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    deleteTripPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+                photoId: components["parameters"]["PhotoId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The trip without the photo. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    addPackingItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackingFields"];
+            };
+        };
+        responses: {
+            /** @description The trip with the new item. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["TripFull"];
+        };
+    };
+    updatePackingItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+                itemId: components["parameters"]["PackingItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackingFields"];
+            };
+        };
+        responses: {
+            /** @description The trip. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deletePackingItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                tripId: components["parameters"]["TripId"];
+                itemId: components["parameters"]["PackingItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The trip. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Trip"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
         };
     };
     getBalance: {

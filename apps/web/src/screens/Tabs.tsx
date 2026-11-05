@@ -6,6 +6,7 @@ import { completeChore, dueToday as choreDueToday, useChores } from "../chores";
 import { dueToday, useEntries } from "../entries";
 import { nextDays, useMealPlan } from "../meals";
 import { nextBill, useBalance, useMoney, useStanding } from "../money";
+import { nextTrip, useTrips, useTripDates } from "../trips";
 import { dayOf, useResurfaced } from "../moments";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
@@ -70,6 +71,7 @@ export function Today() {
       <Dinner household={household} />
       <Watch household={household} />
       <Money household={household} me={me} />
+      <TodayTrip household={household} />
       <TodayMoment household={household} me={me} />
       {adding && (
         <EntrySheet
@@ -329,6 +331,29 @@ function Money({ household, me }: { household: HouseholdDetail; me: User }) {
         {bill?.bill && bill.dueAt && (
           <span className="caption muted">{t("today.money.bill", { name: bill.text, amount: money(bill.bill.cents), when: moment(bill.dueAt) })}</span>
         )}
+      </span>
+      <Icon name="chevron" size="sm" />
+    </button>
+  );
+}
+
+// The trip coming up next, or a nudge to start planning one.
+function TodayTrip({ household }: { household: HouseholdDetail }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { trips } = useTrips(household.id);
+  const dates = useTripDates();
+  if (!trips) return null;
+  const trip = nextTrip(trips);
+  return (
+    <button type="button" className="today-tile today-trips" onClick={() => navigate(trip ? `/trips/${trip.id}` : "/trips")}>
+      <span className="today-tile-icon">
+        <Icon name="suitcase" />
+      </span>
+      <span className="today-tile-text">
+        <span className="label">{t("today.trips.eyebrow")}</span>
+        <span className="headline">{trip ? trip.name : t("today.trips.title")}</span>
+        {trip && <span className="caption muted">{[trip.destination, dates(trip)].filter(Boolean).join(" · ")}</span>}
       </span>
       <Icon name="chevron" size="sm" />
     </button>

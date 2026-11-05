@@ -18,6 +18,7 @@ import { Lists } from "./screens/Lists";
 import { NotePage } from "./screens/NotePage";
 import { Today, Us } from "./screens/Tabs";
 import { Money } from "./screens/Money";
+import { TripPage, Trips } from "./screens/Trips";
 import { Watch } from "./screens/Watch";
 import { Loading, Unavailable, Welcome } from "./screens/Welcome";
 import { useSession } from "./session";
@@ -74,6 +75,8 @@ export function App() {
               <Route path="/us" element={<Us />} />
               <Route path="/watch" element={<Watch />} />
               <Route path="/money" element={<Money />} />
+              <Route path="/trips" element={<Trips />} />
+              <Route path="/trips/:id" element={<TripPage />} />
               <Route path="/lists" element={<Lists />} />
               <Route path="/lists/notes/:id" element={<NotePage />} />
               <Route path="/chores" element={<Chores />} />
