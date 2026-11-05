@@ -21,6 +21,7 @@ import { Lists } from "./screens/Lists";
 import { NotePage } from "./screens/NotePage";
 import { Today, Us } from "./screens/Tabs";
 import { Money } from "./screens/Money";
+import { TripPage, Trips } from "./screens/Trips";
 import { DateNight } from "./screens/DateNight";
 import { Watch } from "./screens/Watch";
 import { WatchNight } from "./screens/WatchNight";
@@ -82,6 +83,8 @@ export function App() {
               <Route path="/watch/night" element={<WatchNight />} />
               <Route path="/date-night" element={<DateNight />} />
               <Route path="/money" element={<Money />} />
+              <Route path="/trips" element={<Trips />} />
+              <Route path="/trips/:id" element={<TripPage />} />
               <Route path="/lists" element={<Lists />} />
               <Route path="/lists/notes/:id" element={<NotePage />} />
               <Route path="/chores" element={<Chores />} />

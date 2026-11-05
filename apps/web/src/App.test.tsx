@@ -1175,6 +1175,37 @@ test("the chores page shows who did what and thanks into the gratitude wall", as
   expect(await post?.json()).toEqual({ gratitude: "Thank you, Jo, for “Bins”." });
 });
 
+test("a trip shows its places, takes a favourite and keeps a packing list", async () => {
+  const optionId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+  const tripId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+  const trip = (votes: string[], done = false) => ({
+    id: tripId,
+    name: "Summer",
+    destination: "Italy",
+    startOn: "2027-07-01",
+    endOn: "2027-07-14",
+    createdAt: "2026-01-01T08:00:00Z",
+    options: [{ id: optionId, title: "Villa by the lake", url: "https://www.example.com/villa", photos: [{ id: "ffffffff-ffff-4fff-8fff-ffffffffffff", url: `/v1/households/${home.id}/trips/${tripId}/photos/ffffffff-ffff-4fff-8fff-ffffffffffff` }], votes }],
+    packing: [{ id: "99999999-9999-4999-8999-999999999999", text: "Sunscreen", done }],
+  });
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/trips`, () => json([trip([])])),
+    at("PUT", `/v1/households/${home.id}/trips/${tripId}/options/${optionId}/vote`, () => json(trip([marius.id]))),
+    at("PUT", `/v1/households/${home.id}/trips/${tripId}/packing/99999999-9999-4999-8999-999999999999`, () => json(trip([marius.id], true))),
+  );
+  renderApp(`/trips/${tripId}`);
+  expect(await screen.findByRole("heading", { level: 1, name: "Summer" })).toBeInTheDocument();
+  expect(screen.getByText("Villa by the lake")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "example.com" })).toHaveAttribute("href", "https://www.example.com/villa");
+  await userEvent.click(screen.getByRole("button", { name: "My favourite" }));
+  expect(await screen.findByRole("button", { name: "My favourite", pressed: true })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("checkbox", { name: "Sunscreen" }));
+  expect(await screen.findByText("1 of 1 packed")).toBeInTheDocument();
+  const tick = calls.find((c) => c.method === "PUT" && c.url.endsWith("/packing/99999999-9999-4999-8999-999999999999"));
+  expect(await tick?.json()).toEqual({ text: "Sunscreen", done: true });
+});
+
 test("today greets you and brings back a thank-you", async () => {
   serve(
     ...signedIn(),

@@ -216,6 +216,10 @@ func run() error {
 	if bucket != nil {
 		moments.WithPhotos(bucket).WithVideos(bucket)
 	}
+	trips := service.NewTrips(store, store)
+	if bucket != nil {
+		trips.WithPhotos(bucket)
+	}
 	// The vault keeps its files in S3 only; without it the rest of the app works.
 	var vaultFiles port.FileStore
 	if bucket != nil {
@@ -247,6 +251,7 @@ func run() error {
 		Cook:           cook,
 		Shopping:       shopping,
 		Chores:         chores,
+		Trips:          trips,
 		Documents:      documents,
 		Budget:         budget,
 		Wishes:         wishes,

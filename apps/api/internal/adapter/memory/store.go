@@ -62,6 +62,7 @@ type Store struct {
 	voices map[uuid.UUID]domain.VoiceSettings
 
 	chores           []domain.Chore
+	trips            []domain.Trip
 	documents        []domain.Document
 	choreCompletions []domain.ChoreCompletion
 	expenses         []domain.Expense

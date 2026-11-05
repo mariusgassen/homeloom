@@ -189,6 +189,33 @@ type MomentRepository interface {
 	ClearMomentVideo(ctx context.Context, id uuid.UUID) error
 }
 
+// TripRepository keeps the household's trips with their options, votes and packing lists. Calls
+// that name a trip or one of its parts return domain.ErrNotFound when it isn't in the household.
+type TripRepository interface {
+	// Trips returns the household's trips in full, soonest start first and trips without dates last.
+	Trips(ctx context.Context, householdID uuid.UUID, limit int) ([]domain.Trip, error)
+	Trip(ctx context.Context, householdID, id uuid.UUID) (domain.Trip, error)
+	CreateTrip(ctx context.Context, t domain.Trip) (domain.Trip, error)
+	// UpdateTrip stores the trip's fields.
+	UpdateTrip(ctx context.Context, t domain.Trip) (domain.Trip, error)
+	DeleteTrip(ctx context.Context, householdID, id uuid.UUID) error
+
+	CreateTripOption(ctx context.Context, o domain.TripOption) (domain.TripOption, error)
+	UpdateTripOption(ctx context.Context, tripID uuid.UUID, o domain.TripOption) error
+	// DeleteTripOption also drops its photos and votes, and un-chooses it.
+	DeleteTripOption(ctx context.Context, tripID, id uuid.UUID) error
+
+	// SetTripVote makes the option the user's favourite of the trip; nil takes the vote back.
+	SetTripVote(ctx context.Context, tripID, userID uuid.UUID, optionID *uuid.UUID) error
+
+	CreateTripPhoto(ctx context.Context, p domain.TripPhoto) (domain.TripPhoto, error)
+	DeleteTripPhoto(ctx context.Context, optionID, id uuid.UUID) error
+
+	CreatePackingItem(ctx context.Context, tripID uuid.UUID, text string) (domain.PackingItem, error)
+	UpdatePackingItem(ctx context.Context, tripID, id uuid.UUID, f domain.PackingFields) error
+	DeletePackingItem(ctx context.Context, tripID, id uuid.UUID) error
+}
+
 // PhotoStore keeps photos outside the database (S3), under keys the service chooses. GetPhoto
 // returns domain.ErrNotFound for a key it doesn't hold; deleting a missing key is no error.
 type PhotoStore interface {

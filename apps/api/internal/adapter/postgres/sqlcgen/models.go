@@ -323,6 +323,49 @@ type ShoppingItem struct {
 	Aisle       string
 }
 
+type Trip struct {
+	ID             uuid.UUID
+	HouseholdID    uuid.UUID
+	Name           string
+	Destination    string
+	StartOn        *time.Time
+	EndOn          *time.Time
+	Notes          string
+	ChosenOptionID *uuid.UUID
+	CreatedBy      *uuid.UUID
+	CreatedAt      time.Time
+}
+
+type TripOption struct {
+	ID        uuid.UUID
+	TripID    uuid.UUID
+	Title     string
+	Url       string
+	Notes     string
+	AddedBy   *uuid.UUID
+	CreatedAt time.Time
+}
+
+type TripPacking struct {
+	ID        uuid.UUID
+	TripID    uuid.UUID
+	Text      string
+	Done      bool
+	CreatedAt time.Time
+}
+
+type TripPhoto struct {
+	ID        uuid.UUID
+	OptionID  uuid.UUID
+	CreatedAt time.Time
+}
+
+type TripVote struct {
+	TripID   uuid.UUID
+	UserID   uuid.UUID
+	OptionID uuid.UUID
+}
+
 type User struct {
 	ID           uuid.UUID
 	AuthentikSub string

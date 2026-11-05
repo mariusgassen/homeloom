@@ -28,5 +28,6 @@ func TestMCPTokens(t *testing.T)           { storetest.MCPTokens(t, memory.NewSt
 func TestMoments(t *testing.T)             { storetest.Moments(t, memory.NewStore()) }
 func TestVoiceSettings(t *testing.T)       { storetest.VoiceSettings(t, memory.NewStore()) }
 func TestChores(t *testing.T)              { storetest.Chores(t, memory.NewStore()) }
+func TestTrips(t *testing.T)               { storetest.Trips(t, memory.NewStore()) }
 func TestDocuments(t *testing.T)           { storetest.Documents(t, memory.NewStore()) }
 func TestWishes(t *testing.T)              { storetest.Wishes(t, memory.NewStore()) }
