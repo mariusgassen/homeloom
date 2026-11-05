@@ -7,11 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"golang.org/x/text/language"
 	"net/http"
 	"time"
 
 	"github.com/SherClockHolmes/webpush-go"
+	"golang.org/x/text/language"
 
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/domain"
 	"github.com/mariusgassen/homeloom/apps/api/internal/i18n"
