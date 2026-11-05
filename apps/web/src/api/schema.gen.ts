@@ -205,6 +205,96 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/birthday": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set your own birthday
+         * @description Month and day only; the household sees it, so the others can think of a gift in time.
+         */
+        put: operations["setBirthday"];
+        post?: never;
+        /** Remove your own birthday */
+        delete: operations["deleteBirthday"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/gifts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Your gift ideas and the birthdays they are for (members only)
+         * @description Gift ideas are private to whoever wrote them: this lists only the caller's own, and nothing
+         *     in the API, the assistant or a notification shows an idea to anyone else.
+         */
+        get: operations["getGifts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/gifts/ideas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Keep a gift idea for another member (private to you) */
+        post: operations["addGiftIdea"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/gifts/ideas/{ideaId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                ideaId: components["parameters"]["GiftIdeaId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete one of your ideas
+         * @description Someone else's idea is not found.
+         */
+        delete: operations["deleteGiftIdea"];
+        options?: never;
+        head?: never;
+        /**
+         * Mark one of your ideas as given, or as an idea again
+         * @description Someone else's idea is not found.
+         */
+        patch: operations["updateGiftIdea"];
+        trace?: never;
+    };
     "/v1/me/voice": {
         parameters: {
             query?: never;
@@ -3219,6 +3309,56 @@ export interface components {
              */
             dueOn?: string;
         };
+        Birthday: {
+            month: number;
+            day: number;
+        };
+        GiftIdea: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * Format: uuid
+             * @description The member it is for.
+             */
+            forId: string;
+            text: string;
+            given: boolean;
+            /** Format: date-time */
+            givenAt?: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        NewGiftIdea: {
+            /**
+             * Format: uuid
+             * @description Another member of the household.
+             */
+            forId: string;
+            text: string;
+        };
+        GiftIdeaUpdate: {
+            given: boolean;
+        };
+        GiftPerson: {
+            user: components["schemas"]["User"];
+            birthday?: components["schemas"]["Birthday"];
+            /**
+             * Format: date
+             * @description Their next birthday. Absent without a birthday.
+             */
+            next?: string;
+            /** @description How many days until `next`; 0 is today. Absent without a birthday. */
+            days?: number;
+            /** @description How many of your own open ideas are for them. */
+            ideas: number;
+        };
+        Gifts: {
+            myBirthday?: components["schemas"]["Birthday"];
+            /** @description The other members, soonest birthday first. */
+            people: components["schemas"]["GiftPerson"][];
+            /** @description Only the caller's own ideas, open ones first. */
+            ideas: components["schemas"]["GiftIdea"][];
+        };
         TripFields: {
             name: string;
             destination?: string;
@@ -3801,6 +3941,7 @@ export interface components {
         BucketItemId: string;
         ShoppingItemId: string;
         ExpenseId: string;
+        GiftIdeaId: string;
         TripId: string;
         OptionId: string;
         PhotoId: string;
@@ -4075,6 +4216,154 @@ export interface operations {
                 };
                 content: {
                     "image/jpeg": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    setBirthday: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Birthday"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    deleteBirthday: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    getGifts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Your birthday, the other members soonest birthday first, and your own ideas. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Gifts"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addGiftIdea: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewGiftIdea"];
+            };
+        };
+        responses: {
+            /** @description The idea. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GiftIdea"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteGiftIdea: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                ideaId: components["parameters"]["GiftIdeaId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateGiftIdea: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                ideaId: components["parameters"]["GiftIdeaId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GiftIdeaUpdate"];
+            };
+        };
+        responses: {
+            /** @description The idea. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GiftIdea"];
                 };
             };
             401: components["responses"]["Unauthorized"];

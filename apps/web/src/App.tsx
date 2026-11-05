@@ -12,6 +12,7 @@ import { Settings } from "./screens/Settings";
 import { RefreshProvider } from "./refresh";
 import { Bucket } from "./screens/Bucket";
 import { Chores } from "./screens/Chores";
+import { Gifts } from "./screens/Gifts";
 import { Documents } from "./screens/Documents";
 import { Wishes } from "./screens/Wishes";
 import { Cook, RecipeScreen } from "./screens/Cook";
@@ -90,6 +91,7 @@ export function App() {
               <Route path="/lists/notes/:id" element={<NotePage />} />
               <Route path="/bucket" element={<Bucket />} />
               <Route path="/chores" element={<Chores />} />
+              <Route path="/gifts" element={<Gifts />} />
               <Route path="/documents" element={<Documents />} />
               <Route path="/wishes" element={<Wishes />} />
               <Route path="/home" element={<Home />} />

@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import type { Entry, HouseholdDetail, Moment, Question, TonightPick, User } from "../api/client";
 import { completeChore, dueToday as choreDueToday, useChores } from "../chores";
 import { dueToday, useEntries } from "../entries";
+import { giftHorizonDays, useGifts } from "../gifts";
 import { nextDays, useMealPlan } from "../meals";
 import { nextBill, useBalance, useMoney, useStanding } from "../money";
 import { nextTrip, useTrips, useTripDates } from "../trips";
@@ -18,6 +19,7 @@ import { CallButton } from "./Call";
 import { choreAvatar, useChoreDay } from "./Chores";
 import { useWishes } from "../wishes";
 import { EntrySheet } from "./EntrySheet";
+import { useInDays } from "./Gifts";
 import { useWhen } from "./Lists";
 import { MomentSheet } from "./MomentSheet";
 import { AskForm, QuestionCard, useQuestions } from "./questions";
@@ -67,6 +69,7 @@ export function Today() {
     <Screen title={t("tabs.today")} overline={date} add={{ label: t("entries.add"), onClick: () => setAdding(true) }}>
       <Greeting household={household} me={me} />
       <NextUp key={generation} household={household} />
+      <TodayGifts household={household} />
       <TodayChores household={household} me={me} />
       <TodayQuestion household={household} me={me} />
       <Dinner household={household} />
@@ -168,6 +171,30 @@ function NextUp({ household }: { household: HouseholdDetail }) {
         </ul>
       )}
     </section>
+  );
+}
+
+// The next birthday of someone in the household, when it is near: how many days away, and how many
+// of your own ideas there are for it, one tap from them. Only your own ideas are ever counted.
+function TodayGifts({ household }: { household: HouseholdDetail }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { gifts } = useGifts(household.id);
+  const inDays = useInDays();
+  const next = gifts?.people.find((p) => p.days !== undefined && p.days <= giftHorizonDays);
+  if (!next || next.days === undefined) return null;
+  return (
+    <button type="button" className="today-tile today-gifts" onClick={() => navigate("/gifts")}>
+      <span className="today-tile-icon">
+        <Icon name="gift" />
+      </span>
+      <span className="today-tile-text">
+        <span className="label">{t("today.gifts.eyebrow")}</span>
+        <span className="headline">{`${next.user.name} · ${inDays(next.days)}`}</span>
+        <span className="caption muted">{next.ideas > 0 ? t("today.gifts.ideas", { count: next.ideas }) : t("today.gifts.ideasNone")}</span>
+      </span>
+      <Icon name="chevron" size="sm" />
+    </button>
   );
 }
 

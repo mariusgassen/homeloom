@@ -25,6 +25,7 @@ type handlers struct {
 	shopping   port.ShoppingService
 	bucket     port.BucketService
 	chores     port.ChoreService
+	gifts      port.GiftService
 	trips      port.TripService
 	documents  port.DocumentService
 	budget     port.BudgetService

@@ -61,6 +61,12 @@ type Answer struct {
 	AnsweredAt time.Time
 }
 
+type Birthday struct {
+	UserID uuid.UUID
+	Month  int16
+	Day    int16
+}
+
 type BucketItem struct {
 	ID          uuid.UUID
 	HouseholdID uuid.UUID
@@ -193,6 +199,16 @@ type ExpenseShare struct {
 	ExpenseID uuid.UUID
 	UserID    uuid.UUID
 	Cents     int64
+}
+
+type GiftIdea struct {
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+	AuthorID    uuid.UUID
+	ForID       uuid.UUID
+	Text        string
+	GivenAt     *time.Time
+	CreatedAt   time.Time
 }
 
 type HomeConnection struct {

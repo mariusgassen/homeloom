@@ -29,6 +29,7 @@ func TestMoments(t *testing.T)             { storetest.Moments(t, memory.NewStor
 func TestVoiceSettings(t *testing.T)       { storetest.VoiceSettings(t, memory.NewStore()) }
 func TestBucket(t *testing.T)              { storetest.Bucket(t, memory.NewStore()) }
 func TestChores(t *testing.T)              { storetest.Chores(t, memory.NewStore()) }
+func TestGifts(t *testing.T)               { storetest.Gifts(t, memory.NewStore()) }
 func TestTrips(t *testing.T)               { storetest.Trips(t, memory.NewStore()) }
 func TestDocuments(t *testing.T)           { storetest.Documents(t, memory.NewStore()) }
 func TestWishes(t *testing.T)              { storetest.Wishes(t, memory.NewStore()) }

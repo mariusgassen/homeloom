@@ -608,3 +608,18 @@ type HealthCheck interface {
 	Name() string
 	Check(ctx context.Context) error
 }
+
+// GiftRepository keeps members' birthdays and the gift ideas they have for each other. Ideas are
+// private: every call that reads or changes one names its author and sees only theirs. A call
+// that names an idea returns domain.ErrNotFound unless the author and household match.
+type GiftRepository interface {
+	// SetBirthday stores the user's birthday; nil removes it.
+	SetBirthday(ctx context.Context, userID uuid.UUID, b *domain.Birthday) error
+	// Birthdays returns the birthdays of the household's members who set one.
+	Birthdays(ctx context.Context, householdID uuid.UUID) (map[uuid.UUID]domain.Birthday, error)
+	// GiftIdeas returns the author's ideas, newest first, given ones last.
+	GiftIdeas(ctx context.Context, householdID, authorID uuid.UUID, limit int) ([]domain.GiftIdea, error)
+	AddGiftIdea(ctx context.Context, idea domain.GiftIdea) (domain.GiftIdea, error)
+	SetGiftIdeaGiven(ctx context.Context, householdID, authorID, id uuid.UUID, given bool) (domain.GiftIdea, error)
+	DeleteGiftIdea(ctx context.Context, householdID, authorID, id uuid.UUID) error
+}

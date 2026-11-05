@@ -228,16 +228,17 @@ func run() error {
 	documents := service.NewDocuments(store, store, vaultFiles)
 	someday := service.NewBucket(store, store)
 	chores := service.NewChores(store, store, store, moments, push, cfg.TimeZone)
+	gifts := service.NewGifts(store, store, store, push, cfg.TimeZone)
 	briefing := service.NewBriefing(store, entries, chores, store, push, cfg.TimeZone)
 	forecaster := openmeteo.New()
 	briefing.WithWeather(forecaster)
-	go notifyDaily(ctx, map[string]dailyJob{"moments": moments, "chores": chores, "briefing": briefing})
+	go notifyDaily(ctx, map[string]dailyJob{"moments": moments, "chores": chores, "briefing": briefing, "gifts": gifts})
 	cook := service.NewCook(store, book, chef, shopping).WithPlan(store).WithTaste(store, store)
 	homeService := service.NewHome(store, homeConnections, sessions, home)
 	households := service.NewHousehold(store).WithWeather(forecaster)
 	watch := service.NewWatch(store, watchConnections, sessions, media, critic).WithTonight(store, push, cfg.TimeZone).WithNight(store)
 	dateNight := service.NewDateNight(store, planner, forecaster, cfg.TimeZone)
-	assistant := service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone).WithBudget(budget)
+	assistant := service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone).WithBudget(budget).WithGifts(gifts)
 	agents := service.NewAgentAccess(store, sessions, store)
 
 	handler, err := httpadapter.NewRouter(httpadapter.Deps{
@@ -255,6 +256,7 @@ func run() error {
 		Chores:         chores,
 		Trips:          trips,
 		Documents:      documents,
+		Gifts:          gifts,
 		Budget:         budget,
 		Wishes:         wishes,
 		Home:           homeService,

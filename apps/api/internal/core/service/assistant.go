@@ -37,8 +37,10 @@ type Assistant struct {
 	home          port.HomeService
 	// budget is nil when the money tools aren't wired; they then answer that it isn't available.
 	budget port.BudgetService
-	loc    *time.Location
-	now    func() time.Time
+	// gifts is nil when the gift tools aren't wired.
+	gifts port.GiftService
+	loc   *time.Location
+	now   func() time.Time
 }
 
 func NewAssistant(households port.HouseholdRepository, conversations port.ConversationRepository, llm port.Assistant,
@@ -53,6 +55,13 @@ func NewAssistant(households port.HouseholdRepository, conversations port.Conver
 // WithBudget gives the assistant the household's money: adding expenses and reading the balance.
 func (s *Assistant) WithBudget(budget port.BudgetService) *Assistant {
 	s.budget = budget
+	return s
+}
+
+// WithGifts gives the assistant the person's own gift ideas. It only ever reads and writes as
+// the person asking, so one member's ideas never reach the other.
+func (s *Assistant) WithGifts(gifts port.GiftService) *Assistant {
+	s.gifts = gifts
 	return s
 }
 

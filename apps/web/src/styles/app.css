@@ -470,6 +470,10 @@ html:has(.sheet-backdrop, .assistant) { overflow: hidden; }
 .voice-speed { width: 100%; min-height: var(--hit-min); margin: 0; accent-color: var(--spruce); }
 .voice-speed-ends { display: flex; justify-content: space-between; color: var(--ink-muted); }
 
+.today-gifts .today-tile-icon { background: color-mix(in srgb, var(--berry) 14%, transparent); color: var(--berry); }
+.gifts-private { display: flex; align-items: center; gap: var(--space-2); margin: 0; }
+.gifts-mine { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2); }
+.gifts-mine .input { flex: 1; min-width: 0; }
 .today-chores-head { display: flex; align-items: center; justify-content: space-between; }
 .today-chores .today-tile-icon { background: color-mix(in srgb, var(--success) 14%, transparent); color: var(--success); }
 .chore-effort { display: inline-flex; gap: 3px; }

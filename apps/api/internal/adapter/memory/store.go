@@ -67,6 +67,8 @@ type Store struct {
 	documents        []domain.Document
 	choreCompletions []domain.ChoreCompletion
 	expenses         []domain.Expense
+	birthdays        map[uuid.UUID]domain.Birthday
+	giftIdeas        []domain.GiftIdea
 	wishes           []domain.Wish
 }
 

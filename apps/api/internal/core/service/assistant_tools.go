@@ -124,6 +124,23 @@ var tools = []domain.Tool{
 		Schema: object(map[string]any{"month": str("The month, YYYY-MM.")}),
 	},
 	{
+		Name:     "list_gift_ideas",
+		ReadOnly: true,
+		Description: "List the gift ideas the person has kept for the other members, and when those members' birthdays are. " +
+			"The ideas are private: only the person's own are ever shown, never anyone else's, and the assistant must never " +
+			"hint at them to anyone else.",
+		Schema: object(map[string]any{}),
+	},
+	{
+		Name: "add_gift_idea",
+		Description: "Keep a private gift idea for another member, e.g. for their birthday. Only the person who asked can ever see it. " +
+			"\"for\" is the name of the member it is for.",
+		Schema: object(map[string]any{
+			"for":  str("Name of the member the gift is for."),
+			"text": str("The idea, at most 200 characters."),
+		}, "for", "text"),
+	},
+	{
 		Name:     "get_home",
 		ReadOnly: true,
 		Description: "Read the home: its rooms with their scenes, lights (on or off) and readings such as temperature " +
@@ -377,6 +394,20 @@ func (t *toolbox) call(ctx context.Context, call domain.ToolCall) (any, error) {
 			return nil, err
 		}
 		return t.addExpense(ctx, in.Amount, in.Category, in.Note, in.PaidBy, in.Day, in.Shares)
+	case "list_gift_ideas":
+		if err := decode(call.Input, &struct{}{}); err != nil {
+			return nil, err
+		}
+		return t.giftIdeas(ctx)
+	case "add_gift_idea":
+		var in struct {
+			For  string `json:"for"`
+			Text string `json:"text"`
+		}
+		if err := decode(call.Input, &in); err != nil {
+			return nil, err
+		}
+		return t.addGiftIdea(ctx, in.For, in.Text)
 	case "get_money":
 		var in struct {
 			Month string `json:"month"`
@@ -460,6 +491,58 @@ func (t *toolbox) addExpense(ctx context.Context, amount float64, category domai
 		return nil, err
 	}
 	return t.expenseView(e), nil
+}
+
+func (t *toolbox) giftIdeas(ctx context.Context) (any, error) {
+	if t.s.gifts == nil {
+		return nil, domain.ErrUnavailable
+	}
+	g, err := t.s.gifts.Overview(ctx, t.actor, t.householdID)
+	if err != nil {
+		return nil, err
+	}
+	type person struct {
+		Name     string `json:"name"`
+		Birthday string `json:"birthday,omitempty"`
+		InDays   *int   `json:"in_days,omitempty"`
+	}
+	type idea struct {
+		For   string `json:"for"`
+		Text  string `json:"text"`
+		Given bool   `json:"given,omitempty"`
+	}
+	out := struct {
+		People []person `json:"people"`
+		Ideas  []idea   `json:"ideas"`
+	}{People: []person{}, Ideas: []idea{}}
+	for _, p := range g.People {
+		v := person{Name: p.User.Name}
+		if p.Birthday != nil {
+			v.Birthday = p.Next.Format("2006-01-02")
+			days := p.Days
+			v.InDays = &days
+		}
+		out.People = append(out.People, v)
+	}
+	for _, i := range g.Ideas {
+		out.Ideas = append(out.Ideas, idea{For: t.name(i.ForID), Text: i.Text, Given: i.GivenAt != nil})
+	}
+	return out, nil
+}
+
+func (t *toolbox) addGiftIdea(ctx context.Context, forName, text string) (any, error) {
+	if t.s.gifts == nil {
+		return nil, domain.ErrUnavailable
+	}
+	id, err := t.member(forName)
+	if err != nil {
+		return nil, err
+	}
+	i, err := t.s.gifts.Add(ctx, t.actor, t.householdID, *id, text)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"for": t.name(i.ForID), "text": i.Text}, nil
 }
 
 func (t *toolbox) money(ctx context.Context, month string) (any, error) {
