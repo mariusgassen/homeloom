@@ -7,6 +7,7 @@ import { currentSubscription, pushKey, pushSupport, subscribe, unsubscribe } fro
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { ListRow } from "../ui/ListRow";
+import { PlaceInput } from "../ui/PlaceInput";
 import { ThreadAvatar, threadFor } from "../ui/ThreadAvatar";
 import { Screen } from "./Screen";
 
@@ -565,7 +566,7 @@ function Place({ householdId, place }: { householdId: string; place: string }) {
     <form className="hl-card" onSubmit={save}>
       <label className="field">
         <span className="label">{t("place.label")}</span>
-        <input className="input" value={value} maxLength={100} onChange={(e) => setValue(e.target.value)} placeholder={t("place.hint")} autoComplete="address-level2" enterKeyHint="done" />
+        <PlaceInput className="input" value={value} maxLength={100} onChange={setValue} placeholder={t("place.hint")} autoComplete="off" enterKeyHint="done" />
       </label>
       {error && (
         <p className="callout error" role="alert">

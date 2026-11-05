@@ -124,6 +124,7 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 
 ## Date night
 
+- **Place autocomplete:** `GET /v1/places?q=` (port `PlaceSearch`, also `adapter/openmeteo`) returns up to five towns for the text typed so far; the PWA shows them in a `<datalist>` on the date-night and Settings place fields. Labels such as "Springfield, Illinois, United States" geocode back to the same town. Down means plain typing.
 - **Weather** (`adapter/openmeteo`, port `Weather`) geocodes the typed place and reads the day's forecast from Open-Meteo, which needs no key. A failure only drops the weather from the answer.
 - **Ideas** (`adapter/claude`, port `Planner`) come from Claude with the forecast, budget and mood in the prompt. With a place it may use Anthropic's server-side web search for local events; if the call fails it asks again without. Without `ANTHROPIC_API_KEY` the endpoint answers `503 ideas_unavailable`.
 - **The place is not stored** on the server; the PWA remembers it on the device. Saving an idea is the ordinary `createEntry` call with an event, so it needs nothing extra from the API.

@@ -240,6 +240,7 @@ func run() error {
 		Home:           homeService,
 		Watch:          watch,
 		DateNight:      dateNight,
+		Places:         service.NewPlaces(forecaster),
 		Push:           push,
 		Calls:          service.NewCall(store, sessions, calls, push).WithVoiceAgent(cfg.VoiceAgent, agents).WithVoice(voice),
 		Voice:          voice,

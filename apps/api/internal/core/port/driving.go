@@ -332,3 +332,10 @@ type DateNightService interface {
 	// is down.
 	Ideas(ctx context.Context, actor domain.User, householdID uuid.UUID, q domain.DateQuery, lang string) (domain.DateNight, error)
 }
+
+// PlaceService suggests places while someone types one.
+type PlaceService interface {
+	// Search returns towns and cities matching the text; fewer than domain.MinPlaceQuery characters
+	// match nothing. It returns domain.ErrUnavailable when the search is down.
+	Search(ctx context.Context, actor domain.User, text, lang string) ([]domain.PlaceMatch, error)
+}

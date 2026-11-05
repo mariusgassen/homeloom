@@ -34,6 +34,7 @@
   "error.invalid_shares": "The shares have to add up to the amount, each person once.",
   "error.unknown_place": "We can't find that place. Try the nearest town.",
   "error.invalid_date_night": "Pick a day in the next two weeks and keep the words short.",
+  "error.places_unavailable": "Place search isn't available right now. You can type the town instead.",
   "error.invalid_text": "Please write between 1 and {max} characters.",
   "error.invite_invalid": "This invite link is no longer valid. Ask for a new one.",
   "error.not_a_reminder": "Only reminders can be ticked off.",

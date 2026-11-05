@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/domain"
@@ -27,7 +28,10 @@ type Client struct {
 	geocoding, forecasts string
 }
 
-var _ port.Weather = (*Client)(nil)
+var (
+	_ port.Weather     = (*Client)(nil)
+	_ port.PlaceSearch = (*Client)(nil)
+)
 
 func New() *Client {
 	return &Client{http: &http.Client{Timeout: timeout}, geocoding: geocodingURL, forecasts: forecastURL}
@@ -38,18 +42,75 @@ func NewAt(geocoding, forecasts string) *Client {
 	return &Client{http: &http.Client{Timeout: timeout}, geocoding: geocoding, forecasts: forecasts}
 }
 
-func (c *Client) Forecast(ctx context.Context, place string, day time.Time) (domain.Forecast, error) {
-	var geo struct {
-		Results []struct {
-			Latitude  float64 `json:"latitude"`
-			Longitude float64 `json:"longitude"`
-		} `json:"results"`
+// place is a geocoding result.
+type place struct {
+	Name      string  `json:"name"`
+	Admin1    string  `json:"admin1"`
+	Country   string  `json:"country"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
+// label is how the place is written: "Berlin, Germany", or "Springfield, Illinois, United States".
+func (p place) label() string {
+	var parts []string
+	for _, v := range []string{p.Name, p.Admin1, p.Country} {
+		if v != "" && (len(parts) == 0 || !strings.EqualFold(parts[len(parts)-1], v)) {
+			parts = append(parts, v)
+		}
 	}
-	if err := c.get(ctx, c.geocoding+"/v1/search", url.Values{"name": {place}, "count": {"1"}, "format": {"json"}}, &geo); err != nil {
+	return strings.Join(parts, ", ")
+}
+
+// find returns the places whose name starts like the text before its first comma, most populous
+// first. The geocoder only searches names, so "Springfield, Illinois" is told apart afterwards.
+func (c *Client) find(ctx context.Context, text, lang string, count int) ([]place, error) {
+	name, _, _ := strings.Cut(text, ",")
+	q := url.Values{"name": {strings.TrimSpace(name)}, "count": {fmt.Sprint(count)}, "format": {"json"}}
+	if lang != "" {
+		q.Set("language", lang)
+	}
+	var geo struct {
+		Results []place `json:"results"`
+	}
+	if err := c.get(ctx, c.geocoding+"/v1/search", q, &geo); err != nil {
+		return nil, err
+	}
+	return geo.Results, nil
+}
+
+// Search suggests places for text typed so far. The geocoder matches whole names, so a name that
+// has only just begun may find nothing.
+func (c *Client) Search(ctx context.Context, text, lang string, n int) ([]domain.PlaceMatch, error) {
+	found, err := c.find(ctx, text, lang, n+5)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.PlaceMatch, 0, n)
+	seen := map[string]bool{}
+	for _, p := range found {
+		if l := p.label(); l != "" && !seen[strings.ToLower(l)] && len(out) < n {
+			seen[strings.ToLower(l)] = true
+			out = append(out, domain.PlaceMatch{Label: l})
+		}
+	}
+	return out, nil
+}
+
+func (c *Client) Forecast(ctx context.Context, text string, day time.Time) (domain.Forecast, error) {
+	found, err := c.find(ctx, text, "", 10)
+	if err != nil {
 		return domain.Forecast{}, err
 	}
-	if len(geo.Results) == 0 {
+	if len(found) == 0 {
 		return domain.Forecast{}, domain.ErrNotFound
+	}
+	chosen := found[0]
+	for _, p := range found {
+		if strings.EqualFold(p.label(), strings.TrimSpace(text)) {
+			chosen = p
+			break
+		}
 	}
 	d := day.Format(time.DateOnly)
 	var f struct {
@@ -60,9 +121,9 @@ func (c *Client) Forecast(ctx context.Context, place string, day time.Time) (dom
 			Rain []*int     `json:"precipitation_probability_max"`
 		} `json:"daily"`
 	}
-	err := c.get(ctx, c.forecasts+"/v1/forecast", url.Values{
-		"latitude":  {fmt.Sprint(geo.Results[0].Latitude)},
-		"longitude": {fmt.Sprint(geo.Results[0].Longitude)},
+	err = c.get(ctx, c.forecasts+"/v1/forecast", url.Values{
+		"latitude":  {fmt.Sprint(chosen.Latitude)},
+		"longitude": {fmt.Sprint(chosen.Longitude)},
 		"daily":     {"weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"},
 		"timezone":  {"auto"}, "start_date": {d}, "end_date": {d},
 	}, &f)
