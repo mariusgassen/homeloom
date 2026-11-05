@@ -40,6 +40,9 @@ type HouseholdService interface {
 	List(ctx context.Context, actor domain.User) ([]domain.Membership, error)
 	Create(ctx context.Context, actor domain.User, name string) (domain.Membership, error)
 	Get(ctx context.Context, actor domain.User, id uuid.UUID) (domain.HouseholdDetail, error)
+	// SetPlace sets where the household lives (empty clears it). Any member may. It returns
+	// domain.ErrInvalid for a place that is too long or that the weather service doesn't know.
+	SetPlace(ctx context.Context, actor domain.User, id uuid.UUID, place string) (domain.HouseholdDetail, error)
 	Invite(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Invite, error)
 	Join(ctx context.Context, actor domain.User, code string) (domain.Membership, error)
 }
@@ -325,4 +328,19 @@ type AgentAccessService interface {
 	// returns its secret.
 	CreateToken(ctx context.Context, actor domain.User, householdID uuid.UUID, name string, access domain.TokenAccess) (domain.MCPToken, string, error)
 	DeleteToken(ctx context.Context, actor domain.User, id uuid.UUID) error
+}
+
+// DateNightService suggests evenings for the household.
+type DateNightService interface {
+	// Ideas returns a few ideas for the evening in q. The forecast is nil when the weather is
+	// unknown. It returns domain.ErrInvalid for a bad query and domain.ErrUnavailable when the LLM
+	// is down.
+	Ideas(ctx context.Context, actor domain.User, householdID uuid.UUID, q domain.DateQuery, lang string) (domain.DateNight, error)
+}
+
+// PlaceService suggests places while someone types one.
+type PlaceService interface {
+	// Search returns towns and cities matching the text; fewer than domain.MinPlaceQuery characters
+	// match nothing. It returns domain.ErrUnavailable when the search is down.
+	Search(ctx context.Context, actor domain.User, text, lang string) ([]domain.PlaceMatch, error)
 }

@@ -45,6 +45,14 @@ Homeloom's notes are also Markdown files over WebDAV, so a notes app or file man
 
 Under Us › Movies & shows, each of you signs in with your own Plex account. Homeloom then shows the movie and series libraries on your own servers and on servers friends share with you, with what you haven't seen yet and a random pick. It only reads: nothing is played or changed, and the Plex token stays on the server, encrypted with `HOMELOOM_SECRET_KEY`. The API must be able to reach your Plex server (on the same network, or through Plex's remote access).
 
+## Morning briefing
+
+Every morning from 7:00, each of you gets one notification with the day's weather, today's plans and what's due. The weather needs your town: pick it in Settings; without it the briefing just leaves the weather out. Nothing planned, no notification.
+
+## Date night
+
+Today › Date night suggests a few evenings out or in from the weather, what's on nearby, a budget and a mood, and adds the one you pick to the shared calendar. It needs `ANTHROPIC_API_KEY` and nothing else. Type your town once and the forecast comes from [Open-Meteo](https://open-meteo.com) (no key); events come from Claude's web search, so they appear only if web search is enabled for your Anthropic account. Without either, you still get ideas.
+
 ## Photo storage
 
 Photos of moments and notes are kept in Postgres unless you set an S3 key pair. Then they go to `homeloom-garage`, a small S3 store ([Garage](https://garagehq.deuxfleurs.fr)) that runs in the stack and sets itself up on start: it creates the bucket and imports your key. Make the key once, in the format Garage wants:
@@ -82,7 +90,6 @@ Homeloom grows around how you live together. Features are grouped by what you do
 - **Ask about your memories:** the assistant looks things up on your timeline ("what did we do last May?").
 
 **Going out and staying in**
-- **Date-night generator:** ideas based on weather, local events, budget and mood.
 - **Movie and game night picker:** you each swipe through your Plex libraries, the overlap wins, the room sets itself.
 
 **Connected apps**
@@ -123,7 +130,6 @@ Not sorted or promised yet.
 - **Shared location moments:** save the places you've been together.
 
 **Everyday life**
-- **Today briefing:** one morning push with the weather, plans and what's due.
 - **Budget glance:** a simple view of shared spending.
 - **Trips and packing lists:** plan trips and pack from shared lists.
 - **Documents vault:** important papers in one private place.

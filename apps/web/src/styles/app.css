@@ -47,6 +47,7 @@ fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .today-tile-text { display: flex; flex-direction: column; gap: 2px; flex-grow: 1; min-width: 0; }
 .today-tile-text .label { color: var(--ink-muted); text-transform: uppercase; }
 .today-watch .today-tile-icon { background: color-mix(in srgb, var(--saffron) 18%, transparent); color: var(--ink); }
+.today-date .today-tile-icon { background: color-mix(in srgb, var(--berry) 14%, transparent); color: var(--berry); }
 .today-thanks .today-tile-icon { background: color-mix(in srgb, var(--berry) 14%, transparent); color: var(--berry); }
 .today-memory { display: flex; flex-direction: column; width: 100%; padding: 0; border: 0; border-radius: var(--radius-lg); background: var(--surface-raised); color: var(--ink); font: inherit; text-align: left; overflow: hidden; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .today-memory img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; background: var(--surface-sunken); }
@@ -480,3 +481,6 @@ html:has(.sheet-backdrop, .assistant) { overflow: hidden; }
 .chore-thank { color: var(--ink-muted); }
 .chore-thanked { color: var(--berry); }
 .chore-thanked svg path { fill: currentColor; }
+.date-form { display: flex; flex-direction: column; gap: var(--space-3); }
+.date-idea { display: flex; flex-direction: column; gap: var(--space-1); }
+.date-weather { margin: 0; }

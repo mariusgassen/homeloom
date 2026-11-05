@@ -79,6 +79,8 @@ type HouseholdRepository interface {
 	// Role returns domain.ErrNotFound when the user is not a member.
 	Role(ctx context.Context, householdID, userID uuid.UUID) (domain.Role, error)
 	Get(ctx context.Context, id uuid.UUID) (domain.Household, error)
+	// SetPlace stores the household's place; domain.ErrNotFound for an unknown household.
+	SetPlace(ctx context.Context, id uuid.UUID, place string) error
 	Members(ctx context.Context, householdID uuid.UUID) ([]domain.Member, error)
 	// HouseholdIDs returns every household, for jobs that visit each one.
 	HouseholdIDs(ctx context.Context) ([]uuid.UUID, error)
@@ -322,6 +324,29 @@ type Muse interface {
 	// spirit of one of themes and unlike any of recent. It returns domain.ErrUnavailable when the
 	// LLM can't be asked.
 	Questions(ctx context.Context, lang string, themes, recent []string, n int) ([]string, error)
+}
+
+// Weather forecasts the weather for a place.
+type Weather interface {
+	// Forecast returns the weather in the place (a town or city, as typed) on the day, a calendar
+	// date at midnight UTC. It returns domain.ErrNotFound for an unknown place and
+	// domain.ErrUnavailable when the forecast service can't be reached.
+	Forecast(ctx context.Context, place string, day time.Time) (domain.Forecast, error)
+}
+
+// PlaceSearch finds towns and cities by the start of their name.
+type PlaceSearch interface {
+	// Search returns up to n matches for the text, names in the language given as a BCP 47 tag. It
+	// returns domain.ErrUnavailable when the search service can't be reached.
+	Search(ctx context.Context, text, lang string, n int) ([]domain.PlaceMatch, error)
+}
+
+// Planner is the LLM's sense of a good evening out or in.
+type Planner interface {
+	// Ideas suggests up to n evenings that fit the brief, in the language given as a BCP 47 tag,
+	// drawing on events happening in the place when it can look them up. It returns
+	// domain.ErrUnavailable when the LLM can't be asked.
+	Ideas(ctx context.Context, brief domain.DateBrief, lang string, n int) ([]domain.DateIdea, error)
 }
 
 // Critic is the LLM's judgement on films and series.

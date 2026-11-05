@@ -145,6 +145,18 @@ func (s *Store) Role(_ context.Context, householdID, userID uuid.UUID) (domain.R
 	return "", domain.ErrNotFound
 }
 
+func (s *Store) SetPlace(_ context.Context, id uuid.UUID, place string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	h, ok := s.households[id]
+	if !ok {
+		return domain.ErrNotFound
+	}
+	h.Place = place
+	s.households[id] = h
+	return nil
+}
+
 func (s *Store) Get(_ context.Context, id uuid.UUID) (domain.Household, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

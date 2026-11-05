@@ -184,6 +184,7 @@ type Household struct {
 	ID        uuid.UUID
 	Name      string
 	CreatedAt time.Time
+	Place     string
 }
 
 type Invite struct {
