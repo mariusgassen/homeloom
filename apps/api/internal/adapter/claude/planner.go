@@ -73,6 +73,14 @@ func (p *Planner) Ideas(ctx context.Context, brief domain.DateBrief, lang string
 			Time   string `json:"time"`
 		} `json:"ideas"`
 	}
+	usable := func() bool {
+		for _, x := range out.Ideas {
+			if strings.TrimSpace(x.Title) != "" {
+				return true
+			}
+		}
+		return false
+	}
 	var err error
 	if brief.Place != "" {
 		search := []anthropic.BetaToolUnionParam{{OfWebSearchTool20250305: &anthropic.BetaWebSearchTool20250305Param{
@@ -81,9 +89,11 @@ func (p *Planner) Ideas(ctx context.Context, brief domain.DateBrief, lang string
 		if err = p.askWith(ctx, system, b.String(), plannerSchema, search, &out); err != nil {
 			// Web search may be off for the account; ideas without events beat none.
 			slog.WarnContext(ctx, "date night: no event search, asking without", "err", err)
+		} else if !usable() {
+			slog.WarnContext(ctx, "date night: event search gave no ideas, asking without")
 		}
 	}
-	if brief.Place == "" || err != nil {
+	if brief.Place == "" || err != nil || !usable() {
 		if ctx.Err() != nil {
 			return nil, err
 		}

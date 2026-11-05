@@ -32,7 +32,8 @@ func (c structured) ask(ctx context.Context, system []anthropic.BetaTextBlockPar
 }
 
 // askWith is ask with server-side tools (such as web search) the model may use first. With tools the
-// answer is the last text block, after any text the model wrote while searching.
+// answer is the text after the last tool block: citations split it into several text blocks, and the
+// model may write something before it while searching.
 func (c structured) askWith(ctx context.Context, system []anthropic.BetaTextBlockParam, user string, schema map[string]any, tools []anthropic.BetaToolUnionParam, out any) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -59,13 +60,19 @@ func (c structured) askWith(ctx context.Context, system []anthropic.BetaTextBloc
 	var text strings.Builder
 	for _, block := range msg.Content {
 		if t, ok := block.AsAny().(anthropic.BetaTextBlock); ok {
-			if len(tools) > 0 {
-				text.Reset()
-			}
 			text.WriteString(t.Text)
+		} else if len(tools) > 0 {
+			text.Reset()
 		}
 	}
-	if err := json.Unmarshal([]byte(text.String()), out); err != nil {
+	answer := text.String()
+	if len(tools) > 0 {
+		// Around a search the model may fence or introduce the JSON; take the outermost object.
+		if i, j := strings.Index(answer, "{"), strings.LastIndex(answer, "}"); i >= 0 && j > i {
+			answer = answer[i : j+1]
+		}
+	}
+	if err := json.Unmarshal([]byte(answer), out); err != nil {
 		return fmt.Errorf("%w: claude answered no JSON: %w", domain.ErrUnavailable, err)
 	}
 	return nil
