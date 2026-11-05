@@ -226,6 +226,7 @@ func run() error {
 		vaultFiles = bucket
 	}
 	documents := service.NewDocuments(store, store, vaultFiles)
+	someday := service.NewBucket(store, store)
 	chores := service.NewChores(store, store, store, moments, push, cfg.TimeZone)
 	briefing := service.NewBriefing(store, entries, chores, store, push, cfg.TimeZone)
 	forecaster := openmeteo.New()
@@ -250,6 +251,7 @@ func run() error {
 		Moments:        moments,
 		Cook:           cook,
 		Shopping:       shopping,
+		Bucket:         someday,
 		Chores:         chores,
 		Trips:          trips,
 		Documents:      documents,

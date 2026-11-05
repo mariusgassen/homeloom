@@ -213,6 +213,16 @@ type DocumentService interface {
 	File(ctx context.Context, actor domain.User, householdID, id uuid.UUID) (domain.Document, domain.VideoStream, error)
 }
 
+// BucketService is the household's someday list of things to watch, read or visit.
+type BucketService interface {
+	// List returns the items of a kind ("" for all): open ones oldest first, then ticked ones.
+	List(ctx context.Context, actor domain.User, householdID uuid.UUID, kind domain.BucketKind) ([]domain.BucketItem, error)
+	Add(ctx context.Context, actor domain.User, householdID uuid.UUID, kind domain.BucketKind, text string) (domain.BucketItem, error)
+	// SetDone ticks an item off (watched, read, been there) or opens it again.
+	SetDone(ctx context.Context, actor domain.User, householdID, id uuid.UUID, done bool) (domain.BucketItem, error)
+	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
+}
+
 // ChoreService is the household's chores: who does what, in turns, and who did how much.
 type ChoreService interface {
 	// List returns the chores still to do, soonest due first.

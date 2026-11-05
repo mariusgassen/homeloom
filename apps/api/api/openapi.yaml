@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.43.0
+  version: 0.44.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -29,6 +29,7 @@ tags:
   - name: moments
   - name: cook
   - name: shopping
+  - name: bucket
   - name: chores
   - name: documents
   - name: budget
@@ -1568,6 +1569,93 @@ paths:
       summary: Remove every ticked item
       responses:
         "204": { description: Removed. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/bucket:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [bucket]
+      operationId: listBucket
+      summary: The household's someday list (members only)
+      description: |
+        Things to watch, read or visit some day. Open items oldest first, then ticked ones, most
+        recently ticked first. At most 500.
+      parameters:
+        - name: kind
+          in: query
+          required: false
+          description: Only items of this kind.
+          schema: { $ref: "#/components/schemas/BucketKind" }
+      responses:
+        "200":
+          description: The items.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/BucketItem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [bucket]
+      operationId: addBucketItem
+      summary: Wish for something
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NewBucketItem" }
+      responses:
+        "201":
+          description: The new item.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BucketItem" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/bucket/{itemId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/BucketItemId"
+    delete:
+      tags: [bucket]
+      operationId: deleteBucketItem
+      summary: Take a item off the list
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/bucket/{itemId}/done:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/BucketItemId"
+    put:
+      tags: [bucket]
+      operationId: tickBucketItem
+      summary: Tick a item off (watched, read, been there)
+      responses:
+        "200":
+          description: The item, ticked.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BucketItem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [bucket]
+      operationId: untickBucketItem
+      summary: Open a item again
+      responses:
+        "200":
+          description: The item, open again.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BucketItem" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
@@ -3332,6 +3420,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    BucketItemId:
+      name: itemId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     ShoppingItemId:
       name: itemId
       in: path
@@ -3893,6 +3986,30 @@ components:
         recipe: { type: string, description: "The recipe the item came from, if any." }
         addedBy: { type: string, format: uuid, description: Who added it; absent once they left. }
         done: { type: boolean }
+        doneAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    BucketKind:
+      type: string
+      enum: [watch, read, visit]
+      description: Something to watch, to read, or a place to visit.
+
+    NewBucketItem:
+      type: object
+      required: [kind, text]
+      properties:
+        kind: { $ref: "#/components/schemas/BucketKind" }
+        text: { type: string, minLength: 1, maxLength: 200 }
+
+    BucketItem:
+      type: object
+      required: [id, kind, text, done, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: "#/components/schemas/BucketKind" }
+        text: { type: string }
+        addedBy: { type: string, format: uuid, description: Who added it; absent once they left. }
+        done: { type: boolean, description: Watched, read or been there. }
         doneAt: { type: string, format: date-time }
         createdAt: { type: string, format: date-time }
 

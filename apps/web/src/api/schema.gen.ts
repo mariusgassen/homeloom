@@ -1125,6 +1125,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/bucket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The household's someday list (members only)
+         * @description Things to watch, read or visit some day. Open items oldest first, then ticked ones, most
+         *     recently ticked first. At most 500.
+         */
+        get: operations["listBucket"];
+        put?: never;
+        /** Wish for something */
+        post: operations["addBucketItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/bucket/{itemId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                itemId: components["parameters"]["BucketItemId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Take a item off the list */
+        delete: operations["deleteBucketItem"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/bucket/{itemId}/done": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                itemId: components["parameters"]["BucketItemId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Tick a item off (watched, read, been there) */
+        put: operations["tickBucketItem"];
+        post?: never;
+        /** Open a item again */
+        delete: operations["untickBucketItem"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/expenses": {
         parameters: {
             query?: never;
@@ -2931,6 +2996,32 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
         };
+        /**
+         * @description Something to watch, to read, or a place to visit.
+         * @enum {string}
+         */
+        BucketKind: "watch" | "read" | "visit";
+        NewBucketItem: {
+            kind: components["schemas"]["BucketKind"];
+            text: string;
+        };
+        BucketItem: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["BucketKind"];
+            text: string;
+            /**
+             * Format: uuid
+             * @description Who added it; absent once they left.
+             */
+            addedBy?: string;
+            /** @description Watched */
+            done: boolean;
+            /** Format: date-time */
+            doneAt?: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
         TitleSuggestion: {
             /** @description The title, as it was last written. */
             text: string;
@@ -3707,6 +3798,7 @@ export interface components {
         EntryId: string;
         MomentId: string;
         CallId: string;
+        BucketItemId: string;
         ShoppingItemId: string;
         ExpenseId: string;
         TripId: string;
@@ -5840,6 +5932,135 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listBucket: {
+        parameters: {
+            query?: {
+                /** @description Only items of this kind. */
+                kind?: components["schemas"]["BucketKind"];
+            };
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The items. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BucketItem"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addBucketItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewBucketItem"];
+            };
+        };
+        responses: {
+            /** @description The new item. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BucketItem"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteBucketItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                itemId: components["parameters"]["BucketItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    tickBucketItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                itemId: components["parameters"]["BucketItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The item, ticked. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BucketItem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    untickBucketItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                itemId: components["parameters"]["BucketItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The item, open again. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BucketItem"];
+                };
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
