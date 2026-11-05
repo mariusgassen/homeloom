@@ -1170,6 +1170,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/wishes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The household's wishlist (members only)
+         * @description The most wanted first (the sum of everyone's hearts); wishes that came true come last. At most 500.
+         */
+        get: operations["listWishes"];
+        put?: never;
+        /** Add a wish */
+        post: operations["createWish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/wishes/{wishId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a wish
+         * @description The wishlist is shared, so every member can change it. Hearts and the photo stay.
+         */
+        put: operations["updateWish"];
+        post?: never;
+        /** Delete a wish and its photo */
+        delete: operations["deleteWish"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/wishes/{wishId}/vote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Say how much you want it
+         * @description Your hearts replace the ones you gave before.
+         */
+        put: operations["voteWish"];
+        post?: never;
+        /** Take your hearts back */
+        delete: operations["unvoteWish"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/wishes/{wishId}/got": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** The wish came true */
+        put: operations["gotWish"];
+        post?: never;
+        /** Make it a wish again */
+        delete: operations["ungotWish"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/wishes/{wishId}/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The photo of a wish
+         * @description Use the wish's `photoUrl`; it changes with the photo, so the answer may be cached.
+         */
+        get: operations["getWishPhoto"];
+        /**
+         * Add or replace the photo of a wish
+         * @description A JPEG of at most 5 MB, kept in S3; `503 wish_photos_unavailable` when S3 isn't set up or reachable.
+         */
+        put: operations["setWishPhoto"];
+        post?: never;
+        /** Remove the photo of a wish */
+        delete: operations["deleteWishPhoto"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/chores": {
         parameters: {
             query?: never;
@@ -2528,6 +2648,43 @@ export interface components {
             /** Format: int64 */
             cents: number;
         };
+        WishFields: {
+            title: string;
+            note?: string;
+            /** @description Where to see or buy it: an http or https address. */
+            url?: string;
+            /** Format: int64 */
+            priceCents?: number;
+        };
+        WishVote: {
+            /** Format: uuid */
+            userId: string;
+            hearts: number;
+        };
+        Wish: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            note: string;
+            /** @description Empty when there is none. */
+            url: string;
+            /** Format: int64 */
+            priceCents?: number;
+            /** @description The photo, if there is one; it changes with the photo. */
+            photoUrl?: string;
+            /** @description The sum of everyone's hearts */
+            hearts: number;
+            votes: components["schemas"]["WishVote"][];
+            /**
+             * Format: date-time
+             * @description When the wish came true.
+             */
+            gotAt?: string;
+            /** Format: uuid */
+            createdBy?: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
         ChoreFields: {
             title: string;
             /** @description The effort: 1 small, 2 medium, 3 big. */
@@ -3018,6 +3175,7 @@ export interface components {
         ShoppingItemId: string;
         ExpenseId: string;
         ChoreId: string;
+        WishId: string;
         CompletionId: string;
         ConversationId: string;
         RecipeSlug: string;
@@ -5296,6 +5454,307 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    listWishes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The wishes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createWish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WishFields"];
+            };
+        };
+        responses: {
+            /** @description The new wish. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateWish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WishFields"];
+            };
+        };
+        responses: {
+            /** @description The wish. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteWish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    voteWish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    hearts: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The wish. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    unvoteWish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The wish. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    gotWish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The wish, with `gotAt`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    ungotWish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The wish, without `gotAt`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getWishPhoto: {
+        parameters: {
+            query?: {
+                /** @description The photo's version, part of `photoUrl`. */
+                v?: string;
+            };
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The photo. */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    setWishPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            /** @description The wish with its photo. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    deleteWishPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The wish without a photo. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
         };
     };
     listChores: {

@@ -300,6 +300,24 @@ type BudgetRepository interface {
 	Nets(ctx context.Context, householdID uuid.UUID) ([]domain.Net, error)
 }
 
+// WishRepository keeps the household's wishes with their hearts. Calls that name a wish return
+// domain.ErrNotFound when the household has none with that id.
+type WishRepository interface {
+	// Wishes returns the household's wishes, newest first, with their votes.
+	Wishes(ctx context.Context, householdID uuid.UUID, limit int) ([]domain.Wish, error)
+	CreateWish(ctx context.Context, w domain.Wish) (domain.Wish, error)
+	GetWish(ctx context.Context, householdID, id uuid.UUID) (domain.Wish, error)
+	// UpdateWish stores the wish's fields.
+	UpdateWish(ctx context.Context, w domain.Wish) (domain.Wish, error)
+	DeleteWish(ctx context.Context, householdID, id uuid.UUID) error
+	// VoteWish sets how many hearts the user gives the wish; 0 takes them back.
+	VoteWish(ctx context.Context, householdID, id, userID uuid.UUID, hearts int) (domain.Wish, error)
+	// SetWishGot records when the wish came true; nil makes it a wish again.
+	SetWishGot(ctx context.Context, householdID, id uuid.UUID, at *time.Time) (domain.Wish, error)
+	// SetWishPhoto records when a photo was kept in a PhotoStore; nil when it was removed.
+	SetWishPhoto(ctx context.Context, householdID, id uuid.UUID, at *time.Time) (domain.Wish, error)
+}
+
 // Grocer is the LLM's sense of where things are in a shop.
 type Grocer interface {
 	// Aisles returns one aisle for each of the texts, in order. It returns domain.ErrUnavailable

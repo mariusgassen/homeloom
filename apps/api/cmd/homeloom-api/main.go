@@ -206,6 +206,11 @@ func run() error {
 		budget.WithReceipts(bucket)
 	}
 	entries.WithBills(budget)
+	// Wish photos are kept in S3 only; without it the wishlist works without pictures.
+	wishes := service.NewWishes(store, store)
+	if bucket != nil {
+		wishes.WithPhotos(bucket)
+	}
 	go notifyDue(ctx, entries)
 	moments := service.NewMoments(store, store, store, push, cfg.TimeZone)
 	if bucket != nil {
@@ -237,6 +242,7 @@ func run() error {
 		Shopping:       shopping,
 		Chores:         chores,
 		Budget:         budget,
+		Wishes:         wishes,
 		Home:           homeService,
 		Watch:          watch,
 		DateNight:      dateNight,

@@ -354,3 +354,22 @@ type WatchTonight struct {
 	PickedBy    uuid.UUID
 	PickedAt    time.Time
 }
+
+type Wish struct {
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+	Title       string
+	Note        string
+	Url         string
+	PriceCents  *int64
+	PhotoAt     *time.Time
+	GotAt       *time.Time
+	CreatedBy   *uuid.UUID
+	CreatedAt   time.Time
+}
+
+type WishVote struct {
+	WishID uuid.UUID
+	UserID uuid.UUID
+	Hearts int32
+}
