@@ -29,7 +29,7 @@ type Briefing struct {
 	jobs       port.JobRepository
 	notify     notifier
 	// weather is nil without a place to forecast; the briefing then has no weather.
-	weather port.Forecaster
+	weather port.Weather
 	loc     *time.Location
 	now     func() time.Time
 }
@@ -39,8 +39,8 @@ func NewBriefing(households port.HouseholdRepository, entries *Entry, chores *Ch
 	return &Briefing{households: households, entries: entries, chores: chores, jobs: jobs, notify: notify, loc: loc, now: time.Now}
 }
 
-// WithWeather adds the day's forecast to the briefing.
-func (s *Briefing) WithWeather(w port.Forecaster) *Briefing {
+// WithWeather adds the day's forecast to the briefing, for households that chose a place.
+func (s *Briefing) WithWeather(w port.Weather) *Briefing {
 	s.weather = w
 	return s
 }
@@ -61,23 +61,19 @@ func (s *Briefing) NotifyDaily(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var weather string
-	if s.weather != nil {
-		if w, err := s.weather.Today(ctx); err != nil {
-			slog.WarnContext(ctx, "briefing: weather", "err", err)
-		} else {
-			weather = weatherText(w)
-		}
-	}
 	for _, hh := range ids {
-		if err := s.send(ctx, hh, weather, now); err != nil {
+		if err := s.send(ctx, hh, now); err != nil {
 			slog.WarnContext(ctx, "briefing: send", "err", err)
 		}
 	}
 	return nil
 }
 
-func (s *Briefing) send(ctx context.Context, householdID uuid.UUID, weather string, now time.Time) error {
+func (s *Briefing) send(ctx context.Context, householdID uuid.UUID, now time.Time) error {
+	weather, err := s.forecast(ctx, householdID, now)
+	if err != nil {
+		slog.WarnContext(ctx, "briefing: weather", "err", err)
+	}
 	members, err := s.households.Members(ctx, householdID)
 	if err != nil {
 		return err
@@ -130,6 +126,22 @@ func (s *Briefing) send(ctx context.Context, householdID uuid.UUID, weather stri
 	return nil
 }
 
+// forecast is the weather line for the household's place, empty without a place or forecast.
+func (s *Briefing) forecast(ctx context.Context, householdID uuid.UUID, now time.Time) (string, error) {
+	if s.weather == nil {
+		return "", nil
+	}
+	h, err := s.households.Get(ctx, householdID)
+	if err != nil || h.Place == "" {
+		return "", err
+	}
+	f, err := s.weather.Forecast(ctx, h.Place, time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		return "", err
+	}
+	return weatherText(f), nil
+}
+
 // planText is an event's title with its start time, unless it lasts all day.
 func (s *Briefing) planText(e domain.Entry) string {
 	if e.AllDay {
@@ -147,28 +159,24 @@ func names(xs []string) string {
 }
 
 // weatherText is an emoji for the sky and the day's low to high, like "🌧️ 8–14°".
-func weatherText(w domain.Weather) string {
-	return fmt.Sprintf("%s %.0f–%.0f°", weatherEmoji(w.Code), w.Low, w.High)
+func weatherText(f domain.Forecast) string {
+	return fmt.Sprintf("%s %.0f–%.0f°", skyEmoji(f.Sky), f.LowC, f.HighC)
 }
 
-// weatherEmoji maps a WMO weather code to a picture.
-func weatherEmoji(code int) string {
-	switch {
-	case code == 0:
+func skyEmoji(s domain.Sky) string {
+	switch s {
+	case domain.SkyClear:
 		return "☀️"
-	case code <= 2:
-		return "🌤️"
-	case code == 3:
+	case domain.SkyCloudy:
 		return "☁️"
-	case code <= 48:
+	case domain.SkyFog:
 		return "🌫️"
-	case code <= 67, code >= 80 && code <= 82:
+	case domain.SkyRain:
 		return "🌧️"
-	case code <= 77, code == 85, code == 86:
+	case domain.SkySnow:
 		return "❄️"
-	case code >= 95:
+	case domain.SkyStorm:
 		return "⛈️"
-	default:
-		return "🌦️"
 	}
+	return "🌦️"
 }

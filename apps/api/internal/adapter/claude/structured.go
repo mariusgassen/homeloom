@@ -28,6 +28,12 @@ func newStructured(apiKey, model string, opts []option.RequestOption) structured
 }
 
 func (c structured) ask(ctx context.Context, system []anthropic.BetaTextBlockParam, user string, schema map[string]any, out any) error {
+	return c.askWith(ctx, system, user, schema, nil, out)
+}
+
+// askWith is ask with server-side tools (such as web search) the model may use first. With tools the
+// answer is the last text block, after any text the model wrote while searching.
+func (c structured) askWith(ctx context.Context, system []anthropic.BetaTextBlockParam, user string, schema map[string]any, tools []anthropic.BetaToolUnionParam, out any) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -37,6 +43,7 @@ func (c structured) ask(ctx context.Context, system []anthropic.BetaTextBlockPar
 		Betas:     []anthropic.AnthropicBeta{anthropic.AnthropicBetaServerSideFallback2026_07_01},
 		Fallbacks: anthropic.BetaFallbacksParamUnion{OfDefault: constant.ValueOf[constant.Default]()},
 		System:    system,
+		Tools:     tools,
 		Messages:  []anthropic.BetaMessageParam{anthropic.NewBetaUserMessage(anthropic.NewBetaTextBlock(user))},
 		OutputConfig: anthropic.BetaOutputConfigParam{
 			Effort: anthropic.BetaOutputConfigEffortLow,
@@ -52,6 +59,9 @@ func (c structured) ask(ctx context.Context, system []anthropic.BetaTextBlockPar
 	var text strings.Builder
 	for _, block := range msg.Content {
 		if t, ok := block.AsAny().(anthropic.BetaTextBlock); ok {
+			if len(tools) > 0 {
+				text.Reset()
+			}
 			text.WriteString(t.Text)
 		}
 	}

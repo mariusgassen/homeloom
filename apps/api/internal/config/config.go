@@ -4,9 +4,7 @@ package config
 import (
 	"errors"
 	"fmt"
-	"math"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -41,10 +39,6 @@ type Config struct {
 	// Plex is on when HOMELOOM_SECRET_KEY is set, unless PLEX_ENABLED is false: each member signs
 	// in at plex.tv, so there is nothing else to configure. The key encrypts their tokens.
 	Plex bool
-	// WeatherLatitude and WeatherLongitude are optional: with both set (WeatherSet), the morning
-	// briefing starts with the day's forecast there.
-	WeatherLatitude, WeatherLongitude float64
-	WeatherSet                        bool
 	// Web Push is optional: without the VAPID key pair notifications are switched off. VAPIDSubject
 	// tells the push services who sends them (an https URL or e-mail address; PUBLIC_URL by default).
 	VAPIDPublicKey  string
@@ -123,15 +117,6 @@ func Load() (Config, error) {
 	c.Plex = c.SecretKey != "" && env("PLEX_ENABLED", "true") != "false"
 	if c.AnthropicAPIKey == "" || c.OpenAIAPIKey == "" {
 		c.VoiceAgent = ""
-	}
-	if lat, lon := os.Getenv("WEATHER_LATITUDE"), os.Getenv("WEATHER_LONGITUDE"); lat != "" || lon != "" {
-		var errLat, errLon error
-		c.WeatherLatitude, errLat = strconv.ParseFloat(lat, 64)
-		c.WeatherLongitude, errLon = strconv.ParseFloat(lon, 64)
-		if errLat != nil || errLon != nil || math.Abs(c.WeatherLatitude) > 90 || math.Abs(c.WeatherLongitude) > 180 {
-			return c, fmt.Errorf("WEATHER_LATITUDE and WEATHER_LONGITUDE must both be coordinates")
-		}
-		c.WeatherSet = true
 	}
 	loc, err := time.LoadLocation(env("TIME_ZONE", "UTC"))
 	if err != nil {

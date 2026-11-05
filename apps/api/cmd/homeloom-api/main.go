@@ -135,12 +135,14 @@ func run() error {
 	var grocer port.Grocer
 	var muse port.Muse
 	var critic port.Critic
+	var planner port.Planner
 	var llm port.Assistant
 	if cfg.AnthropicAPIKey != "" {
 		chef = claude.NewChef(cfg.AnthropicAPIKey, cfg.LLMModel)
 		grocer = claude.NewGrocer(cfg.AnthropicAPIKey, cfg.LLMModel)
 		muse = claude.NewMuse(cfg.AnthropicAPIKey, cfg.LLMModel)
 		critic = claude.NewCritic(cfg.AnthropicAPIKey, cfg.LLMModel)
+		planner = claude.NewPlanner(cfg.AnthropicAPIKey, cfg.LLMModel)
 		llm = claude.NewAssistant(cfg.AnthropicAPIKey, cfg.LLMModel)
 	}
 	// Tokens from signing in to Home Assistant or Plex are sealed with HOMELOOM_SECRET_KEY.
@@ -211,14 +213,14 @@ func run() error {
 	}
 	chores := service.NewChores(store, store, store, moments, push, cfg.TimeZone)
 	briefing := service.NewBriefing(store, entries, chores, store, push, cfg.TimeZone)
-	if cfg.WeatherSet {
-		briefing.WithWeather(openmeteo.New(cfg.WeatherLatitude, cfg.WeatherLongitude))
-	}
+	forecaster := openmeteo.New()
+	briefing.WithWeather(forecaster)
 	go notifyDaily(ctx, map[string]dailyJob{"moments": moments, "chores": chores, "briefing": briefing})
 	cook := service.NewCook(store, book, chef, shopping).WithPlan(store)
 	homeService := service.NewHome(store, homeConnections, sessions, home)
-	households := service.NewHousehold(store)
+	households := service.NewHousehold(store).WithWeather(forecaster)
 	watch := service.NewWatch(store, watchConnections, sessions, media, critic).WithTonight(store, push, cfg.TimeZone)
+	dateNight := service.NewDateNight(store, planner, forecaster, cfg.TimeZone)
 	assistant := service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone).WithBudget(budget)
 	agents := service.NewAgentAccess(store, sessions, store)
 
@@ -237,6 +239,7 @@ func run() error {
 		Budget:         budget,
 		Home:           homeService,
 		Watch:          watch,
+		DateNight:      dateNight,
 		Push:           push,
 		Calls:          service.NewCall(store, sessions, calls, push).WithVoiceAgent(cfg.VoiceAgent, agents).WithVoice(voice),
 		Voice:          voice,

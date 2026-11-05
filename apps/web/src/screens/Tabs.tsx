@@ -69,6 +69,7 @@ export function Today() {
       <TodayQuestion household={household} me={me} />
       <Dinner household={household} />
       <Watch household={household} />
+      <DateNightTile />
       <Money household={household} me={me} />
       <TodayMoment household={household} me={me} />
       {adding && (
@@ -283,6 +284,24 @@ function Watch({ household }: { household: HouseholdDetail }) {
       <span className="today-tile-text">
         <span className="label">{t("today.watch.eyebrow")}</span>
         <span className="headline">{t("today.watch.title")}</span>
+      </span>
+      <Icon name="chevron" size="sm" />
+    </button>
+  );
+}
+
+// A few ideas for an evening out or in, one tap away.
+function DateNightTile() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  return (
+    <button type="button" className="today-tile today-date" onClick={() => navigate("/date-night")}>
+      <span className="today-tile-icon">
+        <Icon name="heart" />
+      </span>
+      <span className="today-tile-text">
+        <span className="label">{t("today.dateNight.eyebrow")}</span>
+        <span className="headline">{t("today.dateNight.title")}</span>
       </span>
       <Icon name="chevron" size="sm" />
     </button>

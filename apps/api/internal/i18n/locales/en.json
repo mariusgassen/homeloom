@@ -32,6 +32,8 @@
   "error.too_many_photos": "A note holds at most {max} photos.",
   "error.invalid_reveal": "Pick when it opens. Only notes and moments can open later.",
   "error.invalid_shares": "The shares have to add up to the amount, each person once.",
+  "error.unknown_place": "We can't find that place. Try the nearest town.",
+  "error.invalid_date_night": "Pick a day in the next two weeks and keep the words short.",
   "error.invalid_text": "Please write between 1 and {max} characters.",
   "error.invite_invalid": "This invite link is no longer valid. Ask for a new one.",
   "error.not_a_reminder": "Only reminders can be ticked off.",

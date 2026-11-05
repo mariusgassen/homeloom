@@ -47,7 +47,11 @@ Under Us › Movies & shows, each of you signs in with your own Plex account. Ho
 
 ## Morning briefing
 
-Every morning from 7:00, each of you gets one notification with the day's weather, today's plans and what's due. The weather needs your coordinates (`WEATHER_LATITUDE` and `WEATHER_LONGITUDE` in `.env`); without them the briefing just leaves it out. Nothing planned, no notification.
+Every morning from 7:00, each of you gets one notification with the day's weather, today's plans and what's due. The weather needs your town: pick it in Settings; without it the briefing just leaves the weather out. Nothing planned, no notification.
+
+## Date night
+
+Today › Date night suggests a few evenings out or in from the weather, what's on nearby, a budget and a mood, and adds the one you pick to the shared calendar. It needs `ANTHROPIC_API_KEY` and nothing else. Type your town once and the forecast comes from [Open-Meteo](https://open-meteo.com) (no key); events come from Claude's web search, so they appear only if web search is enabled for your Anthropic account. Without either, you still get ideas.
 
 ## Photo storage
 
@@ -86,7 +90,6 @@ Homeloom grows around how you live together. Features are grouped by what you do
 - **Ask about your memories:** the assistant looks things up on your timeline ("what did we do last May?").
 
 **Going out and staying in**
-- **Date-night generator:** ideas based on weather, local events, budget and mood.
 - **Movie and game night picker:** you each swipe through your Plex libraries, the overlap wins, the room sets itself.
 
 **Connected apps**

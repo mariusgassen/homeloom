@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -16,6 +17,14 @@ import (
 
 type Household struct {
 	repo port.HouseholdRepository
+	// weather checks that a place exists; nil accepts any place.
+	weather port.Weather
+}
+
+// WithWeather makes SetPlace refuse a place the weather service doesn't know.
+func (s *Household) WithWeather(w port.Weather) *Household {
+	s.weather = w
+	return s
 }
 
 func NewHousehold(repo port.HouseholdRepository) *Household {
@@ -51,6 +60,27 @@ func (s *Household) Get(ctx context.Context, actor domain.User, id uuid.UUID) (d
 		Membership: domain.Membership{Household: h, Role: role},
 		Members:    members,
 	}, nil
+}
+
+func (s *Household) SetPlace(ctx context.Context, actor domain.User, id uuid.UUID, place string) (domain.HouseholdDetail, error) {
+	if _, err := s.repo.Role(ctx, id, actor.ID); err != nil {
+		return domain.HouseholdDetail{}, err
+	}
+	place = strings.TrimSpace(place)
+	if utf8.RuneCountInString(place) > domain.MaxPlace {
+		return domain.HouseholdDetail{}, fmt.Errorf("%w: place must be at most %d characters", domain.ErrInvalid, domain.MaxPlace)
+	}
+	// A weather service that is down doesn't stop anyone from choosing their town.
+	if place != "" && s.weather != nil {
+		today := time.Now().UTC().Truncate(24 * time.Hour)
+		if _, err := s.weather.Forecast(ctx, place, today); errors.Is(err, domain.ErrNotFound) {
+			return domain.HouseholdDetail{}, domain.ErrUnknownPlace
+		}
+	}
+	if err := s.repo.SetPlace(ctx, id, place); err != nil {
+		return domain.HouseholdDetail{}, err
+	}
+	return s.Get(ctx, actor, id)
 }
 
 func (s *Household) Invite(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Invite, error) {

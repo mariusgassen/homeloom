@@ -10,10 +10,10 @@ import (
 	"github.com/mariusgassen/homeloom/apps/api/internal/core/service"
 )
 
-type fakeWeather struct{}
+type briefingWeather struct{}
 
-func (fakeWeather) Today(context.Context) (domain.Weather, error) {
-	return domain.Weather{Code: 61, High: 14.2, Low: 7.9}, nil
+func (briefingWeather) Forecast(context.Context, string, time.Time) (domain.Forecast, error) {
+	return domain.Forecast{Sky: domain.SkyRain, HighC: 14.2, LowC: 7.9}, nil
 }
 
 func TestBriefingInTheMorning(t *testing.T) {
@@ -22,9 +22,12 @@ func TestBriefingInTheMorning(t *testing.T) {
 	entries := service.NewEntry(f.store, f.store, f.store, f.push, time.UTC)
 	entries.SetClock(func() time.Time { return f.now })
 	f.now = time.Date(2026, 10, 28, 6, 0, 0, 0, time.UTC)
-	b := service.NewBriefing(f.store, entries, f.chores, f.store, f.push, time.UTC).WithWeather(fakeWeather{})
+	b := service.NewBriefing(f.store, entries, f.chores, f.store, f.push, time.UTC).WithWeather(briefingWeather{})
 	b.SetClock(func() time.Time { return f.now })
 
+	if err := f.store.SetPlace(ctx, f.household, "Berlin"); err != nil {
+		t.Fatal(err)
+	}
 	start := time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC)
 	later := start.AddDate(0, 0, 2)
 	for _, e := range []struct {

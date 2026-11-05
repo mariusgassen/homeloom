@@ -39,6 +39,7 @@ export function Settings() {
               />
             ))}
           </div>
+          <Place householdId={household.id} place={household.place ?? ""} />
           <Invite householdId={household.id} />
         </section>
       )}
@@ -542,6 +543,44 @@ function OtherApps({ householdId }: { householdId: string }) {
 const canShare = () => typeof navigator.share === "function";
 
 // A one-time link for the other person; the API stores only its hash, so a lost link means a new one.
+// Where the household lives: the morning briefing looks up its weather there.
+function Place({ householdId, place }: { householdId: string; place: string }) {
+  const { t } = useTranslation();
+  const { reload } = useSession();
+  const [value, setValue] = useState(place);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<"unknown" | "failed" | null>(null);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    const res = await api.PATCH("/v1/households/{householdId}", { params: { path: { householdId } }, body: { place: value.trim() } }).catch(() => undefined);
+    setBusy(false);
+    if (res?.data) reload();
+    else setError(res?.error?.code === "unknown_place" ? "unknown" : "failed");
+  }
+
+  return (
+    <form className="hl-card" onSubmit={save}>
+      <label className="field">
+        <span className="label">{t("place.label")}</span>
+        <input className="input" value={value} maxLength={100} onChange={(e) => setValue(e.target.value)} placeholder={t("place.hint")} autoComplete="address-level2" enterKeyHint="done" />
+      </label>
+      {error && (
+        <p className="callout error" role="alert">
+          {t(error === "unknown" ? "place.unknown" : "place.failed")}
+        </p>
+      )}
+      <div className="hl-card-footer">
+        <Button size="sm" type="submit" disabled={busy || value.trim() === place}>
+          {t("place.save")}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 function Invite({ householdId }: { householdId: string }) {
   const { t, i18n } = useTranslation();
   const [link, setLink] = useState<{ url: string; expires: string } | null>(null);
