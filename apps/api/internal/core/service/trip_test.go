@@ -90,8 +90,12 @@ func TestTripsPlanWithOptionsVotesAndAChoice(t *testing.T) {
 	if _, err := f.trips.Vote(ctx, f.alice, f.hh, trip.ID, uuid.New()); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("vote for nothing: %v", err)
 	}
-	f.trips.Vote(ctx, f.alice, f.hh, trip.ID, villa.ID)
-	f.trips.Vote(ctx, f.bob, f.hh, trip.ID, villa.ID)
+	if _, err := f.trips.Vote(ctx, f.alice, f.hh, trip.ID, villa.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.trips.Vote(ctx, f.bob, f.hh, trip.ID, villa.ID); err != nil {
+		t.Fatal(err)
+	}
 	got, err = f.trips.Vote(ctx, f.bob, f.hh, trip.ID, flat.ID)
 	if err != nil || len(got.Votes) != 2 {
 		t.Fatalf("votes: %+v, %v", got.Votes, err)
