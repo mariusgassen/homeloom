@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.39.0
+  version: 0.40.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -3701,6 +3701,7 @@ components:
         day: { type: string, format: date, description: "The evening, within 14 days from today in the household's time zone; defaults to today." }
         budget: { $ref: "#/components/schemas/DateBudget" }
         mood: { type: string, maxLength: 200, description: "In your own words, e.g. \"cosy, nothing loud\"; may be empty." }
+        constraints: { type: string, maxLength: 200, description: "Limits every idea must respect, e.g. \"in a hotel, no kitchen\" or \"no car\"; may be empty." }
 
     DateBudget:
       type: string

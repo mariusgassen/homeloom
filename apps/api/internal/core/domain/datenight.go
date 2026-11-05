@@ -49,9 +49,11 @@ type DateQuery struct {
 	// Place is a town or city, as typed.
 	Place string
 	// Day is the evening, as a calendar date at midnight UTC; the zero value means today.
-	Day    time.Time
-	Mood   string
-	Budget DateBudget
+	Day  time.Time
+	Mood string
+	// Constraints are limits every idea must respect, such as "in a hotel, no kitchen".
+	Constraints string
+	Budget      DateBudget
 }
 
 // DateBrief is what the LLM is told.

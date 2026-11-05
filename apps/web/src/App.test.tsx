@@ -280,11 +280,12 @@ test("date night asks with the place, shows the weather and saves a chosen idea 
   renderApp("/date-night");
   await userEvent.type(await screen.findByRole("combobox", { name: /Where/ }), "Berlin");
   await userEvent.click(screen.getByRole("radio", { name: "Treat" }));
+  await userEvent.type(screen.getByRole("textbox", { name: "Limits" }), "in a hotel");
   await userEvent.click(screen.getByRole("button", { name: "Get ideas" }));
   expect(await screen.findByText("Pasta night")).toBeInTheDocument();
   expect(screen.getByText(/Rain · 4–9°/)).toBeInTheDocument();
   const asked = await calls.find((c) => c.url.endsWith("/date-night/ideas"))?.json();
-  expect(asked).toMatchObject({ place: "Berlin", budget: "treat" });
+  expect(asked).toMatchObject({ place: "Berlin", budget: "treat", constraints: "in a hotel" });
   expect(localStorage.getItem("homeloom.datePlace")).toBe("Berlin");
 
   await userEvent.click(screen.getByRole("button", { name: "Add to calendar" }));

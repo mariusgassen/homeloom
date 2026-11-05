@@ -50,11 +50,11 @@ func TestDateNight(t *testing.T) {
 	if _, err := svc.Ideas(ctx, eve, m.Household.ID, domain.DateQuery{}, "en"); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("non-member: want ErrNotFound, got %v", err)
 	}
-	res, err := svc.Ideas(ctx, alice, m.Household.ID, domain.DateQuery{Place: " Berlin ", Day: day, Mood: "cosy"}, "en")
+	res, err := svc.Ideas(ctx, alice, m.Household.ID, domain.DateQuery{Place: " Berlin ", Day: day, Mood: "cosy", Constraints: " no kitchen "}, "en")
 	if err != nil || len(res.Ideas) != 3 || res.Forecast == nil || res.Forecast.Sky != domain.SkyRain {
 		t.Fatalf("ideas: %+v, %v", res, err)
 	}
-	if planner.brief.Place != "Berlin" || planner.brief.Budget != domain.DateEasy || planner.brief.Forecast == nil {
+	if planner.brief.Place != "Berlin" || planner.brief.Constraints != "no kitchen" || planner.brief.Budget != domain.DateEasy || planner.brief.Forecast == nil {
 		t.Errorf("brief: %+v", planner.brief)
 	}
 	if got := res.Ideas[0]; got.Title != "Pasta at home" || got.StartsAt != time.Date(day.Year(), day.Month(), day.Day(), 19, 30, 0, 0, berlin) {

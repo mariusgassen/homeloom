@@ -15,7 +15,7 @@ func (h *handlers) SuggestDateNight(ctx context.Context, req oapi.SuggestDateNig
 	if err != nil {
 		return nil, err
 	}
-	q := domain.DateQuery{Place: deref(req.Body.Place), Mood: deref(req.Body.Mood)}
+	q := domain.DateQuery{Place: deref(req.Body.Place), Mood: deref(req.Body.Mood), Constraints: deref(req.Body.Constraints)}
 	if req.Body.Budget != nil {
 		q.Budget = domain.DateBudget(*req.Body.Budget)
 	}

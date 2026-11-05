@@ -2889,6 +2889,8 @@ export interface components {
             budget?: components["schemas"]["DateBudget"];
             /** @description In your own words, e.g. "cosy, nothing loud"; may be empty. */
             mood?: string;
+            /** @description Limits every idea must respect, e.g. "in a hotel, no kitchen" or "no car"; may be empty. */
+            constraints?: string;
         };
         /**
          * @description How much the evening may cost; `easy` when absent.
