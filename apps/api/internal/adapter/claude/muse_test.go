@@ -65,7 +65,7 @@ func TestPlanner(t *testing.T) {
 	p := claude.NewPlanner("key", "claude-opus-5-5", option.WithBaseURL(srv.URL))
 
 	brief := domain.DateBrief{
-		DateQuery: domain.DateQuery{Place: "Berlin", Day: time.Date(2026, 11, 7, 0, 0, 0, 0, time.UTC), Budget: domain.DateEasy, Mood: "cosy"},
+		DateQuery: domain.DateQuery{Place: "Berlin", Day: time.Date(2026, 11, 7, 0, 0, 0, 0, time.UTC), Budget: domain.DateEasy, Mood: "cosy", Constraints: "in a hotel,\nno kitchen"},
 		Forecast:  &domain.Forecast{Sky: domain.SkyRain, HighC: 9, LowC: 4, RainPercent: 80},
 	}
 	ideas, err := p.Ideas(context.Background(), brief, "de", 3)
@@ -73,7 +73,7 @@ func TestPlanner(t *testing.T) {
 		t.Fatalf("ideas: %+v, %v", ideas, err)
 	}
 	user := fmt.Sprint(req["messages"])
-	for _, want := range []string{"<place>Berlin</place>", "Saturday 2026-11-07", "<budget>easy</budget>", "rain, 4 to 9 °C, 80%", "in German"} {
+	for _, want := range []string{"<place>Berlin</place>", "Saturday 2026-11-07", "<budget>easy</budget>", "<limits>in a hotel, no kitchen</limits>", "rain, 4 to 9 °C, 80%", "in German"} {
 		if !strings.Contains(user, want) {
 			t.Errorf("prompt lacks %q: %s", want, user)
 		}

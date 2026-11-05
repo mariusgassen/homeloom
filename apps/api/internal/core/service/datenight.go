@@ -36,9 +36,9 @@ func (s *DateNight) Ideas(ctx context.Context, actor domain.User, householdID uu
 	if _, err := s.households.Role(ctx, householdID, actor.ID); err != nil {
 		return domain.DateNight{}, err
 	}
-	q.Place, q.Mood = strings.TrimSpace(q.Place), strings.TrimSpace(q.Mood)
-	if utf8.RuneCountInString(q.Place) > domain.MaxDatePlace || utf8.RuneCountInString(q.Mood) > domain.MaxDateMood {
-		return domain.DateNight{}, fmt.Errorf("%w: place and mood are too long", domain.ErrInvalid)
+	q.Place, q.Mood, q.Constraints = strings.TrimSpace(q.Place), strings.TrimSpace(q.Mood), strings.TrimSpace(q.Constraints)
+	if utf8.RuneCountInString(q.Place) > domain.MaxDatePlace || utf8.RuneCountInString(q.Mood) > domain.MaxDateMood || utf8.RuneCountInString(q.Constraints) > domain.MaxDateMood {
+		return domain.DateNight{}, fmt.Errorf("%w: place, mood and limits are too long", domain.ErrInvalid)
 	}
 	if q.Budget == "" {
 		q.Budget = domain.DateEasy

@@ -39,6 +39,7 @@ export function DateNight() {
   const [day, setDay] = useState(isoDay(today));
   const [budget, setBudget] = useState<Budget>("easy");
   const [mood, setMood] = useState("");
+  const [limits, setLimits] = useState("");
   const [result, setResult] = useState<Ideas | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +58,7 @@ export function DateNight() {
     const res = await api
       .POST("/v1/households/{householdId}/date-night/ideas", {
         params: { path: { householdId } },
-        body: { place: where || undefined, day, budget, mood: mood.trim() || undefined },
+        body: { place: where || undefined, day, budget, mood: mood.trim() || undefined, constraints: limits.trim() || undefined },
       })
       .catch(() => undefined);
     setBusy(false);
@@ -97,6 +98,10 @@ export function DateNight() {
         <label className="field">
           <span className="label">{t("dateNight.mood")}</span>
           <input className="input" value={mood} onChange={(e) => setMood(e.target.value)} placeholder={t("dateNight.moodHint")} maxLength={200} enterKeyHint="go" />
+        </label>
+        <label className="field">
+          <span className="label">{t("dateNight.limits")}</span>
+          <input className="input" value={limits} onChange={(e) => setLimits(e.target.value)} placeholder={t("dateNight.limitsHint")} maxLength={200} enterKeyHint="go" />
         </label>
         <div className="hl-card-footer">
           <Button type="submit" size="sm" icon="sparkle" disabled={busy}>
