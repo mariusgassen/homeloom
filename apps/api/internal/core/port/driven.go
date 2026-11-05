@@ -318,6 +318,22 @@ type Muse interface {
 	Questions(ctx context.Context, lang string, themes, recent []string, n int) ([]string, error)
 }
 
+// Weather forecasts the weather for a place.
+type Weather interface {
+	// Forecast returns the weather in the place (a town or city, as typed) on the day, a calendar
+	// date at midnight UTC. It returns domain.ErrNotFound for an unknown place and
+	// domain.ErrUnavailable when the forecast service can't be reached.
+	Forecast(ctx context.Context, place string, day time.Time) (domain.Forecast, error)
+}
+
+// Planner is the LLM's sense of a good evening out or in.
+type Planner interface {
+	// Ideas suggests up to n evenings that fit the brief, in the language given as a BCP 47 tag,
+	// drawing on events happening in the place when it can look them up. It returns
+	// domain.ErrUnavailable when the LLM can't be asked.
+	Ideas(ctx context.Context, brief domain.DateBrief, lang string, n int) ([]domain.DateIdea, error)
+}
+
 // Critic is the LLM's judgement on films and series.
 type Critic interface {
 	// Pick chooses up to n titles that fit the mood (which may be empty): mostly from candidates,

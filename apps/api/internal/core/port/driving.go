@@ -321,3 +321,11 @@ type AgentAccessService interface {
 	CreateToken(ctx context.Context, actor domain.User, householdID uuid.UUID, name string, access domain.TokenAccess) (domain.MCPToken, string, error)
 	DeleteToken(ctx context.Context, actor domain.User, id uuid.UUID) error
 }
+
+// DateNightService suggests evenings for the household.
+type DateNightService interface {
+	// Ideas returns a few ideas for the evening in q. The forecast is nil when the weather is
+	// unknown. It returns domain.ErrInvalid for a bad query and domain.ErrUnavailable when the LLM
+	// is down.
+	Ideas(ctx context.Context, actor domain.User, householdID uuid.UUID, q domain.DateQuery, lang string) (domain.DateNight, error)
+}

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.33.0
+  version: 0.34.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -33,6 +33,7 @@ tags:
   - name: budget
   - name: home
   - name: watch
+  - name: date-night
   - name: push
   - name: assistant
   - name: calls
@@ -1919,6 +1920,34 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  /v1/households/{householdId}/date-night/ideas:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [date-night]
+      operationId: suggestDateNight
+      summary: Ideas for an evening together, from the weather, what's on, a budget and a mood (members only)
+      description: |
+        Claude suggests a few evenings out or in for the day asked for. With a `place` it looks up
+        the forecast and events happening there; both are best effort, and the ideas still come
+        without them (`forecast` is then absent). Each idea carries a start time, so a client can
+        save the chosen one as a calendar event with `createEntry`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DateNightRequest" }
+      responses:
+        "200":
+          description: Up to three ideas.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DateNight" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
   /v1/households/{householdId}/watch/tonight:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -3233,6 +3262,48 @@ components:
       type: object
       properties:
         mood: { type: string, maxLength: 200, description: "In your own words, e.g. \"something light, under two hours\"; may be empty." }
+
+    DateNightRequest:
+      type: object
+      properties:
+        place: { type: string, maxLength: 100, description: "A town or city; without it there is no forecast and no events." }
+        day: { type: string, format: date, description: "The evening, within 14 days from today in the household's time zone; defaults to today." }
+        budget: { $ref: "#/components/schemas/DateBudget" }
+        mood: { type: string, maxLength: 200, description: "In your own words, e.g. \"cosy, nothing loud\"; may be empty." }
+
+    DateBudget:
+      type: string
+      enum: [free, easy, treat]
+      description: How much the evening may cost; `easy` when absent.
+
+    DateNight:
+      type: object
+      required: [ideas]
+      properties:
+        ideas:
+          type: array
+          items: { $ref: "#/components/schemas/DateIdea" }
+        forecast: { $ref: "#/components/schemas/DateForecast" }
+
+    DateForecast:
+      type: object
+      required: [sky, highC, lowC, rainPercent]
+      properties:
+        sky: { type: string, enum: [clear, cloudy, fog, rain, snow, storm] }
+        highC: { type: number }
+        lowC: { type: number }
+        rainPercent: { type: integer, minimum: 0, maximum: 100, description: Chance of rain or snow. }
+
+    DateIdea:
+      type: object
+      required: [title, reason, indoor, startsAt]
+      properties:
+        title: { type: string }
+        reason: { type: string, description: One warm sentence on why it fits. }
+        where: { type: string, description: A venue or area; absent when it can be anywhere. }
+        cost: { type: string, description: "A short phrase such as \"about 30 €\"; absent when free." }
+        indoor: { type: boolean }
+        startsAt: { type: string, format: date-time, description: When to start, on the day asked for. }
 
     WatchIdeas:
       type: object

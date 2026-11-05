@@ -1436,6 +1436,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/date-night/ideas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ideas for an evening together, from the weather, what's on, a budget and a mood (members only)
+         * @description Claude suggests a few evenings out or in for the day asked for. With a `place` it looks up
+         *     the forecast and events happening there; both are best effort, and the ideas still come
+         *     without them (`forecast` is then absent). Each idea carries a start time, so a client can
+         *     save the chosen one as a calendar event with `createEntry`.
+         */
+        post: operations["suggestDateNight"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/watch/tonight": {
         parameters: {
             query?: never;
@@ -2570,6 +2595,50 @@ export interface components {
         WatchMood: {
             /** @description In your own words, e.g. "something light, under two hours"; may be empty. */
             mood?: string;
+        };
+        DateNightRequest: {
+            /** @description A town or city; without it there is no forecast and no events. */
+            place?: string;
+            /**
+             * Format: date
+             * @description The evening, within 14 days from today in the household's time zone; defaults to today.
+             */
+            day?: string;
+            budget?: components["schemas"]["DateBudget"];
+            /** @description In your own words, e.g. "cosy, nothing loud"; may be empty. */
+            mood?: string;
+        };
+        /**
+         * @description How much the evening may cost; `easy` when absent.
+         * @enum {string}
+         */
+        DateBudget: "free" | "easy" | "treat";
+        DateNight: {
+            ideas: components["schemas"]["DateIdea"][];
+            forecast?: components["schemas"]["DateForecast"];
+        };
+        DateForecast: {
+            /** @enum {string} */
+            sky: "clear" | "cloudy" | "fog" | "rain" | "snow" | "storm";
+            highC: number;
+            lowC: number;
+            /** @description Chance of rain or snow. */
+            rainPercent: number;
+        };
+        DateIdea: {
+            title: string;
+            /** @description One warm sentence on why it fits. */
+            reason: string;
+            /** @description A venue or area; absent when it can be anywhere. */
+            where?: string;
+            /** @description A short phrase such as "about 30 €"; absent when free. */
+            cost?: string;
+            indoor: boolean;
+            /**
+             * Format: date-time
+             * @description When to start
+             */
+            startsAt: string;
         };
         WatchIdeas: {
             ideas: components["schemas"]["WatchIdea"][];
@@ -5446,6 +5515,36 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WatchIdeas"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    suggestDateNight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DateNightRequest"];
+            };
+        };
+        responses: {
+            /** @description Up to three ideas. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DateNight"];
                 };
             };
             400: components["responses"]["BadRequest"];
