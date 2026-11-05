@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.1.0](https://github.com/mariusgassen/homeloom/compare/homeloom-v1.0.0...homeloom-v1.1.0) (2026-11-05)
+
+
+### Features
+
+* add a private documents vault ([#91](https://github.com/mariusgassen/homeloom/issues/91)) ([5e08af6](https://github.com/mariusgassen/homeloom/commit/5e08af67daac6e72f1bdd73db255573b3c038378))
+* add a shared someday list of things to watch, read and visit ([#86](https://github.com/mariusgassen/homeloom/issues/86)) ([6ff56c9](https://github.com/mariusgassen/homeloom/commit/6ff56c9f2113f5afcb8a3bd99d6599252e5479d2))
+* date-night generator with weather, events, budget and mood ([#88](https://github.com/mariusgassen/homeloom/issues/88)) ([072c5a2](https://github.com/mariusgassen/homeloom/commit/072c5a212a09c1cf813389610df54c4f845c5935))
+* house wishlist ranked by hearts, with photos ([#92](https://github.com/mariusgassen/homeloom/issues/92)) ([91d31b9](https://github.com/mariusgassen/homeloom/commit/91d31b90183bed0477af78165cfc6a2d55b3d038))
+* let date-night ideas follow limits and name real places ([#97](https://github.com/mariusgassen/homeloom/issues/97)) ([5961e5a](https://github.com/mariusgassen/homeloom/commit/5961e5afb35a72b540c8be27df5777f9b55ef534))
+* morning briefing with weather, plans and what's due ([#84](https://github.com/mariusgassen/homeloom/issues/84)) ([d3d345c](https://github.com/mariusgassen/homeloom/commit/d3d345c5b4c94ca2f488809db91f78bf83755c87))
+* movie night picker with swipes, matches and scene ([#87](https://github.com/mariusgassen/homeloom/issues/87)) ([dc04d93](https://github.com/mariusgassen/homeloom/commit/dc04d93cedd9d50be84706842f6b9b9009dce1c3))
+* plan trips together with places, photos, favourites and a packing list ([#93](https://github.com/mariusgassen/homeloom/issues/93)) ([e063169](https://github.com/mariusgassen/homeloom/commit/e063169e5586d6420f09866eba799417ec3f7834))
+* private gift ideas with birthday nudges ([#89](https://github.com/mariusgassen/homeloom/issues/89)) ([9cd7336](https://github.com/mariusgassen/homeloom/commit/9cd733623c37b2504d951fe496c1bcf1617371cb))
+* react to moments with an emoji ([#85](https://github.com/mariusgassen/homeloom/issues/85)) ([1305688](https://github.com/mariusgassen/homeloom/commit/1305688263f04590fd4d3d293691fc5571534940))
+* taste profiles and meal memories ([#90](https://github.com/mariusgassen/homeloom/issues/90)) ([64e8150](https://github.com/mariusgassen/homeloom/commit/64e8150a7f3c2b7d33b8d8a1eb5752132f8df7b3))
+
+
+### Bug Fixes
+
+* let mood and place lead date-night ideas, weather only filters ([#96](https://github.com/mariusgassen/homeloom/issues/96)) ([e6d2b85](https://github.com/mariusgassen/homeloom/commit/e6d2b855bfd17e6fd5b8d21e809be81319d35aaa))
+* read date-night ideas after web search, and suggest places while typing ([#95](https://github.com/mariusgassen/homeloom/issues/95)) ([d416bda](https://github.com/mariusgassen/homeloom/commit/d416bdae762f92ebb31f387554e22261b5a31fec))
+* **web:** mute the video in the commit, not after it ([#98](https://github.com/mariusgassen/homeloom/issues/98)) ([cd4f3eb](https://github.com/mariusgassen/homeloom/commit/cd4f3ebf78ae7ec192edebda517d8176a3c3ea79))
+
 ## 1.0.0 (2026-11-04)
 
 
