@@ -278,7 +278,7 @@ test("date night asks with the place, shows the weather and saves a chosen idea 
     at("POST", `/v1/households/${home.id}/entries`, () => json({ id: "e1" }, 201)),
   );
   renderApp("/date-night");
-  await userEvent.type(await screen.findByRole("textbox", { name: /Where/ }), "Berlin");
+  await userEvent.type(await screen.findByRole("combobox", { name: /Where/ }), "Berlin");
   await userEvent.click(screen.getByRole("radio", { name: "Treat" }));
   await userEvent.click(screen.getByRole("button", { name: "Get ideas" }));
   expect(await screen.findByText("Pasta night")).toBeInTheDocument();
@@ -291,6 +291,19 @@ test("date night asks with the place, shows the weather and saves a chosen idea 
   expect(await screen.findByText("In your calendar")).toBeInTheDocument();
   const saved = await calls.find((c) => c.url.endsWith("/entries") && c.method === "POST")?.json();
   expect(saved).toMatchObject({ kind: "event", text: "Pasta night", visibility: "shared", startsAt: "2026-11-07T18:30:00.000Z" });
+});
+
+test("date night suggests places while you type the town", async () => {
+  const calls = serve(
+    ...signedIn(),
+    at("GET", "/v1/places", () => json([{ label: "Berlin, Germany" }, { label: "Bern, Switzerland" }])),
+  );
+  renderApp("/date-night");
+  const where = await screen.findByRole("combobox", { name: /Where/ });
+  await userEvent.type(where, "Ber");
+  await waitFor(() => expect(document.querySelectorAll("datalist option")).toHaveLength(2));
+  expect([...document.querySelectorAll("datalist option")].map((o) => o.getAttribute("value"))).toEqual(["Berlin, Germany", "Bern, Switzerland"]);
+  expect(new URL(calls.find((c) => c.url.includes("/v1/places"))?.url ?? "").searchParams.get("q")).toBe("Ber");
 });
 
 test("watch filters a library, opens a title and leaves out the libraries you turn off", async () => {

@@ -5,6 +5,7 @@ import { api, type DateIdea, type DateNight as Ideas } from "../api/client";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
+import { PlaceInput } from "../ui/PlaceInput";
 import { Segmented } from "../ui/Form";
 import { Screen } from "./Screen";
 
@@ -77,7 +78,7 @@ export function DateNight() {
       <form className="hl-card date-form" onSubmit={ask}>
         <label className="field">
           <span className="label">{t("dateNight.place")}</span>
-          <input className="input" value={place} onChange={(e) => setPlace(e.target.value)} placeholder={t("dateNight.placeHint")} maxLength={100} autoComplete="address-level2" />
+          <PlaceInput className="input" value={place} onChange={setPlace} placeholder={t("dateNight.placeHint")} maxLength={100} autoComplete="off" />
         </label>
         <label className="field">
           <span className="label">{t("dateNight.day")}</span>

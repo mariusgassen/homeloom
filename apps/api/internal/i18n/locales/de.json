@@ -34,6 +34,7 @@
   "error.invalid_shares": "Die Anteile müssen zusammen den Betrag ergeben, jede Person einmal.",
   "error.unknown_place": "Den Ort finde ich nicht. Probier den nächsten größeren Ort.",
   "error.invalid_date_night": "Such dir einen Tag in den nächsten zwei Wochen aus und fasse dich kurz.",
+  "error.places_unavailable": "Die Ortssuche ist gerade nicht erreichbar. Du kannst den Ort auch eintippen.",
   "error.invalid_text": "Schreib bitte zwischen 1 und {max} Zeichen.",
   "error.invite_invalid": "Dieser Einladungslink gilt nicht mehr. Lass dir einen neuen schicken.",
   "error.not_a_reminder": "Nur Erinnerungen kann man abhaken.",

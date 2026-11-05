@@ -28,6 +28,7 @@ type handlers struct {
 	home       port.HomeService
 	watch      port.WatchService
 	dateNight  port.DateNightService
+	places     port.PlaceService
 	push       port.PushService
 	calls      port.CallService
 	voice      port.VoiceService

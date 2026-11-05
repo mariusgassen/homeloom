@@ -328,6 +328,13 @@ type Weather interface {
 	Forecast(ctx context.Context, place string, day time.Time) (domain.Forecast, error)
 }
 
+// PlaceSearch finds towns and cities by the start of their name.
+type PlaceSearch interface {
+	// Search returns up to n matches for the text, names in the language given as a BCP 47 tag. It
+	// returns domain.ErrUnavailable when the search service can't be reached.
+	Search(ctx context.Context, text, lang string, n int) ([]domain.PlaceMatch, error)
+}
+
 // Planner is the LLM's sense of a good evening out or in.
 type Planner interface {
 	// Ideas suggests up to n evenings that fit the brief, in the language given as a BCP 47 tag,

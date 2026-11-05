@@ -1442,6 +1442,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/places": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Towns and cities matching what is typed, for autocompletion
+         * @description Up to five matches, most populous first, with names in the caller's language. Fewer than two
+         *     characters match nothing. A match's `label` is the text to keep as the place: the weather
+         *     lookup finds the same town again from it. When the search is down the answer is 503 and the
+         *     client lets people type the place.
+         */
+        get: operations["searchPlaces"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/date-night/ideas": {
         parameters: {
             query?: never;
@@ -2601,6 +2624,10 @@ export interface components {
         WatchMood: {
             /** @description In your own words, e.g. "something light, under two hours"; may be empty. */
             mood?: string;
+        };
+        PlaceMatch: {
+            /** @description How to write the place, e.g. "Berlin, Germany". */
+            label: string;
         };
         DateNightRequest: {
             /** @description A town or city; without it there is no forecast and no events. */
@@ -5559,6 +5586,30 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    searchPlaces: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The matches, possibly none. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaceMatch"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
             503: components["responses"]["Unavailable"];
         };
     };
