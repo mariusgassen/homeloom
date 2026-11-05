@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"math/rand/v2"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -88,6 +89,9 @@ func (s *Moments) Month(ctx context.Context, actor domain.User, householdID uuid
 			out.Moments = append(out.Moments, sealMoment(m, actor.ID, now))
 		}
 	}
+	if err := s.attachReactions(ctx, out.Moments); err != nil {
+		return domain.MomentMonth{}, err
+	}
 	earlier, err := s.moments.LatestMomentDay(ctx, householdID, actor.ID, from)
 	switch {
 	case err == nil:
@@ -121,7 +125,11 @@ func (s *Moments) Get(ctx context.Context, actor domain.User, id uuid.UUID) (dom
 	if err != nil {
 		return domain.Moment{}, err
 	}
-	return sealMoment(m, actor.ID, s.now()), nil
+	m = sealMoment(m, actor.ID, s.now())
+	if err := s.attachReactions(ctx, []domain.Moment{m}); err != nil {
+		return domain.Moment{}, err
+	}
+	return m, nil
 }
 
 func (s *Moments) Update(ctx context.Context, actor domain.User, id uuid.UUID, f domain.MomentFields) (domain.Moment, error) {
@@ -136,7 +144,10 @@ func (s *Moments) Update(ctx context.Context, actor domain.User, id uuid.UUID, f
 		return domain.Moment{}, err
 	}
 	m.MomentFields = f
-	return s.moments.UpdateMoment(ctx, m)
+	if _, err := s.moments.UpdateMoment(ctx, m); err != nil {
+		return domain.Moment{}, err
+	}
+	return s.fresh(ctx, id)
 }
 
 func (s *Moments) Delete(ctx context.Context, actor domain.User, id uuid.UUID) error {
@@ -171,6 +182,16 @@ func (s *Moments) Resurfaced(ctx context.Context, actor domain.User, householdID
 	if err != nil {
 		return nil, nil, err
 	}
+	if err := s.attachReactions(ctx, ms); err != nil {
+		return nil, nil, err
+	}
+	if line != nil {
+		one := []domain.Moment{*line}
+		if err := s.attachReactions(ctx, one); err != nil {
+			return nil, nil, err
+		}
+		line = &one[0]
+	}
 	return ms, line, nil
 }
 
@@ -191,12 +212,12 @@ func (s *Moments) SetPhoto(ctx context.Context, actor domain.User, id uuid.UUID,
 		if err := s.moments.MarkMomentPhoto(ctx, id); err != nil {
 			return domain.Moment{}, err
 		}
-		return s.moments.GetMoment(ctx, id)
+		return s.fresh(ctx, id)
 	}
 	if err := s.moments.SetMomentPhoto(ctx, id, p); err != nil {
 		return domain.Moment{}, err
 	}
-	return s.moments.GetMoment(ctx, id)
+	return s.fresh(ctx, id)
 }
 
 func (s *Moments) Photo(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Photo, error) {
@@ -229,7 +250,7 @@ func (s *Moments) DeletePhoto(ctx context.Context, actor domain.User, id uuid.UU
 	if err := s.moments.DeleteMomentPhoto(ctx, id); err != nil {
 		return domain.Moment{}, err
 	}
-	return s.moments.GetMoment(ctx, id)
+	return s.fresh(ctx, id)
 }
 
 // videoTypes are the videos a moment can have: what phones record and browsers play.
@@ -261,7 +282,7 @@ func (s *Moments) SetVideo(ctx context.Context, actor domain.User, id uuid.UUID,
 	if err := s.moments.MarkMomentVideo(ctx, id); err != nil {
 		return domain.Moment{}, err
 	}
-	return s.moments.GetMoment(ctx, id)
+	return s.fresh(ctx, id)
 }
 
 func (s *Moments) Video(ctx context.Context, actor domain.User, id uuid.UUID) (domain.VideoStream, error) {
@@ -295,7 +316,74 @@ func (s *Moments) DeleteVideo(ctx context.Context, actor domain.User, id uuid.UU
 	if err := s.moments.ClearMomentVideo(ctx, id); err != nil {
 		return domain.Moment{}, err
 	}
-	return s.moments.GetMoment(ctx, id)
+	return s.fresh(ctx, id)
+}
+
+func (s *Moments) React(ctx context.Context, actor domain.User, id uuid.UUID, emoji string) (domain.Moment, error) {
+	if !slices.Contains(domain.ReactionEmojis, emoji) {
+		return domain.Moment{}, domain.ErrReaction
+	}
+	m, err := s.load(ctx, actor, id)
+	if err != nil {
+		return domain.Moment{}, err
+	}
+	// A letter that hasn't opened yet can't be answered.
+	if sealMoment(m, actor.ID, s.now()).Sealed {
+		return domain.Moment{}, domain.ErrNotFound
+	}
+	changed, err := s.moments.SetMomentReaction(ctx, id, actor.ID, emoji)
+	if err != nil {
+		return domain.Moment{}, err
+	}
+	if changed && m.AuthorID != actor.ID {
+		s.notify.Notify(ctx, []uuid.UUID{m.AuthorID}, domain.Notification{
+			Key: "push.moment_reaction", Args: []any{"name", actor.Name, "emoji", emoji, "text", clipText(m.Text, 80)},
+			URL: "/us", Tag: "reaction-" + id.String(),
+		})
+	}
+	return s.fresh(ctx, id)
+}
+
+func (s *Moments) Unreact(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Moment, error) {
+	if _, err := s.load(ctx, actor, id); err != nil {
+		return domain.Moment{}, err
+	}
+	if err := s.moments.DeleteMomentReaction(ctx, id, actor.ID); err != nil {
+		return domain.Moment{}, err
+	}
+	return s.fresh(ctx, id)
+}
+
+// fresh reads a moment the actor has just changed, with its reactions.
+func (s *Moments) fresh(ctx context.Context, id uuid.UUID) (domain.Moment, error) {
+	m, err := s.moments.GetMoment(ctx, id)
+	if err != nil {
+		return domain.Moment{}, err
+	}
+	ms := []domain.Moment{m}
+	if err := s.attachReactions(ctx, ms); err != nil {
+		return domain.Moment{}, err
+	}
+	return ms[0], nil
+}
+
+// attachReactions fills in the reactions of ms in place.
+func (s *Moments) attachReactions(ctx context.Context, ms []domain.Moment) error {
+	if len(ms) == 0 {
+		return nil
+	}
+	ids := make([]uuid.UUID, len(ms))
+	for i, m := range ms {
+		ids[i] = m.ID
+	}
+	byMoment, err := s.moments.MomentReactions(ctx, ids)
+	if err != nil {
+		return err
+	}
+	for i := range ms {
+		ms[i].Reactions = byMoment[ms[i].ID]
+	}
+	return nil
 }
 
 // capped reads at most left bytes and fails with domain.ErrVideo on more, so a video that is too
@@ -484,6 +572,11 @@ func (s *Moments) check(kind domain.MomentKind, f domain.MomentFields) (domain.M
 	f.Text = strings.TrimSpace(f.Text)
 	if f.Text == "" || utf8.RuneCountInString(f.Text) > maxLen {
 		return f, domain.TextError{Max: maxLen}
+	}
+	f.RecipeSlug, f.RecipeName = strings.TrimSpace(f.RecipeSlug), strings.TrimSpace(f.RecipeName)
+	if (f.RecipeSlug == "") != (f.RecipeName == "") || (kind != domain.KindMoment && f.RecipeSlug != "") ||
+		utf8.RuneCountInString(f.RecipeSlug) > domain.MaxRecipeRef || utf8.RuneCountInString(f.RecipeName) > domain.MaxRecipeRef {
+		return f, fmt.Errorf("%w: a dish needs a slug and a name of at most %d characters, on a moment", domain.ErrInvalid, domain.MaxRecipeRef)
 	}
 	switch f.Visibility {
 	case domain.VisibilityPrivate, domain.VisibilityShared:

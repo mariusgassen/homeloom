@@ -10,16 +10,23 @@ import { Join, pendingInvite } from "./screens/Join";
 import { Onboarding } from "./screens/Onboarding";
 import { Settings } from "./screens/Settings";
 import { RefreshProvider } from "./refresh";
+import { Bucket } from "./screens/Bucket";
 import { Chores } from "./screens/Chores";
 import { Gifts } from "./screens/Gifts";
+import { Documents } from "./screens/Documents";
+import { Wishes } from "./screens/Wishes";
 import { Cook, RecipeScreen } from "./screens/Cook";
+import { MealRecap } from "./screens/MealRecap";
 import { Week, WeekShopping } from "./screens/Week";
 import { Home } from "./screens/Home";
 import { Lists } from "./screens/Lists";
 import { NotePage } from "./screens/NotePage";
 import { Today, Us } from "./screens/Tabs";
 import { Money } from "./screens/Money";
+import { TripPage, Trips } from "./screens/Trips";
+import { DateNight } from "./screens/DateNight";
 import { Watch } from "./screens/Watch";
+import { WatchNight } from "./screens/WatchNight";
 import { Loading, Unavailable, Welcome } from "./screens/Welcome";
 import { useSession } from "./session";
 import { TabBar } from "./ui/TabBar";
@@ -70,15 +77,23 @@ export function App() {
               <Route path="/" element={<Today />} />
               <Route path="/cook" element={<Cook />} />
               <Route path="/cook/week" element={<Week />} />
+              <Route path="/cook/recap" element={<MealRecap />} />
               <Route path="/cook/week/shopping" element={<WeekShopping />} />
               <Route path="/cook/:slug" element={<RecipeScreen />} />
               <Route path="/us" element={<Us />} />
               <Route path="/watch" element={<Watch />} />
+              <Route path="/watch/night" element={<WatchNight />} />
+              <Route path="/date-night" element={<DateNight />} />
               <Route path="/money" element={<Money />} />
+              <Route path="/trips" element={<Trips />} />
+              <Route path="/trips/:id" element={<TripPage />} />
               <Route path="/lists" element={<Lists />} />
               <Route path="/lists/notes/:id" element={<NotePage />} />
+              <Route path="/bucket" element={<Bucket />} />
               <Route path="/chores" element={<Chores />} />
               <Route path="/gifts" element={<Gifts />} />
+              <Route path="/documents" element={<Documents />} />
+              <Route path="/wishes" element={<Wishes />} />
               <Route path="/home" element={<Home />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/call/:callId" element={<IncomingCall />} />

@@ -40,6 +40,9 @@ type HouseholdService interface {
 	List(ctx context.Context, actor domain.User) ([]domain.Membership, error)
 	Create(ctx context.Context, actor domain.User, name string) (domain.Membership, error)
 	Get(ctx context.Context, actor domain.User, id uuid.UUID) (domain.HouseholdDetail, error)
+	// SetPlace sets where the household lives (empty clears it). Any member may. It returns
+	// domain.ErrInvalid for a place that is too long or that the weather service doesn't know.
+	SetPlace(ctx context.Context, actor domain.User, id uuid.UUID, place string) (domain.HouseholdDetail, error)
 	Invite(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Invite, error)
 	Join(ctx context.Context, actor domain.User, code string) (domain.Membership, error)
 }
@@ -104,6 +107,11 @@ type MomentService interface {
 	// Video returns domain.ErrNotFound unless the actor can see the moment and its video.
 	Video(ctx context.Context, actor domain.User, id uuid.UUID) (domain.VideoStream, error)
 	DeleteVideo(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Moment, error)
+	// React sets the actor's emoji on a moment they can read, replacing their earlier one, and
+	// tells its author. The emoji must be one of domain.ReactionEmojis.
+	React(ctx context.Context, actor domain.User, id uuid.UUID, emoji string) (domain.Moment, error)
+	// Unreact takes the actor's emoji off.
+	Unreact(ctx context.Context, actor domain.User, id uuid.UUID) (domain.Moment, error)
 }
 
 // EntrySyncService lets a calendar app (over CalDAV) or a notes app (over WebDAV) read and change
@@ -144,6 +152,15 @@ type CookService interface {
 	// SuggestPlan has an idea for each of the days without a dinner, favouring what the wish
 	// (which may be empty) and the ticked-off shopping list say is on hand.
 	SuggestPlan(ctx context.Context, actor domain.User, householdID uuid.UUID, from time.Time, days int, wish, lang string) (domain.MealIdeas, error)
+	// Rate sets the actor's rating of a dish, replacing an earlier one. It needs Mealie, for the
+	// dish's name.
+	Rate(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string, rating domain.Rating) (domain.MealRating, error)
+	// Unrate removes the actor's rating of a dish; nothing rated is fine.
+	Unrate(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string) error
+	// Ratings returns every member's ratings. It works without Mealie.
+	Ratings(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.MealRating, error)
+	// Recap sums up the year's meal memories the actor can read; the current year when year is 0.
+	Recap(ctx context.Context, actor domain.User, householdID uuid.UUID, year int) (domain.MealRecap, error)
 	// AddMealsToShoppingList is AddToShoppingList for several recipes at once.
 	AddMealsToShoppingList(ctx context.Context, actor domain.User, householdID uuid.UUID, recipes []domain.RecipeIngredients) (int, error)
 }
@@ -183,6 +200,29 @@ type ShoppingService interface {
 	Suggestions(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.TitleSuggestion, error)
 }
 
+// DocumentService is the vault: members' files, private unless shared.
+type DocumentService interface {
+	// List returns the actor's documents and those shared with the household.
+	List(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.Document, error)
+	// Add streams r in as a new private document. It is domain.ErrUnavailable without a FileStore.
+	Add(ctx context.Context, actor domain.User, householdID uuid.UUID, name, contentType string, r io.Reader) (domain.Document, error)
+	// Update renames the actor's document and sets whether the household sees it; name "" keeps the name.
+	Update(ctx context.Context, actor domain.User, householdID, id uuid.UUID, name string, shared *bool) (domain.Document, error)
+	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
+	// File returns domain.ErrNotFound unless the actor can see the document.
+	File(ctx context.Context, actor domain.User, householdID, id uuid.UUID) (domain.Document, domain.VideoStream, error)
+}
+
+// BucketService is the household's someday list of things to watch, read or visit.
+type BucketService interface {
+	// List returns the items of a kind ("" for all): open ones oldest first, then ticked ones.
+	List(ctx context.Context, actor domain.User, householdID uuid.UUID, kind domain.BucketKind) ([]domain.BucketItem, error)
+	Add(ctx context.Context, actor domain.User, householdID uuid.UUID, kind domain.BucketKind, text string) (domain.BucketItem, error)
+	// SetDone ticks an item off (watched, read, been there) or opens it again.
+	SetDone(ctx context.Context, actor domain.User, householdID, id uuid.UUID, done bool) (domain.BucketItem, error)
+	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
+}
+
 // ChoreService is the household's chores: who does what, in turns, and who did how much.
 type ChoreService interface {
 	// List returns the chores still to do, soonest due first.
@@ -201,6 +241,48 @@ type ChoreService interface {
 	// History returns what was done in the last weeks, newest first.
 	History(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.ChoreCompletion, error)
 	Fairness(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.ChoreFairness, error)
+}
+
+// TripService is the household's trips: where to, when, the places it is weighing up with their
+// photos, who favours which, and what to pack. Every mutation returns the trip as it is then.
+type TripService interface {
+	// List returns the trips, soonest start first.
+	List(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.Trip, error)
+	Create(ctx context.Context, actor domain.User, householdID uuid.UUID, f domain.TripFields) (domain.Trip, error)
+	Update(ctx context.Context, actor domain.User, householdID, id uuid.UUID, f domain.TripFields) (domain.Trip, error)
+	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
+	AddOption(ctx context.Context, actor domain.User, householdID, tripID uuid.UUID, f domain.TripOptionFields) (domain.Trip, error)
+	UpdateOption(ctx context.Context, actor domain.User, householdID, tripID, optionID uuid.UUID, f domain.TripOptionFields) (domain.Trip, error)
+	DeleteOption(ctx context.Context, actor domain.User, householdID, tripID, optionID uuid.UUID) (domain.Trip, error)
+	// Vote makes the option the actor's favourite of the trip; Unvote takes it back.
+	Vote(ctx context.Context, actor domain.User, householdID, tripID, optionID uuid.UUID) (domain.Trip, error)
+	Unvote(ctx context.Context, actor domain.User, householdID, tripID uuid.UUID) (domain.Trip, error)
+	// AddPhoto adds a photo to an option. It returns domain.ErrUnavailable when photos aren't kept.
+	AddPhoto(ctx context.Context, actor domain.User, householdID, tripID, optionID uuid.UUID, p domain.Photo) (domain.Trip, error)
+	Photo(ctx context.Context, actor domain.User, householdID, tripID, photoID uuid.UUID) (domain.Photo, error)
+	DeletePhoto(ctx context.Context, actor domain.User, householdID, tripID, photoID uuid.UUID) (domain.Trip, error)
+	AddPacking(ctx context.Context, actor domain.User, householdID, tripID uuid.UUID, text string) (domain.Trip, error)
+	UpdatePacking(ctx context.Context, actor domain.User, householdID, tripID, itemID uuid.UUID, f domain.PackingFields) (domain.Trip, error)
+	DeletePacking(ctx context.Context, actor domain.User, householdID, tripID, itemID uuid.UUID) (domain.Trip, error)
+}
+
+// WishService is the household's wishlist: things wanted for the home, ranked by hearts.
+type WishService interface {
+	// List returns the wishes, the most wanted first; those that came true come last.
+	List(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.Wish, error)
+	Create(ctx context.Context, actor domain.User, householdID uuid.UUID, f domain.WishFields) (domain.Wish, error)
+	// Update changes a wish; every member may, as the list is shared.
+	Update(ctx context.Context, actor domain.User, householdID, id uuid.UUID, f domain.WishFields) (domain.Wish, error)
+	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
+	// Vote sets the actor's hearts for a wish, 1 to 3; 0 takes them back.
+	Vote(ctx context.Context, actor domain.User, householdID, id uuid.UUID, hearts int) (domain.Wish, error)
+	// Got marks a wish as come true, or as a wish again.
+	Got(ctx context.Context, actor domain.User, householdID, id uuid.UUID, got bool) (domain.Wish, error)
+	// SetPhoto, Photo and DeletePhoto keep a picture with a wish. They return domain.ErrUnavailable
+	// when no photo store is set up or it fails.
+	SetPhoto(ctx context.Context, actor domain.User, householdID, id uuid.UUID, p domain.Photo) (domain.Wish, error)
+	Photo(ctx context.Context, actor domain.User, householdID, id uuid.UUID) (domain.Photo, error)
+	DeletePhoto(ctx context.Context, actor domain.User, householdID, id uuid.UUID) (domain.Wish, error)
 }
 
 type HomeService interface {
@@ -232,6 +314,13 @@ type WatchService interface {
 	// Tonight returns nil when nothing is picked for tonight.
 	Tonight(ctx context.Context, actor domain.User, householdID uuid.UUID) (*domain.TonightPick, error)
 	ClearTonight(ctx context.Context, actor domain.User, householdID uuid.UUID) error
+	// Night returns the actor's movie night: unseen films to swipe on and the films both partners liked.
+	Night(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.MovieNight, error)
+	// Swipe records whether the actor would watch one of their titles. It returns the match when
+	// the partner liked the same film, else nil.
+	Swipe(ctx context.Context, actor domain.User, householdID uuid.UUID, titleID string, liked bool) (*domain.NightMatch, error)
+	// ResetNight forgets everyone's swipes.
+	ResetNight(ctx context.Context, actor domain.User, householdID uuid.UUID) error
 	// Suggest returns ideas that fit the mood, from the actor's libraries when connected and from
 	// outside them; domain.ErrUnavailable without an LLM.
 	Suggest(ctx context.Context, actor domain.User, householdID uuid.UUID, mood, lang string) ([]domain.WatchIdea, error)
@@ -334,4 +423,19 @@ type GiftService interface {
 	Add(ctx context.Context, actor domain.User, householdID, forID uuid.UUID, text string) (domain.GiftIdea, error)
 	SetGiven(ctx context.Context, actor domain.User, householdID, id uuid.UUID, given bool) (domain.GiftIdea, error)
 	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
+}
+
+// DateNightService suggests evenings for the household.
+type DateNightService interface {
+	// Ideas returns a few ideas for the evening in q. The forecast is nil when the weather is
+	// unknown. It returns domain.ErrInvalid for a bad query and domain.ErrUnavailable when the LLM
+	// is down.
+	Ideas(ctx context.Context, actor domain.User, householdID uuid.UUID, q domain.DateQuery, lang string) (domain.DateNight, error)
+}
+
+// PlaceService suggests places while someone types one.
+type PlaceService interface {
+	// Search returns towns and cities matching the text; fewer than domain.MinPlaceQuery characters
+	// match nothing. It returns domain.ErrUnavailable when the search is down.
+	Search(ctx context.Context, actor domain.User, text, lang string) ([]domain.PlaceMatch, error)
 }

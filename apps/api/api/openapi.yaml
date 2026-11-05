@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.34.0
+  version: 0.45.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -29,11 +29,17 @@ tags:
   - name: moments
   - name: cook
   - name: shopping
+  - name: bucket
   - name: chores
   - name: gifts
+  - name: documents
   - name: budget
+  - name: trips
+  - name: wishes
   - name: home
   - name: watch
+  - name: date-night
+  - name: places
   - name: push
   - name: assistant
   - name: calls
@@ -439,6 +445,32 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/HouseholdDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [households]
+      operationId: updateHousehold
+      summary: Choose where the household lives (members only)
+      description: |
+        The place is a town or city, as typed. The morning briefing looks up its weather there.
+        An empty place clears it. A place the weather service doesn't know answers 400
+        `unknown_place`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [place]
+              properties:
+                place: { type: string, maxLength: 100 }
+      responses:
+        "200":
+          description: The household.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HouseholdDetail" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
@@ -1029,6 +1061,47 @@ paths:
               schema: { $ref: "#/components/schemas/Error" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/moments/{momentId}/reaction:
+    parameters:
+      - $ref: "#/components/parameters/MomentId"
+    put:
+      tags: [moments]
+      operationId: reactToMoment
+      summary: Answer a moment or line with an emoji
+      description: >
+        Any member who can read it can react; a new emoji replaces the member's earlier one, and
+        its author is told. A "later" moment that hasn't opened yet is not found.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MomentReaction" }
+      responses:
+        "200":
+          description: The moment with its reactions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        "400":
+          description: The emoji isn't one of the offered ones (code `invalid_reaction`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [moments]
+      operationId: unreactToMoment
+      summary: Take your emoji off a moment or line
+      responses:
+        "200":
+          description: The moment with its reactions.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Moment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/moments/{momentId}/photo:
     parameters:
       - $ref: "#/components/parameters/MomentId"
@@ -1252,6 +1325,84 @@ paths:
           content:
             image/*:
               schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/recipes/{slug}/rating:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/RecipeSlug"
+    put:
+      tags: [cook]
+      operationId: rateRecipe
+      summary: Rate a dish as you, replacing your earlier rating (members only)
+      description: |
+        Both of you see each other's ratings. Dishes either of you rated `nope` are left out of
+        dinner ideas and the meal plan's suggestions; dishes you loved steer them. Needs Mealie, for
+        the dish's name.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RatingChoice" }
+      responses:
+        "200":
+          description: Your rating.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MealRating" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [cook]
+      operationId: unrateRecipe
+      summary: Take back your rating of a dish
+      responses:
+        "204": { description: Removed, or nothing was rated. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/taste:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [cook]
+      operationId: getTaste
+      summary: How each of you rated the dishes (members only)
+      description: Works without Mealie.
+      responses:
+        "200":
+          description: Every rating in the household, newest first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Taste" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/meal-recap:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [cook]
+      operationId: getMealRecap
+      summary: A year of meal memories (members only)
+      description: |
+        What you can read of the year's moments that are about a dish: how many, the dishes cooked
+        most, the ones you both loved, and the newest with a photo. Works without Mealie.
+      parameters:
+        - { name: year, in: query, required: false, schema: { type: integer, minimum: 2000, maximum: 9999 }, description: The current year when absent. }
+      responses:
+        "200":
+          description: The recap.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MealRecap" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
@@ -1518,6 +1669,93 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /v1/households/{householdId}/bucket:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [bucket]
+      operationId: listBucket
+      summary: The household's someday list (members only)
+      description: |
+        Things to watch, read or visit some day. Open items oldest first, then ticked ones, most
+        recently ticked first. At most 500.
+      parameters:
+        - name: kind
+          in: query
+          required: false
+          description: Only items of this kind.
+          schema: { $ref: "#/components/schemas/BucketKind" }
+      responses:
+        "200":
+          description: The items.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/BucketItem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [bucket]
+      operationId: addBucketItem
+      summary: Wish for something
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NewBucketItem" }
+      responses:
+        "201":
+          description: The new item.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BucketItem" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/bucket/{itemId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/BucketItemId"
+    delete:
+      tags: [bucket]
+      operationId: deleteBucketItem
+      summary: Take a item off the list
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/bucket/{itemId}/done:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/BucketItemId"
+    put:
+      tags: [bucket]
+      operationId: tickBucketItem
+      summary: Tick a item off (watched, read, been there)
+      responses:
+        "200":
+          description: The item, ticked.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BucketItem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [bucket]
+      operationId: untickBucketItem
+      summary: Open a item again
+      responses:
+        "200":
+          description: The item, open again.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BucketItem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/households/{householdId}/expenses:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -1658,6 +1896,298 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  /v1/households/{householdId}/trips:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [trips]
+      operationId: listTrips
+      summary: The household's trips with their options, votes and packing lists (members only)
+      description: Soonest start first; trips without dates last. At most 50.
+      responses:
+        "200":
+          description: The trips.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Trip" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [trips]
+      operationId: createTrip
+      summary: Start planning a trip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TripFields" }
+      responses:
+        "201":
+          description: The new trip.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/TripFull" }
+
+  /v1/households/{householdId}/trips/{tripId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/TripId"
+    put:
+      tags: [trips]
+      operationId: updateTrip
+      summary: Change a trip, or decide on one of its options
+      description: Trips are shared, so every member can change them. `chosenOptionId` must be one of the trip's options.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TripFields" }
+      responses:
+        "200":
+          description: The trip.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [trips]
+      operationId: deleteTrip
+      summary: Delete a trip with its options, photos and packing list
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/trips/{tripId}/options:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/TripId"
+    post:
+      tags: [trips]
+      operationId: addTripOption
+      summary: Add a place or plan to weigh up (at most 20 per trip)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TripOptionFields" }
+      responses:
+        "201":
+          description: The trip with the new option.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/TripFull" }
+
+  /v1/households/{householdId}/trips/{tripId}/options/{optionId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/TripId"
+      - $ref: "#/components/parameters/OptionId"
+    put:
+      tags: [trips]
+      operationId: updateTripOption
+      summary: Change an option
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TripOptionFields" }
+      responses:
+        "200":
+          description: The trip.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [trips]
+      operationId: deleteTripOption
+      summary: Remove an option with its photos and votes
+      responses:
+        "200":
+          description: The trip without the option.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/trips/{tripId}/options/{optionId}/vote:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/TripId"
+      - $ref: "#/components/parameters/OptionId"
+    put:
+      tags: [trips]
+      operationId: voteTripOption
+      summary: Make this option your favourite of the trip
+      description: Each member has one favourite per trip; this moves yours here.
+      responses:
+        "200":
+          description: The trip.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/trips/{tripId}/vote:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/TripId"
+    delete:
+      tags: [trips]
+      operationId: unvoteTrip
+      summary: Take back your favourite of the trip
+      responses:
+        "200":
+          description: The trip.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/trips/{tripId}/options/{optionId}/photos:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/TripId"
+      - $ref: "#/components/parameters/OptionId"
+    post:
+      tags: [trips]
+      operationId: addTripPhoto
+      summary: Add a photo to an option
+      description: A JPEG of at most 5 MB, kept in S3, at most 12 per option; `503 photos_unavailable` when S3 isn't set up or reachable.
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+      responses:
+        "201":
+          description: The trip with the photo.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/TripFull" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/trips/{tripId}/photos/{photoId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/TripId"
+      - $ref: "#/components/parameters/PhotoId"
+    get:
+      tags: [trips]
+      operationId: getTripPhoto
+      summary: A photo of an option
+      description: Use the photo's `url`; a photo never changes, so the answer may be cached.
+      responses:
+        "200":
+          description: The photo.
+          headers:
+            Cache-Control:
+              schema: { type: string }
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [trips]
+      operationId: deleteTripPhoto
+      summary: Remove a photo
+      responses:
+        "200":
+          description: The trip without the photo.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/trips/{tripId}/packing:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/TripId"
+    post:
+      tags: [trips]
+      operationId: addPackingItem
+      summary: Add something to pack (at most 200 per trip)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PackingFields" }
+      responses:
+        "201":
+          description: The trip with the new item.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/TripFull" }
+
+  /v1/households/{householdId}/trips/{tripId}/packing/{itemId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/TripId"
+      - $ref: "#/components/parameters/PackingItemId"
+    put:
+      tags: [trips]
+      operationId: updatePackingItem
+      summary: Change or tick off something to pack
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PackingFields" }
+      responses:
+        "200":
+          description: The trip.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [trips]
+      operationId: deletePackingItem
+      summary: Remove something from the packing list
+      responses:
+        "200":
+          description: The trip.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /v1/households/{householdId}/balance:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -1695,6 +2225,205 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/wishes:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [wishes]
+      operationId: listWishes
+      summary: The household's wishlist (members only)
+      description: The most wanted first (the sum of everyone's hearts); wishes that came true come last. At most 500.
+      responses:
+        "200":
+          description: The wishes.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Wish" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [wishes]
+      operationId: createWish
+      summary: Add a wish
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WishFields" }
+      responses:
+        "201":
+          description: The new wish.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Wish" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/wishes/{wishId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/WishId"
+    put:
+      tags: [wishes]
+      operationId: updateWish
+      summary: Change a wish
+      description: The wishlist is shared, so every member can change it. Hearts and the photo stay.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WishFields" }
+      responses:
+        "200":
+          description: The wish.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Wish" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [wishes]
+      operationId: deleteWish
+      summary: Delete a wish and its photo
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/wishes/{wishId}/vote:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/WishId"
+    put:
+      tags: [wishes]
+      operationId: voteWish
+      summary: Say how much you want it
+      description: Your hearts replace the ones you gave before.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hearts]
+              properties:
+                hearts: { type: integer, minimum: 1, maximum: 3 }
+      responses:
+        "200":
+          description: The wish.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Wish" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [wishes]
+      operationId: unvoteWish
+      summary: Take your hearts back
+      responses:
+        "200":
+          description: The wish.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Wish" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/wishes/{wishId}/got:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/WishId"
+    put:
+      tags: [wishes]
+      operationId: gotWish
+      summary: The wish came true
+      responses:
+        "200":
+          description: The wish, with `gotAt`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Wish" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [wishes]
+      operationId: ungotWish
+      summary: Make it a wish again
+      responses:
+        "200":
+          description: The wish, without `gotAt`.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Wish" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/wishes/{wishId}/photo:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/WishId"
+    get:
+      tags: [wishes]
+      operationId: getWishPhoto
+      summary: The photo of a wish
+      description: Use the wish's `photoUrl`; it changes with the photo, so the answer may be cached.
+      parameters:
+        - name: v
+          in: query
+          description: The photo's version, part of `photoUrl`.
+          schema: { type: string, maxLength: 40 }
+      responses:
+        "200":
+          description: The photo.
+          headers:
+            Cache-Control:
+              schema: { type: string }
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    put:
+      tags: [wishes]
+      operationId: setWishPhoto
+      summary: Add or replace the photo of a wish
+      description: A JPEG of at most 5 MB, kept in S3; `503 wish_photos_unavailable` when S3 isn't set up or reachable.
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+      responses:
+        "200":
+          description: The wish with its photo.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Wish" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [wishes]
+      operationId: deleteWishPhoto
+      summary: Remove the photo of a wish
+      responses:
+        "200":
+          description: The wish without a photo.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Wish" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
 
   /v1/households/{householdId}/chores:
     parameters:
@@ -1792,6 +2521,126 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+
+  /v1/households/{householdId}/documents:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [documents]
+      operationId: listDocuments
+      summary: Your documents and those shared with the household (members only)
+      description: |
+        Newest first. A document is private to whoever added it until they share it; other
+        members never see a private one. At most 500.
+      responses:
+        "200":
+          description: The documents.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Document" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [documents]
+      operationId: addDocument
+      summary: Put a file in your documents
+      description: |
+        Send the file as the body, with its own `Content-Type`: a PDF, a JPEG, PNG, WebP or HEIC
+        image, plain text or CSV, or a Word, Excel, PowerPoint or OpenDocument file, of at most
+        50 MB. It starts private to you. Documents need the S3 store; without it this answers 503.
+      parameters:
+        - name: name
+          in: query
+          required: true
+          description: The file's name, such as `lease.pdf`.
+          schema: { type: string, maxLength: 200 }
+      requestBody:
+        required: true
+        content:
+          "*/*":
+            schema: { type: string, format: binary }
+      responses:
+        "201":
+          description: The new document.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/documents/{documentId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/DocumentId"
+    patch:
+      tags: [documents]
+      operationId: updateDocument
+      summary: Rename a document or share it with the household
+      description: Only the member who added it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DocumentChange" }
+      responses:
+        "200":
+          description: The document.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: You can see it but not change it (code `not_yours`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [documents]
+      operationId: deleteDocument
+      summary: Delete a document and its file
+      description: Only the member who added it.
+      responses:
+        "204": { description: Deleted. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: You can see it but not delete it (code `not_yours`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/documents/{documentId}/file:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/DocumentId"
+    get:
+      tags: [documents]
+      operationId: getDocumentFile
+      summary: The file itself
+      description: |
+        PDFs and images open in the browser; everything else downloads. The answer is private to
+        the viewer and never cached by shared caches.
+      responses:
+        "200":
+          description: The file.
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+            Cache-Control:
+              schema: { type: string }
+            X-Content-Type-Options:
+              schema: { type: string }
+          content:
+            "*/*":
+              schema: { type: string, format: binary }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/households/{householdId}/chore-completions:
     parameters:
@@ -2016,6 +2865,60 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "503": { $ref: "#/components/responses/Unavailable" }
 
+  /v1/places:
+    get:
+      tags: [places]
+      operationId: searchPlaces
+      summary: Towns and cities matching what is typed, for autocompletion
+      description: |
+        Up to five matches, most populous first, with names in the caller's language. Fewer than two
+        characters match nothing. A match's `label` is the text to keep as the place: the weather
+        lookup finds the same town again from it. When the search is down the answer is 503 and the
+        client lets people type the place.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, maxLength: 100 }
+      responses:
+        "200":
+          description: The matches, possibly none.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PlaceMatch" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/date-night/ideas:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [date-night]
+      operationId: suggestDateNight
+      summary: Ideas for an evening together, from the weather, what's on, a budget and a mood (members only)
+      description: |
+        Claude suggests a few evenings out or in for the day asked for. With a `place` it looks up
+        the forecast and events happening there; both are best effort, and the ideas still come
+        without them (`forecast` is then absent). Each idea carries a start time, so a client can
+        save the chosen one as a calendar event with `createEntry`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DateNightRequest" }
+      responses:
+        "200":
+          description: Up to three ideas.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DateNight" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
   /v1/households/{householdId}/watch/tonight:
     parameters:
       - $ref: "#/components/parameters/HouseholdId"
@@ -2060,6 +2963,58 @@ paths:
         "204": { description: Cleared. }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/watch/night:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    get:
+      tags: [watch]
+      operationId: getWatchNight
+      summary: Your movie night - films to swipe on and the ones you both like (members only)
+      description: |
+        Unseen movies from your own libraries, shuffled; those your partner already liked come
+        first. Swipes last until 5 a.m. the morning after. A film is the same film across Plex
+        accounts when name and year agree.
+      responses:
+        "200":
+          description: The deck and the matches.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatchNight" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+    delete:
+      tags: [watch]
+      operationId: resetWatchNight
+      summary: Start movie night over - forget everyone's swipes
+      responses:
+        "204": { description: Forgotten. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/households/{householdId}/watch/night/swipes:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [watch]
+      operationId: swipeWatchNight
+      summary: Say whether you would watch one of your movies; a match tells your partner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WatchSwipe" }
+      responses:
+        "200":
+          description: Recorded. `match` is set when your partner liked the same film.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WatchSwipeResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/Unavailable" }
 
   /v1/households/{householdId}/watch/libraries/{libraryId}:
     parameters:
@@ -2562,6 +3517,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    BucketItemId:
+      name: itemId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     ShoppingItemId:
       name: itemId
       in: path
@@ -2577,8 +3537,38 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    TripId:
+      name: tripId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    OptionId:
+      name: optionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    PhotoId:
+      name: photoId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    PackingItemId:
+      name: itemId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     ChoreId:
       name: choreId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    DocumentId:
+      name: documentId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    WishId:
+      name: wishId
       in: path
       required: true
       schema: { type: string, format: uuid }
@@ -2626,6 +3616,12 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
+    TripFull:
+      description: That list has reached its limit (code `trip_full`).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
     Unavailable:
       description: A dependency (authentik, Redis, Mealie, Home Assistant, Web Push, the LLM, LiveKit) cannot be reached or isn't set up.
       content:
@@ -2793,6 +3789,14 @@ components:
         visibility: { $ref: "#/components/schemas/Visibility" }
         revealAt: { type: string, format: date-time, description: "When a `reveal` moment opens; required for it." }
         day: { type: string, format: date, description: "Moments only: the day it happened, not after today. Today when absent." }
+        meal: { $ref: "#/components/schemas/MealRef", description: "Moments only: the dish it is about, which makes it a meal memory. Absent for any other moment." }
+
+    MealRef:
+      type: object
+      required: [slug, name]
+      properties:
+        slug: { type: string, maxLength: 200 }
+        name: { type: string, maxLength: 200 }
 
     CreateMoment:
       allOf:
@@ -2816,8 +3820,26 @@ components:
         text: { type: string }
         photoUrl: { type: string, description: Where its photo is, if it has one. }
         videoUrl: { type: string, description: Where its video is, if it has one. }
+        meal: { $ref: "#/components/schemas/MealRef", description: "The dish it is about, if it is a meal memory; absent while sealed." }
+        reactions:
+          type: array
+          description: What members answered it with, oldest first; one per member.
+          items: { $ref: "#/components/schemas/GivenReaction" }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+
+    GivenReaction:
+      type: object
+      required: [userId, emoji]
+      properties:
+        userId: { type: string, format: uuid }
+        emoji: { type: string }
+
+    MomentReaction:
+      type: object
+      required: [emoji]
+      properties:
+        emoji: { type: string, enum: ["❤️", "😂", "🥹", "🙌", "👍"] }
 
     MomentMonth:
       type: object
@@ -2946,6 +3968,63 @@ components:
         days: { type: integer, minimum: 1, maximum: 14, default: 7 }
         wish: { type: string, maxLength: 200, description: "What to use up or what you feel like, in your own words." }
 
+    Rating:
+      type: string
+      enum: [love, fine, nope]
+      description: Nope means not again.
+
+    RatingChoice:
+      type: object
+      required: [rating]
+      properties:
+        rating: { $ref: "#/components/schemas/Rating" }
+
+    MealRating:
+      type: object
+      required: [slug, name, userId, rating, ratedAt]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        userId: { type: string, format: uuid }
+        rating: { $ref: "#/components/schemas/Rating" }
+        ratedAt: { type: string, format: date-time }
+
+    Taste:
+      type: object
+      required: [ratings]
+      properties:
+        ratings:
+          type: array
+          items: { $ref: "#/components/schemas/MealRating" }
+
+    CookedDish:
+      type: object
+      required: [slug, name, times, last]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        times: { type: integer, description: How many meal memories the year holds of it. }
+        last: { type: string, format: date, description: The day it was cooked last. }
+
+    MealRecap:
+      type: object
+      required: [year, memories, dishes, favourites, photos]
+      properties:
+        year: { type: integer }
+        memories: { type: integer, description: How many meal memories you can read from the year. }
+        dishes:
+          type: array
+          description: The dishes cooked most, most first; at most five.
+          items: { $ref: "#/components/schemas/CookedDish" }
+        favourites:
+          type: array
+          description: The year's dishes every member who rated them loved, when at least two did.
+          items: { $ref: "#/components/schemas/CookedDish" }
+        photos:
+          type: array
+          description: The newest meal memories with a photo; at most twelve.
+          items: { $ref: "#/components/schemas/Moment" }
+
     MealIdeas:
       type: object
       required: [meals, chef]
@@ -3009,6 +4088,30 @@ components:
         recipe: { type: string, description: "The recipe the item came from, if any." }
         addedBy: { type: string, format: uuid, description: Who added it; absent once they left. }
         done: { type: boolean }
+        doneAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    BucketKind:
+      type: string
+      enum: [watch, read, visit]
+      description: Something to watch, to read, or a place to visit.
+
+    NewBucketItem:
+      type: object
+      required: [kind, text]
+      properties:
+        kind: { $ref: "#/components/schemas/BucketKind" }
+        text: { type: string, minLength: 1, maxLength: 200 }
+
+    BucketItem:
+      type: object
+      required: [id, kind, text, done, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { $ref: "#/components/schemas/BucketKind" }
+        text: { type: string }
+        addedBy: { type: string, format: uuid, description: Who added it; absent once they left. }
+        done: { type: boolean, description: Watched, read or been there. }
         doneAt: { type: string, format: date-time }
         createdAt: { type: string, format: date-time }
 
@@ -3141,6 +4244,38 @@ components:
         to: { type: string, format: uuid }
         cents: { type: integer, format: int64 }
 
+    WishFields:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 100 }
+        note: { type: string, maxLength: 500 }
+        url: { type: string, maxLength: 2000, description: "Where to see or buy it: an http or https address." }
+        priceCents: { type: integer, format: int64, minimum: 1, maximum: 100000000 }
+
+    WishVote:
+      type: object
+      required: [userId, hearts]
+      properties:
+        userId: { type: string, format: uuid }
+        hearts: { type: integer, minimum: 1, maximum: 3 }
+
+    Wish:
+      type: object
+      required: [id, title, note, url, hearts, votes, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        note: { type: string }
+        url: { type: string, description: Empty when there is none. }
+        priceCents: { type: integer, format: int64 }
+        photoUrl: { type: string, description: "The photo, if there is one; it changes with the photo." }
+        hearts: { type: integer, description: The sum of everyone's hearts, which ranks the list. }
+        votes: { type: array, items: { $ref: "#/components/schemas/WishVote" } }
+        gotAt: { type: string, format: date-time, description: When the wish came true. }
+        createdBy: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+
     ChoreFields:
       type: object
       required: [title, points]
@@ -3209,6 +4344,84 @@ components:
           type: array
           description: Only the caller's own ideas, open ones first.
           items: { $ref: "#/components/schemas/GiftIdea" }
+    TripFields:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 80 }
+        destination: { type: string, maxLength: 80 }
+        startOn: { type: string, format: date }
+        endOn: { type: string, format: date, description: On or after `startOn`. }
+        notes: { type: string, maxLength: 1000 }
+        chosenOptionId: { type: string, format: uuid, description: The option the household decided on; one of the trip's options. }
+
+    TripOptionFields:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 100 }
+        url: { type: string, maxLength: 500, description: A link to the listing, http or https. }
+        notes: { type: string, maxLength: 1000 }
+
+    TripPhoto:
+      type: object
+      required: [id, url]
+      properties:
+        id: { type: string, format: uuid }
+        url: { type: string, description: Where to get the photo. }
+
+    TripOption:
+      type: object
+      required: [id, title, photos, votes]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        url: { type: string }
+        notes: { type: string }
+        photos:
+          type: array
+          description: Oldest first; the first is the cover.
+          items: { $ref: "#/components/schemas/TripPhoto" }
+        votes:
+          type: array
+          description: The members whose favourite this is.
+          items: { type: string, format: uuid }
+        addedBy: { type: string, format: uuid, description: Absent once they left. }
+
+    PackingFields:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, minLength: 1, maxLength: 100 }
+        done: { type: boolean, description: Packed already; false when absent. }
+
+    PackingItem:
+      type: object
+      required: [id, text, done]
+      properties:
+        id: { type: string, format: uuid }
+        text: { type: string }
+        done: { type: boolean }
+
+    Trip:
+      type: object
+      required: [id, name, options, packing, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        destination: { type: string }
+        startOn: { type: string, format: date }
+        endOn: { type: string, format: date }
+        notes: { type: string }
+        chosenOptionId: { type: string, format: uuid }
+        options:
+          type: array
+          items: { $ref: "#/components/schemas/TripOption" }
+        packing:
+          type: array
+          description: Oldest first.
+          items: { $ref: "#/components/schemas/PackingItem" }
+        createdAt: { type: string, format: date-time }
 
     Chore:
       type: object
@@ -3223,6 +4436,27 @@ components:
         dueOn: { type: string, format: date }
         createdBy: { type: string, format: uuid }
         createdAt: { type: string, format: date-time }
+
+    Document:
+      type: object
+      required: [id, ownerId, mine, name, contentType, size, shared, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        ownerId: { type: string, format: uuid, description: Who added it. }
+        mine: { type: boolean }
+        name: { type: string }
+        contentType: { type: string }
+        size: { type: integer, format: int64, description: Bytes. }
+        shared:
+          type: boolean
+          description: Whether the whole household can see it. Private (false) until its owner shares it.
+        createdAt: { type: string, format: date-time }
+
+    DocumentChange:
+      type: object
+      properties:
+        name: { type: string, maxLength: 200 }
+        shared: { type: boolean }
 
     ChoreCompletion:
       type: object
@@ -3366,6 +4600,31 @@ components:
         watched: { type: boolean, description: "You have seen the movie, or every episode." }
         url: { type: string, format: uri, description: Opens the title in Plex. }
 
+    WatchNight:
+      type: object
+      required: [deck, matches, partners]
+      properties:
+        deck:
+          type: array
+          items: { $ref: "#/components/schemas/WatchTitle" }
+        matches:
+          type: array
+          description: Films you both liked, as your own titles.
+          items: { $ref: "#/components/schemas/WatchTitle" }
+        partners: { type: integer, description: How many other members could swipe. }
+
+    WatchSwipe:
+      type: object
+      required: [titleId, liked]
+      properties:
+        titleId: { $ref: "#/components/schemas/MediaId" }
+        liked: { type: boolean }
+
+    WatchSwipeResult:
+      type: object
+      properties:
+        match: { $ref: "#/components/schemas/WatchTitle" }
+
     WatchTonight:
       type: object
       properties:
@@ -3393,6 +4652,55 @@ components:
       type: object
       properties:
         mood: { type: string, maxLength: 200, description: "In your own words, e.g. \"something light, under two hours\"; may be empty." }
+
+    PlaceMatch:
+      type: object
+      required: [label]
+      properties:
+        label: { type: string, description: "How to write the place, e.g. \"Berlin, Germany\"." }
+
+    DateNightRequest:
+      type: object
+      properties:
+        place: { type: string, maxLength: 100, description: "A town or city; without it there is no forecast and no events." }
+        day: { type: string, format: date, description: "The evening, within 14 days from today in the household's time zone; defaults to today." }
+        budget: { $ref: "#/components/schemas/DateBudget" }
+        mood: { type: string, maxLength: 200, description: "In your own words, e.g. \"cosy, nothing loud\"; may be empty." }
+        constraints: { type: string, maxLength: 200, description: "Limits every idea must respect, e.g. \"in a hotel, no kitchen\" or \"no car\"; may be empty." }
+
+    DateBudget:
+      type: string
+      enum: [free, easy, treat]
+      description: How much the evening may cost; `easy` when absent.
+
+    DateNight:
+      type: object
+      required: [ideas]
+      properties:
+        ideas:
+          type: array
+          items: { $ref: "#/components/schemas/DateIdea" }
+        forecast: { $ref: "#/components/schemas/DateForecast" }
+
+    DateForecast:
+      type: object
+      required: [sky, highC, lowC, rainPercent]
+      properties:
+        sky: { type: string, enum: [clear, cloudy, fog, rain, snow, storm] }
+        highC: { type: number }
+        lowC: { type: number }
+        rainPercent: { type: integer, minimum: 0, maximum: 100, description: Chance of rain or snow. }
+
+    DateIdea:
+      type: object
+      required: [title, reason, indoor, startsAt]
+      properties:
+        title: { type: string }
+        reason: { type: string, description: One warm sentence on why it fits. }
+        where: { type: string, description: A venue or area; absent when it can be anywhere. }
+        cost: { type: string, description: "A short phrase such as \"about 30 €\"; absent when free." }
+        indoor: { type: boolean }
+        startsAt: { type: string, format: date-time, description: When to start, on the day asked for. }
 
     WatchIdeas:
       type: object
@@ -3566,6 +4874,9 @@ components:
         - type: object
           required: [members]
           properties:
+            place:
+              type: string
+              description: Where the household lives, as typed; absent until chosen.
             members:
               type: array
               items: { $ref: "#/components/schemas/Member" }

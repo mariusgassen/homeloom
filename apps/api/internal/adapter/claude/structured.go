@@ -28,6 +28,13 @@ func newStructured(apiKey, model string, opts []option.RequestOption) structured
 }
 
 func (c structured) ask(ctx context.Context, system []anthropic.BetaTextBlockParam, user string, schema map[string]any, out any) error {
+	return c.askWith(ctx, system, user, schema, nil, out)
+}
+
+// askWith is ask with server-side tools (such as web search) the model may use first. With tools the
+// answer is the text after the last tool block: citations split it into several text blocks, and the
+// model may write something before it while searching.
+func (c structured) askWith(ctx context.Context, system []anthropic.BetaTextBlockParam, user string, schema map[string]any, tools []anthropic.BetaToolUnionParam, out any) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
@@ -37,6 +44,7 @@ func (c structured) ask(ctx context.Context, system []anthropic.BetaTextBlockPar
 		Betas:     []anthropic.AnthropicBeta{anthropic.AnthropicBetaServerSideFallback2026_07_01},
 		Fallbacks: anthropic.BetaFallbacksParamUnion{OfDefault: constant.ValueOf[constant.Default]()},
 		System:    system,
+		Tools:     tools,
 		Messages:  []anthropic.BetaMessageParam{anthropic.NewBetaUserMessage(anthropic.NewBetaTextBlock(user))},
 		OutputConfig: anthropic.BetaOutputConfigParam{
 			Effort: anthropic.BetaOutputConfigEffortLow,
@@ -53,9 +61,18 @@ func (c structured) ask(ctx context.Context, system []anthropic.BetaTextBlockPar
 	for _, block := range msg.Content {
 		if t, ok := block.AsAny().(anthropic.BetaTextBlock); ok {
 			text.WriteString(t.Text)
+		} else if len(tools) > 0 {
+			text.Reset()
 		}
 	}
-	if err := json.Unmarshal([]byte(text.String()), out); err != nil {
+	answer := text.String()
+	if len(tools) > 0 {
+		// Around a search the model may fence or introduce the JSON; take the outermost object.
+		if i, j := strings.Index(answer, "{"), strings.LastIndex(answer, "}"); i >= 0 && j > i {
+			answer = answer[i : j+1]
+		}
+	}
+	if err := json.Unmarshal([]byte(answer), out); err != nil {
 		return fmt.Errorf("%w: claude answered no JSON: %w", domain.ErrUnavailable, err)
 	}
 	return nil

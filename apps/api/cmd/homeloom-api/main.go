@@ -24,6 +24,7 @@ import (
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/notesdav"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/oidc"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/openai"
+	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/openmeteo"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/plex"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/postgres"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/redis"
@@ -134,12 +135,14 @@ func run() error {
 	var grocer port.Grocer
 	var muse port.Muse
 	var critic port.Critic
+	var planner port.Planner
 	var llm port.Assistant
 	if cfg.AnthropicAPIKey != "" {
 		chef = claude.NewChef(cfg.AnthropicAPIKey, cfg.LLMModel)
 		grocer = claude.NewGrocer(cfg.AnthropicAPIKey, cfg.LLMModel)
 		muse = claude.NewMuse(cfg.AnthropicAPIKey, cfg.LLMModel)
 		critic = claude.NewCritic(cfg.AnthropicAPIKey, cfg.LLMModel)
+		planner = claude.NewPlanner(cfg.AnthropicAPIKey, cfg.LLMModel)
 		llm = claude.NewAssistant(cfg.AnthropicAPIKey, cfg.LLMModel)
 	}
 	// Tokens from signing in to Home Assistant or Plex are sealed with HOMELOOM_SECRET_KEY.
@@ -203,18 +206,38 @@ func run() error {
 		budget.WithReceipts(bucket)
 	}
 	entries.WithBills(budget)
+	// Wish photos are kept in S3 only; without it the wishlist works without pictures.
+	wishes := service.NewWishes(store, store)
+	if bucket != nil {
+		wishes.WithPhotos(bucket)
+	}
 	go notifyDue(ctx, entries)
 	moments := service.NewMoments(store, store, store, push, cfg.TimeZone)
 	if bucket != nil {
 		moments.WithPhotos(bucket).WithVideos(bucket)
 	}
+	trips := service.NewTrips(store, store)
+	if bucket != nil {
+		trips.WithPhotos(bucket)
+	}
+	// The vault keeps its files in S3 only; without it the rest of the app works.
+	var vaultFiles port.FileStore
+	if bucket != nil {
+		vaultFiles = bucket
+	}
+	documents := service.NewDocuments(store, store, vaultFiles)
+	someday := service.NewBucket(store, store)
 	chores := service.NewChores(store, store, store, moments, push, cfg.TimeZone)
 	gifts := service.NewGifts(store, store, store, push, cfg.TimeZone)
-	go notifyDaily(ctx, map[string]dailyJob{"moments": moments, "chores": chores, "gifts": gifts})
-	cook := service.NewCook(store, book, chef, shopping).WithPlan(store)
+	briefing := service.NewBriefing(store, entries, chores, store, push, cfg.TimeZone)
+	forecaster := openmeteo.New()
+	briefing.WithWeather(forecaster)
+	go notifyDaily(ctx, map[string]dailyJob{"moments": moments, "chores": chores, "briefing": briefing, "gifts": gifts})
+	cook := service.NewCook(store, book, chef, shopping).WithPlan(store).WithTaste(store, store)
 	homeService := service.NewHome(store, homeConnections, sessions, home)
-	households := service.NewHousehold(store)
-	watch := service.NewWatch(store, watchConnections, sessions, media, critic).WithTonight(store, push, cfg.TimeZone)
+	households := service.NewHousehold(store).WithWeather(forecaster)
+	watch := service.NewWatch(store, watchConnections, sessions, media, critic).WithTonight(store, push, cfg.TimeZone).WithNight(store)
+	dateNight := service.NewDateNight(store, planner, forecaster, cfg.TimeZone)
 	assistant := service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone).WithBudget(budget).WithGifts(gifts)
 	agents := service.NewAgentAccess(store, sessions, store)
 
@@ -229,11 +252,17 @@ func run() error {
 		Moments:        moments,
 		Cook:           cook,
 		Shopping:       shopping,
+		Bucket:         someday,
 		Chores:         chores,
+		Trips:          trips,
+		Documents:      documents,
 		Gifts:          gifts,
 		Budget:         budget,
+		Wishes:         wishes,
 		Home:           homeService,
 		Watch:          watch,
+		DateNight:      dateNight,
+		Places:         service.NewPlaces(forecaster),
 		Push:           push,
 		Calls:          service.NewCall(store, sessions, calls, push).WithVoiceAgent(cfg.VoiceAgent, agents).WithVoice(voice),
 		Voice:          voice,

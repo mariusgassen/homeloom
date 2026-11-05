@@ -25,6 +25,8 @@ type Cook struct {
 	chef       port.Chef
 	shopping   port.ShoppingService
 	meals      port.MealPlanRepository // nil: no meal plan
+	taste      port.TasteRepository    // nil: no taste profile
+	moments    port.MomentRepository   // nil: no recap
 }
 
 func NewCook(households port.HouseholdRepository, book port.RecipeBook, chef port.Chef, shopping port.ShoppingService) *Cook {
@@ -34,6 +36,13 @@ func NewCook(households port.HouseholdRepository, book port.RecipeBook, chef por
 // WithPlan keeps the household's meal plan in meals.
 func (s *Cook) WithPlan(meals port.MealPlanRepository) *Cook {
 	s.meals = meals
+	return s
+}
+
+// WithTaste keeps the household's ratings in taste, and lets the recap read meal memories from
+// moments (either may be nil).
+func (s *Cook) WithTaste(taste port.TasteRepository, moments port.MomentRepository) *Cook {
+	s.taste, s.moments = taste, moments
 	return s
 }
 
@@ -53,8 +62,9 @@ func (s *Cook) Suggest(ctx context.Context, actor domain.User, householdID uuid.
 		return domain.Suggestions{Recipes: []domain.Suggestion{}}, nil
 	}
 
+	all, loved := s.tasted(ctx, householdID, all, domain.SuggestionCount)
 	if s.chef != nil {
-		picks, err := s.chef.Pick(ctx, mood, lang, all, domain.SuggestionCount)
+		picks, err := s.chef.Pick(ctx, mood, lang, loved, all, domain.SuggestionCount)
 		if err != nil {
 			slog.WarnContext(ctx, "chef unavailable, picking at random", "err", err)
 		}
@@ -232,6 +242,7 @@ func (s *Cook) SuggestPlan(ctx context.Context, actor domain.User, householdID u
 	if err != nil {
 		return domain.MealIdeas{}, err
 	}
+	all, loved := s.tasted(ctx, householdID, all, len(open))
 	// Recipes cooked lately are left out, unless that leaves too few to fill the days.
 	fresh := slices.DeleteFunc(slices.Clone(all), func(r domain.RecipeSummary) bool { return cooked[r.Slug] })
 	if len(fresh) < len(open) {
@@ -244,7 +255,7 @@ func (s *Cook) SuggestPlan(ctx context.Context, actor domain.User, householdID u
 	var picks []domain.Suggestion
 	chef := false
 	if s.chef != nil {
-		ps, err := s.chef.Plan(ctx, wish, lang, s.onHand(ctx, actor, householdID), recent, fresh, len(open))
+		ps, err := s.chef.Plan(ctx, wish, lang, s.onHand(ctx, actor, householdID), recent, loved, fresh, len(open))
 		if err != nil {
 			slog.WarnContext(ctx, "chef unavailable, planning at random", "err", err)
 		}
@@ -344,4 +355,178 @@ func random(all []domain.RecipeSummary, n int) []domain.Suggestion {
 		out = append(out, domain.Suggestion{Recipe: all[i]})
 	}
 	return out
+}
+
+// tasted leaves out the dishes any member said "not again" to, unless that leaves fewer than need,
+// and names the dishes loved, those every rater loved first. Without ratings, or when they can't
+// be read, it changes nothing.
+func (s *Cook) tasted(ctx context.Context, householdID uuid.UUID, all []domain.RecipeSummary, need int) ([]domain.RecipeSummary, []string) {
+	if s.taste == nil {
+		return all, nil
+	}
+	ratings, err := s.taste.Ratings(ctx, householdID)
+	if err != nil {
+		slog.WarnContext(ctx, "reading ratings failed", "err", err)
+		return all, nil
+	}
+	nope := map[string]bool{}
+	for _, r := range ratings {
+		if r.Rating == domain.RatingNope {
+			nope[r.Slug] = true
+		}
+	}
+	kept := slices.DeleteFunc(slices.Clone(all), func(r domain.RecipeSummary) bool { return nope[r.Slug] })
+	if len(kept) < need {
+		kept = all
+	}
+	var both, one []string
+	for _, d := range dishes(ratings) {
+		switch {
+		case d.nope || !d.love:
+		case d.all && d.raters > 1:
+			both = append(both, d.name)
+		default:
+			one = append(one, d.name)
+		}
+	}
+	return kept, slices.Concat(both, one)[:min(len(both)+len(one), maxLoved)]
+}
+
+// maxLoved keeps the prompt short.
+const maxLoved = 30
+
+// dish is what the members' ratings of one recipe add up to.
+type dish struct {
+	slug, name string
+	raters     int
+	// love is set when anyone loved it; all when everyone who rated it did; nope when anyone
+	// said not again.
+	love, all, nope bool
+}
+
+// dishes groups ratings (newest first) by recipe, in the order of the newest rating.
+func dishes(ratings []domain.MealRating) []dish {
+	var out []dish
+	at := map[string]int{}
+	for _, r := range ratings {
+		i, ok := at[r.Slug]
+		if !ok {
+			i = len(out)
+			at[r.Slug] = i
+			out = append(out, dish{slug: r.Slug, name: r.Name, all: true})
+		}
+		d := &out[i]
+		d.raters++
+		d.love = d.love || r.Rating == domain.RatingLove
+		d.all = d.all && r.Rating == domain.RatingLove
+		d.nope = d.nope || r.Rating == domain.RatingNope
+	}
+	return out
+}
+
+func (s *Cook) Rate(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string, rating domain.Rating) (domain.MealRating, error) {
+	if err := s.tasteReady(ctx, actor, householdID, true); err != nil {
+		return domain.MealRating{}, err
+	}
+	if !rating.Valid() {
+		return domain.MealRating{}, fmt.Errorf("%w: unknown rating %q", domain.ErrInvalid, rating)
+	}
+	r, err := s.book.Recipe(ctx, slug)
+	if err != nil {
+		return domain.MealRating{}, err
+	}
+	m := domain.MealRating{HouseholdID: householdID, UserID: actor.ID, Slug: r.Slug, Name: r.Name, Rating: rating, RatedAt: time.Now()}
+	if err := s.taste.SaveRating(ctx, m); err != nil {
+		return domain.MealRating{}, err
+	}
+	return m, nil
+}
+
+func (s *Cook) Unrate(ctx context.Context, actor domain.User, householdID uuid.UUID, slug string) error {
+	if err := s.tasteReady(ctx, actor, householdID, false); err != nil {
+		return err
+	}
+	return s.taste.DeleteRating(ctx, householdID, actor.ID, slug)
+}
+
+func (s *Cook) Ratings(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.MealRating, error) {
+	if err := s.tasteReady(ctx, actor, householdID, false); err != nil {
+		return nil, err
+	}
+	return s.taste.Ratings(ctx, householdID)
+}
+
+// tasteReady is ready for ratings; reading and removing them works without Mealie.
+func (s *Cook) tasteReady(ctx context.Context, actor domain.User, householdID uuid.UUID, mealie bool) error {
+	var err error
+	if mealie {
+		err = s.ready(ctx, actor, householdID)
+	} else {
+		_, err = s.households.Role(ctx, householdID, actor.ID)
+	}
+	if err != nil {
+		return err
+	}
+	if s.taste == nil {
+		return fmt.Errorf("%w: no taste profile", domain.ErrUnavailable)
+	}
+	return nil
+}
+
+func (s *Cook) Recap(ctx context.Context, actor domain.User, householdID uuid.UUID, year int) (domain.MealRecap, error) {
+	if _, err := s.households.Role(ctx, householdID, actor.ID); err != nil {
+		return domain.MealRecap{}, err
+	}
+	if s.moments == nil {
+		return domain.MealRecap{}, fmt.Errorf("%w: no meal memories", domain.ErrUnavailable)
+	}
+	if year == 0 {
+		year = time.Now().Year()
+	}
+	if year < 2000 || year > 9999 {
+		return domain.MealRecap{}, fmt.Errorf("%w: year out of range", domain.ErrInvalid)
+	}
+	from := time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC)
+	ms, err := s.moments.ListMoments(ctx, householdID, actor.ID, from, from.AddDate(1, 0, 0), domain.MaxRecapMoments)
+	if err != nil {
+		return domain.MealRecap{}, err
+	}
+	out := domain.MealRecap{Year: year, Dishes: []domain.CookedDish{}, Favourites: []domain.CookedDish{}, Photos: []domain.Moment{}}
+	var cooked []domain.CookedDish
+	at := map[string]int{}
+	now := time.Now()
+	for _, m := range ms { // newest day first
+		m = sealMoment(m, actor.ID, now)
+		if m.RecipeSlug == "" || m.Kind != domain.KindMoment || m.Sealed {
+			continue
+		}
+		out.Memories++
+		i, ok := at[m.RecipeSlug]
+		if !ok {
+			i = len(cooked)
+			at[m.RecipeSlug] = i
+			cooked = append(cooked, domain.CookedDish{Slug: m.RecipeSlug, Name: m.RecipeName, Last: m.Day})
+		}
+		cooked[i].Times++
+		if m.PhotoAt != nil && len(out.Photos) < domain.MaxRecapPhotos {
+			out.Photos = append(out.Photos, m)
+		}
+	}
+	// Favourites come from every rating, not only this year's dishes.
+	if s.taste != nil {
+		ratings, err := s.taste.Ratings(ctx, householdID)
+		if err != nil {
+			return domain.MealRecap{}, err
+		}
+		for _, d := range dishes(ratings) {
+			if d.all && d.raters > 1 {
+				if i, ok := at[d.slug]; ok {
+					out.Favourites = append(out.Favourites, cooked[i])
+				}
+			}
+		}
+	}
+	slices.SortStableFunc(cooked, func(a, b domain.CookedDish) int { return b.Times - a.Times })
+	out.Dishes = cooked[:min(len(cooked), domain.MaxRecapDishes)]
+	return out, nil
 }

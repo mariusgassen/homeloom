@@ -39,9 +39,9 @@ func (q *Queries) ClearMomentVideo(ctx context.Context, id uuid.UUID) error {
 }
 
 const createMoment = `-- name: CreateMoment :one
-INSERT INTO moments (household_id, author_id, kind, day, visibility, reveal_at, text)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at
+INSERT INTO moments (household_id, author_id, kind, day, visibility, reveal_at, text, recipe_slug, recipe_name)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at, recipe_slug, recipe_name
 `
 
 type CreateMomentParams struct {
@@ -52,6 +52,8 @@ type CreateMomentParams struct {
 	Visibility  string
 	RevealAt    *time.Time
 	Text        string
+	RecipeSlug  string
+	RecipeName  string
 }
 
 func (q *Queries) CreateMoment(ctx context.Context, arg CreateMomentParams) (Moment, error) {
@@ -63,6 +65,8 @@ func (q *Queries) CreateMoment(ctx context.Context, arg CreateMomentParams) (Mom
 		arg.Visibility,
 		arg.RevealAt,
 		arg.Text,
+		arg.RecipeSlug,
+		arg.RecipeName,
 	)
 	var i Moment
 	err := row.Scan(
@@ -78,6 +82,8 @@ func (q *Queries) CreateMoment(ctx context.Context, arg CreateMomentParams) (Mom
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.VideoAt,
+		&i.RecipeSlug,
+		&i.RecipeName,
 	)
 	return i, err
 }
@@ -103,8 +109,22 @@ func (q *Queries) DeleteMomentPhoto(ctx context.Context, momentID uuid.UUID) err
 	return err
 }
 
+const deleteMomentReaction = `-- name: DeleteMomentReaction :exec
+DELETE FROM moment_reactions WHERE moment_id = $1 AND user_id = $2
+`
+
+type DeleteMomentReactionParams struct {
+	MomentID uuid.UUID
+	UserID   uuid.UUID
+}
+
+func (q *Queries) DeleteMomentReaction(ctx context.Context, arg DeleteMomentReactionParams) error {
+	_, err := q.db.Exec(ctx, deleteMomentReaction, arg.MomentID, arg.UserID)
+	return err
+}
+
 const getMoment = `-- name: GetMoment :one
-SELECT id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at FROM moments WHERE id = $1
+SELECT id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at, recipe_slug, recipe_name FROM moments WHERE id = $1
 `
 
 func (q *Queries) GetMoment(ctx context.Context, id uuid.UUID) (Moment, error) {
@@ -123,6 +143,8 @@ func (q *Queries) GetMoment(ctx context.Context, id uuid.UUID) (Moment, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.VideoAt,
+		&i.RecipeSlug,
+		&i.RecipeName,
 	)
 	return i, err
 }
@@ -190,8 +212,40 @@ func (q *Queries) ListHouseholdIDs(ctx context.Context) ([]uuid.UUID, error) {
 	return items, nil
 }
 
+const listMomentReactions = `-- name: ListMomentReactions :many
+SELECT moment_id, user_id, emoji FROM moment_reactions
+WHERE moment_id = ANY($1::uuid[])
+ORDER BY created_at, user_id
+`
+
+type ListMomentReactionsRow struct {
+	MomentID uuid.UUID
+	UserID   uuid.UUID
+	Emoji    string
+}
+
+func (q *Queries) ListMomentReactions(ctx context.Context, ids []uuid.UUID) ([]ListMomentReactionsRow, error) {
+	rows, err := q.db.Query(ctx, listMomentReactions, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMomentReactionsRow
+	for rows.Next() {
+		var i ListMomentReactionsRow
+		if err := rows.Scan(&i.MomentID, &i.UserID, &i.Emoji); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMoments = `-- name: ListMoments :many
-SELECT id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at FROM moments
+SELECT id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at, recipe_slug, recipe_name FROM moments
 WHERE household_id = $1
   AND (author_id = $2 OR visibility <> 'private')
   AND day >= $3 AND day < $4
@@ -236,6 +290,8 @@ func (q *Queries) ListMoments(ctx context.Context, arg ListMomentsParams) ([]Mom
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.VideoAt,
+			&i.RecipeSlug,
+			&i.RecipeName,
 		); err != nil {
 			return nil, err
 		}
@@ -270,7 +326,7 @@ func (q *Queries) MarkMomentVideo(ctx context.Context, id uuid.UUID) error {
 }
 
 const momentsOnDay = `-- name: MomentsOnDay :many
-SELECT id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at FROM moments
+SELECT id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at, recipe_slug, recipe_name FROM moments
 WHERE household_id = $1
   AND (author_id = $2 OR visibility <> 'private')
   AND extract(month FROM day) = extract(month FROM $3::date)
@@ -315,6 +371,8 @@ func (q *Queries) MomentsOnDay(ctx context.Context, arg MomentsOnDayParams) ([]M
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.VideoAt,
+			&i.RecipeSlug,
+			&i.RecipeName,
 		); err != nil {
 			return nil, err
 		}
@@ -327,7 +385,7 @@ func (q *Queries) MomentsOnDay(ctx context.Context, arg MomentsOnDayParams) ([]M
 }
 
 const randomGratitude = `-- name: RandomGratitude :one
-SELECT id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at FROM moments
+SELECT id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at, recipe_slug, recipe_name FROM moments
 WHERE household_id = $1
   AND kind = 'gratitude'
   AND (author_id = $2 OR visibility <> 'private')
@@ -359,6 +417,8 @@ func (q *Queries) RandomGratitude(ctx context.Context, arg RandomGratitudeParams
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.VideoAt,
+		&i.RecipeSlug,
+		&i.RecipeName,
 	)
 	return i, err
 }
@@ -368,7 +428,7 @@ INSERT INTO moments (household_id, author_id, kind, day, visibility, text)
 VALUES ($1, $2, 'gratitude', $3, $4, $5)
 ON CONFLICT (household_id, author_id, day) WHERE kind = 'gratitude'
 DO UPDATE SET visibility = EXCLUDED.visibility, text = EXCLUDED.text, updated_at = now()
-RETURNING id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at
+RETURNING id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at, recipe_slug, recipe_name
 `
 
 type SaveGratitudeParams struct {
@@ -402,6 +462,8 @@ func (q *Queries) SaveGratitude(ctx context.Context, arg SaveGratitudeParams) (M
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.VideoAt,
+		&i.RecipeSlug,
+		&i.RecipeName,
 	)
 	return i, err
 }
@@ -425,10 +487,32 @@ func (q *Queries) SetMomentPhoto(ctx context.Context, arg SetMomentPhotoParams) 
 	return err
 }
 
+const setMomentReaction = `-- name: SetMomentReaction :execrows
+INSERT INTO moment_reactions (moment_id, user_id, emoji)
+VALUES ($1, $2, $3)
+ON CONFLICT (moment_id, user_id) DO UPDATE SET emoji = EXCLUDED.emoji, created_at = now()
+WHERE moment_reactions.emoji <> EXCLUDED.emoji
+`
+
+type SetMomentReactionParams struct {
+	MomentID uuid.UUID
+	UserID   uuid.UUID
+	Emoji    string
+}
+
+// Affects no row when the user already gave this emoji, so the author is told once.
+func (q *Queries) SetMomentReaction(ctx context.Context, arg SetMomentReactionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setMomentReaction, arg.MomentID, arg.UserID, arg.Emoji)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updateMoment = `-- name: UpdateMoment :one
-UPDATE moments SET day = $2, visibility = $3, reveal_at = $4, text = $5, updated_at = now()
+UPDATE moments SET day = $2, visibility = $3, reveal_at = $4, text = $5, recipe_slug = $6, recipe_name = $7, updated_at = now()
 WHERE id = $1
-RETURNING id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at
+RETURNING id, household_id, author_id, kind, day, visibility, reveal_at, text, photo_at, created_at, updated_at, video_at, recipe_slug, recipe_name
 `
 
 type UpdateMomentParams struct {
@@ -437,6 +521,8 @@ type UpdateMomentParams struct {
 	Visibility string
 	RevealAt   *time.Time
 	Text       string
+	RecipeSlug string
+	RecipeName string
 }
 
 func (q *Queries) UpdateMoment(ctx context.Context, arg UpdateMomentParams) (Moment, error) {
@@ -446,6 +532,8 @@ func (q *Queries) UpdateMoment(ctx context.Context, arg UpdateMomentParams) (Mom
 		arg.Visibility,
 		arg.RevealAt,
 		arg.Text,
+		arg.RecipeSlug,
+		arg.RecipeName,
 	)
 	var i Moment
 	err := row.Scan(
@@ -461,6 +549,8 @@ func (q *Queries) UpdateMoment(ctx context.Context, arg UpdateMomentParams) (Mom
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.VideoAt,
+		&i.RecipeSlug,
+		&i.RecipeName,
 	)
 	return i, err
 }

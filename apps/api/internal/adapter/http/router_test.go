@@ -62,7 +62,7 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 	entries := service.NewEntry(store, store, store, push, time.UTC)
 	budget := service.NewBudget(store, store, time.UTC)
 	entries.WithBills(budget)
-	cook := service.NewCook(store, recipes, memory.Chef{}, shopping).WithPlan(store)
+	cook := service.NewCook(store, recipes, memory.Chef{}, shopping).WithPlan(store).WithTaste(store, store)
 	home := service.NewHome(store, store, sessions, smart)
 	agents := service.NewAgentAccess(store, sessions, store)
 	voice := service.NewVoice(store, &memory.Speaker{})
@@ -78,6 +78,9 @@ func newServerWith(t *testing.T, book *memory.RecipeBook, checks ...port.HealthC
 		Moments:       moments,
 		Cook:          cook,
 		Shopping:      shopping,
+		Documents:     service.NewDocuments(store, store, memory.NewVideos()),
+		Wishes:        service.NewWishes(store, store).WithPhotos(memory.NewPhotos()),
+		Bucket:        service.NewBucket(store, store),
 		Chores:        service.NewChores(store, store, store, moments, push, time.UTC),
 		Budget:        budget,
 		Home:          home,
@@ -273,6 +276,16 @@ func TestMomentsFlow(t *testing.T) {
 	if code, body := do(t, h, "POST", moments, "token-alice", `{"kind":"moment","text":"Soon","visibility":"shared","day":"2999-01-01"}`); code != 400 || body["code"] != "invalid_moment_day" {
 		t.Fatalf("future moment: %d %v", code, body)
 	}
+	react := "/v1/moments/" + trip["id"].(string) + "/reaction"
+	if code, body := do(t, h, "PUT", react, "token-bob", `{"emoji":"❤️"}`); code != 200 || len(body["reactions"].([]any)) != 1 {
+		t.Fatalf("react: %d %v", code, body)
+	}
+	if code, body := do(t, h, "PUT", react, "token-bob", `{"emoji":"💩"}`); code != 400 {
+		t.Fatalf("unknown emoji: %d %v", code, body)
+	}
+	if code, body := do(t, h, "DELETE", react, "token-bob", ""); code != 200 || len(body["reactions"].([]any)) != 0 {
+		t.Fatalf("unreact: %d %v", code, body)
+	}
 	do(t, h, "POST", moments, "token-alice", `{"kind":"gratitude","text":"Coffee in bed","visibility":"shared"}`)
 	code, line := do(t, h, "POST", moments, "token-alice", `{"kind":"gratitude","text":"The walk","visibility":"shared","day":"2026-01-01"}`)
 	if code != 201 || line["text"] != "The walk" || line["day"] != today {
@@ -399,6 +412,56 @@ func TestMomentsFlow(t *testing.T) {
 	}
 	if code, _ := do(t, h, "DELETE", "/v1/moments/"+trip["id"].(string), "token-alice", ""); code != 204 {
 		t.Fatalf("delete: %d", code)
+	}
+}
+
+func TestBucketFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	id := created["id"].(string)
+	_, inv := do(t, h, "POST", "/v1/households/"+id+"/invites", "token-alice", "")
+	do(t, h, "POST", "/v1/invites/"+inv["code"].(string), "token-bob", "")
+	list := "/v1/households/" + id + "/bucket"
+
+	if code, body := do(t, h, "POST", list, "token-alice", `{"kind":"read","text":"  "}`); code != 400 || body["code"] != "invalid_text" {
+		t.Fatalf("blank item: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "POST", list, "token-alice", `{"kind":"eat","text":"Cake"}`); code != 400 {
+		t.Fatalf("unknown kind: %d", code)
+	}
+	code, dune := do(t, h, "POST", list, "token-alice", `{"kind":"read","text":" Dune "}`)
+	if code != 201 || dune["text"] != "Dune" || dune["kind"] != "read" || dune["done"] != false {
+		t.Fatalf("add: %d %v", code, dune)
+	}
+	do(t, h, "POST", list, "token-bob", `{"kind":"watch","text":"Alien"}`)
+	item := list + "/" + dune["id"].(string)
+
+	if code, _ := doList(t, h, list, "token-eve"); code != 404 {
+		t.Fatalf("non-member sees the itemlist: %d", code)
+	}
+	if code, _ := do(t, h, "PUT", item+"/done", "token-eve", ""); code != 404 {
+		t.Fatalf("non-member ticks: %d", code)
+	}
+	if code, items := doList(t, h, list+"?kind=watch", "token-alice"); code != 200 || len(items) != 1 || items[0]["text"] != "Alien" {
+		t.Fatalf("filter: %d %v", code, items)
+	}
+	if code, _ := doList(t, h, list+"?kind=eat", "token-alice"); code != 400 {
+		t.Fatalf("filter by unknown kind: %d", code)
+	}
+	if code, body := do(t, h, "PUT", item+"/done", "token-bob", ""); code != 200 || body["done"] != true || body["doneAt"] == nil {
+		t.Fatalf("tick: %d %v", code, body)
+	}
+	if code, items := doList(t, h, list, "token-alice"); code != 200 || len(items) != 2 || items[0]["text"] != "Alien" || items[1]["done"] != true {
+		t.Fatalf("list: %d %v", code, items)
+	}
+	if code, body := do(t, h, "DELETE", item+"/done", "token-alice", ""); code != 200 || body["done"] != false {
+		t.Fatalf("untick: %d %v", code, body)
+	}
+	if code, _ := do(t, h, "DELETE", item, "token-alice", ""); code != 204 {
+		t.Fatalf("delete: %d", code)
+	}
+	if code, _ := do(t, h, "DELETE", item, "token-alice", ""); code != 404 {
+		t.Fatalf("delete twice: %d", code)
 	}
 }
 
@@ -1363,5 +1426,126 @@ func TestNotePhotosFlow(t *testing.T) {
 	}
 	if rec := get("token-alice"); rec.Code != 404 {
 		t.Fatalf("unlinked photo: %d", rec.Code)
+	}
+}
+
+func TestWishlistFlow(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	id := created["id"].(string)
+	_, inv := do(t, h, "POST", "/v1/households/"+id+"/invites", "token-alice", "")
+	do(t, h, "POST", "/v1/invites/"+inv["code"].(string), "token-bob", "")
+	wishes := "/v1/households/" + id + "/wishes"
+
+	code, w := do(t, h, "POST", wishes, "token-alice", `{"title":"Sofa","url":"https://example.com/sofa","priceCents":129900}`)
+	if code != 201 || w["title"] != "Sofa" || w["hearts"].(float64) != 0 || w["priceCents"].(float64) != 129900 {
+		t.Fatalf("add: %d %v", code, w)
+	}
+	one := wishes + "/" + w["id"].(string)
+	if code, body := do(t, h, "POST", wishes, "token-alice", `{"title":"Sofa","url":"ftp://example.com"}`); code != 400 || body["code"] != "invalid_wish_link" {
+		t.Fatalf("bad link: %d %v", code, body)
+	}
+	if code, w = do(t, h, "PUT", one+"/vote", "token-bob", `{"hearts":3}`); code != 200 || w["hearts"].(float64) != 3 || len(w["votes"].([]any)) != 1 {
+		t.Fatalf("vote: %d %v", code, w)
+	}
+	if code, _ := do(t, h, "PUT", one+"/vote", "token-bob", `{"hearts":4}`); code != 400 {
+		t.Fatalf("too many hearts: %d", code)
+	}
+	if code, w = do(t, h, "PUT", one+"/got", "token-alice", ""); code != 200 || w["gotAt"] == nil {
+		t.Fatalf("got: %d %v", code, w)
+	}
+	if code, w = do(t, h, "DELETE", one+"/vote", "token-bob", ""); code != 200 || w["hearts"].(float64) != 0 {
+		t.Fatalf("unvote: %d %v", code, w)
+	}
+	if code, _ := do(t, h, "GET", one+"/photo", "token-alice", ""); code != 404 {
+		t.Fatalf("no photo yet: %d", code)
+	}
+	// Someone outside the household sees nothing of it.
+	if code, _ := do(t, h, "GET", wishes, "token-eve", ""); code != 404 {
+		t.Fatalf("outsider lists: %d", code)
+	}
+	if code, _ := do(t, h, "DELETE", one, "token-alice", ""); code != 204 {
+		t.Fatalf("delete: %d", code)
+	}
+}
+
+func TestDocuments(t *testing.T) {
+	h := newServer(t)
+	_, created := do(t, h, "POST", "/v1/households", "token-alice", `{"name":"Home"}`)
+	id := created["id"].(string)
+	_, inv := do(t, h, "POST", "/v1/households/"+id+"/invites", "token-alice", "")
+	do(t, h, "POST", "/v1/invites/"+inv["code"].(string), "token-bob", "")
+	docs := "/v1/households/" + id + "/documents"
+
+	send := func(method, path, token, contentType, body string) (int, map[string]any) {
+		t.Helper()
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		req.Header.Set("Content-Type", contentType)
+		req.Header.Set("Authorization", "Bearer "+token)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		var out map[string]any
+		_ = json.Unmarshal(rec.Body.Bytes(), &out)
+		return rec.Code, out
+	}
+	pdf := "%PDF-1.7 the lease"
+	if code, body := send("POST", docs+"?name=lease.pdf", "token-alice", "application/zip", "PK"); code != 400 || body["code"] != "invalid_document" {
+		t.Fatalf("a type the vault doesn't take: %d %v", code, body)
+	}
+	if code, body := send("POST", docs+"?name=lease.pdf", "token-alice", "application/pdf", "not a pdf"); code != 400 || body["code"] != "invalid_document" {
+		t.Fatalf("not a PDF: %d %v", code, body)
+	}
+	if code, body := send("POST", docs+"?name=%20%20", "token-alice", "application/pdf", pdf); code != 400 || body["code"] != "invalid_text" {
+		t.Fatalf("no name: %d %v", code, body)
+	}
+	if code, _ := send("POST", docs+"?name=lease.pdf", "token-eve", "application/pdf", pdf); code != 404 {
+		t.Fatalf("non-member adds: %d", code)
+	}
+	code, lease := send("POST", docs+"?name=lease.pdf", "token-alice", "application/pdf", pdf)
+	if code != 201 || lease["shared"] != false || lease["mine"] != true || lease["size"] != float64(len(pdf)) {
+		t.Fatalf("add: %d %v", code, lease)
+	}
+	file := docs + "/" + lease["id"].(string)
+
+	// Private: bob sees and reads nothing, and can't tell it exists.
+	if code, list := doList(t, h, docs, "token-bob"); code != 200 || len(list) != 0 {
+		t.Fatalf("bob's list: %d %v", code, list)
+	}
+	for _, c := range []struct{ method, path string }{{"GET", file + "/file"}, {"DELETE", file}} {
+		if code, _ := do(t, h, c.method, c.path, "token-bob", ""); code != 404 {
+			t.Fatalf("bob %s %s: %d", c.method, c.path, code)
+		}
+	}
+	if code, _ := send("PATCH", file, "token-bob", "application/json", `{"shared":true}`); code != 404 {
+		t.Fatalf("bob shares alice's private document: %d", code)
+	}
+
+	// Shared: bob reads it but can't change it.
+	if code, body := send("PATCH", file, "token-alice", "application/json", `{"name":"Lease 2026","shared":true}`); code != 200 || body["shared"] != true || body["name"] != "Lease 2026" {
+		t.Fatalf("share: %d %v", code, body)
+	}
+	if code, list := doList(t, h, docs, "token-bob"); code != 200 || len(list) != 1 || list[0]["mine"] != false {
+		t.Fatalf("bob's list: %d %v", code, list)
+	}
+	req := httptest.NewRequest("GET", file+"/file", nil)
+	req.Header.Set("Authorization", "Bearer token-bob")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != 200 || rec.Body.String() != pdf || rec.Header().Get("Content-Type") != "application/pdf" ||
+		!strings.HasPrefix(rec.Header().Get("Content-Disposition"), "inline") || rec.Header().Get("X-Content-Type-Options") != "nosniff" {
+		t.Fatalf("read: %d %q %v", rec.Code, rec.Body.String(), rec.Header())
+	}
+	if code, body := send("PATCH", file, "token-bob", "application/json", `{"shared":false}`); code != 403 || body["code"] != "not_yours" {
+		t.Fatalf("bob changes it: %d %v", code, body)
+	}
+	if code, body := do(t, h, "DELETE", file, "token-bob", ""); code != 403 || body["code"] != "not_yours" {
+		t.Fatalf("bob deletes it: %d %v", code, body)
+	}
+
+	if code, _ := do(t, h, "DELETE", file, "token-alice", ""); code != 204 {
+		t.Fatalf("delete: %d", code)
+	}
+	if code, _ := do(t, h, "GET", file+"/file", "token-alice", ""); code != 404 {
+		t.Fatalf("deleted file: %d", code)
 	}
 }

@@ -22,3 +22,6 @@ func (s *Chores) SetClock(now func() time.Time) { s.now = now }
 
 // SetClock lets tests move time for a Gifts service.
 func (s *Gifts) SetClock(now func() time.Time) { s.now = now }
+
+// SetClock lets tests move time for a Briefing service.
+func (s *Briefing) SetClock(now func() time.Time) { s.now = now }

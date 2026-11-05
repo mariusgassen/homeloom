@@ -66,7 +66,7 @@ func (b *RecipeBook) Image(ctx context.Context, slug string) (domain.RecipeImage
 // mood, and is unavailable for the mood "down". It also picks "made-up", which doesn't exist.
 type Chef struct{}
 
-func (Chef) Pick(_ context.Context, mood, lang string, candidates []domain.RecipeSummary, n int) ([]domain.Pick, error) {
+func (Chef) Pick(_ context.Context, mood, lang string, _ []string, candidates []domain.RecipeSummary, n int) ([]domain.Pick, error) {
 	if mood == "down" {
 		return nil, domain.ErrUnavailable
 	}
@@ -84,7 +84,7 @@ func (Chef) Pick(_ context.Context, mood, lang string, candidates []domain.Recip
 
 // Plan picks the candidates whose name contains a word of the wish or of what is on hand, then
 // fills up in order; it is unavailable for the wish "down" and also picks "made-up".
-func (Chef) Plan(_ context.Context, wish, lang string, onHand, _ []string, candidates []domain.RecipeSummary, n int) ([]domain.Pick, error) {
+func (Chef) Plan(_ context.Context, wish, lang string, onHand, _, _ []string, candidates []domain.RecipeSummary, n int) ([]domain.Pick, error) {
 	if wish == "down" {
 		return nil, domain.ErrUnavailable
 	}
@@ -127,4 +127,37 @@ func (s *Store) DeleteMeal(_ context.Context, householdID uuid.UUID, day time.Ti
 	defer s.mu.Unlock()
 	s.meals = slices.DeleteFunc(s.meals, func(o domain.PlannedMeal) bool { return o.HouseholdID == householdID && o.Day.Equal(day) })
 	return nil
+}
+
+func (s *Store) SaveRating(_ context.Context, r domain.MealRating) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ratings = slices.DeleteFunc(s.ratings, func(o domain.MealRating) bool {
+		return o.HouseholdID == r.HouseholdID && o.UserID == r.UserID && o.Slug == r.Slug
+	})
+	r.RatedAt = time.Now()
+	s.ratings = append(s.ratings, r)
+	return nil
+}
+
+func (s *Store) DeleteRating(_ context.Context, householdID, userID uuid.UUID, slug string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.ratings = slices.DeleteFunc(s.ratings, func(o domain.MealRating) bool {
+		return o.HouseholdID == householdID && o.UserID == userID && o.Slug == slug
+	})
+	return nil
+}
+
+func (s *Store) Ratings(_ context.Context, householdID uuid.UUID) ([]domain.MealRating, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := []domain.MealRating{}
+	for _, r := range s.ratings {
+		if r.HouseholdID == householdID {
+			out = append(out, r)
+		}
+	}
+	slices.SortStableFunc(out, func(a, b domain.MealRating) int { return b.RatedAt.Compare(a.RatedAt) })
+	return out, nil
 }

@@ -67,6 +67,16 @@ type Birthday struct {
 	Day    int16
 }
 
+type BucketItem struct {
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+	Kind        string
+	Text        string
+	AddedBy     *uuid.UUID
+	DoneAt      *time.Time
+	CreatedAt   time.Time
+}
+
 type CalendarFeed struct {
 	TokenHash   []byte
 	UserID      uuid.UUID
@@ -122,6 +132,17 @@ type Conversation struct {
 	Title       string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+}
+
+type Document struct {
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+	OwnerID     uuid.UUID
+	Name        string
+	ContentType string
+	Size        int64
+	Shared      bool
+	CreatedAt   time.Time
 }
 
 type Entry struct {
@@ -200,6 +221,7 @@ type Household struct {
 	ID        uuid.UUID
 	Name      string
 	CreatedAt time.Time
+	Place     string
 }
 
 type Invite struct {
@@ -238,6 +260,15 @@ type MealPlan struct {
 	PlannedAt   time.Time
 }
 
+type MealRating struct {
+	HouseholdID uuid.UUID
+	UserID      uuid.UUID
+	RecipeSlug  string
+	RecipeName  string
+	Rating      string
+	RatedAt     time.Time
+}
+
 type Membership struct {
 	HouseholdID uuid.UUID
 	UserID      uuid.UUID
@@ -258,12 +289,21 @@ type Moment struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	VideoAt     *time.Time
+	RecipeSlug  string
+	RecipeName  string
 }
 
 type MomentPhoto struct {
 	MomentID    uuid.UUID
 	ContentType string
 	Data        []byte
+}
+
+type MomentReaction struct {
+	MomentID  uuid.UUID
+	UserID    uuid.UUID
+	Emoji     string
+	CreatedAt time.Time
 }
 
 type PushSubscription struct {
@@ -309,6 +349,49 @@ type ShoppingItem struct {
 	Aisle       string
 }
 
+type Trip struct {
+	ID             uuid.UUID
+	HouseholdID    uuid.UUID
+	Name           string
+	Destination    string
+	StartOn        *time.Time
+	EndOn          *time.Time
+	Notes          string
+	ChosenOptionID *uuid.UUID
+	CreatedBy      *uuid.UUID
+	CreatedAt      time.Time
+}
+
+type TripOption struct {
+	ID        uuid.UUID
+	TripID    uuid.UUID
+	Title     string
+	Url       string
+	Notes     string
+	AddedBy   *uuid.UUID
+	CreatedAt time.Time
+}
+
+type TripPacking struct {
+	ID        uuid.UUID
+	TripID    uuid.UUID
+	Text      string
+	Done      bool
+	CreatedAt time.Time
+}
+
+type TripPhoto struct {
+	ID        uuid.UUID
+	OptionID  uuid.UUID
+	CreatedAt time.Time
+}
+
+type TripVote struct {
+	TripID   uuid.UUID
+	UserID   uuid.UUID
+	OptionID uuid.UUID
+}
+
 type User struct {
 	ID           uuid.UUID
 	AuthentikSub string
@@ -341,6 +424,17 @@ type WatchConnection struct {
 	HiddenLibraries []string
 }
 
+type WatchSwipe struct {
+	HouseholdID uuid.UUID
+	UserID      uuid.UUID
+	Key         string
+	TitleID     string
+	Name        string
+	Year        int32
+	Liked       bool
+	SwipedAt    time.Time
+}
+
 type WatchTonight struct {
 	HouseholdID uuid.UUID
 	TitleID     string
@@ -350,4 +444,23 @@ type WatchTonight struct {
 	Url         string
 	PickedBy    uuid.UUID
 	PickedAt    time.Time
+}
+
+type Wish struct {
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+	Title       string
+	Note        string
+	Url         string
+	PriceCents  *int64
+	PhotoAt     *time.Time
+	GotAt       *time.Time
+	CreatedBy   *uuid.UUID
+	CreatedAt   time.Time
+}
+
+type WishVote struct {
+	WishID uuid.UUID
+	UserID uuid.UUID
+	Hearts int32
 }

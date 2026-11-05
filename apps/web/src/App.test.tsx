@@ -266,6 +266,47 @@ test("watch ideas come from the assistant, with or without a library", async () 
   expect(await calls.find((c) => c.url.endsWith("/watch/suggestions"))?.json()).toEqual({ mood: "something light" });
 });
 
+test("date night asks with the place, shows the weather and saves a chosen idea as an event", async () => {
+  const calls = serve(
+    ...signedIn(),
+    at("POST", `/v1/households/${home.id}/date-night/ideas`, () =>
+      json({
+        forecast: { sky: "rain", highC: 9.4, lowC: 4.2, rainPercent: 80 },
+        ideas: [{ title: "Pasta night", reason: "Cosy on a wet evening.", indoor: true, cost: "about 15 €", startsAt: "2026-11-07T18:30:00Z" }],
+      }),
+    ),
+    at("POST", `/v1/households/${home.id}/entries`, () => json({ id: "e1" }, 201)),
+  );
+  renderApp("/date-night");
+  await userEvent.type(await screen.findByRole("combobox", { name: /Where/ }), "Berlin");
+  await userEvent.click(screen.getByRole("radio", { name: "Treat" }));
+  await userEvent.type(screen.getByRole("textbox", { name: "Limits" }), "in a hotel");
+  await userEvent.click(screen.getByRole("button", { name: "Get ideas" }));
+  expect(await screen.findByText("Pasta night")).toBeInTheDocument();
+  expect(screen.getByText(/Rain · 4–9°/)).toBeInTheDocument();
+  const asked = await calls.find((c) => c.url.endsWith("/date-night/ideas"))?.json();
+  expect(asked).toMatchObject({ place: "Berlin", budget: "treat", constraints: "in a hotel" });
+  expect(localStorage.getItem("homeloom.datePlace")).toBe("Berlin");
+
+  await userEvent.click(screen.getByRole("button", { name: "Add to calendar" }));
+  expect(await screen.findByText("In your calendar")).toBeInTheDocument();
+  const saved = await calls.find((c) => c.url.endsWith("/entries") && c.method === "POST")?.json();
+  expect(saved).toMatchObject({ kind: "event", text: "Pasta night", visibility: "shared", startsAt: "2026-11-07T18:30:00.000Z" });
+});
+
+test("date night suggests places while you type the town", async () => {
+  const calls = serve(
+    ...signedIn(),
+    at("GET", "/v1/places", () => json([{ label: "Berlin, Germany" }, { label: "Bern, Switzerland" }])),
+  );
+  renderApp("/date-night");
+  const where = await screen.findByRole("combobox", { name: /Where/ });
+  await userEvent.type(where, "Ber");
+  await waitFor(() => expect(document.querySelectorAll("datalist option")).toHaveLength(2));
+  expect([...document.querySelectorAll("datalist option")].map((o) => o.getAttribute("value"))).toEqual(["Berlin, Germany", "Bern, Switzerland"]);
+  expect(new URL(calls.find((c) => c.url.includes("/v1/places"))?.url ?? "").searchParams.get("q")).toBe("Ber");
+});
+
 test("watch filters a library, opens a title and leaves out the libraries you turn off", async () => {
   const movies = { id: "a.1", name: "Movies", kind: "movie", server: "Home", owned: true, included: true };
   const kids = { id: "a.2", name: "Kids", kind: "movie", server: "Home", owned: true, included: false };
@@ -1132,6 +1173,37 @@ test("the chores page shows who did what and thanks into the gratitude wall", as
   expect(await screen.findByText("Jo hears your thanks, and it's on your gratitude wall.")).toBeInTheDocument();
   const post = calls.find((c) => c.method === "POST");
   expect(await post?.json()).toEqual({ gratitude: "Thank you, Jo, for “Bins”." });
+});
+
+test("a trip shows its places, takes a favourite and keeps a packing list", async () => {
+  const optionId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+  const tripId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+  const trip = (votes: string[], done = false) => ({
+    id: tripId,
+    name: "Summer",
+    destination: "Italy",
+    startOn: "2027-07-01",
+    endOn: "2027-07-14",
+    createdAt: "2026-01-01T08:00:00Z",
+    options: [{ id: optionId, title: "Villa by the lake", url: "https://www.example.com/villa", photos: [{ id: "ffffffff-ffff-4fff-8fff-ffffffffffff", url: `/v1/households/${home.id}/trips/${tripId}/photos/ffffffff-ffff-4fff-8fff-ffffffffffff` }], votes }],
+    packing: [{ id: "99999999-9999-4999-8999-999999999999", text: "Sunscreen", done }],
+  });
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/trips`, () => json([trip([])])),
+    at("PUT", `/v1/households/${home.id}/trips/${tripId}/options/${optionId}/vote`, () => json(trip([marius.id]))),
+    at("PUT", `/v1/households/${home.id}/trips/${tripId}/packing/99999999-9999-4999-8999-999999999999`, () => json(trip([marius.id], true))),
+  );
+  renderApp(`/trips/${tripId}`);
+  expect(await screen.findByRole("heading", { level: 1, name: "Summer" })).toBeInTheDocument();
+  expect(screen.getByText("Villa by the lake")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "example.com" })).toHaveAttribute("href", "https://www.example.com/villa");
+  await userEvent.click(screen.getByRole("button", { name: "My favourite" }));
+  expect(await screen.findByRole("button", { name: "My favourite", pressed: true })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("checkbox", { name: "Sunscreen" }));
+  expect(await screen.findByText("1 of 1 packed")).toBeInTheDocument();
+  const tick = calls.find((c) => c.method === "PUT" && c.url.endsWith("/packing/99999999-9999-4999-8999-999999999999"));
+  expect(await tick?.json()).toEqual({ text: "Sunscreen", done: true });
 });
 
 test("today greets you and brings back a thank-you", async () => {
