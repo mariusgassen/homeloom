@@ -28,13 +28,18 @@ func (q *Queries) AddMember(ctx context.Context, arg AddMemberParams) error {
 }
 
 const createHousehold = `-- name: CreateHousehold :one
-INSERT INTO households (name) VALUES ($1) RETURNING id, name, created_at
+INSERT INTO households (name) VALUES ($1) RETURNING id, name, created_at, place
 `
 
 func (q *Queries) CreateHousehold(ctx context.Context, name string) (Household, error) {
 	row := q.db.QueryRow(ctx, createHousehold, name)
 	var i Household
-	err := row.Scan(&i.ID, &i.Name, &i.CreatedAt)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.Place,
+	)
 	return i, err
 }
 
@@ -63,13 +68,18 @@ func (q *Queries) DeleteUserAvatar(ctx context.Context, userID uuid.UUID) (User,
 }
 
 const getHousehold = `-- name: GetHousehold :one
-SELECT id, name, created_at FROM households WHERE id = $1
+SELECT id, name, created_at, place FROM households WHERE id = $1
 `
 
 func (q *Queries) GetHousehold(ctx context.Context, id uuid.UUID) (Household, error) {
 	row := q.db.QueryRow(ctx, getHousehold, id)
 	var i Household
-	err := row.Scan(&i.ID, &i.Name, &i.CreatedAt)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.Place,
+	)
 	return i, err
 }
 
@@ -181,6 +191,20 @@ func (q *Queries) ListMembers(ctx context.Context, householdID uuid.UUID) ([]Lis
 		return nil, err
 	}
 	return items, nil
+}
+
+const setHouseholdPlace = `-- name: SetHouseholdPlace :exec
+UPDATE households SET place = $2 WHERE id = $1
+`
+
+type SetHouseholdPlaceParams struct {
+	ID    uuid.UUID
+	Place string
+}
+
+func (q *Queries) SetHouseholdPlace(ctx context.Context, arg SetHouseholdPlaceParams) error {
+	_, err := q.db.Exec(ctx, setHouseholdPlace, arg.ID, arg.Place)
+	return err
 }
 
 const setUserAvatar = `-- name: SetUserAvatar :one

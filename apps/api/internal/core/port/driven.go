@@ -79,6 +79,8 @@ type HouseholdRepository interface {
 	// Role returns domain.ErrNotFound when the user is not a member.
 	Role(ctx context.Context, householdID, userID uuid.UUID) (domain.Role, error)
 	Get(ctx context.Context, id uuid.UUID) (domain.Household, error)
+	// SetPlace stores the household's place; domain.ErrNotFound for an unknown household.
+	SetPlace(ctx context.Context, id uuid.UUID, place string) error
 	Members(ctx context.Context, householdID uuid.UUID) ([]domain.Member, error)
 	// HouseholdIDs returns every household, for jobs that visit each one.
 	HouseholdIDs(ctx context.Context) ([]uuid.UUID, error)
@@ -177,6 +179,12 @@ type MomentRepository interface {
 	MomentPhoto(ctx context.Context, id uuid.UUID) (domain.Photo, error)
 	DeleteMomentPhoto(ctx context.Context, id uuid.UUID) error
 	// MarkMomentVideo sets VideoAt for a video kept in the VideoStore.
+	// SetMomentReaction gives the user's emoji on the moment, replacing an earlier one, and says
+	// whether it is new or different.
+	SetMomentReaction(ctx context.Context, id, userID uuid.UUID, emoji string) (bool, error)
+	DeleteMomentReaction(ctx context.Context, id, userID uuid.UUID) error
+	// MomentReactions returns the reactions of the moments, oldest first, keyed by moment.
+	MomentReactions(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]domain.MomentReaction, error)
 	MarkMomentVideo(ctx context.Context, id uuid.UUID) error
 	ClearMomentVideo(ctx context.Context, id uuid.UUID) error
 }
@@ -215,6 +223,24 @@ type PhotoStore interface {
 	GetPhoto(ctx context.Context, key string) (domain.Photo, error)
 	DeletePhoto(ctx context.Context, key string) error
 }
+
+// DocumentRepository keeps what is known about the vault's files. A document is visible to its
+// owner and, once shared, to the household; every call takes the viewer and returns
+// domain.ErrNotFound for what they may not see. Changing or deleting is the owner's alone.
+type DocumentRepository interface {
+	// Documents returns what the viewer can see in the household, newest first.
+	Documents(ctx context.Context, householdID, viewer uuid.UUID, limit int) ([]domain.Document, error)
+	GetDocument(ctx context.Context, householdID, viewer, id uuid.UUID) (domain.Document, error)
+	// CreateDocument keeps d under its ID.
+	CreateDocument(ctx context.Context, d domain.Document) (domain.Document, error)
+	// UpdateDocument sets the name and sharing of the owner's document.
+	UpdateDocument(ctx context.Context, householdID, owner, id uuid.UUID, name string, shared bool) (domain.Document, error)
+	DeleteDocument(ctx context.Context, householdID, owner, id uuid.UUID) error
+}
+
+// FileStore keeps the vault's files (S3), under keys the service chooses, with the same streaming
+// rules as videos.
+type FileStore = VideoStore
 
 // VideoStore keeps videos (S3), under keys the service chooses. They are streamed, never held in
 // memory whole. StatVideo returns domain.ErrNotFound for a key it doesn't hold; deleting a missing
@@ -319,6 +345,24 @@ type BudgetRepository interface {
 	Nets(ctx context.Context, householdID uuid.UUID) ([]domain.Net, error)
 }
 
+// WishRepository keeps the household's wishes with their hearts. Calls that name a wish return
+// domain.ErrNotFound when the household has none with that id.
+type WishRepository interface {
+	// Wishes returns the household's wishes, newest first, with their votes.
+	Wishes(ctx context.Context, householdID uuid.UUID, limit int) ([]domain.Wish, error)
+	CreateWish(ctx context.Context, w domain.Wish) (domain.Wish, error)
+	GetWish(ctx context.Context, householdID, id uuid.UUID) (domain.Wish, error)
+	// UpdateWish stores the wish's fields.
+	UpdateWish(ctx context.Context, w domain.Wish) (domain.Wish, error)
+	DeleteWish(ctx context.Context, householdID, id uuid.UUID) error
+	// VoteWish sets how many hearts the user gives the wish; 0 takes them back.
+	VoteWish(ctx context.Context, householdID, id, userID uuid.UUID, hearts int) (domain.Wish, error)
+	// SetWishGot records when the wish came true; nil makes it a wish again.
+	SetWishGot(ctx context.Context, householdID, id uuid.UUID, at *time.Time) (domain.Wish, error)
+	// SetWishPhoto records when a photo was kept in a PhotoStore; nil when it was removed.
+	SetWishPhoto(ctx context.Context, householdID, id uuid.UUID, at *time.Time) (domain.Wish, error)
+}
+
 // Grocer is the LLM's sense of where things are in a shop.
 type Grocer interface {
 	// Aisles returns one aisle for each of the texts, in order. It returns domain.ErrUnavailable
@@ -326,15 +370,26 @@ type Grocer interface {
 	Aisles(ctx context.Context, texts []string) ([]domain.Aisle, error)
 }
 
-// Chef is the LLM's cooking judgement.
+// TasteRepository keeps how each member rated the dishes they cooked.
+type TasteRepository interface {
+	// SaveRating replaces the member's rating of the dish.
+	SaveRating(ctx context.Context, r domain.MealRating) error
+	// DeleteRating removes the member's rating; nothing rated is fine.
+	DeleteRating(ctx context.Context, householdID, userID uuid.UUID, slug string) error
+	// Ratings returns every member's ratings, newest first.
+	Ratings(ctx context.Context, householdID uuid.UUID) ([]domain.MealRating, error)
+}
+
+// Chef is the LLM's cooking judgement. loved are the names of dishes the household loved, to
+// suggest more in that spirit.
 type Chef interface {
 	// Pick chooses up to n of the candidates that fit the mood and says why, in the language
 	// given as a BCP 47 tag. It returns domain.ErrUnavailable when the LLM can't be asked.
-	Pick(ctx context.Context, mood, lang string, candidates []domain.RecipeSummary, n int) ([]domain.Pick, error)
+	Pick(ctx context.Context, mood, lang string, loved []string, candidates []domain.RecipeSummary, n int) ([]domain.Pick, error)
 	// Plan chooses n different dinners from the candidates, in the order to cook them, unlike the
 	// recent ones (by name) and using up what is on hand. wish may be empty. Reasons are in the
 	// language given as a BCP 47 tag. It returns domain.ErrUnavailable when the LLM can't be asked.
-	Plan(ctx context.Context, wish, lang string, onHand, recent []string, candidates []domain.RecipeSummary, n int) ([]domain.Pick, error)
+	Plan(ctx context.Context, wish, lang string, onHand, recent, loved []string, candidates []domain.RecipeSummary, n int) ([]domain.Pick, error)
 }
 
 // Muse is the LLM writing questions for the household to answer together.
@@ -343,6 +398,29 @@ type Muse interface {
 	// spirit of one of themes and unlike any of recent. It returns domain.ErrUnavailable when the
 	// LLM can't be asked.
 	Questions(ctx context.Context, lang string, themes, recent []string, n int) ([]string, error)
+}
+
+// Weather forecasts the weather for a place.
+type Weather interface {
+	// Forecast returns the weather in the place (a town or city, as typed) on the day, a calendar
+	// date at midnight UTC. It returns domain.ErrNotFound for an unknown place and
+	// domain.ErrUnavailable when the forecast service can't be reached.
+	Forecast(ctx context.Context, place string, day time.Time) (domain.Forecast, error)
+}
+
+// PlaceSearch finds towns and cities by the start of their name.
+type PlaceSearch interface {
+	// Search returns up to n matches for the text, names in the language given as a BCP 47 tag. It
+	// returns domain.ErrUnavailable when the search service can't be reached.
+	Search(ctx context.Context, text, lang string, n int) ([]domain.PlaceMatch, error)
+}
+
+// Planner is the LLM's sense of a good evening out or in.
+type Planner interface {
+	// Ideas suggests up to n evenings that fit the brief, in the language given as a BCP 47 tag,
+	// drawing on events happening in the place when it can look them up. It returns
+	// domain.ErrUnavailable when the LLM can't be asked.
+	Ideas(ctx context.Context, brief domain.DateBrief, lang string, n int) ([]domain.DateIdea, error)
 }
 
 // Critic is the LLM's judgement on films and series.
@@ -408,6 +486,15 @@ type TonightRepository interface {
 	// Tonight returns domain.ErrNotFound when nothing was picked.
 	Tonight(ctx context.Context, householdID uuid.UUID) (domain.TonightPick, error)
 	DeleteTonight(ctx context.Context, householdID uuid.UUID) error
+}
+
+// SwipeRepository keeps what members swiped on movie night. A member's swipe on a film replaces
+// their last one.
+type SwipeRepository interface {
+	SaveSwipe(ctx context.Context, s domain.Swipe) error
+	// Swipes returns the household's swipes made at or after since.
+	Swipes(ctx context.Context, householdID uuid.UUID, since time.Time) ([]domain.Swipe, error)
+	DeleteSwipes(ctx context.Context, householdID uuid.UUID) error
 }
 
 type WatchConnectionRepository interface {

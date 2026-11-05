@@ -25,9 +25,13 @@ type handlers struct {
 	shopping   port.ShoppingService
 	chores     port.ChoreService
 	trips      port.TripService
+	documents  port.DocumentService
 	budget     port.BudgetService
+	wishes     port.WishService
 	home       port.HomeService
 	watch      port.WatchService
+	dateNight  port.DateNightService
+	places     port.PlaceService
 	push       port.PushService
 	calls      port.CallService
 	voice      port.VoiceService
@@ -125,16 +129,34 @@ func (h *handlers) GetHousehold(ctx context.Context, req oapi.GetHouseholdReques
 	if err != nil {
 		return nil, err
 	}
+	return oapi.GetHousehold200JSONResponse(toHouseholdDetail(d)), nil
+}
+
+func (h *handlers) UpdateHousehold(ctx context.Context, req oapi.UpdateHouseholdRequestObject) (oapi.UpdateHouseholdResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	d, err := h.households.SetPlace(ctx, u, req.HouseholdId, req.Body.Place)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.UpdateHousehold404JSONResponse{NotFoundJSONResponse: oapi.NotFoundJSONResponse(errorBody(ctx, "not_found", ""))}, nil
+	case errors.Is(err, domain.ErrUnknownPlace):
+		return oapi.UpdateHousehold400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "unknown_place", err.Error()))}, nil
+	case errors.Is(err, domain.ErrInvalid):
+		return oapi.UpdateHousehold400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "invalid", err.Error()))}, nil
+	case err != nil:
+		return nil, err
+	}
+	return oapi.UpdateHousehold200JSONResponse(toHouseholdDetail(d)), nil
+}
+
+func toHouseholdDetail(d domain.HouseholdDetail) oapi.HouseholdDetail {
 	members := make([]oapi.Member, len(d.Members))
 	for i, m := range d.Members {
 		members[i] = oapi.Member{User: toUser(m.User), Role: oapi.Role(m.Role)}
 	}
-	return oapi.GetHousehold200JSONResponse{
-		Id:      d.Household.ID,
-		Name:    d.Household.Name,
-		Role:    oapi.Role(d.Role),
-		Members: members,
-	}, nil
+	return oapi.HouseholdDetail{Id: d.Household.ID, Name: d.Household.Name, Role: oapi.Role(d.Role), Place: optional(d.Household.Place), Members: members}
 }
 
 func toUser(u domain.User) oapi.User {

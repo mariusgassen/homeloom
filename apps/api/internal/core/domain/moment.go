@@ -12,6 +12,8 @@ import (
 const (
 	MaxMomentText    = 2000
 	MaxGratitudeText = 200
+	// MaxRecipeRef is the longest recipe slug or name a meal memory keeps.
+	MaxRecipeRef = 200
 	// MaxPhotoBytes is the largest photo a moment can have; the app makes photos smaller first.
 	MaxPhotoBytes = 5 << 20
 	// MaxVideoBytes is the largest video a moment can have; videos are sent as they are.
@@ -58,7 +60,21 @@ type Moment struct {
 	UpdatedAt time.Time
 	// Sealed means the caller may not read Text or see the photo or video yet; Text is then empty.
 	Sealed bool
+	// Reactions are the emoji members answered it with, oldest first; one per member.
+	Reactions []MomentReaction
 }
+
+// MomentReaction is one member's emoji on a moment.
+type MomentReaction struct {
+	UserID uuid.UUID
+	Emoji  string
+}
+
+// ReactionEmojis are the emoji a moment can be answered with.
+var ReactionEmojis = []string{"❤️", "😂", "🥹", "🙌", "👍"}
+
+// ErrReaction means an emoji that isn't one of ReactionEmojis.
+var ErrReaction = fmt.Errorf("%w: pick one of the offered emoji", ErrInvalid)
 
 // MomentFields are what the author chooses.
 type MomentFields struct {
@@ -67,6 +83,10 @@ type MomentFields struct {
 	Visibility Visibility
 	RevealAt   *time.Time
 	Text       string
+	// RecipeSlug and RecipeName make it a meal memory: the dish it is about. Both are empty for
+	// any other moment.
+	RecipeSlug string
+	RecipeName string
 }
 
 // MomentMonth is one month of the timeline.

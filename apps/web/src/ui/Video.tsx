@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Icon } from "./Icon";
 
@@ -17,8 +17,9 @@ export function Video({ src, autoplay }: { src: string; autoplay: boolean }) {
   const held = useRef(false);
   const box = useRef<HTMLDivElement>(null);
 
-  // React doesn't keep the muted property in step with its prop.
-  useEffect(() => {
+  // React doesn't keep the muted property in step with its prop. A layout effect sets it in the
+  // commit itself, so it is never briefly unmuted once the video is on screen.
+  useLayoutEffect(() => {
     if (ref.current) ref.current.muted = muted;
   }, [muted]);
 

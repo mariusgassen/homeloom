@@ -184,6 +184,11 @@ export function Watch() {
             {t("watch.connectBody")}
           </Card>
         )}
+        {shelf?.connected && (
+          <Button variant="secondary" block icon="heart" onClick={() => navigate("/watch/night")}>
+            {t("night.open")}
+          </Button>
+        )}
         {shelf && <WatchIdeas householdId={householdId} />}
         {shelf?.connected && all.length === 0 && <Empty title={t("watch.emptyTitle")}>{t("watch.emptyBody")}</Empty>}
         {all.length > 0 && libraries.length === 0 && (

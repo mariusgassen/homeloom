@@ -16,6 +16,7 @@ import { Icon } from "../ui/Icon";
 import { ListRow } from "../ui/ListRow";
 import { CallButton } from "./Call";
 import { choreAvatar, useChoreDay } from "./Chores";
+import { useWishes } from "../wishes";
 import { EntrySheet } from "./EntrySheet";
 import { useWhen } from "./Lists";
 import { MomentSheet } from "./MomentSheet";
@@ -70,8 +71,10 @@ export function Today() {
       <TodayQuestion household={household} me={me} />
       <Dinner household={household} />
       <Watch household={household} />
+      <DateNightTile />
       <Money household={household} me={me} />
       <TodayTrip household={household} />
+      <Wishlist household={household} />
       <TodayMoment household={household} me={me} />
       {adding && (
         <EntrySheet
@@ -291,6 +294,24 @@ function Watch({ household }: { household: HouseholdDetail }) {
   );
 }
 
+// A few ideas for an evening out or in, one tap away.
+function DateNightTile() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  return (
+    <button type="button" className="today-tile today-date" onClick={() => navigate("/date-night")}>
+      <span className="today-tile-icon">
+        <Icon name="heart" />
+      </span>
+      <span className="today-tile-text">
+        <span className="label">{t("today.dateNight.eyebrow")}</span>
+        <span className="headline">{t("today.dateNight.title")}</span>
+      </span>
+      <Icon name="chevron" size="sm" />
+    </button>
+  );
+}
+
 function WatchPicked({ pick }: { pick: TonightPick }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -354,6 +375,31 @@ function TodayTrip({ household }: { household: HouseholdDetail }) {
         <span className="label">{t("today.trips.eyebrow")}</span>
         <span className="headline">{trip ? trip.name : t("today.trips.title")}</span>
         {trip && <span className="caption muted">{[trip.destination, dates(trip)].filter(Boolean).join(" · ")}</span>}
+      </span>
+      <Icon name="chevron" size="sm" />
+    </button>
+  );
+}
+
+// The most wanted wish of the two of you, one tap from the whole list.
+function Wishlist({ household }: { household: HouseholdDetail }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { wishes } = useWishes(household.id);
+  if (!wishes) return null;
+  const top = wishes.find((w) => !w.gotAt);
+  return (
+    <button type="button" className="today-tile today-wishes" onClick={() => navigate("/wishes")}>
+      {top?.photoUrl ? (
+        <img className="today-tile-photo" src={top.photoUrl} alt="" loading="lazy" />
+      ) : (
+        <span className="today-tile-icon">
+          <Icon name="sofa" />
+        </span>
+      )}
+      <span className="today-tile-text">
+        <span className="label">{t("today.wishes.eyebrow")}</span>
+        <span className="headline">{top ? top.title : t("today.wishes.title")}</span>
       </span>
       <Icon name="chevron" size="sm" />
     </button>

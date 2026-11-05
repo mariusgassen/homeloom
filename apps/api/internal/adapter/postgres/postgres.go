@@ -146,6 +146,10 @@ func (s *Store) Get(ctx context.Context, id uuid.UUID) (domain.Household, error)
 	return toHousehold(h), err
 }
 
+func (s *Store) SetPlace(ctx context.Context, id uuid.UUID, place string) error {
+	return s.q.SetHouseholdPlace(ctx, sqlcgen.SetHouseholdPlaceParams{ID: id, Place: place})
+}
+
 func (s *Store) Members(ctx context.Context, householdID uuid.UUID) ([]domain.Member, error) {
 	rows, err := s.q.ListMembers(ctx, householdID)
 	if err != nil {
@@ -172,7 +176,7 @@ func toUser(u sqlcgen.User) domain.User {
 }
 
 func toHousehold(h sqlcgen.Household) domain.Household {
-	return domain.Household{ID: h.ID, Name: h.Name, CreatedAt: h.CreatedAt}
+	return domain.Household{ID: h.ID, Name: h.Name, Place: h.Place, CreatedAt: h.CreatedAt}
 }
 
 func nullable(s string) *string {

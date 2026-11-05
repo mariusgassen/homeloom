@@ -299,3 +299,78 @@ func TestWatchTonight(t *testing.T) {
 		t.Fatalf("after clearing: %+v, %v", got, err)
 	}
 }
+
+func TestWatchMovieNight(t *testing.T) {
+	ctx := context.Background()
+	store := memory.NewStore()
+	pusher := &memory.Pusher{}
+	push := service.NewPush(store, pusher)
+	alice, bob, eve := newUser(t, store, "alice"), newUser(t, store, "bob"), newUser(t, store, "eve")
+	m, _ := service.NewHousehold(store).Create(ctx, alice, "Home")
+	hid := m.Household.ID
+	store.AddMember(hid, bob.ID, domain.RoleMember)
+	if err := push.Subscribe(ctx, alice, domain.PushSubscription{Endpoint: "https://web.push.apple.com/alice"}); err != nil {
+		t.Fatal(err)
+	}
+	media := memory.NewMediaLibrary(
+		[]domain.Library{{ID: "abc.1", Name: "Movies", Kind: domain.Movies, Server: "Home", Owned: true}},
+		map[string][]domain.Title{"abc.1": {
+			{ID: "abc.10", Kind: domain.Movies, Name: "Arrival", Year: 2016},
+			{ID: "abc.11", Kind: domain.Movies, Name: "Amélie", Year: 2001},
+			{ID: "abc.12", Kind: domain.Movies, Name: "Seen it", Year: 1999, Watched: true},
+		}},
+	)
+	berlin, _ := time.LoadLocation("Europe/Berlin")
+	now := time.Date(2026, 11, 4, 20, 0, 0, 0, berlin)
+	watch := service.NewWatch(store, store, memory.NewSessions(), media, nil).WithTonight(store, push, berlin).WithNight(store)
+	watch.SetClock(func() time.Time { return now })
+	signIn(t, watch, alice, m)
+	signIn(t, watch, bob, m)
+
+	n, err := watch.Night(ctx, alice, hid)
+	if err != nil || len(n.Deck) != 2 || len(n.Matches) != 0 || n.Partners != 1 {
+		t.Fatalf("fresh night: %+v, %v", n, err)
+	}
+	if _, err := watch.Night(ctx, eve, hid); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("stranger: %v", err)
+	}
+	if got, err := watch.Swipe(ctx, alice, hid, "abc.10", true); err != nil || got != nil {
+		t.Fatalf("first like is no match: %+v, %v", got, err)
+	}
+	if got, err := watch.Swipe(ctx, alice, hid, "abc.11", false); err != nil || got != nil {
+		t.Fatalf("pass: %+v, %v", got, err)
+	}
+	// Bob is offered what alice liked first, and not what she passed on... that is still his to judge.
+	n, _ = watch.Night(ctx, bob, hid)
+	if len(n.Deck) != 2 || n.Deck[0].Name != "Arrival" {
+		t.Fatalf("bob's deck: %+v", n.Deck)
+	}
+	got, err := watch.Swipe(ctx, bob, hid, "abc.10", true)
+	if err != nil || got == nil || got.Title.Name != "Arrival" {
+		t.Fatalf("match: %+v, %v", got, err)
+	}
+	push.Wait()
+	if sent := pusher.Sent(); len(sent) != 1 {
+		t.Fatalf("told %+v, want alice", sent)
+	}
+	n, _ = watch.Night(ctx, alice, hid)
+	if len(n.Matches) != 1 || len(n.Deck) != 0 {
+		t.Fatalf("after matching: %+v", n)
+	}
+
+	// Swipes belong to one night, and can be reset.
+	now = time.Date(2026, 11, 5, 5, 0, 0, 0, berlin)
+	if n, _ = watch.Night(ctx, alice, hid); len(n.Matches) != 0 || len(n.Deck) != 2 {
+		t.Fatalf("next night: %+v", n)
+	}
+	now = time.Date(2026, 11, 5, 21, 0, 0, 0, berlin)
+	if _, err := watch.Swipe(ctx, alice, hid, "abc.10", true); err != nil {
+		t.Fatal(err)
+	}
+	if err := watch.ResetNight(ctx, bob, hid); err != nil {
+		t.Fatal(err)
+	}
+	if n, _ = watch.Night(ctx, alice, hid); len(n.Deck) != 2 {
+		t.Fatalf("after reset: %+v", n)
+	}
+}

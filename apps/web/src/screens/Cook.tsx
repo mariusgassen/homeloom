@@ -10,6 +10,7 @@ import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
 import { Empty } from "../ui/Empty";
 import { cx, Icon } from "../ui/Icon";
+import { RecipeMemory } from "./RecipeMemory";
 import { Screen } from "./Screen";
 
 const moods = ["cozy", "light", "spicy", "comfort", "new"] as const;
@@ -100,6 +101,16 @@ export function Cook() {
         </span>
         <Icon name="chevron" size="sm" />
       </Link>
+      <Link to="/cook/recap" className="today-tile">
+        <span className="today-tile-icon">
+          <Icon name="heart" />
+        </span>
+        <span className="today-tile-text">
+          <span className="label">{t("recap.eyebrow")}</span>
+          <span className="headline">{t("recap.title")}</span>
+        </span>
+        <Icon name="chevron" size="sm" />
+      </Link>
       <form className="cook-form" onSubmit={submit}>
         <h2 className="title">{t("cook.question")}</h2>
         <div className="cook-group" role="group" aria-label={t("cook.moodLabel")}>
@@ -171,6 +182,9 @@ export function RecipeScreen() {
   const [busy, setBusy] = useState(false);
   const [added, setAdded] = useState<string | null>(null);
   const { generation: refreshed, track } = useRefresh();
+  const { session } = useSession();
+  const user = session.state === "signedIn" ? session.user : undefined;
+  const household = session.state === "signedIn" ? session.household : undefined;
 
   useEffect(() => {
     let current = true;
@@ -231,6 +245,7 @@ export function RecipeScreen() {
             </p>
           )}
           <PlanFor householdId={householdId} slug={slug} />
+          {household && user && <RecipeMemory household={household} me={user} recipe={recipe} />}
           {recipe.ingredients.length > 0 && (
             <section className="group">
               <h2 className="label group-title">{t("cook.ingredients")}</h2>
