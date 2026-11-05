@@ -35,6 +35,7 @@ type Deps struct {
 	Cook           port.CookService
 	Shopping       port.ShoppingService
 	Chores         port.ChoreService
+	Documents      port.DocumentService
 	Budget         port.BudgetService
 	Wishes         port.WishService
 	Home           port.HomeService
@@ -132,6 +133,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 		cook:       d.Cook,
 		shopping:   d.Shopping,
 		chores:     d.Chores,
+		documents:  d.Documents,
 		budget:     d.Budget,
 		wishes:     d.Wishes,
 		home:       d.Home,
@@ -189,29 +191,35 @@ func writeError(ctx context.Context, w http.ResponseWriter, status int, code, de
 	_ = json.NewEncoder(w).Encode(errorBody(ctx, code, detail))
 }
 
-// maxVideoBody bounds a video upload: a video and some room.
-const maxVideoBody = domain.MaxVideoBytes + 64<<10
+// maxVideoBody and maxDocumentBody bound a video or a document upload: the file and some room.
+const (
+	maxVideoBody    = domain.MaxVideoBytes + 64<<10
+	maxDocumentBody = domain.MaxDocumentBytes + 64<<10
+)
 
 // limitBody keeps a request body from growing without bound before the validator reads it.
 func limitBody(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		limit := int64(maxBody)
-		if videoUpload(r) {
+		switch {
+		case videoUpload(r):
 			limit = maxVideoBody
+		case documentUpload(r):
+			limit = maxDocumentBody
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		next.ServeHTTP(w, r)
 	})
 }
 
-// byUpload validates a video upload with upload, which leaves the body alone: the validator would
+// byUpload validates a video or document upload with upload, which leaves the body alone: the validator would
 // read all of it into memory, and the core streams and checks it instead. Everything else goes
 // through validate.
 func byUpload(validate, upload func(http.Handler) http.Handler) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		v, u := validate(next), upload(next)
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if videoUpload(r) {
+			if videoUpload(r) || documentUpload(r) {
 				u.ServeHTTP(w, r)
 				return
 			}
@@ -225,6 +233,13 @@ func videoUpload(r *http.Request) bool {
 	rest, ok := strings.CutPrefix(r.URL.Path, "/v1/moments/")
 	id, ok2 := strings.CutSuffix(rest, "/video")
 	return r.Method == http.MethodPut && ok && ok2 && id != "" && !strings.Contains(id, "/")
+}
+
+// documentUpload is a request that sends a document: POST /v1/households/{householdId}/documents.
+func documentUpload(r *http.Request) bool {
+	rest, ok := strings.CutPrefix(r.URL.Path, "/v1/households/")
+	id, ok2 := strings.CutSuffix(rest, "/documents")
+	return r.Method == http.MethodPost && ok && ok2 && id != "" && !strings.Contains(id, "/")
 }
 
 // withLanguage negotiates the response language once per request; handlers read it with i18n.FromContext.

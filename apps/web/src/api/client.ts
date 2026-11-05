@@ -45,6 +45,7 @@ export type MomentMonth = components["schemas"]["MomentMonth"];
 export type Resurfaced = components["schemas"]["Resurfaced"];
 export type ShoppingItem = components["schemas"]["ShoppingItem"];
 export type ShoppingAisle = components["schemas"]["ShoppingAisle"];
+export type Document = components["schemas"]["Document"];
 export type Chore = components["schemas"]["Chore"];
 export type ChoreFields = components["schemas"]["ChoreFields"];
 export type ChoreCompletion = components["schemas"]["ChoreCompletion"];

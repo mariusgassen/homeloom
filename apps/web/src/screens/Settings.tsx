@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router";
 import { api, type McpToken, type TokenAccess, type VoiceSettings } from "../api/client";
 import { ownAvatar, removeAvatar, square, uploadAvatar } from "../avatar";
 import { useAutoplay } from "../moments";
@@ -44,6 +45,13 @@ export function Settings() {
           <Invite householdId={household.id} />
         </section>
       )}
+      {household && (
+        <section className="group">
+          <div className="hl-list">
+            <DocumentsLink />
+          </div>
+        </section>
+      )}
       {household && <CalendarLink householdId={household.id} />}
       {household && <OtherApps householdId={household.id} />}
       <Voice />
@@ -54,6 +62,12 @@ export function Settings() {
       </Button>
     </Screen>
   );
+}
+
+function DocumentsLink() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  return <ListRow title={t("documents.title")} subtitle={t("documents.emptyBody")} onClick={() => navigate("/documents")} />;
 }
 
 // Whether videos on the timeline play by themselves, on this device.

@@ -231,3 +231,10 @@ apps/web/
 |---|---|
 | Home Assistant media | Media players join scenes and lights in the whitelist |
 | Third-party apps | Per-app authentik clients or tokens, outgoing webhooks |
+
+## Documents vault
+
+- `documents` holds what is known about a member's file (name, type, size, owner, `shared`); the bytes are in S3 under `documents/<id>` through the same streaming port as videos (`FileStore`). Without S3, uploads answer `503 documents_unavailable` and the rest of the app works.
+- **Private by default.** A document is visible to its owner and, once `shared`, to the household; nobody else, not even other members, sees a private one. The rule is in the SQL (`owner_id = viewer OR shared` on every read, `owner_id` on every write) and in `core/service`, where a document you can't see is `ErrNotFound` and one you can see but don't own is `ErrForbidden` (`not_yours`).
+- `POST …/documents?name=` takes the file as the body (PDF, JPEG/PNG/WebP/HEIC, text/CSV, Office or OpenDocument files, at most 50 MB). Like videos, it streams to S3 past the request validator and the core stops it at the limit; a PDF must start with `%PDF-`. `GET …/documents/{id}/file` answers `private, no-store` with `nosniff`; PDFs and images open inline, everything else downloads.
+- Not yet: search inside files, folders or tags, assistant tools, versions and a household quota.

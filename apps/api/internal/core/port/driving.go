@@ -200,6 +200,19 @@ type ShoppingService interface {
 	Suggestions(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.TitleSuggestion, error)
 }
 
+// DocumentService is the vault: members' files, private unless shared.
+type DocumentService interface {
+	// List returns the actor's documents and those shared with the household.
+	List(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.Document, error)
+	// Add streams r in as a new private document. It is domain.ErrUnavailable without a FileStore.
+	Add(ctx context.Context, actor domain.User, householdID uuid.UUID, name, contentType string, r io.Reader) (domain.Document, error)
+	// Update renames the actor's document and sets whether the household sees it; name "" keeps the name.
+	Update(ctx context.Context, actor domain.User, householdID, id uuid.UUID, name string, shared *bool) (domain.Document, error)
+	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
+	// File returns domain.ErrNotFound unless the actor can see the document.
+	File(ctx context.Context, actor domain.User, householdID, id uuid.UUID) (domain.Document, domain.VideoStream, error)
+}
+
 // ChoreService is the household's chores: who does what, in turns, and who did how much.
 type ChoreService interface {
 	// List returns the chores still to do, soonest due first.
