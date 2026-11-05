@@ -125,3 +125,38 @@ func Tonight(t *testing.T, s interface {
 		t.Fatalf("after delete: %v", err)
 	}
 }
+
+// Swipes: a member's swipe on a film replaces their last, old ones are left out, and they can be cleared.
+func Swipes(t *testing.T, s interface {
+	Store
+	port.SwipeRepository
+}) {
+	ctx := context.Background()
+	alice := user(t, s, "Alice")
+	m, err := s.Create(ctx, "Home", alice.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hid := m.Household.ID
+	morning := time.Date(2026, 11, 4, 5, 0, 0, 0, time.UTC)
+	for _, liked := range []bool{false, true} {
+		w := domain.Swipe{HouseholdID: hid, UserID: alice.ID, Key: "arrival.2016", TitleID: "abc.10", Name: "Arrival", Year: 2016, Liked: liked, SwipedAt: morning.Add(time.Hour)}
+		if err := s.SaveSwipe(ctx, w); err != nil {
+			t.Fatal(err)
+		}
+	}
+	old := domain.Swipe{HouseholdID: hid, UserID: alice.ID, Key: "heat.1995", TitleID: "abc.11", Name: "Heat", Year: 1995, Liked: true, SwipedAt: morning.Add(-time.Hour)}
+	if err := s.SaveSwipe(ctx, old); err != nil {
+		t.Fatal(err)
+	}
+	got, err := s.Swipes(ctx, hid, morning)
+	if err != nil || len(got) != 1 || got[0].Name != "Arrival" || !got[0].Liked || got[0].Year != 2016 {
+		t.Fatalf("got %+v, %v", got, err)
+	}
+	if err := s.DeleteSwipes(ctx, hid); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := s.Swipes(ctx, hid, morning.Add(-24*time.Hour)); err != nil || len(got) != 0 {
+		t.Fatalf("after delete: %+v, %v", got, err)
+	}
+}

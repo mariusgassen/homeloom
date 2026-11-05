@@ -15,7 +15,7 @@ import (
 func (s *Store) CreateMoment(ctx context.Context, m domain.Moment) (domain.Moment, error) {
 	row, err := s.q.CreateMoment(ctx, sqlcgen.CreateMomentParams{
 		HouseholdID: m.HouseholdID, AuthorID: m.AuthorID, Kind: string(m.Kind), Day: m.Day,
-		Visibility: string(m.Visibility), RevealAt: m.RevealAt, Text: m.Text,
+		Visibility: string(m.Visibility), RevealAt: m.RevealAt, Text: m.Text, RecipeSlug: m.RecipeSlug, RecipeName: m.RecipeName,
 	})
 	if err != nil {
 		return domain.Moment{}, err
@@ -47,6 +47,7 @@ func (s *Store) GetMoment(ctx context.Context, id uuid.UUID) (domain.Moment, err
 func (s *Store) UpdateMoment(ctx context.Context, m domain.Moment) (domain.Moment, error) {
 	row, err := s.q.UpdateMoment(ctx, sqlcgen.UpdateMomentParams{
 		ID: m.ID, Day: m.Day, Visibility: string(m.Visibility), RevealAt: m.RevealAt, Text: m.Text,
+		RecipeSlug: m.RecipeSlug, RecipeName: m.RecipeName,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Moment{}, domain.ErrNotFound
@@ -131,6 +132,27 @@ func (s *Store) ClearMomentVideo(ctx context.Context, id uuid.UUID) error {
 	return s.q.ClearMomentVideo(ctx, id)
 }
 
+func (s *Store) SetMomentReaction(ctx context.Context, id, userID uuid.UUID, emoji string) (bool, error) {
+	n, err := s.q.SetMomentReaction(ctx, sqlcgen.SetMomentReactionParams{MomentID: id, UserID: userID, Emoji: emoji})
+	return n == 1, err
+}
+
+func (s *Store) DeleteMomentReaction(ctx context.Context, id, userID uuid.UUID) error {
+	return s.q.DeleteMomentReaction(ctx, sqlcgen.DeleteMomentReactionParams{MomentID: id, UserID: userID})
+}
+
+func (s *Store) MomentReactions(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]domain.MomentReaction, error) {
+	rows, err := s.q.ListMomentReactions(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := map[uuid.UUID][]domain.MomentReaction{}
+	for _, r := range rows {
+		out[r.MomentID] = append(out[r.MomentID], domain.MomentReaction{UserID: r.UserID, Emoji: r.Emoji})
+	}
+	return out, nil
+}
+
 func (s *Store) HouseholdIDs(ctx context.Context) ([]uuid.UUID, error) {
 	return s.q.ListHouseholdIDs(ctx)
 }
@@ -151,7 +173,8 @@ func toMoments(rows []sqlcgen.Moment) []domain.Moment {
 func toMoment(r sqlcgen.Moment) domain.Moment {
 	return domain.Moment{
 		ID: r.ID, HouseholdID: r.HouseholdID, AuthorID: r.AuthorID, Kind: domain.MomentKind(r.Kind),
-		MomentFields: domain.MomentFields{Day: r.Day, Visibility: domain.Visibility(r.Visibility), RevealAt: r.RevealAt, Text: r.Text},
-		PhotoAt:      r.PhotoAt, VideoAt: r.VideoAt, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+		MomentFields: domain.MomentFields{Day: r.Day, Visibility: domain.Visibility(r.Visibility), RevealAt: r.RevealAt, Text: r.Text,
+			RecipeSlug: r.RecipeSlug, RecipeName: r.RecipeName},
+		PhotoAt: r.PhotoAt, VideoAt: r.VideoAt, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
 	}
 }

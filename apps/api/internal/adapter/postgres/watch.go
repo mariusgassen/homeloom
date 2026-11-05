@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -61,4 +62,30 @@ func (s *Store) Tonight(ctx context.Context, householdID uuid.UUID) (domain.Toni
 
 func (s *Store) DeleteTonight(ctx context.Context, householdID uuid.UUID) error {
 	return s.q.DeleteTonight(ctx, householdID)
+}
+
+func (s *Store) SaveSwipe(ctx context.Context, w domain.Swipe) error {
+	return s.q.UpsertWatchSwipe(ctx, sqlcgen.UpsertWatchSwipeParams{
+		HouseholdID: w.HouseholdID, UserID: w.UserID, Key: w.Key, TitleID: w.TitleID, Name: w.Name,
+		Year: int32(w.Year), Liked: w.Liked, SwipedAt: w.SwipedAt, //nolint:gosec // a year fits
+	})
+}
+
+func (s *Store) Swipes(ctx context.Context, householdID uuid.UUID, since time.Time) ([]domain.Swipe, error) {
+	rows, err := s.q.ListWatchSwipes(ctx, sqlcgen.ListWatchSwipesParams{HouseholdID: householdID, SwipedAt: since})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.Swipe, len(rows))
+	for i, r := range rows {
+		out[i] = domain.Swipe{
+			HouseholdID: r.HouseholdID, UserID: r.UserID, Key: r.Key, TitleID: r.TitleID, Name: r.Name,
+			Year: int(r.Year), Liked: r.Liked, SwipedAt: r.SwipedAt,
+		}
+	}
+	return out, nil
+}
+
+func (s *Store) DeleteSwipes(ctx context.Context, householdID uuid.UUID) error {
+	return s.q.DeleteWatchSwipes(ctx, householdID)
 }

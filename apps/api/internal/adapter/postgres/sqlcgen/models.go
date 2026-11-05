@@ -195,6 +195,7 @@ type Household struct {
 	ID        uuid.UUID
 	Name      string
 	CreatedAt time.Time
+	Place     string
 }
 
 type Invite struct {
@@ -233,6 +234,15 @@ type MealPlan struct {
 	PlannedAt   time.Time
 }
 
+type MealRating struct {
+	HouseholdID uuid.UUID
+	UserID      uuid.UUID
+	RecipeSlug  string
+	RecipeName  string
+	Rating      string
+	RatedAt     time.Time
+}
+
 type Membership struct {
 	HouseholdID uuid.UUID
 	UserID      uuid.UUID
@@ -253,12 +263,21 @@ type Moment struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 	VideoAt     *time.Time
+	RecipeSlug  string
+	RecipeName  string
 }
 
 type MomentPhoto struct {
 	MomentID    uuid.UUID
 	ContentType string
 	Data        []byte
+}
+
+type MomentReaction struct {
+	MomentID  uuid.UUID
+	UserID    uuid.UUID
+	Emoji     string
+	CreatedAt time.Time
 }
 
 type PushSubscription struct {
@@ -336,6 +355,17 @@ type WatchConnection struct {
 	HiddenLibraries []string
 }
 
+type WatchSwipe struct {
+	HouseholdID uuid.UUID
+	UserID      uuid.UUID
+	Key         string
+	TitleID     string
+	Name        string
+	Year        int32
+	Liked       bool
+	SwipedAt    time.Time
+}
+
 type WatchTonight struct {
 	HouseholdID uuid.UUID
 	TitleID     string
@@ -345,4 +375,23 @@ type WatchTonight struct {
 	Url         string
 	PickedBy    uuid.UUID
 	PickedAt    time.Time
+}
+
+type Wish struct {
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+	Title       string
+	Note        string
+	Url         string
+	PriceCents  *int64
+	PhotoAt     *time.Time
+	GotAt       *time.Time
+	CreatedBy   *uuid.UUID
+	CreatedAt   time.Time
+}
+
+type WishVote struct {
+	WishID uuid.UUID
+	UserID uuid.UUID
+	Hearts int32
 }

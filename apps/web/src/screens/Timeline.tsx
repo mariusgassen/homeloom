@@ -9,6 +9,7 @@ import { Icon } from "../ui/Icon";
 import { ListRow } from "../ui/ListRow";
 import { ThreadAvatar, threadFor } from "../ui/ThreadAvatar";
 import { Video } from "../ui/Video";
+import { Reactions } from "./Reactions";
 
 // The Us tab's timeline: what comes back today, today's gratitude lines, then month by month.
 export function Timeline({ household, me, month, onOpen }: {
@@ -34,6 +35,7 @@ export function Timeline({ household, me, month, onOpen }: {
           {m.photoUrl && <img className="moment-photo" src={m.photoUrl} alt="" loading="lazy" />}
           {m.videoUrl && <MomentVideo src={m.videoUrl} />}
           <p className="note-text">{m.text}</p>
+          <Reactions key={reactionKey(m)} moment={m} me={me} />
         </article>
       ))}
       {resurfaced?.gratitude && (
@@ -227,10 +229,17 @@ function MomentCard({ moment: m, me, people, onOpen }: { moment: Moment; me: Use
     );
   }
   const photo = m.photoUrl && <img className="moment-photo" src={m.photoUrl} alt="" loading="lazy" />;
+  const reactions = m.kind === "moment" && <Reactions key={reactionKey(m)} moment={m} me={me} />;
   const text = (
     <>
       <span className="hl-eyebrow">{eyebrow}</span>
       <span className="note-text">{m.text}</span>
+      {m.meal && (
+        <span className="moment-dish">
+          <Icon name="cook" size="sm" />
+          <span>{m.meal.name}</span>
+        </span>
+      )}
     </>
   );
   if (m.videoUrl) {
@@ -246,21 +255,30 @@ function MomentCard({ moment: m, me, people, onOpen }: { moment: Moment; me: Use
         ) : (
           text
         )}
+        {reactions}
       </article>
     );
   }
+  // Reactions are buttons, so they can't sit inside your own moment's button.
   return m.authorId === me.id ? (
-    <button type="button" className="hl-card note" onClick={() => onOpen(m)}>
-      {photo}
-      {text}
-    </button>
+    <article className="hl-card">
+      <button type="button" className="note moment-open" onClick={() => onOpen(m)}>
+        {photo}
+        {text}
+      </button>
+      {reactions}
+    </article>
   ) : (
     <article className="hl-card">
       {photo}
       {text}
+      {reactions}
     </article>
   );
 }
+
+// A card shows the reactions it was given until they change on the server.
+const reactionKey = (m: Moment) => (m.reactions ?? []).map((r) => r.userId + r.emoji).join();
 
 // A moment's video, playing by itself or not as set on this device.
 function MomentVideo({ src }: { src: string }) {

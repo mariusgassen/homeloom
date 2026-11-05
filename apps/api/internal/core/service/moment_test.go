@@ -346,3 +346,66 @@ func TestResurfacedAndDailyNotifications(t *testing.T) {
 		t.Fatalf("last month on the 1st: %v", got)
 	}
 }
+
+func TestMomentReactions(t *testing.T) {
+	f := newMomentFixture(t)
+	ctx := context.Background()
+	shared := f.create(t, f.alice, domain.KindMoment, domain.MomentFields{Day: day("2026-10-01"), Visibility: domain.VisibilityShared, Text: "Lake"})
+	private := f.create(t, f.alice, domain.KindMoment, domain.MomentFields{Day: day("2026-10-01"), Visibility: domain.VisibilityPrivate, Text: "Mine"})
+	opens := f.now.Add(time.Hour)
+	later := f.create(t, f.alice, domain.KindMoment, domain.MomentFields{Day: day("2026-10-01"), Visibility: domain.VisibilityReveal, RevealAt: &opens, Text: "Letter"})
+
+	if _, err := f.moments.React(ctx, f.bob, shared.ID, "💩"); !errors.Is(err, domain.ErrReaction) {
+		t.Fatalf("unknown emoji: %v", err)
+	}
+	for _, id := range []uuid.UUID{private.ID, later.ID} {
+		if _, err := f.moments.React(ctx, f.bob, id, "❤️"); !errors.Is(err, domain.ErrNotFound) {
+			t.Fatalf("private or sealed moment: %v", err)
+		}
+	}
+	if _, err := f.moments.React(ctx, f.eve, shared.ID, "❤️"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("non-member: %v", err)
+	}
+
+	m, err := f.moments.React(ctx, f.bob, shared.ID, "❤️")
+	if err != nil || len(m.Reactions) != 1 || m.Reactions[0].UserID != f.bob.ID || m.Reactions[0].Emoji != "❤️" {
+		t.Fatalf("react: %v %+v", err, m.Reactions)
+	}
+	// The same emoji again tells nobody twice; a different one replaces it and does.
+	if _, err := f.moments.React(ctx, f.bob, shared.ID, "❤️"); err != nil {
+		t.Fatal(err)
+	}
+	if m, err = f.moments.React(ctx, f.bob, shared.ID, "😂"); err != nil || len(m.Reactions) != 1 || m.Reactions[0].Emoji != "😂" {
+		t.Fatalf("replace: %v %+v", err, m.Reactions)
+	}
+	f.push.Wait()
+	if sent := f.pusher.Sent(); len(sent) != 2 || sent[0].Notification.Key != "push.moment_reaction" {
+		t.Fatalf("pushes: %+v", sent)
+	}
+
+	// Alice sees it on the month, and reacting to her own moment tells nobody.
+	if _, err := f.moments.React(ctx, f.alice, shared.ID, "👍"); err != nil {
+		t.Fatal(err)
+	}
+	f.push.Wait()
+	if len(f.pusher.Sent()) != 2 {
+		t.Fatalf("own reaction notified: %+v", f.pusher.Sent())
+	}
+	mm, err := f.moments.Month(ctx, f.alice, f.household, day("2026-10-01"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var seen int
+	for _, x := range mm.Moments {
+		if x.ID == shared.ID {
+			seen = len(x.Reactions)
+		}
+	}
+	if seen != 2 {
+		t.Fatalf("reactions on the month: %d", seen)
+	}
+
+	if m, err = f.moments.Unreact(ctx, f.bob, shared.ID); err != nil || len(m.Reactions) != 1 || m.Reactions[0].UserID != f.alice.ID {
+		t.Fatalf("unreact: %v %+v", err, m.Reactions)
+	}
+}

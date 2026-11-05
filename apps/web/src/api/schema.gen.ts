@@ -282,7 +282,13 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Choose where the household lives (members only)
+         * @description The place is a town or city, as typed. The morning briefing looks up its weather there.
+         *     An empty place clears it. A place the weather service doesn't know answers 400
+         *     `unknown_place`.
+         */
+        patch: operations["updateHousehold"];
         trace?: never;
     };
     "/v1/households/{householdId}/invites": {
@@ -683,6 +689,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/moments/{momentId}/reaction": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Answer a moment or line with an emoji
+         * @description Any member who can read it can react; a new emoji replaces the member's earlier one, and its author is told. A "later" moment that hasn't opened yet is not found.
+         */
+        put: operations["reactToMoment"];
+        post?: never;
+        /** Take your emoji off a moment or line */
+        delete: operations["unreactToMoment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/moments/{momentId}/photo": {
         parameters: {
             query?: never;
@@ -797,6 +826,77 @@ export interface paths {
          * @description Fetched from Mealie through the API, like everything else from Mealie. 404 when the recipe has none.
          */
         get: operations["getRecipeImage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/recipes/{slug}/rating": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                slug: components["parameters"]["RecipeSlug"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Rate a dish as you, replacing your earlier rating (members only)
+         * @description Both of you see each other's ratings. Dishes either of you rated `nope` are left out of
+         *     dinner ideas and the meal plan's suggestions; dishes you loved steer them. Needs Mealie, for
+         *     the dish's name.
+         */
+        put: operations["rateRecipe"];
+        post?: never;
+        /** Take back your rating of a dish */
+        delete: operations["unrateRecipe"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/taste": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * How each of you rated the dishes (members only)
+         * @description Works without Mealie.
+         */
+        get: operations["getTaste"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/meal-recap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * A year of meal memories (members only)
+         * @description What you can read of the year's moments that are about a dish: how many, the dishes cooked
+         *     most, the ones you both loved, and the newest with a photo. Works without Mealie.
+         */
+        get: operations["getMealRecap"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1136,6 +1236,126 @@ export interface paths {
         /** Record that one member paid another back */
         post: operations["settleUp"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/wishes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The household's wishlist (members only)
+         * @description The most wanted first (the sum of everyone's hearts); wishes that came true come last. At most 500.
+         */
+        get: operations["listWishes"];
+        put?: never;
+        /** Add a wish */
+        post: operations["createWish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/wishes/{wishId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a wish
+         * @description The wishlist is shared, so every member can change it. Hearts and the photo stay.
+         */
+        put: operations["updateWish"];
+        post?: never;
+        /** Delete a wish and its photo */
+        delete: operations["deleteWish"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/wishes/{wishId}/vote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Say how much you want it
+         * @description Your hearts replace the ones you gave before.
+         */
+        put: operations["voteWish"];
+        post?: never;
+        /** Take your hearts back */
+        delete: operations["unvoteWish"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/wishes/{wishId}/got": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** The wish came true */
+        put: operations["gotWish"];
+        post?: never;
+        /** Make it a wish again */
+        delete: operations["ungotWish"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/wishes/{wishId}/photo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * The photo of a wish
+         * @description Use the wish's `photoUrl`; it changes with the photo, so the answer may be cached.
+         */
+        get: operations["getWishPhoto"];
+        /**
+         * Add or replace the photo of a wish
+         * @description A JPEG of at most 5 MB, kept in S3; `503 wish_photos_unavailable` when S3 isn't set up or reachable.
+         */
+        put: operations["setWishPhoto"];
+        post?: never;
+        /** Remove the photo of a wish */
+        delete: operations["deleteWishPhoto"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1516,6 +1736,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/places": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Towns and cities matching what is typed, for autocompletion
+         * @description Up to five matches, most populous first, with names in the caller's language. Fewer than two
+         *     characters match nothing. A match's `label` is the text to keep as the place: the weather
+         *     lookup finds the same town again from it. When the search is down the answer is 503 and the
+         *     client lets people type the place.
+         */
+        get: operations["searchPlaces"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/date-night/ideas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ideas for an evening together, from the weather, what's on, a budget and a mood (members only)
+         * @description Claude suggests a few evenings out or in for the day asked for. With a `place` it looks up
+         *     the forecast and events happening there; both are best effort, and the ideas still come
+         *     without them (`forecast` is then absent). Each idea carries a start time, so a client can
+         *     save the chosen one as a calendar event with `createEntry`.
+         */
+        post: operations["suggestDateNight"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/watch/tonight": {
         parameters: {
             query?: never;
@@ -1536,6 +1804,50 @@ export interface paths {
         post?: never;
         /** Forget tonight's pick */
         delete: operations["clearWatchTonight"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/watch/night": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Your movie night - films to swipe on and the ones you both like (members only)
+         * @description Unseen movies from your own libraries, shuffled; those your partner already liked come
+         *     first. Swipes last until 5 a.m. the morning after. A film is the same film across Plex
+         *     accounts when name and year agree.
+         */
+        get: operations["getWatchNight"];
+        put?: never;
+        post?: never;
+        /** Start movie night over - forget everyone's swipes */
+        delete: operations["resetWatchNight"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/watch/night/swipes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Say whether you would watch one of your movies; a match tells your partner */
+        post: operations["swipeWatchNight"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -2170,6 +2482,12 @@ export interface components {
              * @description Moments only: the day it happened, not after today. Today when absent.
              */
             day?: string;
+            /** @description Moments only: the dish it is about, which makes it a meal memory. Absent for any other moment. */
+            meal?: components["schemas"]["MealRef"];
+        };
+        MealRef: {
+            slug: string;
+            name: string;
         };
         CreateMoment: components["schemas"]["MomentFields"] & {
             kind: components["schemas"]["MomentKind"];
@@ -2192,10 +2510,23 @@ export interface components {
             photoUrl?: string;
             /** @description Where its video is */
             videoUrl?: string;
+            /** @description The dish it is about, if it is a meal memory; absent while sealed. */
+            meal?: components["schemas"]["MealRef"];
+            /** @description What members answered it with, oldest first; one per member. */
+            reactions?: components["schemas"]["GivenReaction"][];
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+        };
+        GivenReaction: {
+            /** Format: uuid */
+            userId: string;
+            emoji: string;
+        };
+        MomentReaction: {
+            /** @enum {string} */
+            emoji: "❤️" | "😂" | "🥹" | "🙌" | "👍";
         };
         MomentMonth: {
             month: components["schemas"]["Month"];
@@ -2283,6 +2614,48 @@ export interface components {
             days: number;
             /** @description What to use up or what you feel like, in your own words. */
             wish?: string;
+        };
+        /**
+         * @description Nope means not again.
+         * @enum {string}
+         */
+        Rating: "love" | "fine" | "nope";
+        RatingChoice: {
+            rating: components["schemas"]["Rating"];
+        };
+        MealRating: {
+            slug: string;
+            name: string;
+            /** Format: uuid */
+            userId: string;
+            rating: components["schemas"]["Rating"];
+            /** Format: date-time */
+            ratedAt: string;
+        };
+        Taste: {
+            ratings: components["schemas"]["MealRating"][];
+        };
+        CookedDish: {
+            slug: string;
+            name: string;
+            /** @description How many meal memories the year holds of it. */
+            times: number;
+            /**
+             * Format: date
+             * @description The day it was cooked last.
+             */
+            last: string;
+        };
+        MealRecap: {
+            year: number;
+            /** @description How many meal memories you can read from the year. */
+            memories: number;
+            /** @description The dishes cooked most, most first; at most five. */
+            dishes: components["schemas"]["CookedDish"][];
+            /** @description The year's dishes every member who rated them loved, when at least two did. */
+            favourites: components["schemas"]["CookedDish"][];
+            /** @description The newest meal memories with a photo; at most twelve. */
+            photos: components["schemas"]["Moment"][];
         };
         MealIdeas: {
             meals: components["schemas"]["MealIdea"][];
@@ -2476,6 +2849,43 @@ export interface components {
             /** Format: int64 */
             cents: number;
         };
+        WishFields: {
+            title: string;
+            note?: string;
+            /** @description Where to see or buy it: an http or https address. */
+            url?: string;
+            /** Format: int64 */
+            priceCents?: number;
+        };
+        WishVote: {
+            /** Format: uuid */
+            userId: string;
+            hearts: number;
+        };
+        Wish: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            note: string;
+            /** @description Empty when there is none. */
+            url: string;
+            /** Format: int64 */
+            priceCents?: number;
+            /** @description The photo, if there is one; it changes with the photo. */
+            photoUrl?: string;
+            /** @description The sum of everyone's hearts */
+            hearts: number;
+            votes: components["schemas"]["WishVote"][];
+            /**
+             * Format: date-time
+             * @description When the wish came true.
+             */
+            gotAt?: string;
+            /** Format: uuid */
+            createdBy?: string;
+            /** Format: date-time */
+            createdAt: string;
+        };
         ChoreFields: {
             title: string;
             /** @description The effort: 1 small, 2 medium, 3 big. */
@@ -2648,6 +3058,20 @@ export interface components {
              */
             url?: string;
         };
+        WatchNight: {
+            deck: components["schemas"]["WatchTitle"][];
+            /** @description Films you both liked, as your own titles. */
+            matches: components["schemas"]["WatchTitle"][];
+            /** @description How many other members could swipe. */
+            partners: number;
+        };
+        WatchSwipe: {
+            titleId: components["schemas"]["MediaId"];
+            liked: boolean;
+        };
+        WatchSwipeResult: {
+            match?: components["schemas"]["WatchTitle"];
+        };
         WatchTonight: {
             pick?: components["schemas"]["TonightPick"];
         };
@@ -2675,6 +3099,56 @@ export interface components {
         WatchMood: {
             /** @description In your own words, e.g. "something light, under two hours"; may be empty. */
             mood?: string;
+        };
+        PlaceMatch: {
+            /** @description How to write the place, e.g. "Berlin, Germany". */
+            label: string;
+        };
+        DateNightRequest: {
+            /** @description A town or city; without it there is no forecast and no events. */
+            place?: string;
+            /**
+             * Format: date
+             * @description The evening, within 14 days from today in the household's time zone; defaults to today.
+             */
+            day?: string;
+            budget?: components["schemas"]["DateBudget"];
+            /** @description In your own words, e.g. "cosy, nothing loud"; may be empty. */
+            mood?: string;
+            /** @description Limits every idea must respect, e.g. "in a hotel, no kitchen" or "no car"; may be empty. */
+            constraints?: string;
+        };
+        /**
+         * @description How much the evening may cost; `easy` when absent.
+         * @enum {string}
+         */
+        DateBudget: "free" | "easy" | "treat";
+        DateNight: {
+            ideas: components["schemas"]["DateIdea"][];
+            forecast?: components["schemas"]["DateForecast"];
+        };
+        DateForecast: {
+            /** @enum {string} */
+            sky: "clear" | "cloudy" | "fog" | "rain" | "snow" | "storm";
+            highC: number;
+            lowC: number;
+            /** @description Chance of rain or snow. */
+            rainPercent: number;
+        };
+        DateIdea: {
+            title: string;
+            /** @description One warm sentence on why it fits. */
+            reason: string;
+            /** @description A venue or area; absent when it can be anywhere. */
+            where?: string;
+            /** @description A short phrase such as "about 30 €"; absent when free. */
+            cost?: string;
+            indoor: boolean;
+            /**
+             * Format: date-time
+             * @description When to start
+             */
+            startsAt: string;
         };
         WatchIdeas: {
             ideas: components["schemas"]["WatchIdea"][];
@@ -2806,6 +3280,8 @@ export interface components {
             role: components["schemas"]["Role"];
         };
         HouseholdDetail: components["schemas"]["Household"] & {
+            /** @description Where the household lives, as typed; absent until chosen. */
+            place?: string;
             members: components["schemas"]["Member"][];
         };
         Member: {
@@ -2928,6 +3404,7 @@ export interface components {
         ExpenseId: string;
         ChoreId: string;
         DocumentId: string;
+        WishId: string;
         CompletionId: string;
         ConversationId: string;
         RecipeSlug: string;
@@ -3342,6 +3819,37 @@ export interface operations {
                     "application/json": components["schemas"]["HouseholdDetail"];
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateHousehold: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    place: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The household. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HouseholdDetail"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };
@@ -4177,6 +4685,67 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    reactToMoment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MomentReaction"];
+            };
+        };
+        responses: {
+            /** @description The moment with its reactions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            /** @description The emoji isn't one of the offered ones (code `invalid_reaction`). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    unreactToMoment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                momentId: components["parameters"]["MomentId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The moment with its reactions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Moment"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     getMomentPhoto: {
         parameters: {
             query?: {
@@ -4478,6 +5047,115 @@ export interface operations {
                     "image/*": string;
                 };
             };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    rateRecipe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                slug: components["parameters"]["RecipeSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RatingChoice"];
+            };
+        };
+        responses: {
+            /** @description Your rating. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MealRating"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    unrateRecipe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                slug: components["parameters"]["RecipeSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getTaste: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every rating in the household, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Taste"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    getMealRecap: {
+        parameters: {
+            query?: {
+                /** @description The current year when absent. */
+                year?: number;
+            };
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The recap. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MealRecap"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
             503: components["responses"]["Unavailable"];
@@ -5116,6 +5794,307 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    listWishes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The wishes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createWish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WishFields"];
+            };
+        };
+        responses: {
+            /** @description The new wish. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateWish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WishFields"];
+            };
+        };
+        responses: {
+            /** @description The wish. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteWish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    voteWish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    hearts: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The wish. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    unvoteWish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The wish. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    gotWish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The wish, with `gotAt`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    ungotWish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The wish, without `gotAt`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getWishPhoto: {
+        parameters: {
+            query?: {
+                /** @description The photo's version, part of `photoUrl`. */
+                v?: string;
+            };
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The photo. */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    setWishPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/jpeg": string;
+            };
+        };
+        responses: {
+            /** @description The wish with its photo. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    deleteWishPhoto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                wishId: components["parameters"]["WishId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The wish without a photo. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Wish"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
     listChores: {
         parameters: {
             query?: never;
@@ -5716,6 +6695,60 @@ export interface operations {
             503: components["responses"]["Unavailable"];
         };
     };
+    searchPlaces: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The matches, possibly none. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaceMatch"][];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    suggestDateNight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DateNightRequest"];
+            };
+        };
+        responses: {
+            /** @description Up to three ideas. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DateNight"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
     getWatchTonight: {
         parameters: {
             query?: never;
@@ -5789,6 +6822,83 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getWatchNight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The deck and the matches. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchNight"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    resetWatchNight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Forgotten. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    swipeWatchNight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WatchSwipe"];
+            };
+        };
+        responses: {
+            /** @description Recorded. `match` is set when your partner liked the same film. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WatchSwipeResult"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["Unavailable"];
         };
     };
     setWatchLibrary: {

@@ -53,7 +53,7 @@ func (h *handlers) CreateMoment(ctx context.Context, req oapi.CreateMomentReques
 	}
 	b := req.Body
 	m, err := h.moments.Create(ctx, u, req.HouseholdId, domain.MomentKind(b.Kind), toMomentFields(oapi.MomentFields{
-		Text: b.Text, Visibility: b.Visibility, RevealAt: b.RevealAt, Day: b.Day,
+		Text: b.Text, Visibility: b.Visibility, RevealAt: b.RevealAt, Day: b.Day, Meal: b.Meal,
 	}))
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
@@ -343,16 +343,53 @@ func invalidMoment(ctx context.Context, err error) oapi.Error {
 		return errorBody(ctx, "invalid_reveal", err.Error())
 	case errors.Is(err, domain.ErrMomentDay):
 		return errorBody(ctx, "invalid_moment_day", err.Error())
+	case errors.Is(err, domain.ErrReaction):
+		return errorBody(ctx, "invalid_reaction", err.Error())
 	case errors.Is(err, domain.ErrPhoto):
 		return errorBody(ctx, "invalid_photo", err.Error(), "max", domain.MaxPhotoBytes>>20)
 	}
 	return errorBody(ctx, "invalid_entry", err.Error())
 }
 
+func (h *handlers) ReactToMoment(ctx context.Context, req oapi.ReactToMomentRequestObject) (oapi.ReactToMomentResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	m, err := h.moments.React(ctx, u, req.MomentId, string(req.Body.Emoji))
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.ReactToMoment404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.Is(err, domain.ErrReaction):
+		return oapi.ReactToMoment400JSONResponse(invalidMoment(ctx, err)), nil
+	case err != nil:
+		return nil, err
+	}
+	return oapi.ReactToMoment200JSONResponse(toMoment(m)), nil
+}
+
+func (h *handlers) UnreactToMoment(ctx context.Context, req oapi.UnreactToMomentRequestObject) (oapi.UnreactToMomentResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	m, err := h.moments.Unreact(ctx, u, req.MomentId)
+	if errors.Is(err, domain.ErrNotFound) {
+		return oapi.UnreactToMoment404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return oapi.UnreactToMoment200JSONResponse(toMoment(m)), nil
+}
+
 func toMomentFields(b oapi.MomentFields) domain.MomentFields {
 	f := domain.MomentFields{Visibility: domain.Visibility(b.Visibility), RevealAt: b.RevealAt, Text: b.Text}
 	if b.Day != nil {
 		f.Day = b.Day.Time
+	}
+	if b.Meal != nil {
+		f.RecipeSlug, f.RecipeName = b.Meal.Slug, b.Meal.Name
 	}
 	return f
 }
@@ -372,6 +409,14 @@ func toMoment(m domain.Moment) oapi.Moment {
 	}
 	if !m.Sealed {
 		out.Text = &m.Text
+		if m.RecipeSlug != "" {
+			out.Meal = &oapi.MealRef{Slug: m.RecipeSlug, Name: m.RecipeName}
+		}
+		rs := make([]oapi.GivenReaction, len(m.Reactions))
+		for i, r := range m.Reactions {
+			rs[i] = oapi.GivenReaction{Emoji: r.Emoji, UserId: r.UserID}
+		}
+		out.Reactions = &rs
 		if m.PhotoAt != nil {
 			url := fmt.Sprintf("/v1/moments/%s/photo?v=%d", m.ID, m.PhotoAt.UnixMilli())
 			out.PhotoUrl = &url

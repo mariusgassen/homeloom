@@ -33,9 +33,10 @@
     "next": { "eyebrow": "Next up", "clear": "Nothing planned today. Time for each other.", "more_one": "{{count}} more today", "more_other": "{{count}} more today" },
     "dinner": { "eyebrow": "Dinner tonight", "title": "What do you feel like?" },
     "watch": { "eyebrow": "Watch tonight", "title": "Something to watch?" },
-    "documents": { "title": "Documents", "add": "Add a file", "open": "Open", "name": "Name", "shareWith": "Share with the household", "private": "Only you", "shared": "Shared", "from": "From {{name}}", "kind": { "pdf": "PDF", "image": "Image", "text": "Text", "office": "Document" }, "sending": "Sending… {{percent}}%", "delete": "Delete document", "deleteConfirm": "Delete this document?", "tooBig": "Pick a file of at most {{max}} MB.", "wrongType": "Pick a PDF, image, text or office file.", "failed": "That didn't work. Please try again.", "emptyTitle": "No documents yet", "emptyBody": "Keep a lease, a policy or a receipt here. Only you see it until you share it." },
-  "chores": { "eyebrow": "Chores today", "all": "All", "more_one": "{{count}} more", "more_other": "{{count}} more", "setUp": "Share the housework" },
+    "dateNight": { "eyebrow": "Date night", "title": "Plan an evening together" },
+    "chores": { "eyebrow": "Chores today", "all": "All", "more_one": "{{count}} more", "more_other": "{{count}} more", "setUp": "Share the housework" },
     "money": { "eyebrow": "Money", "title": "Who owes whom?", "bill": "Next: {{name}}, {{amount}}, {{when}}" },
+    "wishes": {"eyebrow": "Wishlist", "title": "Something for the home?"},
     "thanks": "What made you smile today?"
   },
   "cook": {
@@ -63,6 +64,28 @@
     "added_other": "{{count}} items are on “{{list}}” now.",
     "steps": "Steps",
     "openRecipe": "Open full recipe"
+  },
+  "taste": {
+    "title": "How was it?",
+    "rating": { "love": "Loved it", "fine": "Fine", "nope": "Not again" },
+    "theirs": { "love": "{{name}} loved it.", "fine": "{{name}} thought it was fine.", "nope": "{{name}} said not again." },
+    "cooked": "We cooked this",
+    "kept": "Kept on your timeline.",
+    "dishRemove": "Remove"
+  },
+  "recap": {
+    "eyebrow": "Looking back",
+    "title": "Our year at the table",
+    "earlier": "Earlier year",
+    "later": "Later year",
+    "empty": { "title": "No meals kept yet", "body": "Keep a memory when you cook something, and it shows up here." },
+    "memories_one": "{{count}} meal kept.",
+    "memories_other": "{{count}} meals kept.",
+    "dishes": "Cooked most",
+    "times_one": "{{count}} time",
+    "times_other": "{{count}} times",
+    "favourites": "You both loved",
+    "photos": "Photos"
   },
   "week": {
     "eyebrow": "Plan ahead",
@@ -128,6 +151,7 @@
     "alone": { "title": "It takes two", "body": "Invite your partner first." }
   },
   "moments": {
+    "react": "React",
     "add": "Keep a moment", "new": "New moment", "edit": "Moment",
     "text": "What happened", "day": "Day",
     "photo": "Add a photo", "photoChange": "Other photo", "photoRemove": "Remove photo",
@@ -215,7 +239,9 @@
     "failed": "That didn't work. Please try again.",
     "reading": { "window": "Window open", "door": "Door open", "garage_door": "Garage open", "motion": "Motion", "moisture": "Water", "smoke": "Smoke" }
   },
+  "dateNight": {"title": "Date night", "place": "Where", "placeHint": "Your town (for weather and events)", "day": "When", "mood": "Mood", "limits": "Limits", "limitsHint": "In a hotel, no kitchen, no car… (optional)", "moodHint": "Cosy, lively, something new… (optional)", "budget": {"label": "Budget", "free": "Free", "easy": "Easy", "treat": "Treat"}, "ask": "Get ideas", "more": "New ideas", "thinking": "Thinking…", "indoor": "Indoors", "outdoor": "Outdoors", "rain": "{{percent}}% rain", "sky": {"clear": "Clear", "cloudy": "Cloudy", "fog": "Foggy", "rain": "Rain", "snow": "Snow", "storm": "Stormy"}, "save": "Add to calendar", "saved": "In your calendar", "failed": "That didn't work. Please try again."},
   "watch": {"title": "Movies & shows", "libraries": "Libraries", "offTitle": "Movies and shows aren't available", "connectTitle": "Connect your movies and shows", "connectBody": "Sign in with your own account. Your libraries and the ones shared with you show up here.", "connect": "Connect", "disconnect": "Disconnect movies and shows", "emptyTitle": "No libraries yet", "emptyBody": "Movie and series libraries you can watch show up here.", "unseen": "Not seen yet", "choose": "Choose", "chooseHint": "Only the libraries you turn on show up here and in ideas. New ones are on until you turn them off.", "noneChosenTitle": "No libraries turned on", "search": "Search", "filter": "Filter", "filtered_one": "Filter · {{count}}", "filtered_other": "Filter · {{count}}", "reset": "Reset", "noMatch": "Nothing matches", "length": "Length", "lengths": {"any": "Any", "90": "Up to 1½ h", "120": "Up to 2 h"}, "genre": "Genre", "allGenres": "All", "openInPlex": "Open in Plex", "tonight": {"eyebrow": "Tonight", "pick": "Watch tonight", "picked": "Tonight's pick", "by": "Picked by {{name}}", "byYou": "You picked this", "clear": "Pick again"}, "count_one": "{{count}} title", "count_other": "{{count}} titles", "surprise": "Surprise us", "another": "Something else", "allSeen": "You've seen everything here", "seen": "Seen", "episodes_one": "{{count}} episode", "episodes_other": "{{count}} episodes", "minutes_one": "{{count}} min", "minutes_other": "{{count}} min", "ideas": {"title": "Ideas for tonight", "placeholder": "In the mood for… (optional)", "ask": "Get ideas", "more": "New ideas", "thinking": "Thinking…", "elsewhere": "Not in your library", "kind": {"movie": "Movie", "show": "Series"}}, "failed": "That didn't work. Please try again.", "error": {"connect_failed": "Connecting didn't work. Please try again.", "watch_unavailable": "Your movies aren't reachable right now. Please try again later."}},
+  "night": {"title": "Movie night", "open": "Movie night together", "match": "You both want this one", "matches": "Your matches", "scene": "Set the room", "keepGoing": "Keep swiping", "pass": "Not tonight", "like": "Sounds good", "done": "That's all for now", "doneMatches": "That's all for now. Pick from your matches.", "more": "Check again", "restart": "Start over", "alone": "Your partner swipes from their own account. Matches show up here."},
   "questions": {
     "ask": "Ask a question",
     "askPlaceholder": "What would you like to know?",
@@ -251,8 +277,11 @@
     ]
   },
   "shopping": { "tab": "Shopping", "placeholder": "Add an item", "add": "Add", "remove": "Remove {{item}}", "clear": "Clear", "emptyTitle": "Nothing to buy", "emptyBody": "Add what you need.", "moveTo": "Move to", "aisle": { "produce": "Fruit & veg", "bakery": "Bakery", "meat": "Meat & fish", "dairy": "Dairy & eggs", "frozen": "Frozen", "pantry": "Pantry", "drinks": "Drinks", "household": "Household", "other": "Other" }, "open": "Open list" },
+  "documents": { "title": "Documents", "add": "Add a file", "open": "Open", "name": "Name", "shareWith": "Share with the household", "private": "Only you", "shared": "Shared", "from": "From {{name}}", "kind": { "pdf": "PDF", "image": "Image", "text": "Text", "office": "Document" }, "sending": "Sending… {{percent}}%", "delete": "Delete document", "deleteConfirm": "Delete this document?", "tooBig": "Pick a file of at most {{max}} MB.", "wrongType": "Pick a PDF, image, text or office file.", "failed": "That didn't work. Please try again.", "emptyTitle": "No documents yet", "emptyBody": "Keep a lease, a policy or a receipt here. Only you see it until you share it." },
   "chores": { "title": "Chores", "new": "New chore", "edit": "Edit chore", "what": "What needs doing", "placeholder": "Take the bins out", "size": "How big", "sizes": { "1": "Small", "2": "Medium", "3": "Big" }, "once": "Once", "from": "Starts", "next": "Next time", "rotate": "Take turns", "turn": "Whose turn", "for": "For", "anyone": "Anyone", "me": "You", "turnOf": "{{name}}'s turn", "overdue": "Since {{day}}", "today": "Today", "later": "Coming up", "history": "Done lately", "fairness": "Who did what", "week": "This week", "month": "This month", "points_one": "{{count}} point", "points_other": "{{count}} points", "thank": "Thank {{name}}", "thanked": "{{name}} hears your thanks.", "thankedWall": "{{name}} hears your thanks, and it's on your gratitude wall.", "thankedBy": "Thanks from {{names}}", "thanksLine": "Thank you, {{name}}, for “{{chore}}”.", "undo": "Undo", "delete": "Delete chore", "deleteConfirm": "Delete this chore? What was done stays in the history.", "failed": "That didn't work. Try again?", "emptyTitle": "No chores yet", "emptyBody": "Add what comes back again and again. Take turns, and see who did what." },
+  "wishes": {"title": "Wishlist", "new": "New wish", "edit": "Edit wish", "what": "What would you like?", "placeholder": "A big green sofa", "price": "Price", "link": "Link", "note": "Note", "photo": "Photo", "photoAdd": "Add photo", "photoChange": "Change photo", "photoRemove": "Remove photo", "photoFailed": "The photo didn't work. Try another?", "wanted": "Most wanted", "cameTrue": "Came true", "got": "Got it", "again": "Wish again", "delete": "Delete wish", "deleteConfirm": "Delete this wish?", "hearts": "Your hearts for {{wish}}", "heartsCount_one": "{{count}} heart", "heartsCount_other": "{{count}} hearts", "failed": "That didn't work. Try again?", "emptyTitle": "No wishes yet", "emptyBody": "Save what you'd love for the home. Give hearts, and the most wanted comes first."},
   "money": { "title": "Money", "balance": "Where you stand", "even": "You're even", "youOwe": "You owe {{name}} {{amount}}", "owesYou": "{{name}} owes you {{amount}}", "youOweTotal": "You owe {{amount}} in all", "owedTotal": "You're owed {{amount}} in all", "pays": "{{from}} pays {{to}} {{amount}}", "settle": "Settle up", "settled": "Paid", "settleYouPay": "You pay {{name}} back. Change the amount if it's only part of it.", "settlePaysYou": "{{name}} pays you back. Change the amount if it's only part of it.", "settleHint": "{{from}} pays {{to}} back. Change the amount if it's only part of it.", "someone": "Someone", "you": "You", "add": "Add expense", "new": "New expense", "edit": "Expense", "amount": "Amount", "note": "What for?", "notePlaceholder": "e.g. Weekly shop", "categoryLabel": "Category", "paidByLabel": "Paid by", "paidBy": "{{name}} paid", "day": "Day", "split": "Split", "splits": { "even": "Evenly", "custom": "Custom" }, "evenHint": "{{amount}} each", "left": "{{amount}} left to split", "over": "{{amount}} too much", "yours": "yours {{amount}}", "paidBackByYou": "You paid {{name}} back", "paidYouBack": "{{name}} paid you back", "paidBack": "{{from}} paid {{to}} back", "deleteConfirm": "Delete this for both of you?", "emptyTitle": "Nothing spent yet", "emptyBody": "Add what one of you paid, and Homeloom keeps track of who owes whom.", "spent": "Spent", "receipt": "Receipt", "receiptAdd": "Add receipt", "receiptChange": "Change receipt", "receiptRemove": "Remove receipt", "receiptFailed": "The expense is saved, but the receipt didn't work. Please try again.", "earlier": "Show {{month}}", "failed": "That didn't work. Please try again.", "category": { "groceries": "Groceries", "dining": "Eating out", "home": "Home", "utilities": "Bills", "transport": "Getting around", "travel": "Travel", "fun": "Fun", "health": "Health", "gifts": "Gifts", "other": "Other" }},
+  "place": { "label": "Where you live", "hint": "Town or city", "save": "Save", "unknown": "I can't find that place. Try the nearest town.", "failed": "Couldn't save. Try again." },
   "invite": {
     "create": "Invite someone",
     "body": "Send this link to your partner. It works once and until {{date}}.",

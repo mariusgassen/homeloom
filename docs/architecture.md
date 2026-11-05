@@ -96,6 +96,7 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 - **Fairness** (`GET …/chore-fairness`) adds up points and chores per current member for the week from Monday and the month, in `TIME_ZONE`. The history lists the last six weeks.
 - **Thanks** (`POST …/chore-completions/{id}/thanks`) is kept once per person (`chore_thanks`) and tells whoever did it. A line sent with it becomes the thanker's gratitude line for today through the Moments service, unless they wrote one already, so a thank-you never replaces what they wrote.
 - **Nudge** (`Chores.NotifyDaily`, every minute on each instance, claimed in `job_runs` as `chores-due`): from 18:00, once a day, everyone with a chore due today or overdue hears which ones: their turn, and anyone's.
+- **Morning briefing** (`Briefing.NotifyDaily`, claimed in `job_runs` as `briefing`): from 7:00, once a day, each member gets one push: the day's weather (`port.Weather` for the household's place, which a member picks in Settings and `PATCH /v1/households/{id}` validates against the weather service; stored in `households.place`; without a place there is no weather line), the plans of the day, and the reminders and chores due. It is only emoji, times and names, so it reads the same in every language. Nothing to say, no push; a forecast that can't be had is left out.
 
 ## Money
 
@@ -104,6 +105,7 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 - **Settling up** is stored as an expense of kind `settlement`: the payer paid it, the receiver has the one share. So where someone stands is one sum over everything, what they paid minus their shares, and settlements need no rules of their own. A settlement can't be changed, only deleted.
 - **Month summary:** `GET …/expenses?month=YYYY-MM` also returns the month's `total` and what was spent per category, most first. Settlements count in neither: paying back isn't spending.
 - **Receipts** are JPEGs of at most 5 MB kept in S3 only (`receipts/<id>.jpg`, the same `PhotoStore` as photos); Postgres records `receipt_at`. Without S3, or while it is down, receipts answer `503 receipts_unavailable` and the rest of the budget works. Deleting an expense deletes its receipt first.
+- **Wishlist** is one shared list per household (`wishes`, `wish_votes`). Each member gives a wish 1 to 3 hearts (one vote each, a new one replaces the old); the service ranks open wishes by the sum, newest first on a tie, and wishes marked got come last. Photos are JPEGs of at most 5 MB kept in S3 only (`wishes/<id>.jpg`); without S3 they answer `503 wish_photos_unavailable` and the list works without pictures.
 - **Bills** are shared reminders with a `bill` (amount, category, optionally who pays). Ticking one off, in the app, a calendar app or by the assistant, first books the expense (split evenly, the reminder's text as its note, paid by the bill's payer or else whoever ticked it), then ticks or moves on the reminder; if booking fails, the reminder stays open. A repeating bill is a recurring one. Calendar apps don't see or change bills. Today's money tile names the next open bill.
 - **Balance** (`GET …/balance`) lists every member and anyone who left while still owing or being owed, plus the payments that settle it, largest debts first; for two people that is one payment.
 
@@ -120,6 +122,13 @@ CI fails if generated code is out of date. Which endpoints need a token is defin
 - **Each person connects their own account** with Plex's PIN sign-in: the API creates a PIN at plex.tv, sends the browser to app.plex.tv with `forwardUrl` = `PUBLIC_URL/auth/plex/callback?state=…`, and redeems the PIN there. The state is bound to the person (Redis, 10 minutes). The token is sealed under `HOMELOOM_SECRET_KEY` like Home Assistant's, with its own associated data so the two can't be swapped. When plex.tv rejects it, the connection is dropped.
 - **Servers** come from plex.tv's resource list: the person's own and those friends share, each with its own access token. The adapter tries every address of a server at once and keeps the most direct that answers (local, then remote, then Plex's relay); a server that can't be reached is left out rather than failing the rest. Lists and addresses are cached for 5 minutes per person. Ids are `<server>.<key>` and only resolve on the caller's own servers, so they can't be probed.
 - **Posters** go through the API (`/watch/titles/{id}/poster`, transcoded by Plex to 342×513), so the token never reaches the client.
+
+## Date night
+
+- **Place autocomplete:** `GET /v1/places?q=` (port `PlaceSearch`, also `adapter/openmeteo`) returns up to five towns for the text typed so far; the PWA shows them in a `<datalist>` on the date-night and Settings place fields. Labels such as "Springfield, Illinois, United States" geocode back to the same town. Down means plain typing.
+- **Weather** (`adapter/openmeteo`, port `Weather`) geocodes the typed place and reads the day's forecast from Open-Meteo, which needs no key. A failure only drops the weather from the answer.
+- **Ideas** (`adapter/claude`, port `Planner`) come from Claude with the forecast, budget and mood in the prompt. With a place it may use Anthropic's server-side web search for local events; if the call fails it asks again without. Without `ANTHROPIC_API_KEY` the endpoint answers `503 ideas_unavailable`.
+- **The place is not stored** on the server; the PWA remembers it on the device. Saving an idea is the ordinary `createEntry` call with an event, so it needs nothing extra from the API.
 
 ## PWA
 

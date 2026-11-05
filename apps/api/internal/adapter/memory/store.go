@@ -38,7 +38,9 @@ type Store struct {
 	homeConnections   map[uuid.UUID]domain.HomeConnection
 	watchConnections  map[uuid.UUID]domain.WatchConnection
 	tonight           map[uuid.UUID]domain.TonightPick
+	swipes            []domain.Swipe
 	meals             []domain.PlannedMeal
+	ratings           []domain.MealRating
 	pushSubscriptions []domain.PushSubscription
 	shopping          []domain.ShoppingItem
 	shoppingHistory   map[historyKey]suggestion
@@ -52,8 +54,10 @@ type Store struct {
 
 	moments      []domain.Moment
 	momentPhotos map[uuid.UUID]domain.Photo
-	entryPhotos  []entryPhoto
-	jobRuns      map[string]bool
+	// momentReactions are each moment's reactions, oldest first.
+	momentReactions map[uuid.UUID][]domain.MomentReaction
+	entryPhotos     []entryPhoto
+	jobRuns         map[string]bool
 
 	voices map[uuid.UUID]domain.VoiceSettings
 
@@ -61,6 +65,7 @@ type Store struct {
 	documents        []domain.Document
 	choreCompletions []domain.ChoreCompletion
 	expenses         []domain.Expense
+	wishes           []domain.Wish
 }
 
 func NewStore() *Store {
@@ -75,8 +80,9 @@ func NewStore() *Store {
 
 		shoppingHistory: map[historyKey]suggestion{},
 
-		momentPhotos: map[uuid.UUID]domain.Photo{},
-		jobRuns:      map[string]bool{},
+		momentPhotos:    map[uuid.UUID]domain.Photo{},
+		momentReactions: map[uuid.UUID][]domain.MomentReaction{},
+		jobRuns:         map[string]bool{},
 
 		voices: map[uuid.UUID]domain.VoiceSettings{},
 	}
@@ -141,6 +147,18 @@ func (s *Store) Role(_ context.Context, householdID, userID uuid.UUID) (domain.R
 		}
 	}
 	return "", domain.ErrNotFound
+}
+
+func (s *Store) SetPlace(_ context.Context, id uuid.UUID, place string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	h, ok := s.households[id]
+	if !ok {
+		return domain.ErrNotFound
+	}
+	h.Place = place
+	s.households[id] = h
+	return nil
 }
 
 func (s *Store) Get(_ context.Context, id uuid.UUID) (domain.Household, error) {
