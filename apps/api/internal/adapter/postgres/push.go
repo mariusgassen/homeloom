@@ -34,3 +34,26 @@ func (s *Store) DeletePushSubscription(ctx context.Context, userID uuid.UUID, en
 func (s *Store) DeletePushEndpoint(ctx context.Context, endpoint string) error {
 	return s.q.DeletePushEndpoint(ctx, endpoint)
 }
+
+func (s *Store) MutedPushTopics(ctx context.Context, userID uuid.UUID) ([]domain.PushTopic, error) {
+	rows, err := s.q.ListMutedPushTopics(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.PushTopic, len(rows))
+	for i, r := range rows {
+		out[i] = domain.PushTopic(r)
+	}
+	return out, nil
+}
+
+func (s *Store) UsersMutingPushTopic(ctx context.Context, userIDs []uuid.UUID, topic domain.PushTopic) ([]uuid.UUID, error) {
+	return s.q.ListUsersMutingPushTopic(ctx, sqlcgen.ListUsersMutingPushTopicParams{Topic: string(topic), UserIds: userIDs})
+}
+
+func (s *Store) SetPushTopicMuted(ctx context.Context, userID uuid.UUID, topic domain.PushTopic, muted bool) error {
+	if muted {
+		return s.q.MutePushTopic(ctx, sqlcgen.MutePushTopicParams{UserID: userID, Topic: string(topic)})
+	}
+	return s.q.UnmutePushTopic(ctx, sqlcgen.UnmutePushTopicParams{UserID: userID, Topic: string(topic)})
+}

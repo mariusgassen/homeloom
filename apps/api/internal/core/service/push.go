@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -62,6 +63,25 @@ func (s *Push) Unsubscribe(ctx context.Context, actor domain.User, endpoint stri
 	return s.subs.DeletePushSubscription(ctx, actor.ID, endpoint)
 }
 
+func (s *Push) Topics(ctx context.Context, actor domain.User) ([]domain.PushTopicSetting, error) {
+	muted, err := s.subs.MutedPushTopics(ctx, actor.ID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.PushTopicSetting, len(domain.PushTopics))
+	for i, t := range domain.PushTopics {
+		out[i] = domain.PushTopicSetting{Topic: t, Enabled: !slices.Contains(muted, t)}
+	}
+	return out, nil
+}
+
+func (s *Push) SetTopic(ctx context.Context, actor domain.User, topic domain.PushTopic, enabled bool) error {
+	if !domain.ValidPushTopic(topic) {
+		return fmt.Errorf("%w: unknown topic", domain.ErrInvalid)
+	}
+	return s.subs.SetPushTopicMuted(ctx, actor.ID, topic, !enabled)
+}
+
 // Notify sends n to every device of the given users in the background, so the caller's request
 // doesn't wait for push services. Failures are logged, never returned: a notification is a nicety.
 func (s *Push) Notify(ctx context.Context, userIDs []uuid.UUID, n domain.Notification) {
@@ -71,6 +91,17 @@ func (s *Push) Notify(ctx context.Context, userIDs []uuid.UUID, n domain.Notific
 	s.wg.Go(func() {
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), notifyTimeout)
 		defer cancel()
+		if topic := n.Topic(); topic != "" {
+			muted, err := s.subs.UsersMutingPushTopic(ctx, userIDs, topic)
+			if err != nil {
+				slog.WarnContext(ctx, "push: list muted topics", "err", err)
+				return
+			}
+			userIDs = slices.DeleteFunc(slices.Clone(userIDs), func(id uuid.UUID) bool { return slices.Contains(muted, id) })
+			if len(userIDs) == 0 {
+				return
+			}
+		}
 		subs, err := s.subs.PushSubscriptions(ctx, userIDs)
 		if err != nil {
 			slog.WarnContext(ctx, "push: list subscriptions", "err", err)

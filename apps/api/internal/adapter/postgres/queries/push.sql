@@ -12,3 +12,15 @@ DELETE FROM push_subscriptions WHERE endpoint = $1 AND user_id = $2;
 
 -- name: DeletePushEndpoint :exec
 DELETE FROM push_subscriptions WHERE endpoint = $1;
+
+-- name: ListMutedPushTopics :many
+SELECT topic FROM push_muted_topics WHERE user_id = $1;
+
+-- name: ListUsersMutingPushTopic :many
+SELECT user_id FROM push_muted_topics WHERE topic = $1 AND user_id = ANY(sqlc.arg(user_ids)::uuid[]);
+
+-- name: MutePushTopic :exec
+INSERT INTO push_muted_topics (user_id, topic) VALUES ($1, $2) ON CONFLICT DO NOTHING;
+
+-- name: UnmutePushTopic :exec
+DELETE FROM push_muted_topics WHERE user_id = $1 AND topic = $2;

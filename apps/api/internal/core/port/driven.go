@@ -527,6 +527,12 @@ type PushSubscriptionRepository interface {
 	DeletePushSubscription(ctx context.Context, userID uuid.UUID, endpoint string) error
 	// DeletePushEndpoint removes a subscription the push service no longer knows, whoever owns it.
 	DeletePushEndpoint(ctx context.Context, endpoint string) error
+	// MutedPushTopics returns the topics the user switched off.
+	MutedPushTopics(ctx context.Context, userID uuid.UUID) ([]domain.PushTopic, error)
+	// UsersMutingPushTopic returns those of userIDs who switched the topic off.
+	UsersMutingPushTopic(ctx context.Context, userIDs []uuid.UUID, topic domain.PushTopic) ([]uuid.UUID, error)
+	// SetPushTopicMuted switches the topic off or on for the user; repeating it is fine.
+	SetPushTopicMuted(ctx context.Context, userID uuid.UUID, topic domain.PushTopic, muted bool) error
 }
 
 // Pusher delivers Web Push notifications (VAPID).

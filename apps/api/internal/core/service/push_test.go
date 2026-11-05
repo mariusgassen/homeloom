@@ -102,3 +102,68 @@ func TestRevealNotifiesTheOthers(t *testing.T) {
 		t.Fatalf("expired device kept: %+v", subs)
 	}
 }
+
+func TestMutedTopicsAreSkipped(t *testing.T) {
+	ctx := context.Background()
+	store := memory.NewStore()
+	pusher := &memory.Pusher{}
+	push := service.NewPush(store, pusher)
+	alice, bob := newUser(t, store, "alice"), newUser(t, store, "bob")
+	for _, u := range []domain.User{alice, bob} {
+		if err := push.Subscribe(ctx, u, domain.PushSubscription{Endpoint: "https://web.push.apple.com/" + u.Name}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := push.SetTopic(ctx, alice, "nope", false); !errors.Is(err, domain.ErrInvalid) {
+		t.Fatalf("unknown topic: %v", err)
+	}
+	if err := push.SetTopic(ctx, alice, domain.PushTopicReminders, false); err != nil {
+		t.Fatal(err)
+	}
+	topics, err := push.Topics(ctx, alice)
+	if err != nil || len(topics) != len(domain.PushTopics) {
+		t.Fatalf("topics: %+v, %v", topics, err)
+	}
+	for _, s := range topics {
+		if s.Enabled != (s.Topic != domain.PushTopicReminders) {
+			t.Fatalf("only reminders are off: %+v", s)
+		}
+	}
+
+	both := []uuid.UUID{alice.ID, bob.ID}
+	push.Notify(ctx, both, domain.Notification{Key: "push.reminder"})
+	push.Notify(ctx, both, domain.Notification{Key: "push.revealed"})
+	push.Wait()
+	reminders, other := 0, 0
+	for _, s := range pusher.Sent() {
+		switch {
+		case s.Notification.Key == "push.reminder" && s.Subscription.UserID == bob.ID:
+			reminders++
+		case s.Notification.Key == "push.reminder":
+			t.Fatalf("alice muted reminders: %+v", s)
+		default:
+			other++
+		}
+	}
+	if reminders != 1 || other != 2 {
+		t.Fatalf("bob's reminder and both reveals: %d, %d", reminders, other)
+	}
+
+	if err := push.SetTopic(ctx, alice, domain.PushTopicReminders, true); err != nil {
+		t.Fatal(err)
+	}
+	push.Notify(ctx, []uuid.UUID{alice.ID}, domain.Notification{Key: "push.reminder"})
+	push.Wait()
+	if len(pusher.Sent()) != 4 {
+		t.Fatalf("on again: %+v", pusher.Sent())
+	}
+}
+
+func TestEveryPushKeyHasATopic(t *testing.T) {
+	for _, k := range []string{"push.reminder", "push.event", "push.briefing", "push.gift_birthday", "push.watch_match", "push.last_month", "push.call", "push.chores_due", "push.revealed"} {
+		if domain.ValidPushTopic(domain.Notification{Key: k}.Topic()) == false {
+			t.Errorf("%s has no topic", k)
+		}
+	}
+}
