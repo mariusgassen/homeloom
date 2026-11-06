@@ -504,6 +504,7 @@ func (t *toolbox) giftIdeas(ctx context.Context) (any, error) {
 	type person struct {
 		Name     string `json:"name"`
 		Birthday string `json:"birthday,omitempty"`
+		Turns    int    `json:"turns,omitempty"` // the age they turn, when their year of birth is known
 		InDays   *int   `json:"in_days,omitempty"`
 	}
 	type idea struct {
@@ -519,6 +520,7 @@ func (t *toolbox) giftIdeas(ctx context.Context) (any, error) {
 		v := person{Name: p.User.Name}
 		if p.Birthday != nil {
 			v.Birthday = p.Next.Format("2006-01-02")
+			v.Turns = p.Birthday.Age(p.Next)
 			days := p.Days
 			v.InDays = &days
 		}

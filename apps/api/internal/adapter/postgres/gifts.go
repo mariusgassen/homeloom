@@ -16,7 +16,7 @@ func (s *Store) SetBirthday(ctx context.Context, userID uuid.UUID, b *domain.Bir
 	if b == nil {
 		return s.q.ClearBirthday(ctx, userID)
 	}
-	return s.q.SetBirthday(ctx, sqlcgen.SetBirthdayParams{UserID: userID, Month: int16(b.Month), Day: int16(b.Day)}) //nolint:gosec // validated 1-12 and 1-31
+	return s.q.SetBirthday(ctx, sqlcgen.SetBirthdayParams{UserID: userID, Month: int16(b.Month), Day: int16(b.Day), Year: yearArg(b.Year)}) //nolint:gosec // validated 1-12, 1-31 and 1900-now
 }
 
 func (s *Store) Birthdays(ctx context.Context, householdID uuid.UUID) (map[uuid.UUID]domain.Birthday, error) {
@@ -26,7 +26,7 @@ func (s *Store) Birthdays(ctx context.Context, householdID uuid.UUID) (map[uuid.
 	}
 	out := make(map[uuid.UUID]domain.Birthday, len(rows))
 	for _, r := range rows {
-		out[r.UserID] = domain.Birthday{Month: time.Month(r.Month), Day: int(r.Day)}
+		out[r.UserID] = domain.Birthday{Month: time.Month(r.Month), Day: int(r.Day), Year: yearOf(r.Year)}
 	}
 	return out, nil
 }
@@ -77,4 +77,20 @@ func (s *Store) DeleteGiftIdea(ctx context.Context, householdID, authorID, id uu
 
 func toGiftIdea(r sqlcgen.GiftIdea) domain.GiftIdea {
 	return domain.GiftIdea{ID: r.ID, HouseholdID: r.HouseholdID, AuthorID: r.AuthorID, ForID: r.ForID, Text: r.Text, GivenAt: r.GivenAt, Created: r.CreatedAt}
+}
+
+// yearArg is the year of birth as a nullable column; 0 means not given.
+func yearArg(year int) *int16 {
+	if year == 0 {
+		return nil
+	}
+	y := int16(year) //nolint:gosec // validated 1900-now
+	return &y
+}
+
+func yearOf(y *int16) int {
+	if y == nil {
+		return 0
+	}
+	return int(*y)
 }

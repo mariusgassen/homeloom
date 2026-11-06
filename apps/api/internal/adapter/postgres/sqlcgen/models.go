@@ -65,6 +65,7 @@ type Birthday struct {
 	UserID uuid.UUID
 	Month  int16
 	Day    int16
+	Year   *int16
 }
 
 type BucketItem struct {

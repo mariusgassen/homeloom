@@ -34,11 +34,17 @@ export function useGifts(householdId: string) {
   return { gifts, failed, reload };
 }
 
-// A birthday as a date input knows it: month and day in a leap year, so 29 February fits.
-export const birthdayValue = (b: { month: number; day: number }) => `2000-${String(b.month).padStart(2, "0")}-${String(b.day).padStart(2, "0")}`;
+// A birthday as a date input knows it: month and day in its year of birth, or in a leap year
+// without one, so 29 February fits.
+export const birthdayValue = (b: { month: number; day: number; year?: number }) =>
+  `${b.year ?? 2000}-${String(b.month).padStart(2, "0")}-${String(b.day).padStart(2, "0")}`;
 
-// The month and day of a date input's value, or null while it isn't a full date.
-export function parseBirthday(value: string): { month: number; day: number } | null {
-  const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(value);
-  return m ? { month: Number(m[1]), day: Number(m[2]) } : null;
+// The date a date input's value holds, or null while it isn't a full date.
+export function parseBirthday(value: string): { month: number; day: number; year: number } | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return m ? { year: Number(m[1]), month: Number(m[2]), day: Number(m[3]) } : null;
 }
+
+// The age someone turns on their next birthday, when their year of birth is known.
+export const turns = (p: { birthday?: { year?: number }; next?: string }) =>
+  p.birthday?.year && p.next ? Number(p.next.slice(0, 4)) - p.birthday.year : undefined;

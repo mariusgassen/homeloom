@@ -1,12 +1,12 @@
 -- name: SetBirthday :exec
-INSERT INTO birthdays (user_id, month, day) VALUES ($1, $2, $3)
-ON CONFLICT (user_id) DO UPDATE SET month = excluded.month, day = excluded.day;
+INSERT INTO birthdays (user_id, month, day, year) VALUES ($1, $2, $3, $4)
+ON CONFLICT (user_id) DO UPDATE SET month = excluded.month, day = excluded.day, year = excluded.year;
 
 -- name: ClearBirthday :exec
 DELETE FROM birthdays WHERE user_id = $1;
 
 -- name: HouseholdBirthdays :many
-SELECT b.user_id, b.month, b.day FROM birthdays b
+SELECT b.user_id, b.month, b.day, b.year FROM birthdays b
 JOIN memberships m ON m.user_id = b.user_id
 WHERE m.household_id = $1;
 

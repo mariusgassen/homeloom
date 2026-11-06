@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { api, type GiftIdea, type GiftPerson } from "../api/client";
-import { birthdayValue, parseBirthday, useGifts } from "../gifts";
+import { birthdayValue, parseBirthday, turns, useGifts } from "../gifts";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { Empty } from "../ui/Empty";
@@ -76,7 +76,7 @@ export function Gifts() {
           <div className="hl-list gifts-mine">
             <input
               className="input"
-              type="date"
+              type="date" min="1900-01-01" max={new Date().toISOString().slice(0, 10)}
               aria-label={t("gifts.mine")}
               value={gifts.myBirthday ? birthdayValue(gifts.myBirthday) : ""}
               onChange={(e) => void setBirthday(e.target.value)}
@@ -111,7 +111,7 @@ function Person({ person, ideas, when, onAdd, onGiven, onDelete }: {
   return (
     <section className="group">
       <h2 className="label group-title">{person.user.name}</h2>
-      <p className="caption muted">{person.days === undefined ? t("gifts.birthdayNone") : `${t("gifts.birthday", { name: person.user.name })} · ${when(person.days)}`}</p>
+      <p className="caption muted">{person.days === undefined ? t("gifts.birthdayNone") : `${t("gifts.birthday", { name: person.user.name })} · ${when(person.days)}${turns(person) ? ` · ${t("gifts.turns", { count: turns(person) })}` : ""}`}</p>
       {ideas.length > 0 && (
         <div className="hl-list">
           {ideas.map((i) => (
