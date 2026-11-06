@@ -3,11 +3,13 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { api, type McpToken, type PushTopic, type TokenAccess, type VoiceSettings } from "../api/client";
 import { ownAvatar, removeAvatar, square, uploadAvatar } from "../avatar";
+import { sharing, startSharing, stopSharing } from "../location";
 import { useAutoplay } from "../moments";
 import { currentSubscription, pushKey, pushSupport, subscribe, unsubscribe } from "../push";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { ListRow } from "../ui/ListRow";
+import { SwitchRow } from "../ui/Form";
 import { PlaceInput } from "../ui/PlaceInput";
 import { ThreadAvatar, threadFor } from "../ui/ThreadAvatar";
 import { Screen } from "./Screen";
@@ -612,7 +614,19 @@ function Place({ householdId, place }: { householdId: string; place: string }) {
   const { reload } = useSession();
   const [value, setValue] = useState(place);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<"unknown" | "failed" | null>(null);
+  const [error, setError] = useState<"unknown" | "failed" | "denied" | null>(null);
+  const [here, setHere] = useState(sharing);
+
+  async function toggleHere(on: boolean) {
+    setError(null);
+    if (!on) {
+      setHere(false);
+      await stopSharing();
+      return;
+    }
+    if (await startSharing()) setHere(true);
+    else setError("denied");
+  }
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -630,9 +644,10 @@ function Place({ householdId, place }: { householdId: string; place: string }) {
         <span className="label">{t("place.label")}</span>
         <PlaceInput className="input" value={value} maxLength={100} onChange={setValue} placeholder={t("place.hint")} autoComplete="off" enterKeyHint="done" />
       </label>
+      <SwitchRow label={t("place.here")} checked={here} onChange={toggleHere} />
       {error && (
         <p className="callout error" role="alert">
-          {t(error === "unknown" ? "place.unknown" : "place.failed")}
+          {t(error === "unknown" ? "place.unknown" : error === "denied" ? "place.denied" : "place.failed")}
         </p>
       )}
       <div className="hl-card-footer">

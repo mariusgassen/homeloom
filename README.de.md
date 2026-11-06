@@ -47,11 +47,11 @@ Unter Wir › Filme & Serien meldet ihr euch jeweils mit eurem eigenen Plex-Kont
 
 ## Morgen-Überblick
 
-Jeden Morgen ab 7:00 bekommt ihr beide eine Mitteilung mit dem Wetter des Tages, den Plänen für heute und dem, was ansteht. Für das Wetter braucht es euren Ort: Wähle ihn in den Einstellungen; ohne ihn lässt der Überblick das Wetter weg. Steht nichts an, gibt es keine Mitteilung.
+Jeden Morgen ab 7:00 bekommt ihr beide eine Mitteilung mit dem Wetter des Tages, den Plänen für heute und dem, was ansteht. Für das Wetter braucht es euren Ort: Wähle ihn in den Einstellungen; ohne ihn lässt der Überblick das Wetter weg. Schaltest du dort *Mein Standort fürs Wetter* ein, kommt dein Wetter von dort, wo dein Handy gerade ist (gemerkt wird nur die letzte ungefähre Position samt Ortsname, und nur solange sie frisch ist); der Ort des Haushalts bleibt der Ersatz. Steht nichts an, gibt es keine Mitteilung.
 
 ## Date-Abend
 
-Unter Heute › Date-Abend schlägt Homeloom ein paar Abende zu Hause oder unterwegs vor, passend zu Wetter, Veranstaltungen in der Nähe, Budget und Laune. Was ihr aussucht, landet im gemeinsamen Kalender. Nötig ist nur `ANTHROPIC_API_KEY`. Gib einmal deinen Ort ein: Das Wetter kommt von [Open-Meteo](https://open-meteo.com) (ohne Schlüssel), Veranstaltungen findet Claude per Websuche, falls sie in deinem Anthropic-Konto aktiviert ist. Ohne beides bekommt ihr trotzdem Ideen.
+Unter Heute › Date-Abend schlägt Homeloom ein paar Abende zu Hause oder unterwegs vor, passend zu Wetter, Veranstaltungen in der Nähe, Budget und Laune. Was ihr aussucht, landet im gemeinsamen Kalender. Nötig ist nur `ANTHROPIC_API_KEY`. Gib einmal deinen Ort ein (oder lass die App deinen Standort nehmen): Das Wetter kommt von [Open-Meteo](https://open-meteo.com) (ohne Schlüssel), Veranstaltungen findet Claude per Websuche, falls sie in deinem Anthropic-Konto aktiviert ist. Ohne beides bekommt ihr trotzdem Ideen.
 
 ## Fotospeicher
 

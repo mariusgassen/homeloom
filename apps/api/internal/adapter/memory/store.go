@@ -43,6 +43,7 @@ type Store struct {
 	ratings           []domain.MealRating
 	pushSubscriptions []domain.PushSubscription
 	mutedPushTopics   []mutedPushTopic
+	locations         map[uuid.UUID]domain.MemberLocation
 	shopping          []domain.ShoppingItem
 	shoppingHistory   map[historyKey]suggestion
 
@@ -84,6 +85,7 @@ func NewStore() *Store {
 		calendarFeeds: map[string]domain.CalendarFeed{},
 
 		shoppingHistory: map[historyKey]suggestion{},
+		locations:       map[uuid.UUID]domain.MemberLocation{},
 
 		momentPhotos:    map[uuid.UUID]domain.Photo{},
 		momentReactions: map[uuid.UUID][]domain.MomentReaction{},

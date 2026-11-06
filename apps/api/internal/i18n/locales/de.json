@@ -115,5 +115,6 @@
   "weather.snow": "Schnee",
   "weather.snowShowers": "Schneeschauer",
   "weather.thunderstorm": "Gewitter",
-  "weather.line": "{emoji} {place}: {condition}, {low}–{high}°"
+  "weather.line": "{emoji} {place}: {condition}, {low}–{high}°",
+  "weather.lineNoPlace": "{emoji} {condition}, {low}–{high}°"
 }

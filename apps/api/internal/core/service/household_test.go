@@ -79,6 +79,10 @@ func TestGetIsMembersOnly(t *testing.T) {
 
 type placeWeather struct{ known string }
 
+func (placeWeather) ForecastAt(context.Context, domain.Coords, time.Time) (domain.Forecast, error) {
+	return domain.Forecast{}, nil
+}
+
 func (w placeWeather) Forecast(_ context.Context, place string, _ time.Time) (domain.Forecast, error) {
 	if place != w.known {
 		return domain.Forecast{}, domain.ErrNotFound

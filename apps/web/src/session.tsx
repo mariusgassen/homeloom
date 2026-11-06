@@ -1,6 +1,7 @@
 import { createContext, use, useCallback, useEffect, useState, type ReactNode } from "react";
 import { api, type Household, type HouseholdDetail, type User } from "./api/client";
 import { cached, forget } from "./cache";
+import { refreshLocation } from "./location";
 import { clear } from "./outbox";
 
 export type Session =
@@ -51,6 +52,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       current = false;
     };
   }, [generation]);
+
+  // The weather follows the person: send where the device is whenever the app opens signed in.
+  const signedIn = session.state === "signedIn";
+  useEffect(() => {
+    if (signedIn) void refreshLocation();
+  }, [signedIn]);
 
   const reload = useCallback(() => setGeneration((g) => g + 1), []);
   const signOut = useCallback(async () => {

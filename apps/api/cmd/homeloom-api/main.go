@@ -14,6 +14,7 @@ import (
 	"time"
 	_ "time/tzdata" // TIME_ZONE works in the distroless image
 
+	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/bigdatacloud"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/caldav"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/claude"
 	"github.com/mariusgassen/homeloom/apps/api/internal/adapter/homeassistant"
@@ -231,13 +232,14 @@ func run() error {
 	gifts := service.NewGifts(store, store, store, push, cfg.TimeZone)
 	briefing := service.NewBriefing(store, entries, chores, store, push, cfg.TimeZone)
 	forecaster := openmeteo.New()
-	briefing.WithWeather(forecaster)
+	briefing.WithWeather(forecaster).WithLocations(store)
+	placeNamer := bigdatacloud.New()
 	go notifyDaily(ctx, map[string]dailyJob{"moments": moments, "chores": chores, "briefing": briefing, "gifts": gifts})
 	cook := service.NewCook(store, book, chef, shopping).WithPlan(store).WithTaste(store, store)
 	homeService := service.NewHome(store, homeConnections, sessions, home)
 	households := service.NewHousehold(store).WithWeather(forecaster)
 	watch := service.NewWatch(store, watchConnections, sessions, media, critic).WithTonight(store, push, cfg.TimeZone).WithNight(store)
-	dateNight := service.NewDateNight(store, planner, forecaster, cfg.TimeZone)
+	dateNight := service.NewDateNight(store, planner, forecaster, cfg.TimeZone).WithNamer(placeNamer)
 	assistant := service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone).WithBudget(budget).WithGifts(gifts)
 	agents := service.NewAgentAccess(store, sessions, store)
 
@@ -263,6 +265,7 @@ func run() error {
 		Watch:          watch,
 		DateNight:      dateNight,
 		Places:         service.NewPlaces(forecaster),
+		Location:       service.NewLocation(store).WithNamer(placeNamer),
 		Push:           push,
 		Calls:          service.NewCall(store, sessions, calls, push).WithVoiceAgent(cfg.VoiceAgent, agents).WithVoice(voice),
 		Voice:          voice,

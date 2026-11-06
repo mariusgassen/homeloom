@@ -269,6 +269,14 @@ type MealRating struct {
 	RatedAt     time.Time
 }
 
+type MemberLocation struct {
+	UserID    uuid.UUID
+	Latitude  float64
+	Longitude float64
+	Place     string
+	UpdatedAt time.Time
+}
+
 type Membership struct {
 	HouseholdID uuid.UUID
 	UserID      uuid.UUID

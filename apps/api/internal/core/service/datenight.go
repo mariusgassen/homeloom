@@ -22,14 +22,21 @@ const defaultDateTime = "19:00"
 // the ideas simply don't mention it; without an LLM there are none.
 type DateNight struct {
 	households port.HouseholdRepository
-	planner    port.Planner // nil: unavailable
-	weather    port.Weather // nil: no forecast
+	planner    port.Planner    // nil: unavailable
+	weather    port.Weather    // nil: no forecast
+	namer      port.PlaceNamer // nil: a position has no town name
 	loc        *time.Location
 	now        func() time.Time
 }
 
 func NewDateNight(households port.HouseholdRepository, planner port.Planner, weather port.Weather, loc *time.Location) *DateNight {
 	return &DateNight{households: households, planner: planner, weather: weather, loc: loc, now: time.Now}
+}
+
+// WithNamer names the town a device is in.
+func (s *DateNight) WithNamer(n port.PlaceNamer) *DateNight {
+	s.namer = n
+	return s
 }
 
 func (s *DateNight) Ideas(ctx context.Context, actor domain.User, householdID uuid.UUID, q domain.DateQuery, lang string) (domain.DateNight, error) {
@@ -39,6 +46,9 @@ func (s *DateNight) Ideas(ctx context.Context, actor domain.User, householdID uu
 	q.Place, q.Mood, q.Constraints = strings.TrimSpace(q.Place), strings.TrimSpace(q.Mood), strings.TrimSpace(q.Constraints)
 	if utf8.RuneCountInString(q.Place) > domain.MaxDatePlace || utf8.RuneCountInString(q.Mood) > domain.MaxDateMood || utf8.RuneCountInString(q.Constraints) > domain.MaxDateMood {
 		return domain.DateNight{}, fmt.Errorf("%w: place, mood and limits are too long", domain.ErrInvalid)
+	}
+	if q.Location != nil && !q.Location.Valid() {
+		return domain.DateNight{}, fmt.Errorf("%w: no such position", domain.ErrInvalid)
 	}
 	if q.Budget == "" {
 		q.Budget = domain.DateEasy
@@ -57,9 +67,23 @@ func (s *DateNight) Ideas(ctx context.Context, actor domain.User, householdID uu
 		return domain.DateNight{}, fmt.Errorf("%w: no LLM is configured", domain.ErrUnavailable)
 	}
 
+	if q.Location != nil && s.namer != nil && q.Place == "" {
+		name, err := s.namer.PlaceName(ctx, *q.Location, lang)
+		if err != nil {
+			slog.WarnContext(ctx, "date night: place name", "err", err)
+		}
+		q.Place = name
+	}
 	brief := domain.DateBrief{DateQuery: q}
-	if s.weather != nil && q.Place != "" {
-		f, err := s.weather.Forecast(ctx, q.Place, q.Day)
+	if s.weather != nil && (q.Location != nil || q.Place != "") {
+		var f domain.Forecast
+		var err error
+		if q.Location != nil {
+			f, err = s.weather.ForecastAt(ctx, *q.Location, q.Day)
+			f.Place = q.Place
+		} else {
+			f, err = s.weather.Forecast(ctx, q.Place, q.Day)
+		}
 		switch {
 		case err == nil:
 			brief.Forecast = &f

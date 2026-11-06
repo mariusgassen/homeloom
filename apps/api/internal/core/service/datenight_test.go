@@ -29,6 +29,35 @@ func (f fakeWeather) Forecast(context.Context, string, time.Time) (domain.Foreca
 	return domain.Forecast{Sky: domain.SkyRain, HighC: 8, LowC: 3, RainPercent: 90}, f.err
 }
 
+func (f fakeWeather) ForecastAt(context.Context, domain.Coords, time.Time) (domain.Forecast, error) {
+	return domain.Forecast{Sky: domain.SkyClear, HighC: 20, LowC: 10}, f.err
+}
+
+type fakeNamer struct{}
+
+func (fakeNamer) PlaceName(context.Context, domain.Coords, string) (string, error) {
+	return "Hamburg", nil
+}
+
+func TestDateNightFromTheDevicesPosition(t *testing.T) {
+	ctx := context.Background()
+	store := memory.NewStore()
+	alice := newUser(t, store, "alice")
+	m, _ := service.NewHousehold(store).Create(ctx, alice, "Home")
+	planner := &fakePlanner{ideas: []domain.DateIdea{{Title: "Walk", Time: "19:00"}}}
+	svc := service.NewDateNight(store, planner, fakeWeather{}, time.UTC).WithNamer(fakeNamer{})
+
+	at := domain.Coords{Latitude: 53.55, Longitude: 10}
+	res, err := svc.Ideas(ctx, alice, m.Household.ID, domain.DateQuery{Location: &at}, "en")
+	if err != nil || res.Forecast == nil || res.Forecast.Sky != domain.SkyClear || res.Forecast.Place != "Hamburg" || planner.brief.Place != "Hamburg" {
+		t.Fatalf("from position: %+v, %+v, %v", res.Forecast, planner.brief, err)
+	}
+	bad := domain.Coords{Latitude: 91}
+	if _, err := svc.Ideas(ctx, alice, m.Household.ID, domain.DateQuery{Location: &bad}, "en"); !errors.Is(err, domain.ErrInvalid) {
+		t.Fatalf("bad position: %v", err)
+	}
+}
+
 func TestDateNight(t *testing.T) {
 	ctx := context.Background()
 	store := memory.NewStore()
