@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { api, type DateIdea, type DateNight as Ideas } from "../api/client";
+import { position, sharing } from "../location";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
@@ -37,7 +38,7 @@ export function DateNight() {
   const today = new Date();
   const last = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
   const householdPlace = session.state === "signedIn" ? session.household?.place : undefined;
-  const [place, setPlace] = useState(() => rememberedPlace() || householdPlace || "");
+  const [place, setPlace] = useState(() => (sharing() ? "" : rememberedPlace() || householdPlace || ""));
   const [day, setDay] = useState(isoDay(today));
   const [budget, setBudget] = useState<Budget>("easy");
   const [mood, setMood] = useState("");
@@ -57,10 +58,12 @@ export function DateNight() {
     }
     setBusy(true);
     setError(null);
+    // Where the device is, unless a place was typed; without it the household's place stands in.
+    const here = sharing() && !where ? await position() : null;
     const res = await api
       .POST("/v1/households/{householdId}/date-night/ideas", {
         params: { path: { householdId } },
-        body: { place: where || undefined, day, budget, mood: mood.trim() || undefined, constraints: limits.trim() || undefined },
+        body: { place: where || (here ? undefined : householdPlace) || undefined, location: here ?? undefined, day, budget, mood: mood.trim() || undefined, constraints: limits.trim() || undefined },
       })
       .catch(() => undefined);
     setBusy(false);
@@ -81,7 +84,7 @@ export function DateNight() {
       <form className="hl-card date-form" onSubmit={ask}>
         <label className="field">
           <span className="label">{t("dateNight.place")}</span>
-          <PlaceInput className="input" value={place} onChange={setPlace} placeholder={t("dateNight.placeHint")} maxLength={100} autoComplete="off" />
+          <PlaceInput className="input" value={place} onChange={setPlace} placeholder={t(sharing() ? "dateNight.placeHere" : "dateNight.placeHint")} maxLength={100} autoComplete="off" />
         </label>
         <label className="field">
           <span className="label">{t("dateNight.day")}</span>

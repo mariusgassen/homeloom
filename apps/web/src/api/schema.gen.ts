@@ -226,6 +226,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/location": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Share where you are, for your own weather
+         * @description The device's position, from the browser's geolocation. The morning briefing and your date
+         *     night forecast use it instead of the household's place, for as long as it is fresh (three
+         *     days); a client sends it again whenever the app opens. The API keeps only this last
+         *     position and the name of the town it is in, and nothing else is ever done with it.
+         */
+        put: operations["setLocation"];
+        post?: never;
+        /**
+         * Stop sharing where you are
+         * @description Your weather is then the household's place again.
+         */
+        delete: operations["deleteLocation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/gifts": {
         parameters: {
             query?: never;
@@ -3671,9 +3698,17 @@ export interface components {
             /** @description How to write the place, e.g. "Berlin, Germany". */
             label: string;
         };
+        Coordinates: {
+            /** Format: double */
+            latitude: number;
+            /** Format: double */
+            longitude: number;
+        };
         DateNightRequest: {
-            /** @description A town or city; without it there is no forecast and no events. */
+            /** @description A town or city; without it (and without a `location`) there is no forecast and no events. */
             place?: string;
+            /** @description Where the device is. It wins over `place` for the forecast, and the town it is in stands in for `place` when that is empty. */
+            location?: components["schemas"]["Coordinates"];
             /**
              * Format: date
              * @description The evening, within 14 days from today in the household's time zone; defaults to today.
@@ -4301,6 +4336,49 @@ export interface operations {
         };
     };
     deleteBirthday: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    setLocation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Coordinates"];
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    deleteLocation: {
         parameters: {
             query?: never;
             header?: never;

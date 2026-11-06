@@ -112,6 +112,19 @@ func (c *Client) Forecast(ctx context.Context, text string, day time.Time) (doma
 			break
 		}
 	}
+	f, err := c.forecastAt(ctx, domain.Coords{Latitude: chosen.Latitude, Longitude: chosen.Longitude}, day)
+	if err != nil {
+		return domain.Forecast{}, err
+	}
+	f.Place = chosen.Name
+	return f, nil
+}
+
+func (c *Client) ForecastAt(ctx context.Context, at domain.Coords, day time.Time) (domain.Forecast, error) {
+	return c.forecastAt(ctx, at, day)
+}
+
+func (c *Client) forecastAt(ctx context.Context, at domain.Coords, day time.Time) (domain.Forecast, error) {
 	d := day.Format(time.DateOnly)
 	var f struct {
 		Daily struct {
@@ -121,9 +134,9 @@ func (c *Client) Forecast(ctx context.Context, text string, day time.Time) (doma
 			Rain []*int     `json:"precipitation_probability_max"`
 		} `json:"daily"`
 	}
-	err = c.get(ctx, c.forecasts+"/v1/forecast", url.Values{
-		"latitude":  {fmt.Sprint(chosen.Latitude)},
-		"longitude": {fmt.Sprint(chosen.Longitude)},
+	err := c.get(ctx, c.forecasts+"/v1/forecast", url.Values{
+		"latitude":  {fmt.Sprint(at.Latitude)},
+		"longitude": {fmt.Sprint(at.Longitude)},
 		"daily":     {"weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max"},
 		"timezone":  {"auto"}, "start_date": {d}, "end_date": {d},
 	}, &f)
@@ -133,7 +146,7 @@ func (c *Client) Forecast(ctx context.Context, text string, day time.Time) (doma
 	if len(f.Daily.Code) == 0 || len(f.Daily.High) == 0 || len(f.Daily.Low) == 0 || f.Daily.High[0] == nil || f.Daily.Low[0] == nil {
 		return domain.Forecast{}, fmt.Errorf("%w: open-meteo gave no forecast for %s", domain.ErrUnavailable, d)
 	}
-	out := domain.Forecast{Place: chosen.Name, Sky: sky(f.Daily.Code[0]), Condition: condition(f.Daily.Code[0]), HighC: *f.Daily.High[0], LowC: *f.Daily.Low[0]}
+	out := domain.Forecast{Sky: sky(f.Daily.Code[0]), Condition: condition(f.Daily.Code[0]), HighC: *f.Daily.High[0], LowC: *f.Daily.Low[0]}
 	if len(f.Daily.Rain) > 0 && f.Daily.Rain[0] != nil {
 		out.RainPercent = *f.Daily.Rain[0]
 	}

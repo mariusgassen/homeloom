@@ -34,6 +34,7 @@ type handlers struct {
 	watch      port.WatchService
 	dateNight  port.DateNightService
 	places     port.PlaceService
+	location   port.LocationService
 	push       port.PushService
 	calls      port.CallService
 	voice      port.VoiceService

@@ -417,6 +417,27 @@ type Weather interface {
 	// date at midnight UTC. It returns domain.ErrNotFound for an unknown place and
 	// domain.ErrUnavailable when the forecast service can't be reached.
 	Forecast(ctx context.Context, place string, day time.Time) (domain.Forecast, error)
+	// ForecastAt is the same for a position; the forecast has no place name. It returns
+	// domain.ErrUnavailable when the forecast service can't be reached.
+	ForecastAt(ctx context.Context, at domain.Coords, day time.Time) (domain.Forecast, error)
+}
+
+// PlaceNamer finds the town a position is in.
+type PlaceNamer interface {
+	// PlaceName returns the name of the town at the position in the language given as a BCP 47
+	// tag, or "" when there is none. It returns domain.ErrUnavailable when the service can't be
+	// reached.
+	PlaceName(ctx context.Context, at domain.Coords, lang string) (string, error)
+}
+
+// LocationRepository keeps where members' devices last said they were.
+type LocationRepository interface {
+	// SaveLocation replaces the user's position.
+	SaveLocation(ctx context.Context, userID uuid.UUID, l domain.MemberLocation) error
+	// DeleteLocation removes the user's position; a missing one is fine.
+	DeleteLocation(ctx context.Context, userID uuid.UUID) error
+	// Locations returns the positions of those of userIDs who share one.
+	Locations(ctx context.Context, userIDs []uuid.UUID) (map[uuid.UUID]domain.MemberLocation, error)
 }
 
 // PlaceSearch finds towns and cities by the start of their name.

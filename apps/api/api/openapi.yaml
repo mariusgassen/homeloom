@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.47.0
+  version: 0.48.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -264,6 +264,34 @@ paths:
       tags: [gifts]
       operationId: deleteBirthday
       summary: Remove your own birthday
+      responses:
+        "204": { description: Removed. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /v1/me/location:
+    put:
+      tags: [places]
+      operationId: setLocation
+      summary: Share where you are, for your own weather
+      description: |
+        The device's position, from the browser's geolocation. The morning briefing and your date
+        night forecast use it instead of the household's place, for as long as it is fresh (three
+        days); a client sends it again whenever the app opens. The API keeps only this last
+        position and the name of the town it is in, and nothing else is ever done with it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Coordinates" }
+      responses:
+        "204": { description: Saved. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    delete:
+      tags: [places]
+      operationId: deleteLocation
+      summary: Stop sharing where you are
+      description: Your weather is then the household's place again.
       responses:
         "204": { description: Removed. }
         "401": { $ref: "#/components/responses/Unauthorized" }
@@ -4701,10 +4729,20 @@ components:
       properties:
         label: { type: string, description: "How to write the place, e.g. \"Berlin, Germany\"." }
 
+    Coordinates:
+      type: object
+      required: [latitude, longitude]
+      properties:
+        latitude: { type: number, format: double, minimum: -90, maximum: 90 }
+        longitude: { type: number, format: double, minimum: -180, maximum: 180 }
+
     DateNightRequest:
       type: object
       properties:
-        place: { type: string, maxLength: 100, description: "A town or city; without it there is no forecast and no events." }
+        place: { type: string, maxLength: 100, description: "A town or city; without it (and without a `location`) there is no forecast and no events." }
+        location:
+          allOf: [{ $ref: "#/components/schemas/Coordinates" }]
+          description: "Where the device is. It wins over `place` for the forecast, and the town it is in stands in for `place` when that is empty."
         day: { type: string, format: date, description: "The evening, within 14 days from today in the household's time zone; defaults to today." }
         budget: { $ref: "#/components/schemas/DateBudget" }
         mood: { type: string, maxLength: 200, description: "In your own words, e.g. \"cosy, nothing loud\"; may be empty." }

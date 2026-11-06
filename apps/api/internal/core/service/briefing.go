@@ -30,8 +30,10 @@ type Briefing struct {
 	notify     notifier
 	// weather is nil without a place to forecast; the briefing then has no weather.
 	weather port.Weather
-	loc     *time.Location
-	now     func() time.Time
+	// locations holds where members' devices are; nil: everyone gets the household's place.
+	locations port.LocationRepository
+	loc       *time.Location
+	now       func() time.Time
 }
 
 // NewBriefing counts days in loc, the household's time zone.
@@ -42,6 +44,12 @@ func NewBriefing(households port.HouseholdRepository, entries *Entry, chores *Ch
 // WithWeather adds the day's forecast to the briefing, for households that chose a place.
 func (s *Briefing) WithWeather(w port.Weather) *Briefing {
 	s.weather = w
+	return s
+}
+
+// WithLocations gives members who share where their device is the weather from there.
+func (s *Briefing) WithLocations(r port.LocationRepository) *Briefing {
+	s.locations = r
 	return s
 }
 
@@ -78,6 +86,16 @@ func (s *Briefing) send(ctx context.Context, householdID uuid.UUID, now time.Tim
 	if err != nil {
 		return err
 	}
+	var where map[uuid.UUID]domain.MemberLocation
+	if s.locations != nil && s.weather != nil {
+		ids := make([]uuid.UUID, len(members))
+		for i, m := range members {
+			ids[i] = m.User.ID
+		}
+		if where, err = s.locations.Locations(ctx, ids); err != nil {
+			slog.WarnContext(ctx, "briefing: locations", "err", err)
+		}
+	}
 	chores, err := s.chores.chores.Chores(ctx, householdID, domain.MaxChores)
 	if err != nil {
 		return err
@@ -104,6 +122,17 @@ func (s *Briefing) send(ctx context.Context, householdID uuid.UUID, now time.Tim
 		for _, c := range chores {
 			if !c.DueOn.After(today) && (c.AssigneeID == nil || *c.AssigneeID == m.User.ID) {
 				due = append(due, c.Title)
+			}
+		}
+		weather := weather
+		if l, ok := where[m.User.ID]; ok && l.Fresh(now) {
+			if f, err := s.weather.ForecastAt(ctx, l.Coords, today); err != nil {
+				// Their own weather is out of reach; the household's still is a fair guess.
+				slog.WarnContext(ctx, "briefing: weather at member", "err", err)
+			} else {
+				f.Place = l.Place
+				p := weatherPhrase(f)
+				weather = &p
 			}
 		}
 		var parts []string
@@ -170,7 +199,11 @@ func names(xs []string) string {
 // weatherPhrase is the place, the weather in words with an emoji for the sky, and the day's low to
 // high, like "🌧️ Berlin: light rain, 8–14°".
 func weatherPhrase(f domain.Forecast) domain.Phrase {
-	return domain.Phrase{Key: "weather.line", Args: []any{
+	key := "weather.line"
+	if f.Place == "" {
+		key = "weather.lineNoPlace"
+	}
+	return domain.Phrase{Key: key, Args: []any{
 		"emoji", skyEmoji(f.Sky), "place", f.Place, "condition", domain.Phrase{Key: "weather." + string(f.Condition)},
 		"low", fmt.Sprintf("%.0f", f.LowC), "high", fmt.Sprintf("%.0f", f.HighC),
 	}}

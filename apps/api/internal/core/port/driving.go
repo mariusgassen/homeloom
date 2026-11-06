@@ -437,6 +437,15 @@ type DateNightService interface {
 	Ideas(ctx context.Context, actor domain.User, householdID uuid.UUID, q domain.DateQuery, lang string) (domain.DateNight, error)
 }
 
+// LocationService keeps where a member's device is, for their own weather.
+type LocationService interface {
+	// Set stores the position, with the name of the town in the language given as a BCP 47 tag
+	// when it can be found. It returns domain.ErrInvalid for a position that doesn't exist.
+	Set(ctx context.Context, actor domain.User, at domain.Coords, lang string) error
+	// Clear stops sharing; the weather is then the household's place again.
+	Clear(ctx context.Context, actor domain.User) error
+}
+
 // PlaceService suggests places while someone types one.
 type PlaceService interface {
 	// Search returns towns and cities matching the text; fewer than domain.MinPlaceQuery characters

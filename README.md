@@ -47,11 +47,11 @@ Under Us › Movies & shows, each of you signs in with your own Plex account. Ho
 
 ## Morning briefing
 
-Every morning from 7:00, each of you gets one notification with the day's weather, today's plans and what's due. The weather needs your town: pick it in Settings; without it the briefing just leaves the weather out. Nothing planned, no notification.
+Every morning from 7:00, each of you gets one notification with the day's weather, today's plans and what's due. The weather needs your town: pick it in Settings; without it the briefing just leaves the weather out. If you turn on *Use my location for the weather* there, your weather comes from where your phone is instead (the town and its name, kept only as the last position, and only while it is fresh); the household's town stays the fallback. Nothing planned, no notification.
 
 ## Date night
 
-Today › Date night suggests a few evenings out or in from the weather, what's on nearby, a budget and a mood, and adds the one you pick to the shared calendar. It needs `ANTHROPIC_API_KEY` and nothing else. Type your town once and the forecast comes from [Open-Meteo](https://open-meteo.com) (no key); events come from Claude's web search, so they appear only if web search is enabled for your Anthropic account. Without either, you still get ideas.
+Today › Date night suggests a few evenings out or in from the weather, what's on nearby, a budget and a mood, and adds the one you pick to the shared calendar. It needs `ANTHROPIC_API_KEY` and nothing else. Type your town once (or let the app use where you are) and the forecast comes from [Open-Meteo](https://open-meteo.com) (no key); events come from Claude's web search, so they appear only if web search is enabled for your Anthropic account. Without either, you still get ideas.
 
 ## Photo storage
 

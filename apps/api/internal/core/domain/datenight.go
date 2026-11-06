@@ -69,6 +69,9 @@ type Forecast struct {
 type DateQuery struct {
 	// Place is a town or city, as typed.
 	Place string
+	// Location is where the device is. It wins over Place for the forecast, and the town it is in
+	// stands in for an empty Place.
+	Location *Coords
 	// Day is the evening, as a calendar date at midnight UTC; the zero value means today.
 	Day  time.Time
 	Mood string

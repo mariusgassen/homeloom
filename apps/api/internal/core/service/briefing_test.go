@@ -16,16 +16,27 @@ func (briefingWeather) Forecast(context.Context, string, time.Time) (domain.Fore
 	return domain.Forecast{Place: "Berlin", Sky: domain.SkyRain, Condition: domain.CondDrizzle, HighC: 14.2, LowC: 7.9}, nil
 }
 
+func (briefingWeather) ForecastAt(context.Context, domain.Coords, time.Time) (domain.Forecast, error) {
+	return domain.Forecast{Sky: domain.SkyClear, Condition: domain.CondClear, HighC: 21.4, LowC: 12}, nil
+}
+
 func TestBriefingInTheMorning(t *testing.T) {
 	ctx := context.Background()
 	f := newChoreFixture(t)
 	entries := service.NewEntry(f.store, f.store, f.store, f.push, time.UTC)
 	entries.SetClock(func() time.Time { return f.now })
 	f.now = time.Date(2026, 10, 28, 6, 0, 0, 0, time.UTC)
-	b := service.NewBriefing(f.store, entries, f.chores, f.store, f.push, time.UTC).WithWeather(briefingWeather{})
+	b := service.NewBriefing(f.store, entries, f.chores, f.store, f.push, time.UTC).WithWeather(briefingWeather{}).WithLocations(f.store)
 	b.SetClock(func() time.Time { return f.now })
 
 	if err := f.store.SetPlace(ctx, f.household, "Berlin"); err != nil {
+		t.Fatal(err)
+	}
+	// Bob shares where he is; Alice's was shared too long ago to count.
+	if err := f.store.SaveLocation(ctx, f.bob.ID, domain.MemberLocation{Coords: domain.Coords{Latitude: 53.55, Longitude: 10}, Place: "Hamburg", UpdatedAt: f.now}); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.store.SaveLocation(ctx, f.alice.ID, domain.MemberLocation{Coords: domain.Coords{Latitude: 48.14, Longitude: 11.58}, Place: "Munich", UpdatedAt: f.now.AddDate(0, 0, -4)}); err != nil {
 		t.Fatal(err)
 	}
 	start := time.Date(2026, 10, 28, 10, 0, 0, 0, time.UTC)
@@ -61,6 +72,12 @@ func TestBriefingInTheMorning(t *testing.T) {
 	}
 	for _, p := range f.pusher.Sent() {
 		w, _ := p.Notification.Args[3].(domain.Phrase)
+		if strings.HasSuffix(p.Subscription.Endpoint, "bob") {
+			if w.Key != "weather.line" || w.Args[3] != "Hamburg" || w.Args[5].(domain.Phrase).Key != "weather.clear" || w.Args[9] != "21" {
+				t.Fatalf("bob's weather %+v", p.Notification.Args[3])
+			}
+			continue
+		}
 		if w.Key != "weather.line" || w.Args[3] != "Berlin" || w.Args[5].(domain.Phrase).Key != "weather.drizzle" || w.Args[7] != "8" || w.Args[9] != "14" {
 			t.Fatalf("weather %+v", p.Notification.Args[3])
 		}
