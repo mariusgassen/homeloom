@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { api, type GiftIdea, type GiftPerson } from "../api/client";
-import { birthdayValue, parseBirthday, useGifts } from "../gifts";
+import { myBirthdayValue, parseBirthday, useGifts } from "../gifts";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { Empty } from "../ui/Empty";
@@ -27,6 +27,9 @@ export function Gifts() {
   const household = session.household;
   const { gifts, failed, reload } = useGifts(household.id);
   const [error, setError] = useState(false);
+  // The year the date input was last given. Only month and day are stored, so without this the
+  // controlled input would snap back to 2000 on every change and earlier years could not be picked.
+  const [picked, setPicked] = useState("");
   const inDays = useInDays();
   const path = { params: { path: { householdId: household.id } } };
 
@@ -42,6 +45,7 @@ export function Gifts() {
   const remove = (i: GiftIdea) => run(api.DELETE("/v1/households/{householdId}/gifts/ideas/{ideaId}", idea(i.id)));
   const add = (forId: string, text: string) => run(api.POST("/v1/households/{householdId}/gifts/ideas", { ...path, body: { forId, text } }));
   const setBirthday = (value: string) => {
+    setPicked(value);
     const body = parseBirthday(value);
     return body ? run(api.PUT("/v1/me/birthday", { body })) : Promise.resolve(false);
   };
@@ -78,11 +82,14 @@ export function Gifts() {
               className="input"
               type="date"
               aria-label={t("gifts.mine")}
-              value={gifts.myBirthday ? birthdayValue(gifts.myBirthday) : ""}
+              value={myBirthdayValue(gifts.myBirthday, picked)}
               onChange={(e) => void setBirthday(e.target.value)}
             />
             {gifts.myBirthday && (
-              <Button variant="plain" size="sm" onClick={() => void run(api.DELETE("/v1/me/birthday"))}>
+              <Button variant="plain" size="sm" onClick={() => {
+                  setPicked("");
+                  void run(api.DELETE("/v1/me/birthday"));
+                }}>
                 {t("gifts.remove")}
               </Button>
             )}

@@ -42,3 +42,11 @@ export function parseBirthday(value: string): { month: number; day: number } | n
   const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(value);
   return m ? { month: Number(m[1]), day: Number(m[2]) } : null;
 }
+
+// What the date input shows: the date the person picked while it still names the saved day,
+// otherwise the saved day in a leap year. Only month and day are kept, so the year is theirs to see.
+export function myBirthdayValue(saved: { month: number; day: number } | undefined, picked: string): string {
+  if (!saved) return picked;
+  const p = parseBirthday(picked);
+  return p && p.month === saved.month && p.day === saved.day ? picked : birthdayValue(saved);
+}
