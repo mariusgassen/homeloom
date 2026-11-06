@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.2.0](https://github.com/mariusgassen/homeloom/compare/homeloom-v1.1.0...homeloom-v1.2.0) (2026-11-06)
+
+
+### Features
+
+* store an optional birth year and allow years before 2000 ([#104](https://github.com/mariusgassen/homeloom/issues/104)) ([d34279c](https://github.com/mariusgassen/homeloom/commit/d34279c122be2d06f44a5aff3c9550164552259d))
+* switch push notifications off per topic ([#99](https://github.com/mariusgassen/homeloom/issues/99)) ([29582e5](https://github.com/mariusgassen/homeloom/commit/29582e52f012cbc30c7ac122df629a0c57971f84))
+* take the weather from the device's location ([#103](https://github.com/mariusgassen/homeloom/issues/103)) ([0fd8ac0](https://github.com/mariusgassen/homeloom/commit/0fd8ac04af0cff0b07d0cf4e4d7e1b065121158a))
+
+
+### Bug Fixes
+
+* group the language import with third-party imports ([#102](https://github.com/mariusgassen/homeloom/issues/102)) ([73641d8](https://github.com/mariusgassen/homeloom/commit/73641d8f19e8d3ea8af820cd20b06b13eb8c7236))
+* show the place and a description in the forecast ([#100](https://github.com/mariusgassen/homeloom/issues/100)) ([4a80371](https://github.com/mariusgassen/homeloom/commit/4a8037160e5e2ab80feddd5ffed10bb97525dbb0))
+
 ## [1.1.0](https://github.com/mariusgassen/homeloom/compare/homeloom-v1.0.0...homeloom-v1.1.0) (2026-11-05)
 
 
