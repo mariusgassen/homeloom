@@ -92,7 +92,7 @@ func (h *handlers) SetBirthday(ctx context.Context, req oapi.SetBirthdayRequestO
 	if err != nil {
 		return nil, err
 	}
-	err = h.gifts.SetBirthday(ctx, u, &domain.Birthday{Month: time.Month(req.Body.Month), Day: req.Body.Day})
+	err = h.gifts.SetBirthday(ctx, u, &domain.Birthday{Month: time.Month(req.Body.Month), Day: req.Body.Day, Year: derefInt(req.Body.Year)})
 	switch {
 	case errors.Is(err, domain.ErrBirthday):
 		return oapi.SetBirthday400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "invalid_birthday", err.Error()))}, nil
@@ -117,9 +117,20 @@ func toBirthday(b *domain.Birthday) *oapi.Birthday {
 	if b == nil {
 		return nil
 	}
-	return &oapi.Birthday{Month: int(b.Month), Day: b.Day}
+	out := &oapi.Birthday{Month: int(b.Month), Day: b.Day}
+	if b.Year != 0 {
+		out.Year = &b.Year
+	}
+	return out
 }
 
 func toGiftIdea(i domain.GiftIdea) oapi.GiftIdea {
 	return oapi.GiftIdea{Id: i.ID, ForId: i.ForID, Text: i.Text, Given: i.GivenAt != nil, GivenAt: i.GivenAt, CreatedAt: i.Created}
+}
+
+func derefInt(p *int) int {
+	if p == nil {
+		return 0
+	}
+	return *p
 }

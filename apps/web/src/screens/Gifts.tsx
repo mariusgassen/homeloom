@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
 import { api, type GiftIdea, type GiftPerson } from "../api/client";
-import { myBirthdayValue, parseBirthday, useGifts } from "../gifts";
+import { birthdayValue, parseBirthday, turns, useGifts } from "../gifts";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { Empty } from "../ui/Empty";
@@ -27,9 +27,6 @@ export function Gifts() {
   const household = session.household;
   const { gifts, failed, reload } = useGifts(household.id);
   const [error, setError] = useState(false);
-  // The year the date input was last given. Only month and day are stored, so without this the
-  // controlled input would snap back to 2000 on every change and earlier years could not be picked.
-  const [picked, setPicked] = useState("");
   const inDays = useInDays();
   const path = { params: { path: { householdId: household.id } } };
 
@@ -45,7 +42,6 @@ export function Gifts() {
   const remove = (i: GiftIdea) => run(api.DELETE("/v1/households/{householdId}/gifts/ideas/{ideaId}", idea(i.id)));
   const add = (forId: string, text: string) => run(api.POST("/v1/households/{householdId}/gifts/ideas", { ...path, body: { forId, text } }));
   const setBirthday = (value: string) => {
-    setPicked(value);
     const body = parseBirthday(value);
     return body ? run(api.PUT("/v1/me/birthday", { body })) : Promise.resolve(false);
   };
@@ -80,16 +76,13 @@ export function Gifts() {
           <div className="hl-list gifts-mine">
             <input
               className="input"
-              type="date"
+              type="date" min="1900-01-01" max={new Date().toISOString().slice(0, 10)}
               aria-label={t("gifts.mine")}
-              value={myBirthdayValue(gifts.myBirthday, picked)}
+              value={gifts.myBirthday ? birthdayValue(gifts.myBirthday) : ""}
               onChange={(e) => void setBirthday(e.target.value)}
             />
             {gifts.myBirthday && (
-              <Button variant="plain" size="sm" onClick={() => {
-                  setPicked("");
-                  void run(api.DELETE("/v1/me/birthday"));
-                }}>
+              <Button variant="plain" size="sm" onClick={() => void run(api.DELETE("/v1/me/birthday"))}>
                 {t("gifts.remove")}
               </Button>
             )}
@@ -118,7 +111,7 @@ function Person({ person, ideas, when, onAdd, onGiven, onDelete }: {
   return (
     <section className="group">
       <h2 className="label group-title">{person.user.name}</h2>
-      <p className="caption muted">{person.days === undefined ? t("gifts.birthdayNone") : `${t("gifts.birthday", { name: person.user.name })} · ${when(person.days)}`}</p>
+      <p className="caption muted">{person.days === undefined ? t("gifts.birthdayNone") : `${t("gifts.birthday", { name: person.user.name })} · ${when(person.days)}${turns(person) ? ` · ${t("gifts.turns", { count: turns(person) })}` : ""}`}</p>
       {ideas.length > 0 && (
         <div className="hl-list">
           {ideas.map((i) => (

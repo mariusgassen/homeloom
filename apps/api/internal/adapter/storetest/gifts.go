@@ -34,6 +34,12 @@ func Gifts(t *testing.T, s interface {
 	if bs, err := s.Birthdays(ctx, hh); err != nil || len(bs) != 1 || bs[bob.ID] != (domain.Birthday{Month: time.April, Day: 1}) {
 		t.Fatalf("birthdays: %v, %v", bs, err)
 	}
+	if err := s.SetBirthday(ctx, bob.ID, &domain.Birthday{Month: time.April, Day: 1, Year: 1988}); err != nil {
+		t.Fatal(err)
+	}
+	if bs, err := s.Birthdays(ctx, hh); err != nil || bs[bob.ID] != (domain.Birthday{Month: time.April, Day: 1, Year: 1988}) {
+		t.Fatalf("birthday with year = %v, %v", bs, err)
+	}
 	if err := s.SetBirthday(ctx, bob.ID, nil); err != nil {
 		t.Fatal(err)
 	}

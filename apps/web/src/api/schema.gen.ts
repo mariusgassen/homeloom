@@ -215,7 +215,7 @@ export interface paths {
         get?: never;
         /**
          * Set your own birthday
-         * @description Month and day only; the household sees it, so the others can think of a gift in time.
+         * @description Month and day, and the year of birth if you like; the household sees it, so the others can think of a gift in time.
          */
         put: operations["setBirthday"];
         post?: never;
@@ -3377,6 +3377,8 @@ export interface components {
         Birthday: {
             month: number;
             day: number;
+            /** @description Year of birth, up to this year. Optional; absent when not given. */
+            year?: number;
         };
         GiftIdea: {
             /** Format: uuid */

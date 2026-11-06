@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.48.0
+  version: 0.49.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -250,7 +250,7 @@ paths:
       tags: [gifts]
       operationId: setBirthday
       summary: Set your own birthday
-      description: Month and day only; the household sees it, so the others can think of a gift in time.
+      description: Month and day, and the year of birth if you like; the household sees it, so the others can think of a gift in time.
       requestBody:
         required: true
         content:
@@ -4363,6 +4363,7 @@ components:
       properties:
         month: { type: integer, minimum: 1, maximum: 12 }
         day: { type: integer, minimum: 1, maximum: 31 }
+        year: { type: integer, minimum: 1900, description: "Year of birth, up to this year. Optional; absent when not given." }
 
     GiftIdea:
       type: object

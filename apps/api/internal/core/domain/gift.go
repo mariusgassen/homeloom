@@ -18,18 +18,39 @@ const (
 // ErrBirthday means a month and day that don't exist.
 var ErrBirthday = fmt.Errorf("%w: not a date", ErrInvalid)
 
-// Birthday is a day of the year; the year of birth is not kept.
+// MinBirthYear is the earliest year of birth accepted.
+const MinBirthYear = 1900
+
+// Birthday is a day of the year, with the year of birth when the member gave it.
 type Birthday struct {
 	Month time.Month
 	Day   int
+	// Year is the year of birth; 0 when not given.
+	Year int
 }
 
-// Valid reports whether the day exists in some year; 29 February does.
+// Valid reports whether the day exists: in some year without a Year (29 February does), in that
+// year with one, which must be from MinBirthYear up to this year.
 func (b Birthday) Valid() bool {
 	if b.Month < time.January || b.Month > time.December || b.Day < 1 {
 		return false
 	}
-	return b.Day <= time.Date(2000, b.Month+1, 0, 0, 0, 0, 0, time.UTC).Day()
+	year := 2000 // a leap year
+	if b.Year != 0 {
+		if b.Year < MinBirthYear || b.Year > time.Now().Year() {
+			return false
+		}
+		year = b.Year
+	}
+	return b.Day <= time.Date(year, b.Month+1, 0, 0, 0, 0, 0, time.UTC).Day()
+}
+
+// Age is how old the member turns on the birthday that falls on next; 0 without a year.
+func (b Birthday) Age(next time.Time) int {
+	if b.Year == 0 {
+		return 0
+	}
+	return next.Year() - b.Year
 }
 
 // Next returns the first day on or after today on which the birthday falls, and how many days

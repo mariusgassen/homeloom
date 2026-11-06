@@ -71,7 +71,7 @@ func (q *Queries) DeleteGiftIdea(ctx context.Context, arg DeleteGiftIdeaParams) 
 }
 
 const householdBirthdays = `-- name: HouseholdBirthdays :many
-SELECT b.user_id, b.month, b.day FROM birthdays b
+SELECT b.user_id, b.month, b.day, b.year FROM birthdays b
 JOIN memberships m ON m.user_id = b.user_id
 WHERE m.household_id = $1
 `
@@ -85,7 +85,12 @@ func (q *Queries) HouseholdBirthdays(ctx context.Context, householdID uuid.UUID)
 	var items []Birthday
 	for rows.Next() {
 		var i Birthday
-		if err := rows.Scan(&i.UserID, &i.Month, &i.Day); err != nil {
+		if err := rows.Scan(
+			&i.UserID,
+			&i.Month,
+			&i.Day,
+			&i.Year,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -139,18 +144,24 @@ func (q *Queries) ListGiftIdeas(ctx context.Context, arg ListGiftIdeasParams) ([
 }
 
 const setBirthday = `-- name: SetBirthday :exec
-INSERT INTO birthdays (user_id, month, day) VALUES ($1, $2, $3)
-ON CONFLICT (user_id) DO UPDATE SET month = excluded.month, day = excluded.day
+INSERT INTO birthdays (user_id, month, day, year) VALUES ($1, $2, $3, $4)
+ON CONFLICT (user_id) DO UPDATE SET month = excluded.month, day = excluded.day, year = excluded.year
 `
 
 type SetBirthdayParams struct {
 	UserID uuid.UUID
 	Month  int16
 	Day    int16
+	Year   *int16
 }
 
 func (q *Queries) SetBirthday(ctx context.Context, arg SetBirthdayParams) error {
-	_, err := q.db.Exec(ctx, setBirthday, arg.UserID, arg.Month, arg.Day)
+	_, err := q.db.Exec(ctx, setBirthday,
+		arg.UserID,
+		arg.Month,
+		arg.Day,
+		arg.Year,
+	)
 	return err
 }
 
