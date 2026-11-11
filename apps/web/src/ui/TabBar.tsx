@@ -10,7 +10,7 @@ export function TabBar({ items, label }: { items: { to: string; label: string; i
           <span className="hl-tab-mark">
             <Icon name={it.icon} />
           </span>
-          <span>{it.label}</span>
+          <span className="hl-tab-label">{it.label}</span>
         </NavLink>
       ))}
     </nav>
