@@ -538,7 +538,7 @@ func (t *toolbox) call(ctx context.Context, call domain.ToolCall) (any, error) {
 		}
 		return t.setLight(ctx, in.ID, in.On)
 	}
-	return nil, fmt.Errorf("%w: unknown tool %q", domain.ErrInvalid, call.Name)
+	return t.callMore(ctx, call)
 }
 
 func (t *toolbox) add(ctx context.Context, kind domain.EntryKind, f domain.EntryFields) (any, error) {
@@ -737,9 +737,10 @@ func (t *toolbox) giftIdeas(ctx context.Context) (any, error) {
 		InDays   *int   `json:"in_days,omitempty"`
 	}
 	type idea struct {
-		For   string `json:"for"`
-		Text  string `json:"text"`
-		Given bool   `json:"given,omitempty"`
+		ID    uuid.UUID `json:"id"`
+		For   string    `json:"for"`
+		Text  string    `json:"text"`
+		Given bool      `json:"given,omitempty"`
 	}
 	out := struct {
 		People []person `json:"people"`
@@ -756,7 +757,7 @@ func (t *toolbox) giftIdeas(ctx context.Context) (any, error) {
 		out.People = append(out.People, v)
 	}
 	for _, i := range g.Ideas {
-		out.Ideas = append(out.Ideas, idea{For: t.name(i.ForID), Text: i.Text, Given: i.GivenAt != nil})
+		out.Ideas = append(out.Ideas, idea{ID: i.ID, For: t.name(i.ForID), Text: i.Text, Given: i.GivenAt != nil})
 	}
 	return out, nil
 }
@@ -773,7 +774,7 @@ func (t *toolbox) addGiftIdea(ctx context.Context, forName, text string) (any, e
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"for": t.name(i.ForID), "text": i.Text}, nil
+	return map[string]any{"id": i.ID, "for": t.name(i.ForID), "text": i.Text}, nil
 }
 
 func (t *toolbox) money(ctx context.Context, month string) (any, error) {
@@ -1013,7 +1014,7 @@ const recipeMatches = 10
 func shoppingView(items []domain.ShoppingItem) []map[string]any {
 	out := make([]map[string]any, len(items))
 	for i, it := range items {
-		v := map[string]any{"text": it.Text}
+		v := map[string]any{"id": it.ID, "text": it.Text}
 		if it.Recipe != "" {
 			v["recipe"] = it.Recipe
 		}

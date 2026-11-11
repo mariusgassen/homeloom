@@ -49,7 +49,7 @@ CI (`.github/workflows/web.yml`) runs these plus a build and a Docker build; it 
 
 **Secrets** only via environment variables (see `.env.example`); never in the repo, logs or the client. Don't log private entry bodies.
 
-**LLM and smart-home actions** go through an explicit whitelist. Home Assistant: lights, scenes, media only; locks, alarms and garage doors never without a human confirmation step.
+**LLM, MCP and smart-home actions** go through the assistant tool whitelist (`core/service/assistant_tools*.go`), which never deletes. Every method on a `*Service` interface in `internal/core/port/driving.go` must either be exposed as a tool or listed with an exclusion reason in `internal/core/service/assistant_coverage_test.go` (`TestAssistantCoversEveryDrivingService` fails otherwise). Home Assistant: lights, scenes, media only; locks, alarms and garage doors never without a human confirmation step.
 
 **Compose services** are prefixed `homeloom-` so they're easy to find in Coolify.
 

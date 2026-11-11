@@ -46,8 +46,13 @@ func newFixture(t *testing.T) *fixture {
 	moments := service.NewMoments(store, store, store, push, time.UTC)
 	chores := service.NewChores(store, store, store, moments, push, time.UTC)
 	wishes := service.NewWishes(store, store)
+	bucket := service.NewBucket(store, store)
+	trips := service.NewTrips(store, store)
+	questions := service.NewQuestion(store, store, push, nil)
+	budget := service.NewBudget(store, store, time.UTC)
+	gifts := service.NewGifts(store, store, store, push, time.UTC)
 	shopping := service.NewShopping(store, store, nil)
-	cook := service.NewCook(store, nil, nil, shopping)
+	cook := service.NewCook(store, nil, nil, shopping).WithPlan(store).WithTaste(store, store)
 	smart := memory.NewSmartHome([]domain.Scene{{ID: "scene.dinner", Name: "Dinner"}}, nil)
 	home := service.NewHome(store, store, sessions, smart)
 	f := &fixture{
@@ -60,7 +65,9 @@ func newFixture(t *testing.T) *fixture {
 		Identity:   f.identity,
 		Agents:     f.agents,
 		Households: f.households,
-		Tools:      service.NewAssistant(store, store, nil, entries, cook, shopping, home, time.UTC).WithChores(chores).WithWishes(wishes),
+		Tools: service.NewAssistant(store, store, nil, entries, cook, shopping, home, time.UTC).
+			WithBudget(budget).WithGifts(gifts).WithChores(chores).WithWishes(wishes).
+			WithBucket(bucket).WithTrips(trips).WithMoments(moments).WithQuestions(questions),
 	}))
 	t.Cleanup(srv.Close)
 	f.url = srv.URL
@@ -148,6 +155,18 @@ func TestToolsActAsTheCaller(t *testing.T) {
 	}
 	if out, _ := call(t, cs, "list_wishes", map[string]any{}); !strings.Contains(out, "Reading lamp") {
 		t.Fatalf("list_wishes: %s", out)
+	}
+	if out, isErr := call(t, cs, "get_household", map[string]any{}); isErr || !strings.Contains(out, `"you":"alice"`) {
+		t.Fatalf("get_household: %s", out)
+	}
+	if out, isErr := call(t, cs, "add_bucket_item", map[string]any{"kind": "visit", "text": "Kyoto"}); isErr || !strings.Contains(out, "Kyoto") {
+		t.Fatalf("add_bucket_item: %s", out)
+	}
+	if out, isErr := call(t, cs, "add_trip", map[string]any{"name": "Alps"}); isErr || !strings.Contains(out, "Alps") {
+		t.Fatalf("add_trip: %s", out)
+	}
+	if out, isErr := call(t, cs, "ask_question", map[string]any{"text": "Best Sunday breakfast?"}); isErr || !strings.Contains(out, "Best Sunday breakfast?") {
+		t.Fatalf("ask_question: %s", out)
 	}
 
 	// The voice agent's token is bound to Alice in this household.
