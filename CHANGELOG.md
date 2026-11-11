@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.0](https://github.com/mariusgassen/homeloom/compare/homeloom-v1.2.0...homeloom-v1.3.0) (2026-11-11)
+
+
+### Features
+
+* expose all household tools to MCP and guard future services with a coverage test ([#111](https://github.com/mariusgassen/homeloom/issues/111)) ([9b2209c](https://github.com/mariusgassen/homeloom/commit/9b2209c9493e4f06695e08545d71dbe4a562d389))
+* **web:** make bottom navigation a floating pill ([#114](https://github.com/mariusgassen/homeloom/issues/114)) ([350cc9c](https://github.com/mariusgassen/homeloom/commit/350cc9c1983b048d7b4a1ad43d04bce111fa47ea))
+
+
+### Bug Fixes
+
+* silence gosec G101 false positive on serviceToolCoverage ([#113](https://github.com/mariusgassen/homeloom/issues/113)) ([2fa4ac7](https://github.com/mariusgassen/homeloom/commit/2fa4ac74cb64929147a625bcb6b267b2a62cb287))
+
 ## [1.2.0](https://github.com/mariusgassen/homeloom/compare/homeloom-v1.1.0...homeloom-v1.2.0) (2026-11-11)
 
 
