@@ -51,7 +51,7 @@ Jeden Morgen ab 7:00 bekommt ihr beide eine Mitteilung mit dem Wetter des Tages,
 
 ## Date-Abend
 
-Unter Heute › Date-Abend schlägt Homeloom ein paar Abende zu Hause oder unterwegs vor, passend zu Wetter, Veranstaltungen in der Nähe, Budget und Laune. Was ihr aussucht, landet im gemeinsamen Kalender. Nötig ist nur `ANTHROPIC_API_KEY`. Gib einmal deinen Ort ein (oder lass die App deinen Standort nehmen): Das Wetter kommt von [Open-Meteo](https://open-meteo.com) (ohne Schlüssel), Veranstaltungen findet Claude per Websuche, falls sie in deinem Anthropic-Konto aktiviert ist. Ohne beides bekommt ihr trotzdem Ideen.
+Unter Wir › Date-Abend schlägt Homeloom ein paar Abende zu Hause oder unterwegs vor, passend zu Wetter, Veranstaltungen in der Nähe, Budget und Laune. Was ihr aussucht, landet im gemeinsamen Kalender. Nötig ist nur `ANTHROPIC_API_KEY`. Gib einmal deinen Ort ein (oder lass die App deinen Standort nehmen): Das Wetter kommt von [Open-Meteo](https://open-meteo.com) (ohne Schlüssel), Veranstaltungen findet Claude per Websuche, falls sie in deinem Anthropic-Konto aktiviert ist. Ohne beides bekommt ihr trotzdem Ideen.
 
 ## Fotospeicher
 

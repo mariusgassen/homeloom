@@ -51,7 +51,7 @@ Every morning from 7:00, each of you gets one notification with the day's weathe
 
 ## Date night
 
-Today › Date night suggests a few evenings out or in from the weather, what's on nearby, a budget and a mood, and adds the one you pick to the shared calendar. It needs `ANTHROPIC_API_KEY` and nothing else. Type your town once (or let the app use where you are) and the forecast comes from [Open-Meteo](https://open-meteo.com) (no key); events come from Claude's web search, so they appear only if web search is enabled for your Anthropic account. Without either, you still get ideas.
+Us › Date night suggests a few evenings out or in from the weather, what's on nearby, a budget and a mood, and adds the one you pick to the shared calendar. It needs `ANTHROPIC_API_KEY` and nothing else. Type your town once (or let the app use where you are) and the forecast comes from [Open-Meteo](https://open-meteo.com) (no key); events come from Claude's web search, so they appear only if web search is enabled for your Anthropic account. Without either, you still get ideas.
 
 ## Photo storage
 
