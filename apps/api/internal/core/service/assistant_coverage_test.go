@@ -319,6 +319,9 @@ var serviceToolCoverage = map[string]string{ //nolint:gosec // method names in p
 	"GiftService.SetBirthday": "set_birthday",
 	"GiftService.Delete":      "-: assistant never deletes",
 
+	"GiftService.AddOccasion":    "add_occasion",
+	"GiftService.DeleteOccasion": "-: assistant never deletes",
+
 	// DateNightService — server-side LLM generator.
 	"DateNightService.Ideas": "-: server-side LLM prompt helper; MCP clients bring their own model",
 
