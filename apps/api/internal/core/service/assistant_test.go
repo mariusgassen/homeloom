@@ -302,3 +302,59 @@ func TestAssistantAddsExpensesAndReadsTheMoney(t *testing.T) {
 		t.Fatalf("bill reminder: %+v", es)
 	}
 }
+
+func TestAssistantManagesChoresAndWishes(t *testing.T) {
+	ctx := context.Background()
+	f := newAssistantFixture(t)
+	run := func(u domain.User, name, input string) (string, error) {
+		return f.assistant.RunTool(ctx, u, f.household, domain.ToolCall{Name: name, Input: json.RawMessage(input)})
+	}
+	if _, err := run(f.alice, "add_chore", `{"title":"Bins"}`); err == nil || err.Error() != "that part of the app isn't available right now" {
+		t.Fatalf("without chores: %v", err)
+	}
+	if _, err := run(f.alice, "add_wish", `{"title":"Espresso machine"}`); err == nil || err.Error() != "that part of the app isn't available right now" {
+		t.Fatalf("without wishes: %v", err)
+	}
+
+	push := service.NewPush(f.store, &memory.Pusher{})
+	moments := service.NewMoments(f.store, f.store, f.store, push, time.UTC)
+	chores := service.NewChores(f.store, f.store, f.store, moments, push, time.UTC)
+	wishes := service.NewWishes(f.store, f.store)
+	f.assistant.WithChores(chores).WithWishes(wishes)
+
+	out, err := run(f.alice, "add_chore", `{"title":"Bins","points":2,"repeat":"weekly","rotate":true,"for":"`+f.alice.Name+`","due":"2026-06-01"}`)
+	if err != nil || !strings.Contains(out, `"title":"Bins"`) || !strings.Contains(out, `"points":2`) || !strings.Contains(out, `"for":"`+f.alice.Name+` (you)"`) {
+		t.Fatalf("add chore: %s, %v", out, err)
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(out), &created); err != nil || created.ID == "" {
+		t.Fatalf("chore id: %s, %v", out, err)
+	}
+	out, err = run(f.bob, "list_chores", `{}`)
+	if err != nil || !strings.Contains(out, `"title":"Bins"`) || !strings.Contains(out, `"for":"`+f.alice.Name+`"`) {
+		t.Fatalf("list chores: %s, %v", out, err)
+	}
+	out, err = run(f.alice, "complete_chore", `{"id":"`+created.ID+`"}`)
+	if err != nil || !strings.Contains(out, `"title":"Bins"`) {
+		t.Fatalf("complete chore: %s, %v", out, err)
+	}
+	// Rotating chore moves to Bob's turn after Alice completes it.
+	out, err = run(f.bob, "list_chores", `{}`)
+	if err != nil || !strings.Contains(out, `"for":"`+f.bob.Name+` (you)"`) {
+		t.Fatalf("rotated chore: %s, %v", out, err)
+	}
+
+	out, err = run(f.alice, "add_wish", `{"title":"Espresso machine","note":"Chrome","url":"https://example.com/espresso","price":349.5,"hearts":3}`)
+	if err != nil || !strings.Contains(out, `"title":"Espresso machine"`) || !strings.Contains(out, `"price_eur":"349.50"`) || !strings.Contains(out, `"hearts":3`) {
+		t.Fatalf("add wish: %s, %v", out, err)
+	}
+	out, err = run(f.bob, "list_wishes", `{}`)
+	if err != nil || !strings.Contains(out, `"title":"Espresso machine"`) || !strings.Contains(out, `"note":"Chrome"`) {
+		t.Fatalf("list wishes: %s, %v", out, err)
+	}
+	if _, err := run(f.alice, "add_wish", `{"title":"Too many hearts","hearts":5}`); !errors.Is(err, domain.ErrInvalid) {
+		t.Fatalf("invalid hearts: %v", err)
+	}
+}
