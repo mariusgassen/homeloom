@@ -192,8 +192,8 @@ function TodayGifts({ household }: { household: HouseholdDetail }) {
   );
 }
 
-// The chores on for today, yours first, each ticked off right here; once today's are done, the
-// card goes away.
+// The chores on for today, yours first, each ticked off right here. When nothing is due today,
+// one tap to the list shows what's coming up next (or invites you to set chores up).
 function TodayChores({ household, me }: { household: HouseholdDetail; me: User }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -203,7 +203,27 @@ function TodayChores({ household, me }: { household: HouseholdDetail; me: User }
   if (!chores) return null;
   const mine = (id?: string) => (id === me.id ? 0 : id ? 2 : 1);
   const due = chores.filter(choreDueToday).sort((a, b) => mine(a.assigneeId) - mine(b.assigneeId));
-  if (due.length === 0) return null;
+  if (due.length === 0) {
+    const next = [...chores].sort((a, b) => a.dueOn.localeCompare(b.dueOn) || mine(a.assigneeId) - mine(b.assigneeId))[0];
+    const who = next?.assigneeId
+      ? next.assigneeId === me.id
+        ? t("chores.me")
+        : household.members.find((m) => m.user.id === next.assigneeId)?.user.name
+      : undefined;
+    return (
+      <button type="button" className="today-tile today-chores" onClick={() => navigate("/chores")}>
+        <span className="today-tile-icon">
+          <Icon name="check" />
+        </span>
+        <span className="today-tile-text">
+          <span className="label">{t("chores.title")}</span>
+          <span className="headline">{next ? next.title : t("today.chores.setUp")}</span>
+          {next && <span className="caption muted">{[when(next), who].filter(Boolean).join(" · ")}</span>}
+        </span>
+        <Icon name="chevron" size="sm" />
+      </button>
+    );
+  }
   const shown = due.slice(0, 5);
   return (
     <section className="group" aria-label={t("today.chores.eyebrow")}>
