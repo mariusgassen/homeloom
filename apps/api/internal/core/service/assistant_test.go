@@ -28,7 +28,7 @@ func newAssistantFixture(t *testing.T) *assistantFixture {
 	f := &assistantFixture{entryFixture: newEntryFixture(t), llm: &memory.Assistant{}, smart: smartHome()}
 	f.home = service.NewHome(f.store, f.store, memory.NewSessions(), f.smart)
 	shopping := service.NewShopping(f.store, f.store, nil)
-	cook := service.NewCook(f.store, memory.NewRecipeBook(recipes()...), nil, shopping)
+	cook := service.NewCook(f.store, memory.NewRecipeBook(recipes()...), nil, shopping).WithPlan(f.store).WithTaste(f.store, f.store)
 	// The same time zone as the entries, as in the app.
 	f.assistant = service.NewAssistant(f.store, f.store, f.llm, f.entries, cook, shopping, f.home, time.UTC)
 	return f
@@ -210,11 +210,34 @@ func TestAssistantCooksAndSwitchesTheHome(t *testing.T) {
 		t.Fatalf("recipe: %s", answer)
 	}
 
-	if _, answer := f.say(t, f.alice, nil, `/add_to_shopping_list {"items":["Kokosmilch"," Reis "],"recipe":"Green curry"}`); answer != `[{"recipe":"Green curry","text":"Kokosmilch"},{"recipe":"Green curry","text":"Reis"}]` {
+	_, answer := f.say(t, f.alice, nil, `/add_to_shopping_list {"items":["Kokosmilch"," Reis "],"recipe":"Green curry"}`)
+	if !strings.Contains(answer, `"recipe":"Green curry"`) || !strings.Contains(answer, `"text":"Kokosmilch"`) || !strings.Contains(answer, `"text":"Reis"`) || !strings.Contains(answer, `"id":`) {
 		t.Fatalf("shopping: %s", answer)
+	}
+	var addedItems []struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(answer), &addedItems); err != nil || len(addedItems) != 2 || addedItems[0].ID == "" {
+		t.Fatalf("shopping ids: %s, %v", answer, err)
+	}
+	if _, answer := f.say(t, f.bob, nil, `/complete_shopping_item {"id":"`+addedItems[0].ID+`"}`); !strings.Contains(answer, `"done":true`) {
+		t.Fatalf("complete shopping item: %s", answer)
 	}
 	if _, answer := f.say(t, f.bob, nil, `/list_shopping {}`); !strings.Contains(answer, "Kokosmilch") {
 		t.Fatalf("the list is shared: %s", answer)
+	}
+
+	if _, answer := f.say(t, f.alice, nil, `/plan_meal {"day":"2026-11-12","slug":"curry"}`); !strings.Contains(answer, `"recipe":"Green curry"`) {
+		t.Fatalf("plan meal: %s", answer)
+	}
+	if _, answer := f.say(t, f.bob, nil, `/get_meal_plan {"from":"2026-11-10","days":7}`); !strings.Contains(answer, `"day":"2026-11-12"`) || !strings.Contains(answer, `"slug":"curry"`) {
+		t.Fatalf("get meal plan: %s", answer)
+	}
+	if _, answer := f.say(t, f.alice, nil, `/rate_meal {"slug":"curry","rating":"love"}`); !strings.Contains(answer, `"rating":"love"`) {
+		t.Fatalf("rate meal: %s", answer)
+	}
+	if _, answer := f.say(t, f.bob, nil, `/list_meal_ratings {}`); !strings.Contains(answer, `"dish":"Green curry"`) || !strings.Contains(answer, `"rating":"love"`) {
+		t.Fatalf("list meal ratings: %s", answer)
 	}
 
 	if _, answer := f.say(t, f.alice, nil, `/get_home {}`); !strings.Contains(answer, `"connected":false`) {
@@ -292,6 +315,10 @@ func TestAssistantAddsExpensesAndReadsTheMoney(t *testing.T) {
 	if err != nil || !strings.Contains(out, f.alice.Name+` (you) pays `+f.bob.Name+` 21.05 EUR`) || !strings.Contains(out, `"dining":"42.10"`) {
 		t.Fatalf("money: %s, %v", out, err)
 	}
+	out, err = run(f.alice, "settle_up", `{"to":"`+f.bob.Name+`","amount":21.05}`)
+	if err != nil || !strings.Contains(out, `"kind":"settlement"`) || !strings.Contains(out, `"amount_eur":"21.05"`) {
+		t.Fatalf("settle up: %s, %v", out, err)
+	}
 
 	out, err = run(f.alice, "add_reminder", `{"text":"Rent","visibility":"shared","due":"2026-11-01T09:00","repeat":"monthly","bill":{"amount":900,"category":"home","paid_by":"`+f.alice.Name+`"}}`)
 	if err != nil {
@@ -300,5 +327,250 @@ func TestAssistantAddsExpensesAndReadsTheMoney(t *testing.T) {
 	es, _ := f.entries.List(ctx, f.alice, f.household, domain.KindReminder)
 	if len(es) != 1 || es[0].Bill == nil || es[0].Bill.Cents != 90000 {
 		t.Fatalf("bill reminder: %+v", es)
+	}
+}
+
+func TestAssistantManagesChoresAndWishes(t *testing.T) {
+	ctx := context.Background()
+	f := newAssistantFixture(t)
+	run := func(u domain.User, name, input string) (string, error) {
+		return f.assistant.RunTool(ctx, u, f.household, domain.ToolCall{Name: name, Input: json.RawMessage(input)})
+	}
+	if _, err := run(f.alice, "add_chore", `{"title":"Bins"}`); err == nil || err.Error() != "that part of the app isn't available right now" {
+		t.Fatalf("without chores: %v", err)
+	}
+	if _, err := run(f.alice, "add_wish", `{"title":"Espresso machine"}`); err == nil || err.Error() != "that part of the app isn't available right now" {
+		t.Fatalf("without wishes: %v", err)
+	}
+
+	push := service.NewPush(f.store, &memory.Pusher{})
+	moments := service.NewMoments(f.store, f.store, f.store, push, time.UTC)
+	chores := service.NewChores(f.store, f.store, f.store, moments, push, time.UTC)
+	wishes := service.NewWishes(f.store, f.store)
+	f.assistant.WithChores(chores).WithWishes(wishes)
+
+	out, err := run(f.alice, "add_chore", `{"title":"Bins","points":2,"repeat":"weekly","rotate":true,"for":"`+f.alice.Name+`","due":"2026-06-01"}`)
+	if err != nil || !strings.Contains(out, `"title":"Bins"`) || !strings.Contains(out, `"points":2`) || !strings.Contains(out, `"for":"`+f.alice.Name+` (you)"`) {
+		t.Fatalf("add chore: %s, %v", out, err)
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(out), &created); err != nil || created.ID == "" {
+		t.Fatalf("chore id: %s, %v", out, err)
+	}
+	out, err = run(f.bob, "list_chores", `{}`)
+	if err != nil || !strings.Contains(out, `"title":"Bins"`) || !strings.Contains(out, `"for":"`+f.alice.Name+`"`) {
+		t.Fatalf("list chores: %s, %v", out, err)
+	}
+	out, err = run(f.alice, "complete_chore", `{"id":"`+created.ID+`"}`)
+	if err != nil || !strings.Contains(out, `"title":"Bins"`) {
+		t.Fatalf("complete chore: %s, %v", out, err)
+	}
+	var doneChore struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(out), &doneChore); err != nil || doneChore.ID == "" {
+		t.Fatalf("completion id: %s, %v", out, err)
+	}
+	out, err = run(f.bob, "get_chore_history", `{}`)
+	if err != nil || !strings.Contains(out, `"title":"Bins"`) || !strings.Contains(out, `"points_this_week"`) {
+		t.Fatalf("chore history: %s, %v", out, err)
+	}
+	out, err = run(f.bob, "thank_chore", `{"id":"`+doneChore.ID+`","line":"Thanks for taking the bins out!"}`)
+	if err != nil || !strings.Contains(out, `"gratitude_written":true`) {
+		t.Fatalf("thank chore: %s, %v", out, err)
+	}
+	// Rotating chore moves to Bob's turn after Alice completes it.
+	out, err = run(f.bob, "list_chores", `{}`)
+	if err != nil || !strings.Contains(out, `"for":"`+f.bob.Name+` (you)"`) {
+		t.Fatalf("rotated chore: %s, %v", out, err)
+	}
+
+	out, err = run(f.alice, "add_wish", `{"title":"Espresso machine","note":"Chrome","url":"https://example.com/espresso","price":349.5,"hearts":3}`)
+	if err != nil || !strings.Contains(out, `"title":"Espresso machine"`) || !strings.Contains(out, `"price_eur":"349.50"`) || !strings.Contains(out, `"hearts":3`) {
+		t.Fatalf("add wish: %s, %v", out, err)
+	}
+	var wish struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(out), &wish); err != nil || wish.ID == "" {
+		t.Fatalf("wish id: %s, %v", out, err)
+	}
+	out, err = run(f.bob, "vote_wish", `{"id":"`+wish.ID+`","hearts":2}`)
+	if err != nil || !strings.Contains(out, `"hearts":5`) {
+		t.Fatalf("vote wish: %s, %v", out, err)
+	}
+	out, err = run(f.bob, "complete_wish", `{"id":"`+wish.ID+`"}`)
+	if err != nil || !strings.Contains(out, `"got":true`) {
+		t.Fatalf("complete wish: %s, %v", out, err)
+	}
+	out, err = run(f.bob, "list_wishes", `{}`)
+	if err != nil || !strings.Contains(out, `"title":"Espresso machine"`) || !strings.Contains(out, `"note":"Chrome"`) {
+		t.Fatalf("list wishes: %s, %v", out, err)
+	}
+	if _, err := run(f.alice, "add_wish", `{"title":"Too many hearts","hearts":5}`); !errors.Is(err, domain.ErrInvalid) {
+		t.Fatalf("invalid hearts: %v", err)
+	}
+}
+
+func TestAssistantCoversRemainingHouseholdTools(t *testing.T) {
+	ctx := context.Background()
+	f := newAssistantFixture(t)
+	run := func(u domain.User, name, input string) (string, error) {
+		return f.assistant.RunTool(ctx, u, f.household, domain.ToolCall{Name: name, Input: json.RawMessage(input)})
+	}
+
+	// Unwired services answer that the part of the app isn't available right now.
+	for _, call := range []struct{ name, input string }{
+		{"list_bucket", `{}`},
+		{"list_trips", `{}`},
+		{"list_moments", `{}`},
+		{"list_questions", `{}`},
+		{"get_tonight", `{}`},
+	} {
+		if _, err := run(f.alice, call.name, call.input); err == nil || err.Error() != "that part of the app isn't available right now" {
+			t.Fatalf("%s unwired: %v", call.name, err)
+		}
+	}
+
+	push := service.NewPush(f.store, &memory.Pusher{})
+	moments := service.NewMoments(f.store, f.store, f.store, push, time.UTC)
+	bucket := service.NewBucket(f.store, f.store)
+	trips := service.NewTrips(f.store, f.store)
+	questions := service.NewQuestion(f.store, f.store, push, nil)
+	gifts := service.NewGifts(f.store, f.store, f.store, push, time.UTC)
+	f.assistant.WithBucket(bucket).WithTrips(trips).WithMoments(moments).WithQuestions(questions).WithGifts(gifts)
+
+	// Household members.
+	out, err := run(f.alice, "get_household", `{}`)
+	if err != nil || !strings.Contains(out, `"you":"`+f.alice.Name+`"`) || !strings.Contains(out, f.bob.Name) {
+		t.Fatalf("get_household: %s, %v", out, err)
+	}
+
+	// Updating and reopening entries, while sealed notes stay sealed.
+	rem := f.create(t, f.alice, domain.KindReminder, domain.EntryFields{Text: "Call plumber", Visibility: domain.VisibilityShared})
+	if out, err = run(f.alice, "update_entry", `{"id":"`+rem.ID.String()+`","text":"Call electrician"}`); err != nil || !strings.Contains(out, "Call electrician") {
+		t.Fatalf("update_entry: %s, %v", out, err)
+	}
+	if _, err = run(f.alice, "complete_reminder", `{"id":"`+rem.ID.String()+`"}`); err != nil {
+		t.Fatalf("complete_reminder: %v", err)
+	}
+	if out, err = run(f.alice, "reopen_reminder", `{"id":"`+rem.ID.String()+`"}`); err != nil || strings.Contains(out, `"done":true`) {
+		t.Fatalf("reopen_reminder: %s, %v", out, err)
+	}
+	sealed := f.create(t, f.bob, domain.KindNote, domain.EntryFields{Text: "secret", Visibility: domain.VisibilityReveal, RevealAt: new(f.now.Add(24 * time.Hour))})
+	if _, err = run(f.alice, "update_entry", `{"id":"`+sealed.ID.String()+`","text":"peek"}`); !errors.Is(err, domain.ErrInvalid) {
+		t.Fatalf("sealed note update: %v", err)
+	}
+
+	// Someday / bucket list.
+	out, err = run(f.alice, "add_bucket_item", `{"kind":"watch","text":"Past Lives"}`)
+	if err != nil || !strings.Contains(out, "Past Lives") {
+		t.Fatalf("add_bucket_item: %s, %v", out, err)
+	}
+	var bucketItem struct {
+		ID string `json:"id"`
+	}
+	_ = json.Unmarshal([]byte(out), &bucketItem)
+	if out, err = run(f.bob, "complete_bucket_item", `{"id":"`+bucketItem.ID+`"}`); err != nil || !strings.Contains(out, `"done":true`) {
+		t.Fatalf("complete_bucket_item: %s, %v", out, err)
+	}
+	if out, err = run(f.bob, "list_bucket", `{"kind":"watch"}`); err != nil || !strings.Contains(out, "Past Lives") {
+		t.Fatalf("list_bucket: %s, %v", out, err)
+	}
+
+	// Trips, options, votes and packing items.
+	out, err = run(f.alice, "add_trip", `{"name":"Lisbon","destination":"Portugal","start":"2026-09-01","end":"2026-09-07"}`)
+	if err != nil || !strings.Contains(out, `"name":"Lisbon"`) {
+		t.Fatalf("add_trip: %s, %v", out, err)
+	}
+	var trip struct {
+		ID string `json:"id"`
+	}
+	_ = json.Unmarshal([]byte(out), &trip)
+	out, err = run(f.alice, "add_trip_option", `{"trip_id":"`+trip.ID+`","title":"Alfama flat","url":"https://example.com/flat"}`)
+	if err != nil || !strings.Contains(out, "Alfama flat") {
+		t.Fatalf("add_trip_option: %s, %v", out, err)
+	}
+	var tripWithOpt struct {
+		Options []struct {
+			ID string `json:"id"`
+		} `json:"options"`
+	}
+	_ = json.Unmarshal([]byte(out), &tripWithOpt)
+	if out, err = run(f.bob, "vote_trip_option", `{"trip_id":"`+trip.ID+`","option_id":"`+tripWithOpt.Options[0].ID+`"}`); err != nil || !strings.Contains(out, f.bob.Name) {
+		t.Fatalf("vote_trip_option: %s, %v", out, err)
+	}
+	out, err = run(f.alice, "add_packing_item", `{"trip_id":"`+trip.ID+`","text":"Sunscreen"}`)
+	if err != nil || !strings.Contains(out, "Sunscreen") {
+		t.Fatalf("add_packing_item: %s, %v", out, err)
+	}
+	var tripWithPack struct {
+		Packing []struct {
+			ID string `json:"id"`
+		} `json:"packing"`
+	}
+	_ = json.Unmarshal([]byte(out), &tripWithPack)
+	if out, err = run(f.bob, "complete_packing_item", `{"trip_id":"`+trip.ID+`","item_id":"`+tripWithPack.Packing[0].ID+`"}`); err != nil || !strings.Contains(out, `"done":true`) {
+		t.Fatalf("complete_packing_item: %s, %v", out, err)
+	}
+	if out, err = run(f.bob, "list_trips", `{}`); err != nil || !strings.Contains(out, "Lisbon") {
+		t.Fatalf("list_trips: %s, %v", out, err)
+	}
+
+	// Moments, gratitude and reactions.
+	out, err = run(f.alice, "add_moment", `{"text":"Picnic by the river","visibility":"shared"}`)
+	if err != nil || !strings.Contains(out, "Picnic by the river") {
+		t.Fatalf("add_moment: %s, %v", out, err)
+	}
+	var moment struct {
+		ID string `json:"id"`
+	}
+	_ = json.Unmarshal([]byte(out), &moment)
+	if out, err = run(f.bob, "react_to_moment", `{"id":"`+moment.ID+`","emoji":"❤️"}`); err != nil || !strings.Contains(out, "❤️") {
+		t.Fatalf("react_to_moment: %s, %v", out, err)
+	}
+	if out, err = run(f.bob, "add_gratitude", `{"text":"Morning coffee together"}`); err != nil || !strings.Contains(out, `"kind":"gratitude"`) {
+		t.Fatalf("add_gratitude: %s, %v", out, err)
+	}
+	if out, err = run(f.alice, "list_moments", `{}`); err != nil || !strings.Contains(out, "Picnic by the river") || !strings.Contains(out, "Morning coffee together") {
+		t.Fatalf("list_moments: %s, %v", out, err)
+	}
+
+	// Questions stay sealed until everyone answers.
+	out, err = run(f.alice, "ask_question", `{"text":"Where should we go next summer?"}`)
+	if err != nil || !strings.Contains(out, "Where should we go next summer?") {
+		t.Fatalf("ask_question: %s, %v", out, err)
+	}
+	var q struct {
+		ID string `json:"id"`
+	}
+	_ = json.Unmarshal([]byte(out), &q)
+	if out, err = run(f.bob, "answer_question", `{"id":"`+q.ID+`","text":"Greece"}`); err != nil {
+		t.Fatalf("bob answer_question: %s, %v", out, err)
+	}
+	// Alice hasn't answered yet, so Bob's answer stays sealed from her.
+	if out, err = run(f.alice, "list_questions", `{}`); err != nil || strings.Contains(out, "Greece") || !strings.Contains(out, `"revealed":false`) {
+		t.Fatalf("sealed question: %s, %v", out, err)
+	}
+	if out, err = run(f.alice, "answer_question", `{"id":"`+q.ID+`","text":"Italy"}`); err != nil || !strings.Contains(out, "Greece") || !strings.Contains(out, `"revealed":true`) {
+		t.Fatalf("revealed question: %s, %v", out, err)
+	}
+
+	// Gift ideas (with id and completion) and setting own birthday.
+	if out, err = run(f.alice, "set_birthday", `{"month":5,"day":14,"year":1992}`); err != nil || !strings.Contains(out, `"month":5`) {
+		t.Fatalf("set_birthday: %s, %v", out, err)
+	}
+	out, err = run(f.alice, "add_gift_idea", `{"for":"`+f.bob.Name+`","text":"Wool scarf"}`)
+	if err != nil || !strings.Contains(out, "Wool scarf") {
+		t.Fatalf("add_gift_idea: %s, %v", out, err)
+	}
+	var idea struct {
+		ID string `json:"id"`
+	}
+	_ = json.Unmarshal([]byte(out), &idea)
+	if out, err = run(f.alice, "complete_gift_idea", `{"id":"`+idea.ID+`"}`); err != nil || !strings.Contains(out, `"given":true`) {
+		t.Fatalf("complete_gift_idea: %s, %v", out, err)
 	}
 }

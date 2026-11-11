@@ -73,12 +73,6 @@ export function Today() {
       <TodayChores household={household} me={me} />
       <TodayQuestion household={household} me={me} />
       <Dinner household={household} />
-      <Watch household={household} />
-      <DateNightTile />
-      <Someday />
-      <Money household={household} me={me} />
-      <TodayTrip household={household} />
-      <Wishlist household={household} />
       <TodayMoment household={household} me={me} />
       {adding && (
         <EntrySheet
@@ -198,8 +192,8 @@ function TodayGifts({ household }: { household: HouseholdDetail }) {
   );
 }
 
-// The chores on for today, yours first, each ticked off right here. A household without chores
-// gets one tap to set them up; once today's are done, the card goes away.
+// The chores on for today, yours first, each ticked off right here. When nothing is due today,
+// one tap to the list shows what's coming up next (or invites you to set chores up).
 function TodayChores({ household, me }: { household: HouseholdDetail; me: User }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -207,7 +201,15 @@ function TodayChores({ household, me }: { household: HouseholdDetail; me: User }
   const [error, setError] = useState<string | null>(null);
   const when = useChoreDay();
   if (!chores) return null;
-  if (chores.length === 0) {
+  const mine = (id?: string) => (id === me.id ? 0 : id ? 2 : 1);
+  const due = chores.filter(choreDueToday).sort((a, b) => mine(a.assigneeId) - mine(b.assigneeId));
+  if (due.length === 0) {
+    const next = [...chores].sort((a, b) => a.dueOn.localeCompare(b.dueOn) || mine(a.assigneeId) - mine(b.assigneeId))[0];
+    const who = next?.assigneeId
+      ? next.assigneeId === me.id
+        ? t("chores.me")
+        : household.members.find((m) => m.user.id === next.assigneeId)?.user.name
+      : undefined;
     return (
       <button type="button" className="today-tile today-chores" onClick={() => navigate("/chores")}>
         <span className="today-tile-icon">
@@ -215,15 +217,13 @@ function TodayChores({ household, me }: { household: HouseholdDetail; me: User }
         </span>
         <span className="today-tile-text">
           <span className="label">{t("chores.title")}</span>
-          <span className="headline">{t("today.chores.setUp")}</span>
+          <span className="headline">{next ? next.title : t("today.chores.setUp")}</span>
+          {next && <span className="caption muted">{[when(next), who].filter(Boolean).join(" · ")}</span>}
         </span>
         <Icon name="chevron" size="sm" />
       </button>
     );
   }
-  const mine = (id?: string) => (id === me.id ? 0 : id ? 2 : 1);
-  const due = chores.filter(choreDueToday).sort((a, b) => mine(a.assigneeId) - mine(b.assigneeId));
-  if (due.length === 0) return null;
   const shown = due.slice(0, 5);
   return (
     <section className="group" aria-label={t("today.chores.eyebrow")}>
@@ -410,8 +410,7 @@ function TodayTrip({ household }: { household: HouseholdDetail }) {
   const navigate = useNavigate();
   const { trips } = useTrips(household.id);
   const dates = useTripDates();
-  if (!trips) return null;
-  const trip = nextTrip(trips);
+  const trip = trips && nextTrip(trips);
   return (
     <button type="button" className="today-tile today-trips" onClick={() => navigate(trip ? `/trips/${trip.id}` : "/trips")}>
       <span className="today-tile-icon">
@@ -432,8 +431,7 @@ function Wishlist({ household }: { household: HouseholdDetail }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { wishes } = useWishes(household.id);
-  if (!wishes) return null;
-  const top = wishes.find((w) => !w.gotAt);
+  const top = wishes?.find((w) => !w.gotAt);
   return (
     <button type="button" className="today-tile today-wishes" onClick={() => navigate("/wishes")}>
       {top?.photoUrl ? (
@@ -499,7 +497,7 @@ function TodayMoment({ household, me }: { household: HouseholdDetail; me: User }
   );
 }
 
-const usTabs = ["moments", "questions"] as const;
+const usTabs = ["moments", "questions", "together"] as const;
 
 export function Us() {
   const { t } = useTranslation();
@@ -531,11 +529,9 @@ export function Us() {
           </button>
         ))}
       </div>
-      {tab === "moments" ? (
-        <Timeline key={generation} household={household} me={me} month={params.get("month") ?? undefined} onOpen={setSheet} />
-      ) : (
-        <Questions household={household} me={me} />
-      )}
+      {tab === "moments" && <Timeline key={generation} household={household} me={me} month={params.get("month") ?? undefined} onOpen={setSheet} />}
+      {tab === "questions" && <Questions household={household} me={me} />}
+      {tab === "together" && <Together household={household} />}
       {sheet && (
         <MomentSheet
           household={household}
@@ -549,6 +545,94 @@ export function Us() {
         />
       )}
     </Screen>
+  );
+}
+
+function Together({ household }: { household: HouseholdDetail }) {
+  return (
+    <>
+      <DateNightTile />
+      <Watch household={household} />
+      <TodayTrip household={household} />
+      <Wishlist household={household} />
+      <Someday />
+    </>
+  );
+}
+
+export function Household() {
+  const { t } = useTranslation();
+  const { household, me } = useHome();
+  return (
+    <Screen title={t("tabs.household")}>
+      <HouseholdCook household={household} />
+      <HouseholdChores household={household} me={me} />
+      <Money household={household} me={me} />
+      <HouseholdDocuments />
+    </Screen>
+  );
+}
+
+function HouseholdCook({ household }: { household: HouseholdDetail }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { meals } = useMealPlan(household.id, nextDays(1));
+  const meal = meals && Object.values(meals)[0];
+  return (
+    <button type="button" className="today-tile today-dinner" onClick={() => navigate("/cook")}>
+      {meal?.recipe.imageUrl ? (
+        <img className="today-tile-photo" src={meal.recipe.imageUrl} alt="" loading="lazy" />
+      ) : (
+        <span className="today-tile-icon">
+          <Icon name="cook" />
+        </span>
+      )}
+      <span className="today-tile-text">
+        <span className="label">{t("cook.title")}</span>
+        <span className="headline">{meal ? meal.recipe.name : t("today.dinner.title")}</span>
+        {meal?.recipe.totalTime && <span className="caption muted">{meal.recipe.totalTime}</span>}
+      </span>
+      <Icon name="chevron" size="sm" />
+    </button>
+  );
+}
+
+function HouseholdChores({ household, me }: { household: HouseholdDetail; me: User }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const { chores } = useChores(household.id);
+  const mine = (id?: string) => (id === me.id ? 0 : id ? 2 : 1);
+  const due = chores?.filter(choreDueToday).sort((a, b) => mine(a.assigneeId) - mine(b.assigneeId)) ?? [];
+  const headline = !chores || chores.length === 0 ? t("today.chores.setUp") : due[0] ? due[0].title : t("household.choresDone");
+  return (
+    <button type="button" className="today-tile today-chores" onClick={() => navigate("/chores")}>
+      <span className="today-tile-icon">
+        <Icon name="check" />
+      </span>
+      <span className="today-tile-text">
+        <span className="label">{t("chores.title")}</span>
+        <span className="headline">{headline}</span>
+        {due.length > 1 && <span className="caption muted">{t("today.chores.more", { count: due.length - 1 })}</span>}
+      </span>
+      <Icon name="chevron" size="sm" />
+    </button>
+  );
+}
+
+function HouseholdDocuments() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  return (
+    <button type="button" className="today-tile today-documents" onClick={() => navigate("/documents")}>
+      <span className="today-tile-icon">
+        <Icon name="lock" />
+      </span>
+      <span className="today-tile-text">
+        <span className="label">{t("documents.title")}</span>
+        <span className="headline">{t("household.documents")}</span>
+      </span>
+      <Icon name="chevron" size="sm" />
+    </button>
   );
 }
 

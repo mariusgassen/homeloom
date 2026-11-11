@@ -1,6 +1,7 @@
 {
   "app": { "tagline": "Meals, moments and your home, together." },
-  "tabs": { "label": "Main", "today": "Today", "us": "Us", "lists": "Lists", "home": "Home" },
+  "tabs": { "label": "Main", "today": "Today", "us": "Us", "household": "Household", "lists": "Lists", "home": "Home" },
+  "household": { "choresDone": "All done for today", "documents": "Contracts, policies, receipts" },
   "auth": {
     "signIn": "Sign in",
     "signOut": "Sign out",
@@ -150,7 +151,7 @@
   "us": {
     "title": "No questions yet",
     "body": "Ask the first one.",
-    "tabs": { "moments": "Moments", "questions": "Questions" },
+    "tabs": { "moments": "Moments", "questions": "Questions", "together": "Together" },
     "alone": { "title": "It takes two", "body": "Invite your partner first." }
   },
   "moments": {

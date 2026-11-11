@@ -134,11 +134,11 @@ export function Watch() {
   }
 
   const back = (
-    <Button variant="plain" size="sm" className="back" onClick={() => navigate("/")}>
+    <Button variant="plain" size="sm" className="back" onClick={() => navigate("/us?show=together")}>
       <span className="back-icon">
         <Icon name="chevron" size="sm" />
       </span>
-      {t("tabs.today")}
+      {t("tabs.us")}
     </Button>
   );
 

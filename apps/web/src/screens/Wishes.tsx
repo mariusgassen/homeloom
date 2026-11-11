@@ -128,12 +128,12 @@ export function Wishes() {
           variant="plain"
           size="sm"
           className="back"
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/us?show=together")}
         >
           <span className="back-icon">
             <Icon name="chevron" size="sm" />
           </span>
-          {t("tabs.today")}
+          {t("tabs.us")}
         </Button>
       }
       add={{ label: t("wishes.new"), onClick: () => setSheet("new") }}

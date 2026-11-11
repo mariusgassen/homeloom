@@ -18,6 +18,9 @@
   --focus: var(--spruce);
   --shadow-sheet: 0 -8px 32px rgba(22, 32, 30, 0.12);
   --scrim: rgba(22, 32, 30, 0.35);
+  --tabbar-bg: color-mix(in srgb, var(--surface-raised) 84%, transparent);
+  --tabbar-border: color-mix(in srgb, var(--ink) 8%, transparent);
+  --tabbar-shadow: 0 12px 32px -4px rgba(22, 32, 30, 0.16), 0 4px 12px -2px rgba(22, 32, 30, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 [data-theme="dark"] {
   --surface: #111918;
@@ -38,6 +41,9 @@
   --focus: var(--spruce);
   --shadow-sheet: 0 -8px 32px rgba(0, 0, 0, 0.5);
   --scrim: rgba(0, 0, 0, 0.55);
+  --tabbar-bg: color-mix(in srgb, var(--surface-raised) 82%, transparent);
+  --tabbar-border: color-mix(in srgb, var(--line) 90%, transparent);
+  --tabbar-shadow: 0 14px 38px -4px rgba(0, 0, 0, 0.65), 0 4px 12px -2px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -58,7 +64,10 @@
     --danger: #ff9a73;
     --focus: var(--spruce);
     --shadow-sheet: 0 -8px 32px rgba(0, 0, 0, 0.5);
-  --scrim: rgba(0, 0, 0, 0.55);
+    --scrim: rgba(0, 0, 0, 0.55);
+    --tabbar-bg: color-mix(in srgb, var(--surface-raised) 82%, transparent);
+    --tabbar-border: color-mix(in srgb, var(--line) 90%, transparent);
+    --tabbar-shadow: 0 14px 38px -4px rgba(0, 0, 0, 0.65), 0 4px 12px -2px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
 }
 :root {
@@ -73,7 +82,8 @@
   --radius-lg: 24px;
   --radius-pill: 999px;
   --hit-min: 44px;
-  --tabbar-height: 56px;
+  --tabbar-height: 58px;
+  --tabbar-bottom: calc(max(var(--space-3), env(safe-area-inset-bottom, 0px)) + var(--space-2));
   --font-display: "Bricolage Grotesque Variable", ui-rounded, system-ui, sans-serif;
   --font-text: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, "Segoe UI", sans-serif;
 }

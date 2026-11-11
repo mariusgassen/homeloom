@@ -40,7 +40,7 @@ export function Trips() {
   const dates = useTripDates();
   const [sheet, setSheet] = useState(false);
   return (
-    <Screen title={t("trips.title")} back={<Back to="/" label={t("tabs.today")} />} add={{ label: t("trips.new"), onClick: () => setSheet(true) }}>
+    <Screen title={t("trips.title")} back={<Back to="/us?show=together" label={t("tabs.us")} />} add={{ label: t("trips.new"), onClick: () => setSheet(true) }}>
       {failed && (
         <p className="callout error" role="alert">
           {t("trips.failed")}
