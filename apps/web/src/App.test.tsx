@@ -154,9 +154,24 @@ test("signed in with a household shows the tabs and both people", async () => {
   renderApp();
   expect(await screen.findByRole("heading", { level: 1, name: "Today" })).toBeInTheDocument();
   const nav = screen.getByRole("navigation", { name: "Main" });
-  expect(nav).toHaveTextContent("TodayUsListsHome");
+  expect(nav).toHaveTextContent("TodayUsHouseholdListsHome");
   expect(screen.getByRole("link", { name: "Today" })).toHaveAttribute("aria-current", "page");
   expect(screen.getByRole("img", { name: "Jo" })).toHaveClass("hl-avatar-berry");
+
+  await userEvent.click(screen.getByRole("link", { name: "Us" }));
+  await userEvent.click(await screen.findByRole("tab", { name: "Together" }));
+  expect(screen.getByRole("button", { name: /Date night/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Watch tonight/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Trips/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Wishlist/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Someday/ })).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("link", { name: "Household" }));
+  expect(await screen.findByRole("heading", { level: 1, name: "Household" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Dinner/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Chores/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Money/ })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Documents/ })).toBeInTheDocument();
 });
 
 test("German follows the language", async () => {
