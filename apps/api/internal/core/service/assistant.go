@@ -43,8 +43,18 @@ type Assistant struct {
 	chores port.ChoreService
 	// wishes is nil when the wishlist tools aren't wired.
 	wishes port.WishService
-	loc    *time.Location
-	now    func() time.Time
+	// bucket is nil when the someday tools aren't wired.
+	bucket port.BucketService
+	// trips is nil when the trip tools aren't wired.
+	trips port.TripService
+	// momentsSvc is nil when the moment and gratitude tools aren't wired.
+	momentsSvc port.MomentService
+	// questions is nil when the question tools aren't wired.
+	questions port.QuestionService
+	// watch is nil when the tonight tool isn't wired.
+	watch port.WatchService
+	loc   *time.Location
+	now   func() time.Time
 }
 
 func NewAssistant(households port.HouseholdRepository, conversations port.ConversationRepository, llm port.Assistant,
@@ -78,6 +88,36 @@ func (s *Assistant) WithChores(chores port.ChoreService) *Assistant {
 // WithWishes gives the assistant the household's shared wishlist: listing and adding wishes.
 func (s *Assistant) WithWishes(wishes port.WishService) *Assistant {
 	s.wishes = wishes
+	return s
+}
+
+// WithBucket gives the assistant the household's someday list of things to watch, read or visit.
+func (s *Assistant) WithBucket(bucket port.BucketService) *Assistant {
+	s.bucket = bucket
+	return s
+}
+
+// WithTrips gives the assistant the household's trips, their stay options and packing lists.
+func (s *Assistant) WithTrips(trips port.TripService) *Assistant {
+	s.trips = trips
+	return s
+}
+
+// WithMoments gives the assistant the household's moments and daily gratitude lines.
+func (s *Assistant) WithMoments(moments port.MomentService) *Assistant {
+	s.momentsSvc = moments
+	return s
+}
+
+// WithQuestions gives the assistant the questions the members ask and answer together.
+func (s *Assistant) WithQuestions(questions port.QuestionService) *Assistant {
+	s.questions = questions
+	return s
+}
+
+// WithWatch gives the assistant what the household picked to watch tonight.
+func (s *Assistant) WithWatch(watch port.WatchService) *Assistant {
+	s.watch = watch
 	return s
 }
 
@@ -164,7 +204,7 @@ func (s *Assistant) Answer(ctx context.Context, actor domain.User, conversationI
 	ctx, cancel := context.WithTimeout(ctx, answerTimeout)
 	defer cancel()
 	box := &toolbox{s: s, actor: actor, householdID: c.HouseholdID, members: members}
-	text, err := s.llm.Reply(ctx, brief, history, tools, box.run, emit)
+	text, err := s.llm.Reply(ctx, brief, history, s.Tools(), box.run, emit)
 	if err != nil {
 		return domain.ChatMessage{}, err
 	}
@@ -174,7 +214,7 @@ func (s *Assistant) Answer(ctx context.Context, actor domain.User, conversationI
 
 // Tools are what the assistant can do; the MCP server offers the same.
 func (s *Assistant) Tools() []domain.Tool {
-	return slices.Clone(tools)
+	return slices.Concat(tools, moreTools)
 }
 
 // RunTool runs a tool for a client other than the assistant's own chat. It needs no LLM.
