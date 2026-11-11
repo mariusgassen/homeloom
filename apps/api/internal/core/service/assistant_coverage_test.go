@@ -88,7 +88,7 @@ func TestAssistantCoversEveryDrivingService(t *testing.T) {
 	}
 }
 
-var serviceToolCoverage = map[string]string{
+var serviceToolCoverage = map[string]string{ //nolint:gosec // method names in port/driving.go, not credentials
 	// IdentityService — authentication transport, not a household action.
 	"IdentityService.Authenticate":        "-: authentication transport",
 	"IdentityService.AuthenticateSession": "-: authentication transport",
