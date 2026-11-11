@@ -98,6 +98,12 @@ var serviceToolCoverage = map[string]string{ //nolint:gosec // method names in p
 	"AvatarService.Delete": "-: assistant never deletes",
 	"AvatarService.Get":    "-: binary profile photo download",
 
+	// MemberService — the owner's upkeep of other members' details stays in the app.
+	"MemberService.SetBirthday":   "-: the owner edits members' details in settings",
+	"MemberService.ClearBirthday": "-: the owner edits members' details in settings",
+	"MemberService.SetAvatar":     "-: binary profile photo upload",
+	"MemberService.DeleteAvatar":  "-: assistant never deletes",
+
 	// LoginService — browser OIDC sign-in flow.
 	"LoginService.Begin":    "-: browser sign-in flow",
 	"LoginService.Complete": "-: browser sign-in flow",
