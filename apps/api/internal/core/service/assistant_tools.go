@@ -17,7 +17,8 @@ import (
 )
 
 // The assistant's tools are its whitelist: it can read and add entries, tick reminders off, look
-// recipes up, read and add to the shopping list, add expenses and read the money, and read the home
+// recipes up, read and add to the shopping list, add expenses and read the money, list, add and
+// tick chores off, read and add to the household wishlist, keep gift ideas, and read the home
 // and switch its scenes and lights. It can't delete anything, and every call goes through the
 // services with the person as the actor.
 var tools = []domain.Tool{
@@ -72,6 +73,32 @@ var tools = []domain.Tool{
 		Schema:      object(map[string]any{"id": str("The reminder's id.")}, "id"),
 	},
 	{
+		Name:        "list_chores",
+		ReadOnly:    true,
+		Description: "List the household's open chores, ordered by when they are due.",
+		Schema:      object(map[string]any{}),
+	},
+	{
+		Name: "add_chore",
+		Description: "Add a household chore. due is YYYY-MM-DD, today when left out. points is the effort from 1 (small) to 3 (big), " +
+			"1 when left out. \"for\" is the name of the member whose turn it is; leave it out for anyone (or the person, when rotate is true). " +
+			"When rotate is true, members take turns each time it is done.",
+		Schema: object(map[string]any{
+			"title":  str("What needs doing, at most 100 characters."),
+			"points": map[string]any{"type": "integer", "minimum": 1, "maximum": domain.MaxChorePoints, "description": "Effort, 1 to 3."},
+			"repeat": repeatEnum,
+			"rotate": map[string]any{"type": "boolean", "description": "Whether members take turns."},
+			"for":    str("Name of the member whose turn it is."),
+			"due":    str("When it is due, YYYY-MM-DD."),
+		}, "title"),
+	},
+	{
+		Name: "complete_chore",
+		Description: "Tick a chore off as done by the person, by its id from list_chores. " +
+			"A repeating chore moves on to its next due day (and to the next member when it rotates).",
+		Schema: object(map[string]any{"id": str("The chore's id.")}, "id"),
+	},
+	{
 		Name:     "search_recipes",
 		ReadOnly: true,
 		Description: "Search the household's recipe collection by words in the name, tags or description " +
@@ -98,6 +125,25 @@ var tools = []domain.Tool{
 			"items":  map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "minItems": 1, "maxItems": 50},
 			"recipe": str("Name of the recipe."),
 		}, "items"),
+	},
+	{
+		Name:     "list_wishes",
+		ReadOnly: true,
+		Description: "List the household's shared wishlist (things the members would like for the home, not the shopping list " +
+			"or private birthday gift ideas), most wanted first.",
+		Schema: object(map[string]any{}),
+	},
+	{
+		Name: "add_wish",
+		Description: "Add an entry to the household's shared wishlist (something for the home, not the grocery shopping list " +
+			"or a private birthday gift idea). price is in euros, optional; hearts is how much the person wants it, from 1 to 3, optional.",
+		Schema: object(map[string]any{
+			"title":  str("What the wish is, at most 100 characters."),
+			"note":   str("Notes or details, at most 500 characters."),
+			"url":    str("Web link (http or https) to see or buy it."),
+			"price":  map[string]any{"type": "number", "exclusiveMinimum": 0, "maximum": domain.MaxWishPriceCents / 100, "description": "Price in euros, e.g. 49.9."},
+			"hearts": map[string]any{"type": "integer", "minimum": 1, "maximum": domain.MaxWishHearts, "description": "How much the person wants it, 1 to 3."},
+		}, "title"),
 	},
 	{
 		Name: "add_expense",
@@ -322,6 +368,32 @@ func (t *toolbox) call(ctx context.Context, call domain.ToolCall) (any, error) {
 			return nil, err
 		}
 		return t.view(e), nil
+	case "list_chores":
+		if err := decode(call.Input, &struct{}{}); err != nil {
+			return nil, err
+		}
+		return t.chores(ctx)
+	case "add_chore":
+		var in struct {
+			Title  string        `json:"title"`
+			Points int           `json:"points"`
+			Repeat domain.Repeat `json:"repeat"`
+			Rotate bool          `json:"rotate"`
+			For    string        `json:"for"`
+			Due    string        `json:"due"`
+		}
+		if err := decode(call.Input, &in); err != nil {
+			return nil, err
+		}
+		return t.addChore(ctx, in.Title, in.Points, in.Repeat, in.Rotate, in.For, in.Due)
+	case "complete_chore":
+		var in struct {
+			ID uuid.UUID `json:"id"`
+		}
+		if err := decode(call.Input, &in); err != nil {
+			return nil, err
+		}
+		return t.completeChore(ctx, in.ID)
 	case "search_recipes":
 		var in struct {
 			Query string `json:"query"`
@@ -381,6 +453,23 @@ func (t *toolbox) call(ctx context.Context, call domain.ToolCall) (any, error) {
 			return nil, err
 		}
 		return shoppingView(items), nil
+	case "list_wishes":
+		if err := decode(call.Input, &struct{}{}); err != nil {
+			return nil, err
+		}
+		return t.wishes(ctx)
+	case "add_wish":
+		var in struct {
+			Title  string   `json:"title"`
+			Note   string   `json:"note"`
+			URL    string   `json:"url"`
+			Price  *float64 `json:"price"`
+			Hearts *int     `json:"hearts"`
+		}
+		if err := decode(call.Input, &in); err != nil {
+			return nil, err
+		}
+		return t.addWish(ctx, in.Title, in.Note, in.URL, in.Price, in.Hearts)
 	case "add_expense":
 		var in struct {
 			Amount   float64                `json:"amount"`
@@ -458,6 +547,146 @@ func (t *toolbox) add(ctx context.Context, kind domain.EntryKind, f domain.Entry
 		return nil, err
 	}
 	return t.view(e), nil
+}
+
+type choreView struct {
+	ID     uuid.UUID     `json:"id"`
+	Title  string        `json:"title"`
+	Points int           `json:"points"`
+	Repeat domain.Repeat `json:"repeat,omitempty"`
+	Rotate bool          `json:"rotate,omitempty"`
+	For    string        `json:"for,omitempty"`
+	Due    string        `json:"due"`
+}
+
+func (t *toolbox) choreView(c domain.Chore) choreView {
+	v := choreView{ID: c.ID, Title: c.Title, Points: c.Points, Rotate: c.Rotate, Due: c.DueOn.Format(time.DateOnly)}
+	if c.Repeat != domain.RepeatNever {
+		v.Repeat = c.Repeat
+	}
+	if c.AssigneeID != nil {
+		v.For = t.name(*c.AssigneeID)
+	}
+	return v
+}
+
+func (t *toolbox) chores(ctx context.Context) (any, error) {
+	if t.s.chores == nil {
+		return nil, domain.ErrUnavailable
+	}
+	cs, err := t.s.chores.List(ctx, t.actor, t.householdID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]choreView, len(cs))
+	for i, c := range cs {
+		out[i] = t.choreView(c)
+	}
+	return out, nil
+}
+
+func (t *toolbox) addChore(ctx context.Context, title string, points int, repeat domain.Repeat, rotate bool, forName, due string) (any, error) {
+	if t.s.chores == nil {
+		return nil, domain.ErrUnavailable
+	}
+	if points == 0 {
+		points = 1
+	}
+	f := domain.ChoreFields{Title: title, Points: points, Repeat: repeat, Rotate: rotate}
+	if forName != "" {
+		id, err := t.member(forName)
+		if err != nil {
+			return nil, err
+		}
+		f.AssigneeID = id
+	}
+	if due != "" {
+		d, err := time.Parse(time.DateOnly, strings.TrimSpace(due))
+		if err != nil {
+			return nil, fmt.Errorf("%w: due %q is not YYYY-MM-DD", domain.ErrInvalid, due)
+		}
+		f.DueOn = d
+	}
+	c, err := t.s.chores.Create(ctx, t.actor, t.householdID, f)
+	if err != nil {
+		return nil, err
+	}
+	return t.choreView(c), nil
+}
+
+func (t *toolbox) completeChore(ctx context.Context, id uuid.UUID) (any, error) {
+	if t.s.chores == nil {
+		return nil, domain.ErrUnavailable
+	}
+	d, err := t.s.chores.Complete(ctx, t.actor, t.householdID, id)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"id": d.ID, "title": d.Title, "points": d.Points, "day": d.Day.Format(time.DateOnly)}, nil
+}
+
+type wishView struct {
+	ID     uuid.UUID      `json:"id"`
+	Title  string         `json:"title"`
+	Note   string         `json:"note,omitempty"`
+	URL    string         `json:"url,omitempty"`
+	Price  string         `json:"price_eur,omitempty"`
+	Hearts int            `json:"hearts"`
+	Votes  map[string]int `json:"votes,omitempty"`
+	Got    bool           `json:"got,omitempty"`
+}
+
+func (t *toolbox) wishView(w domain.Wish) wishView {
+	v := wishView{ID: w.ID, Title: w.Title, Note: w.Note, URL: w.URL, Hearts: w.Hearts(), Got: w.GotAt != nil}
+	if w.PriceCents != nil {
+		v.Price = euros(*w.PriceCents)
+	}
+	if len(w.Votes) > 0 {
+		v.Votes = make(map[string]int, len(w.Votes))
+		for _, vote := range w.Votes {
+			v.Votes[t.name(vote.UserID)] = vote.Hearts
+		}
+	}
+	return v
+}
+
+func (t *toolbox) wishes(ctx context.Context) (any, error) {
+	if t.s.wishes == nil {
+		return nil, domain.ErrUnavailable
+	}
+	ws, err := t.s.wishes.List(ctx, t.actor, t.householdID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]wishView, len(ws))
+	for i, w := range ws {
+		out[i] = t.wishView(w)
+	}
+	return out, nil
+}
+
+func (t *toolbox) addWish(ctx context.Context, title, note, url string, price *float64, hearts *int) (any, error) {
+	if t.s.wishes == nil {
+		return nil, domain.ErrUnavailable
+	}
+	if hearts != nil && (*hearts < 1 || *hearts > domain.MaxWishHearts) {
+		return nil, domain.ErrWishHearts
+	}
+	f := domain.WishFields{Title: title, Note: note, URL: url}
+	if price != nil {
+		c := cents(*price)
+		f.PriceCents = &c
+	}
+	w, err := t.s.wishes.Create(ctx, t.actor, t.householdID, f)
+	if err != nil {
+		return nil, err
+	}
+	if hearts != nil {
+		if w, err = t.s.wishes.Vote(ctx, t.actor, t.householdID, w.ID, *hearts); err != nil {
+			return nil, err
+		}
+	}
+	return t.wishView(w), nil
 }
 
 func (t *toolbox) addExpense(ctx context.Context, amount float64, category domain.ExpenseCategory, note, paidBy, day string, shares map[string]float64) (any, error) {

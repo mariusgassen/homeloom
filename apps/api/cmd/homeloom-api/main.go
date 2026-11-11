@@ -240,7 +240,7 @@ func run() error {
 	households := service.NewHousehold(store).WithWeather(forecaster)
 	watch := service.NewWatch(store, watchConnections, sessions, media, critic).WithTonight(store, push, cfg.TimeZone).WithNight(store)
 	dateNight := service.NewDateNight(store, planner, forecaster, cfg.TimeZone).WithNamer(placeNamer)
-	assistant := service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone).WithBudget(budget).WithGifts(gifts)
+	assistant := service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone).WithBudget(budget).WithGifts(gifts).WithChores(chores).WithWishes(wishes)
 	agents := service.NewAgentAccess(store, sessions, store)
 
 	handler, err := httpadapter.NewRouter(httpadapter.Deps{

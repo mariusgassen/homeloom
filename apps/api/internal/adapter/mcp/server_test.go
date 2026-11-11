@@ -43,6 +43,9 @@ func newFixture(t *testing.T) *fixture {
 	store, sessions := memory.NewStore(), memory.NewSessions()
 	push := service.NewPush(store, &memory.Pusher{})
 	entries := service.NewEntry(store, store, store, push, time.UTC)
+	moments := service.NewMoments(store, store, store, push, time.UTC)
+	chores := service.NewChores(store, store, store, moments, push, time.UTC)
+	wishes := service.NewWishes(store, store)
 	shopping := service.NewShopping(store, store, nil)
 	cook := service.NewCook(store, nil, nil, shopping)
 	smart := memory.NewSmartHome([]domain.Scene{{ID: "scene.dinner", Name: "Dinner"}}, nil)
@@ -57,7 +60,7 @@ func newFixture(t *testing.T) *fixture {
 		Identity:   f.identity,
 		Agents:     f.agents,
 		Households: f.households,
-		Tools:      service.NewAssistant(store, store, nil, entries, cook, shopping, home, time.UTC),
+		Tools:      service.NewAssistant(store, store, nil, entries, cook, shopping, home, time.UTC).WithChores(chores).WithWishes(wishes),
 	}))
 	t.Cleanup(srv.Close)
 	f.url = srv.URL
@@ -133,6 +136,18 @@ func TestToolsActAsTheCaller(t *testing.T) {
 	}
 	if out, isErr := call(t, cs, "list_entries", map[string]any{"kind": "chore"}); !isErr {
 		t.Fatalf("a wrong kind is the model's to fix: %s", out)
+	}
+	if out, isErr := call(t, cs, "add_chore", map[string]any{"title": "Water plants", "repeat": "weekly"}); isErr || !strings.Contains(out, "Water plants") {
+		t.Fatalf("add_chore: %s", out)
+	}
+	if out, _ := call(t, cs, "list_chores", map[string]any{}); !strings.Contains(out, "Water plants") {
+		t.Fatalf("list_chores: %s", out)
+	}
+	if out, isErr := call(t, cs, "add_wish", map[string]any{"title": "Reading lamp", "hearts": 2}); isErr || !strings.Contains(out, "Reading lamp") {
+		t.Fatalf("add_wish: %s", out)
+	}
+	if out, _ := call(t, cs, "list_wishes", map[string]any{}); !strings.Contains(out, "Reading lamp") {
+		t.Fatalf("list_wishes: %s", out)
 	}
 
 	// The voice agent's token is bound to Alice in this household.

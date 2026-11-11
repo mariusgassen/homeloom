@@ -1150,6 +1150,9 @@ test("today's chores are ticked off on Today", async () => {
   await userEvent.click(within(card).getByRole("checkbox", { name: "Bins" }));
   await waitFor(() => expect(screen.queryByRole("region", { name: "Chores today" })).not.toBeInTheDocument());
   expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/done"))).toBe(true);
+  const tile = await screen.findByRole("button", { name: /Chores.*Bins.*Jo/i });
+  await userEvent.click(tile);
+  expect(await screen.findByRole("heading", { level: 1, name: "Chores" })).toBeInTheDocument();
 });
 
 test("the chores page shows who did what and thanks into the gratitude wall", async () => {

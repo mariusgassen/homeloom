@@ -39,8 +39,12 @@ type Assistant struct {
 	budget port.BudgetService
 	// gifts is nil when the gift tools aren't wired.
 	gifts port.GiftService
-	loc   *time.Location
-	now   func() time.Time
+	// chores is nil when the chore tools aren't wired.
+	chores port.ChoreService
+	// wishes is nil when the wishlist tools aren't wired.
+	wishes port.WishService
+	loc    *time.Location
+	now    func() time.Time
 }
 
 func NewAssistant(households port.HouseholdRepository, conversations port.ConversationRepository, llm port.Assistant,
@@ -62,6 +66,18 @@ func (s *Assistant) WithBudget(budget port.BudgetService) *Assistant {
 // the person asking, so one member's ideas never reach the other.
 func (s *Assistant) WithGifts(gifts port.GiftService) *Assistant {
 	s.gifts = gifts
+	return s
+}
+
+// WithChores gives the assistant the household's chores: listing, adding and ticking them off.
+func (s *Assistant) WithChores(chores port.ChoreService) *Assistant {
+	s.chores = chores
+	return s
+}
+
+// WithWishes gives the assistant the household's shared wishlist: listing and adding wishes.
+func (s *Assistant) WithWishes(wishes port.WishService) *Assistant {
+	s.wishes = wishes
 	return s
 }
 
