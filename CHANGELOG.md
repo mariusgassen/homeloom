@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.2.0](https://github.com/mariusgassen/homeloom/compare/homeloom-v1.1.0...homeloom-v1.2.0) (2026-11-11)
+
+
+### Features
+
+* store an optional birth year and allow years before 2000 ([#104](https://github.com/mariusgassen/homeloom/issues/104)) ([d34279c](https://github.com/mariusgassen/homeloom/commit/d34279c122be2d06f44a5aff3c9550164552259d))
+* switch push notifications off per topic ([#99](https://github.com/mariusgassen/homeloom/issues/99)) ([29582e5](https://github.com/mariusgassen/homeloom/commit/29582e52f012cbc30c7ac122df629a0c57971f84))
+* take the weather from the device's location ([#103](https://github.com/mariusgassen/homeloom/issues/103)) ([0fd8ac0](https://github.com/mariusgassen/homeloom/commit/0fd8ac04af0cff0b07d0cf4e4d7e1b065121158a))
+* **web:** split Today into Us and Household tabs ([#110](https://github.com/mariusgassen/homeloom/issues/110)) ([36427bb](https://github.com/mariusgassen/homeloom/commit/36427bb24dcbff394d5a399895722a19f6a07695))
+
+
+### Bug Fixes
+
+* **deps-dev:** bump vitest from 5.0.5 to 5.1.0 in /apps/agent in the npm group ([#105](https://github.com/mariusgassen/homeloom/issues/105)) ([bcb99f0](https://github.com/mariusgassen/homeloom/commit/bcb99f0cac957104765bdaa61bd0f1e2408f7a81))
+* **deps:** bump Go to 1.27.4 for GO-2026-6859 ([#109](https://github.com/mariusgassen/homeloom/issues/109)) ([a412c61](https://github.com/mariusgassen/homeloom/commit/a412c614b0a5b2e0cbbbea5a50312c74ae25e573))
+* **deps:** bump the go-modules group in /apps/api with 4 updates ([#106](https://github.com/mariusgassen/homeloom/issues/106)) ([ba50fdb](https://github.com/mariusgassen/homeloom/commit/ba50fdbc2f5008bfe23ab57a7d194afc2f235ac3))
+* **deps:** bump the npm group in /apps/web with 8 updates ([#107](https://github.com/mariusgassen/homeloom/issues/107)) ([8297f9b](https://github.com/mariusgassen/homeloom/commit/8297f9b28d17273f49fcbbba1e21be64e403d305))
+* group the language import with third-party imports ([#102](https://github.com/mariusgassen/homeloom/issues/102)) ([73641d8](https://github.com/mariusgassen/homeloom/commit/73641d8f19e8d3ea8af820cd20b06b13eb8c7236))
+* keep chores on Today and expose chores and wishes in MCP ([#108](https://github.com/mariusgassen/homeloom/issues/108)) ([f760cf2](https://github.com/mariusgassen/homeloom/commit/f760cf27fe0b7b16c1043baa7386b5f67c4ee3fa))
+* show the place and a description in the forecast ([#100](https://github.com/mariusgassen/homeloom/issues/100)) ([4a80371](https://github.com/mariusgassen/homeloom/commit/4a8037160e5e2ab80feddd5ffed10bb97525dbb0))
+
 ## [1.1.0](https://github.com/mariusgassen/homeloom/compare/homeloom-v1.0.0...homeloom-v1.1.0) (2026-11-05)
 
 
