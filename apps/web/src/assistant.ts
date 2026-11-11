@@ -85,11 +85,15 @@ export async function chat(householdId: string, body: ChatRequest, on: ChatEvent
 
 // toolStep is the catalog key for what the assistant is doing while it uses a tool.
 export function toolStep(name: string) {
-  if (name === "list_entries") return "assistant.steps.lists";
-  if (name.startsWith("add_") && name !== "add_to_shopping_list") return "assistant.steps.write";
-  if (name === "complete_reminder") return "assistant.steps.done";
-  if (name.includes("recipe")) return "assistant.steps.recipes";
   if (name.includes("shopping")) return "assistant.steps.shopping";
+  if (name.includes("recipe") || name.includes("meal")) return "assistant.steps.recipes";
   if (["get_home", "activate_scene", "set_light"].includes(name)) return "assistant.steps.home";
+  if (name.startsWith("complete_")) return "assistant.steps.done";
+  if (name.startsWith("list_") || ["get_chore_history", "get_tonight", "get_household"].includes(name)) {
+    return "assistant.steps.lists";
+  }
+  if (/^(add_|update_|reopen_|plan_|rate_|vote_|react_|thank_|ask_|answer_|settle_|set_birthday)/.test(name)) {
+    return "assistant.steps.write";
+  }
   return "assistant.steps.other";
 }

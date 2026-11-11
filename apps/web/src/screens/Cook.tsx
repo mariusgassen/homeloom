@@ -83,11 +83,11 @@ export function Cook() {
       title={t("cook.title")}
       refreshable={false}
       back={
-        <Button variant="plain" size="sm" className="back" onClick={() => navigate("/")}>
+        <Button variant="plain" size="sm" className="back" onClick={() => navigate("/household")}>
           <span className="back-icon">
             <Icon name="chevron" size="sm" />
           </span>
-          {t("tabs.today")}
+          {t("tabs.household")}
         </Button>
       }
     >

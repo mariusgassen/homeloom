@@ -21,7 +21,7 @@ import { Week, WeekShopping } from "./screens/Week";
 import { Home } from "./screens/Home";
 import { Lists } from "./screens/Lists";
 import { NotePage } from "./screens/NotePage";
-import { Today, Us } from "./screens/Tabs";
+import { Household, Today, Us } from "./screens/Tabs";
 import { Money } from "./screens/Money";
 import { TripPage, Trips } from "./screens/Trips";
 import { DateNight } from "./screens/DateNight";
@@ -75,6 +75,7 @@ export function App() {
           <RefreshProvider>
             <Routes key={generation}>
               <Route path="/" element={<Today />} />
+              <Route path="/household" element={<Household />} />
               <Route path="/cook" element={<Cook />} />
               <Route path="/cook/week" element={<Week />} />
               <Route path="/cook/recap" element={<MealRecap />} />
@@ -105,6 +106,7 @@ export function App() {
             items={[
               { to: "/", label: t("tabs.today"), icon: "today" },
               { to: "/us", label: t("tabs.us"), icon: "us" },
+              { to: "/household", label: t("tabs.household"), icon: "cook" },
               { to: "/lists", label: t("tabs.lists"), icon: "lists" },
               { to: "/home", label: t("tabs.home"), icon: "home" },
             ]}

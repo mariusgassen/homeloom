@@ -240,7 +240,10 @@ func run() error {
 	households := service.NewHousehold(store).WithWeather(forecaster).WithBirthdays(store)
 	watch := service.NewWatch(store, watchConnections, sessions, media, critic).WithTonight(store, push, cfg.TimeZone).WithNight(store)
 	dateNight := service.NewDateNight(store, planner, forecaster, cfg.TimeZone).WithNamer(placeNamer)
-	assistant := service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone).WithBudget(budget).WithGifts(gifts)
+	questions := service.NewQuestion(store, store, push, muse)
+	assistant := service.NewAssistant(store, store, llm, entries, cook, shopping, homeService, cfg.TimeZone).
+		WithBudget(budget).WithGifts(gifts).WithChores(chores).WithWishes(wishes).
+		WithBucket(someday).WithTrips(trips).WithMoments(moments).WithQuestions(questions).WithWatch(watch)
 	agents := service.NewAgentAccess(store, sessions, store)
 
 	handler, err := httpadapter.NewRouter(httpadapter.Deps{
@@ -249,7 +252,7 @@ func run() error {
 		Identity:       identity,
 		Login:          login,
 		Households:     households,
-		Questions:      service.NewQuestion(store, store, push, muse),
+		Questions:      questions,
 		Entries:        entries,
 		Moments:        moments,
 		Cook:           cook,

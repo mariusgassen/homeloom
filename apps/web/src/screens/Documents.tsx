@@ -76,12 +76,12 @@ export function Documents() {
           variant="plain"
           size="sm"
           className="back"
-          onClick={() => navigate("/settings")}
+          onClick={() => navigate("/household")}
         >
           <span className="back-icon">
             <Icon name="chevron" size="sm" />
           </span>
-          {t("settings.title")}
+          {t("tabs.household")}
         </Button>
       }
       add={{
