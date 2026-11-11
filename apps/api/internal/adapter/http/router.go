@@ -50,6 +50,7 @@ type Deps struct {
 	Calls          port.CallService
 	Voice          port.VoiceService
 	Avatars        port.AvatarService
+	Members        port.MemberService
 	Assistant      port.AssistantService
 	Agents         port.AgentAccessService
 	HealthChecks   []port.HealthCheck
@@ -139,6 +140,7 @@ func NewRouter(d Deps) (http.Handler, error) {
 		bucket:     d.Bucket,
 		chores:     d.Chores,
 		gifts:      d.Gifts,
+		members:    d.Members,
 		trips:      d.Trips,
 		documents:  d.Documents,
 		budget:     d.Budget,

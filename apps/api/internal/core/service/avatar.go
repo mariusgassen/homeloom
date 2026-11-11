@@ -21,11 +21,16 @@ func NewAvatars(users port.UserRepository) *Avatars {
 }
 
 func (s *Avatars) Set(ctx context.Context, actor domain.User, p domain.Photo) (domain.User, error) {
-	// The app sends JPEGs; checking the bytes as well keeps anything else from being served as one.
-	if p.ContentType != "image/jpeg" || len(p.Data) > domain.MaxPhotoBytes || !bytes.HasPrefix(p.Data, []byte{0xFF, 0xD8, 0xFF}) {
+	if !validAvatar(p) {
 		return domain.User{}, domain.ErrAvatar
 	}
 	return s.users.SetAvatar(ctx, actor.ID, p)
+}
+
+// validAvatar: the app sends JPEGs; checking the bytes as well keeps anything else from being
+// served as one.
+func validAvatar(p domain.Photo) bool {
+	return p.ContentType == "image/jpeg" && len(p.Data) <= domain.MaxPhotoBytes && bytes.HasPrefix(p.Data, []byte{0xFF, 0xD8, 0xFF})
 }
 
 func (s *Avatars) Delete(ctx context.Context, actor domain.User) (domain.User, error) {

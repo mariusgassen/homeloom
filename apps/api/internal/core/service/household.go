@@ -19,6 +19,14 @@ type Household struct {
 	repo port.HouseholdRepository
 	// weather checks that a place exists; nil accepts any place.
 	weather port.Weather
+	// birthdays fills each member's birthday; nil leaves them out.
+	birthdays port.GiftRepository
+}
+
+// WithBirthdays makes Get carry each member's birthday.
+func (s *Household) WithBirthdays(g port.GiftRepository) *Household {
+	s.birthdays = g
+	return s
 }
 
 // WithWeather makes SetPlace refuse a place the weather service doesn't know.
@@ -55,6 +63,17 @@ func (s *Household) Get(ctx context.Context, actor domain.User, id uuid.UUID) (d
 	members, err := s.repo.Members(ctx, id)
 	if err != nil {
 		return domain.HouseholdDetail{}, err
+	}
+	if s.birthdays != nil {
+		birthdays, err := s.birthdays.Birthdays(ctx, id)
+		if err != nil {
+			return domain.HouseholdDetail{}, err
+		}
+		for i, m := range members {
+			if b, ok := birthdays[m.User.ID]; ok {
+				members[i].Birthday = &b
+			}
+		}
 	}
 	return domain.HouseholdDetail{
 		Membership: domain.Membership{Household: h, Role: role},

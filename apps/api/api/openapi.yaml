@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.49.0
+  version: 0.50.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -500,6 +500,96 @@ paths:
               schema: { $ref: "#/components/schemas/HouseholdDetail" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/members/{userId}/birthday:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      tags: [households]
+      operationId: setMemberBirthday
+      summary: Set a member's birthday (owner only)
+      description: The owner keeps the household's details; everyone else changes only their own, at `/v1/me/birthday`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Birthday" }
+      responses:
+        "204": { description: Saved. }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: You are a member but not the owner (code `not_owner`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [households]
+      operationId: deleteMemberBirthday
+      summary: Remove a member's birthday (owner only)
+      responses:
+        "204": { description: Removed. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: You are a member but not the owner (code `not_owner`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/members/{userId}/avatar:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      tags: [households]
+      operationId: setMemberAvatar
+      summary: Set a member's picture (owner only)
+      description: A JPEG of at most 5 MB, like `/v1/me/avatar`.
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+      responses:
+        "200":
+          description: The member, with the new picture.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: You are a member but not the owner (code `not_owner`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [households]
+      operationId: deleteMemberAvatar
+      summary: Remove a member's own picture (owner only)
+      responses:
+        "200":
+          description: The member, without it.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: You are a member but not the owner (code `not_owner`).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
         "404": { $ref: "#/components/responses/NotFound" }
 
   /v1/households/{householdId}/invites:
@@ -4981,6 +5071,7 @@ components:
       properties:
         user: { $ref: "#/components/schemas/User" }
         role: { $ref: "#/components/schemas/Role" }
+        birthday: { $ref: "#/components/schemas/Birthday" }
 
     Role:
       type: string

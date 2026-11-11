@@ -15,20 +15,24 @@ export async function square(file: Blob): Promise<Blob> {
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("photo"))), "image/jpeg", 0.85));
 }
 
-export async function uploadAvatar(photo: Blob) {
-  const res = await api
-    .PUT("/v1/me/avatar", {
-      // The contract types a binary body as a string; the photo goes as it is.
-      body: photo as unknown as string,
-      bodySerializer: (b) => b,
-      headers: { "Content-Type": "image/jpeg" },
-    })
-    .catch(() => undefined);
+// Whose picture it is: your own, or, as the household's owner, another member's.
+export type AvatarOwner = { householdId: string; userId: string } | undefined;
+
+export async function uploadAvatar(photo: Blob, member?: AvatarOwner) {
+  // The contract types a binary body as a string; the photo goes as it is.
+  const init = { body: photo as unknown as string, bodySerializer: (b: string) => b, headers: { "Content-Type": "image/jpeg" } };
+  const res = await (member
+    ? api.PUT("/v1/households/{householdId}/members/{userId}/avatar", { ...init, params: { path: member } })
+    : api.PUT("/v1/me/avatar", init)
+  ).catch(() => undefined);
   return res?.data;
 }
 
-export async function removeAvatar() {
-  const res = await api.DELETE("/v1/me/avatar").catch(() => undefined);
+export async function removeAvatar(member?: AvatarOwner) {
+  const res = await (member
+    ? api.DELETE("/v1/households/{householdId}/members/{userId}/avatar", { params: { path: member } })
+    : api.DELETE("/v1/me/avatar")
+  ).catch(() => undefined);
   return res?.data;
 }
 

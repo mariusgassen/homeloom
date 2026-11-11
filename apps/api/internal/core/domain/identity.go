@@ -59,6 +59,8 @@ type Membership struct {
 type Member struct {
 	User User
 	Role Role
+	// Birthday is nil until it is set; only the household detail fills it.
+	Birthday *Birthday
 }
 
 type HouseholdDetail struct {
