@@ -647,6 +647,11 @@ type GiftRepository interface {
 	// GiftIdeas returns the author's ideas, newest first, given ones last.
 	GiftIdeas(ctx context.Context, householdID, authorID uuid.UUID, limit int) ([]domain.GiftIdea, error)
 	AddGiftIdea(ctx context.Context, idea domain.GiftIdea) (domain.GiftIdea, error)
+	// Occasions returns the household's yearly dates, oldest first.
+	Occasions(ctx context.Context, householdID uuid.UUID) ([]domain.Occasion, error)
+	AddOccasion(ctx context.Context, o domain.Occasion) (domain.Occasion, error)
+	// DeleteOccasion returns domain.ErrNotFound unless the household has it.
+	DeleteOccasion(ctx context.Context, householdID, id uuid.UUID) error
 	SetGiftIdeaGiven(ctx context.Context, householdID, authorID, id uuid.UUID, given bool) (domain.GiftIdea, error)
 	DeleteGiftIdea(ctx context.Context, householdID, authorID, id uuid.UUID) error
 }

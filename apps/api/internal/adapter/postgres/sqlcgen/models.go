@@ -210,6 +210,7 @@ type GiftIdea struct {
 	Text        string
 	GivenAt     *time.Time
 	CreatedAt   time.Time
+	OccasionID  *uuid.UUID
 }
 
 type HomeConnection struct {
@@ -313,6 +314,16 @@ type MomentReaction struct {
 	UserID    uuid.UUID
 	Emoji     string
 	CreatedAt time.Time
+}
+
+type Occasion struct {
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+	Name        string
+	Month       int16
+	Day         int16
+	Year        *int16
+	CreatedAt   time.Time
 }
 
 type PushMutedTopic struct {

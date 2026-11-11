@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
-import { api, type GiftIdea, type GiftPerson } from "../api/client";
+import { api, type GiftIdea, type GiftPerson, type Occasion } from "../api/client";
 import { birthdayValue, parseBirthday, turns, useGifts } from "../gifts";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
@@ -40,7 +40,14 @@ export function Gifts() {
   const idea = (id: string) => ({ params: { path: { householdId: household.id, ideaId: id } } });
   const given = (i: GiftIdea) => run(api.PATCH("/v1/households/{householdId}/gifts/ideas/{ideaId}", { ...idea(i.id), body: { given: !i.given } }));
   const remove = (i: GiftIdea) => run(api.DELETE("/v1/households/{householdId}/gifts/ideas/{ideaId}", idea(i.id)));
-  const add = (forId: string, text: string) => run(api.POST("/v1/households/{householdId}/gifts/ideas", { ...path, body: { forId, text } }));
+  const add = (forId: string, text: string, occasionId?: string) =>
+    run(api.POST("/v1/households/{householdId}/gifts/ideas", { ...path, body: { forId, text, occasionId } }));
+  const addDate = (name: string, value: string) => {
+    const date = parseBirthday(value);
+    return date ? run(api.POST("/v1/households/{householdId}/gifts/occasions", { ...path, body: { name, month: date.month, day: date.day } })) : Promise.resolve(false);
+  };
+  const removeDate = (o: Occasion) =>
+    run(api.DELETE("/v1/households/{householdId}/gifts/occasions/{occasionId}", { params: { path: { householdId: household.id, occasionId: o.id } } }));
   const setBirthday = (value: string) => {
     const body = parseBirthday(value);
     return body ? run(api.PUT("/v1/me/birthday", { body })) : Promise.resolve(false);
@@ -68,8 +75,9 @@ export function Gifts() {
       )}
       {gifts?.people.length === 0 && <Empty title={t("gifts.emptyTitle")}>{t("gifts.emptyBody")}</Empty>}
       {gifts?.people.map((p) => (
-        <Person key={p.user.id} person={p} ideas={gifts.ideas.filter((i) => i.forId === p.user.id)} when={inDays} onAdd={add} onGiven={given} onDelete={remove} />
+        <Person key={p.user.id} person={p} ideas={gifts.ideas.filter((i) => i.forId === p.user.id)} occasions={gifts.occasions} when={inDays} onAdd={add} onGiven={given} onDelete={remove} />
       ))}
+      {gifts && <Dates occasions={gifts.occasions} when={inDays} onAdd={addDate} onDelete={removeDate} />}
       {gifts && (
         <section className="group">
           <h2 className="label group-title">{t("gifts.mine")}</h2>
@@ -94,19 +102,58 @@ export function Gifts() {
   );
 }
 
-function Person({ person, ideas, when, onAdd, onGiven, onDelete }: {
+function Dates({ occasions, when, onAdd, onDelete }: {
+  occasions: Occasion[];
+  when: (days: number) => string;
+  onAdd: (name: string, date: string) => Promise<boolean>;
+  onDelete: (o: Occasion) => Promise<boolean>;
+}) {
+  const { t } = useTranslation();
+  const [name, setName] = useState("");
+  const [date, setDate] = useState("");
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    if (name.trim() && date && (await onAdd(name, date))) {
+      setName("");
+      setDate("");
+    }
+  }
+  return (
+    <section className="group">
+      <h2 className="label group-title">{t("gifts.dates")}</h2>
+      {occasions.length > 0 && (
+        <div className="hl-list">
+          {occasions.map((o) => (
+            <Swipe key={o.id} end={{ label: t("gifts.dateDelete"), icon: "trash", tone: "danger", onAction: () => void onDelete(o) }}>
+              <ListRow title={o.name} subtitle={when(o.days)} />
+            </Swipe>
+          ))}
+        </div>
+      )}
+      <form className="shopping-add" onSubmit={submit}>
+        <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("gifts.datePlaceholder")} aria-label={t("gifts.datePlaceholder")} maxLength={60} enterKeyHint="done" />
+        <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label={t("gifts.dateWhen")} />
+        <Button type="submit" icon="plus" disabled={!name.trim() || !date} aria-label={t("gifts.dateAdd")} />
+      </form>
+    </section>
+  );
+}
+
+function Person({ person, ideas, occasions, when, onAdd, onGiven, onDelete }: {
   person: GiftPerson;
   ideas: GiftIdea[];
+  occasions: Occasion[];
   when: (days: number) => string;
-  onAdd: (forId: string, text: string) => Promise<boolean>;
+  onAdd: (forId: string, text: string, occasionId?: string) => Promise<boolean>;
   onGiven: (i: GiftIdea) => Promise<boolean>;
   onDelete: (i: GiftIdea) => Promise<boolean>;
 }) {
   const { t } = useTranslation();
   const [text, setText] = useState("");
+  const [occasionId, setOccasionId] = useState("");
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (text.trim() && (await onAdd(person.user.id, text))) setText("");
+    if (text.trim() && (await onAdd(person.user.id, text, occasionId || undefined))) setText("");
   }
   return (
     <section className="group">
@@ -124,7 +171,7 @@ function Person({ person, ideas, when, onAdd, onGiven, onDelete }: {
                 <button type="button" className={i.given ? "tick tick-done" : "tick"} role="checkbox" aria-checked={i.given} aria-label={i.text} onClick={() => void onGiven(i)}>
                   {i.given && <Icon name="check" size="sm" />}
                 </button>
-                <ListRow title={<span className={i.given ? "have" : undefined}>{i.text}</span>} />
+                <ListRow title={<span className={i.given ? "have" : undefined}>{i.text}</span>} subtitle={occasions.find((o) => o.id === i.occasionId)?.name} />
               </div>
             </Swipe>
           ))}
@@ -134,6 +181,16 @@ function Person({ person, ideas, when, onAdd, onGiven, onDelete }: {
         <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder={t("gifts.placeholder", { name: person.user.name })} aria-label={t("gifts.placeholder", { name: person.user.name })} maxLength={200} enterKeyHint="done" />
         <Button type="submit" icon="plus" disabled={!text.trim()} aria-label={t("gifts.add")} />
       </form>
+      {occasions.length > 0 && (
+        <select className="input" value={occasionId} onChange={(e) => setOccasionId(e.target.value)} aria-label={t("gifts.forOccasion")}>
+          <option value="">{t("gifts.anyTime")}</option>
+          {occasions.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </select>
+      )}
     </section>
   );
 }

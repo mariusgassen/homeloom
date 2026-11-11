@@ -126,7 +126,7 @@ var tools = []domain.Tool{
 	{
 		Name:     "list_gift_ideas",
 		ReadOnly: true,
-		Description: "List the gift ideas the person has kept for the other members, and when those members' birthdays are. " +
+		Description: "List the gift ideas the person has kept for the other members, when those members' birthdays are, and the household's other yearly dates (occasions). " +
 			"The ideas are private: only the person's own are ever shown, never anyone else's, and the assistant must never " +
 			"hint at them to anyone else.",
 		Schema: object(map[string]any{}),
@@ -507,15 +507,24 @@ func (t *toolbox) giftIdeas(ctx context.Context) (any, error) {
 		Turns    int    `json:"turns,omitempty"` // the age they turn, when their year of birth is known
 		InDays   *int   `json:"in_days,omitempty"`
 	}
+	type occasion struct {
+		Name   string `json:"name"`
+		Date   string `json:"date"`
+		InDays int    `json:"in_days"`
+	}
 	type idea struct {
 		For   string `json:"for"`
 		Text  string `json:"text"`
 		Given bool   `json:"given,omitempty"`
 	}
 	out := struct {
-		People []person `json:"people"`
-		Ideas  []idea   `json:"ideas"`
-	}{People: []person{}, Ideas: []idea{}}
+		People    []person   `json:"people"`
+		Occasions []occasion `json:"occasions"`
+		Ideas     []idea     `json:"ideas"`
+	}{People: []person{}, Occasions: []occasion{}, Ideas: []idea{}}
+	for _, o := range g.Occasions {
+		out.Occasions = append(out.Occasions, occasion{Name: o.Name, Date: o.Next.Format("2006-01-02"), InDays: o.Days})
+	}
 	for _, p := range g.People {
 		v := person{Name: p.User.Name}
 		if p.Birthday != nil {
@@ -540,7 +549,7 @@ func (t *toolbox) addGiftIdea(ctx context.Context, forName, text string) (any, e
 	if err != nil {
 		return nil, err
 	}
-	i, err := t.s.gifts.Add(ctx, t.actor, t.householdID, *id, text)
+	i, err := t.s.gifts.Add(ctx, t.actor, t.householdID, *id, nil, text)
 	if err != nil {
 		return nil, err
 	}
