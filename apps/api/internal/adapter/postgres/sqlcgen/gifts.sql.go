@@ -7,6 +7,7 @@ package sqlcgen
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -47,35 +48,32 @@ func (q *Queries) AddGiftIdea(ctx context.Context, arg AddGiftIdeaParams) (GiftI
 }
 
 const addOccasion = `-- name: AddOccasion :one
-INSERT INTO occasions (household_id, name, month, day, year) VALUES ($1, $2, $3, $4, $5)
-RETURNING id, household_id, name, month, day, year, created_at
+INSERT INTO occasions (household_id, name, on_date, repeat) VALUES ($1, $2, $3, $4)
+RETURNING id, household_id, name, created_at, on_date, repeat
 `
 
 type AddOccasionParams struct {
 	HouseholdID uuid.UUID
 	Name        string
-	Month       int16
-	Day         int16
-	Year        *int16
+	OnDate      time.Time
+	Repeat      string
 }
 
 func (q *Queries) AddOccasion(ctx context.Context, arg AddOccasionParams) (Occasion, error) {
 	row := q.db.QueryRow(ctx, addOccasion,
 		arg.HouseholdID,
 		arg.Name,
-		arg.Month,
-		arg.Day,
-		arg.Year,
+		arg.OnDate,
+		arg.Repeat,
 	)
 	var i Occasion
 	err := row.Scan(
 		&i.ID,
 		&i.HouseholdID,
 		&i.Name,
-		&i.Month,
-		&i.Day,
-		&i.Year,
 		&i.CreatedAt,
+		&i.OnDate,
+		&i.Repeat,
 	)
 	return i, err
 }
@@ -199,7 +197,7 @@ func (q *Queries) ListGiftIdeas(ctx context.Context, arg ListGiftIdeasParams) ([
 }
 
 const listOccasions = `-- name: ListOccasions :many
-SELECT id, household_id, name, month, day, year, created_at FROM occasions WHERE household_id = $1 ORDER BY created_at, id
+SELECT id, household_id, name, created_at, on_date, repeat FROM occasions WHERE household_id = $1 ORDER BY created_at, id
 `
 
 func (q *Queries) ListOccasions(ctx context.Context, householdID uuid.UUID) ([]Occasion, error) {
@@ -215,10 +213,9 @@ func (q *Queries) ListOccasions(ctx context.Context, householdID uuid.UUID) ([]O
 			&i.ID,
 			&i.HouseholdID,
 			&i.Name,
-			&i.Month,
-			&i.Day,
-			&i.Year,
 			&i.CreatedAt,
+			&i.OnDate,
+			&i.Repeat,
 		); err != nil {
 			return nil, err
 		}

@@ -198,13 +198,13 @@ func TestOccasionsAreSharedAndIdeasCanBeForOne(t *testing.T) {
 	f := newGiftFixture(t) // 28 October 2026
 	f.gifts.SetClock(func() time.Time { return time.Date(2026, 12, 18, 9, 0, 0, 0, time.UTC) })
 
-	if _, err := f.gifts.AddOccasion(ctx, f.eve, f.household, "Spy", domain.Birthday{Month: time.May, Day: 1}); !errors.Is(err, domain.ErrNotFound) {
+	if _, err := f.gifts.AddOccasion(ctx, f.eve, f.household, "Spy", time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC), domain.RepeatYearly); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("outsider adds: %v", err)
 	}
-	if _, err := f.gifts.AddOccasion(ctx, f.alice, f.household, "Day", domain.Birthday{Month: time.February, Day: 30}); !errors.Is(err, domain.ErrBirthday) {
-		t.Fatalf("30 February: %v", err)
+	if _, err := f.gifts.AddOccasion(ctx, f.alice, f.household, "Day", time.Date(1800, 5, 1, 0, 0, 0, 0, time.UTC), domain.RepeatYearly); !errors.Is(err, domain.ErrBirthday) {
+		t.Fatalf("year 1800: %v", err)
 	}
-	xmas, err := f.gifts.AddOccasion(ctx, f.alice, f.household, " Christmas ", domain.Birthday{Month: time.December, Day: 25})
+	xmas, err := f.gifts.AddOccasion(ctx, f.alice, f.household, " Christmas ", time.Date(2020, 12, 25, 0, 0, 0, 0, time.UTC), "")
 	if err != nil || xmas.Name != "Christmas" {
 		t.Fatalf("add: %+v, %v", xmas, err)
 	}
@@ -214,6 +214,12 @@ func TestOccasionsAreSharedAndIdeasCanBeForOne(t *testing.T) {
 		t.Fatalf("bob's overview: %+v, %v", g, err)
 	}
 
+	if xmas.Repeat != domain.RepeatYearly {
+		t.Fatalf("default repeat: %q", xmas.Repeat)
+	}
+	if _, err := f.gifts.AddOccasion(ctx, f.alice, f.household, "Daily", time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC), domain.RepeatDaily); !errors.Is(err, domain.ErrOccasionRepeat) {
+		t.Fatalf("daily: %v", err)
+	}
 	if _, err := f.gifts.Add(ctx, f.bob, f.household, f.alice.ID, &xmas.ID, "Scarf"); err != nil {
 		t.Fatal(err)
 	}

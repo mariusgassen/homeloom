@@ -43,7 +43,6 @@ export function Settings() {
           </div>
         </section>
       )}
-      {household && <GiftsLink />}
       {household && (
         <section className="group">
           <div className="hl-list">
@@ -406,19 +405,6 @@ function Notifications() {
           {t(`push.${error}`)}
         </p>
       )}
-    </section>
-  );
-}
-
-// One row to the gift ideas, which only you see.
-function GiftsLink() {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
-  return (
-    <section className="group">
-      <div className="hl-list">
-        <ListRow title={t("gifts.title")} subtitle={t("gifts.private")} onClick={() => navigate("/gifts")} />
-      </div>
     </section>
   );
 }

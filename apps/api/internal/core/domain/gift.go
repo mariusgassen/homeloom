@@ -87,14 +87,59 @@ type GiftIdea struct {
 	Created time.Time
 }
 
-// Occasion is a date the household keeps every year, such as Christmas or a wedding anniversary.
-// Date is its month and day, with the year it first happened when known.
+// Occasion is a date the household keeps, such as Christmas, a wedding anniversary or a weekly
+// game night. On is the day it first falls (or falls once); Repeat says how it comes back.
 type Occasion struct {
 	ID          uuid.UUID
 	HouseholdID uuid.UUID
 	Name        string
-	Date        Birthday
+	On          time.Time
+	Repeat      Repeat
 	Created     time.Time
+}
+
+// OccasionRepeat reports whether an occasion may repeat this way: not at all, weekly, monthly or
+// yearly.
+func OccasionRepeat(r Repeat) bool {
+	return r == RepeatNever || r == RepeatWeekly || r == RepeatMonthly || r == RepeatYearly
+}
+
+// Next returns the first day on or after today on which the occasion falls, and how many days
+// away that is. ok is false for a one-off whose day has passed. A monthly occasion on the 31st
+// falls on the last day of shorter months; a yearly one on 29 February on the 28th in common years.
+func (o Occasion) Next(today time.Time) (next time.Time, days int, ok bool) {
+	t := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, time.UTC)
+	on := time.Date(o.On.Year(), o.On.Month(), o.On.Day(), 0, 0, 0, 0, time.UTC)
+	from := t
+	if on.After(t) {
+		from = on // it hasn't started yet
+	}
+	switch o.Repeat {
+	case RepeatWeekly:
+		next = from.AddDate(0, 0, (int(on.Weekday())-int(from.Weekday())+7)%7)
+	case RepeatMonthly:
+		next = monthlyOn(from.Year(), from.Month(), on.Day())
+		if next.Before(from) {
+			next = monthlyOn(from.Year(), from.Month()+1, on.Day())
+		}
+	case RepeatYearly:
+		next, _ = Birthday{Month: on.Month(), Day: on.Day()}.Next(from)
+	default:
+		if on.Before(t) {
+			return time.Time{}, 0, false
+		}
+		next = on
+	}
+	return next, int(next.Sub(t).Hours() / 24), true
+}
+
+// monthlyOn is the day of the month, or the last day of a month that is shorter.
+func monthlyOn(year int, month time.Month, day int) time.Time {
+	last := time.Date(year, month+1, 0, 0, 0, 0, 0, time.UTC)
+	if day > last.Day() {
+		return last
+	}
+	return time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
 }
 
 // GiftOccasion is an occasion with when it next falls.
@@ -123,6 +168,9 @@ type Gifts struct {
 	People    []GiftPerson
 	Ideas     []GiftIdea
 }
+
+// ErrOccasionRepeat means a repeat an occasion can't have.
+var ErrOccasionRepeat = fmt.Errorf("%w: an occasion repeats weekly, monthly, yearly or not at all", ErrInvalid)
 
 // ErrOccasion means an idea for an occasion the household doesn't have.
 var ErrOccasion = fmt.Errorf("%w: not an occasion of this household", ErrInvalid)

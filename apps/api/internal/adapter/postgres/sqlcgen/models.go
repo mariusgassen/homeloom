@@ -320,10 +320,9 @@ type Occasion struct {
 	ID          uuid.UUID
 	HouseholdID uuid.UUID
 	Name        string
-	Month       int16
-	Day         int16
-	Year        *int16
 	CreatedAt   time.Time
+	OnDate      time.Time
+	Repeat      string
 }
 
 type PushMutedTopic struct {

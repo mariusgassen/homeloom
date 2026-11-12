@@ -75,8 +75,9 @@ func (s *Gifts) Overview(ctx context.Context, actor domain.User, householdID uui
 	}
 	today := s.today()
 	for _, o := range occasions {
-		next, days := o.Date.Next(today)
-		out.Occasions = append(out.Occasions, domain.GiftOccasion{Occasion: o, Next: next, Days: days})
+		if next, days, ok := o.Next(today); ok {
+			out.Occasions = append(out.Occasions, domain.GiftOccasion{Occasion: o, Next: next, Days: days})
+		}
 	}
 	slices.SortStableFunc(out.Occasions, func(a, b domain.GiftOccasion) int { return a.Days - b.Days })
 	for _, m := range members {
@@ -148,7 +149,7 @@ func (s *Gifts) Add(ctx context.Context, actor domain.User, householdID, forID u
 	return s.gifts.AddGiftIdea(ctx, domain.GiftIdea{HouseholdID: householdID, AuthorID: actor.ID, ForID: forID, OccasionID: occasionID, Text: text})
 }
 
-func (s *Gifts) AddOccasion(ctx context.Context, actor domain.User, householdID uuid.UUID, name string, date domain.Birthday) (domain.Occasion, error) {
+func (s *Gifts) AddOccasion(ctx context.Context, actor domain.User, householdID uuid.UUID, name string, on time.Time, repeat domain.Repeat) (domain.Occasion, error) {
 	if _, err := s.households.Role(ctx, householdID, actor.ID); err != nil {
 		return domain.Occasion{}, err
 	}
@@ -156,8 +157,14 @@ func (s *Gifts) AddOccasion(ctx context.Context, actor domain.User, householdID 
 	if name == "" || utf8.RuneCountInString(name) > domain.MaxOccasionName {
 		return domain.Occasion{}, domain.TextError{Max: domain.MaxOccasionName}
 	}
-	if !date.Valid() {
+	if on.Year() < domain.MinBirthYear || on.Year() > 9999 {
 		return domain.Occasion{}, domain.ErrBirthday
+	}
+	if repeat == "" {
+		repeat = domain.RepeatYearly
+	}
+	if !domain.OccasionRepeat(repeat) {
+		return domain.Occasion{}, domain.ErrOccasionRepeat
 	}
 	have, err := s.gifts.Occasions(ctx, householdID)
 	if err != nil {
@@ -166,7 +173,7 @@ func (s *Gifts) AddOccasion(ctx context.Context, actor domain.User, householdID 
 	if len(have) >= domain.MaxOccasions {
 		return domain.Occasion{}, fmt.Errorf("%w: at most %d dates", domain.ErrInvalid, domain.MaxOccasions)
 	}
-	return s.gifts.AddOccasion(ctx, domain.Occasion{HouseholdID: householdID, Name: name, Date: date})
+	return s.gifts.AddOccasion(ctx, domain.Occasion{HouseholdID: householdID, Name: name, On: time.Date(on.Year(), on.Month(), on.Day(), 0, 0, 0, 0, time.UTC), Repeat: repeat})
 }
 
 func (s *Gifts) DeleteOccasion(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error {
@@ -228,8 +235,8 @@ func (s *Gifts) nudge(ctx context.Context, householdID uuid.UUID, today time.Tim
 		return err
 	}
 	for _, o := range occasions {
-		_, days := o.Date.Next(today)
-		if !slices.Contains(giftNudgeDays, days) {
+		_, days, ok := o.Next(today)
+		if !ok || !slices.Contains(giftNudgeDays, days) {
 			continue
 		}
 		for _, m := range members {

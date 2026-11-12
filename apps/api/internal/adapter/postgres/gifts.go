@@ -109,7 +109,7 @@ func (s *Store) Occasions(ctx context.Context, householdID uuid.UUID) ([]domain.
 
 func (s *Store) AddOccasion(ctx context.Context, o domain.Occasion) (domain.Occasion, error) {
 	row, err := s.q.AddOccasion(ctx, sqlcgen.AddOccasionParams{
-		HouseholdID: o.HouseholdID, Name: o.Name, Month: int16(o.Date.Month), Day: int16(o.Date.Day), Year: yearArg(o.Date.Year), //nolint:gosec // validated 1-12, 1-31 and 1900-now
+		HouseholdID: o.HouseholdID, Name: o.Name, OnDate: o.On, Repeat: string(o.Repeat),
 	})
 	if err != nil {
 		return domain.Occasion{}, err
@@ -131,6 +131,6 @@ func (s *Store) DeleteOccasion(ctx context.Context, householdID, id uuid.UUID) e
 func toOccasion(r sqlcgen.Occasion) domain.Occasion {
 	return domain.Occasion{
 		ID: r.ID, HouseholdID: r.HouseholdID, Name: r.Name, Created: r.CreatedAt,
-		Date: domain.Birthday{Month: time.Month(r.Month), Day: int(r.Day), Year: yearOf(r.Year)},
+		On: r.OnDate, Repeat: domain.Repeat(r.Repeat),
 	}
 }

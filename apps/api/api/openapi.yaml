@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.51.0
+  version: 0.52.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -343,7 +343,7 @@ paths:
     post:
       tags: [gifts]
       operationId: addOccasion
-      summary: Add a date the household keeps every year, such as Christmas (any member)
+      summary: Add a date the household keeps, such as Christmas, with how it repeats (any member)
       requestBody:
         required: true
         content:
@@ -4515,24 +4515,30 @@ components:
         occasionId: { type: string, format: uuid, description: One of the household's occasions. }
         text: { type: string, minLength: 1, maxLength: 200 }
 
+    OccasionRepeat:
+      type: string
+      enum: [never, weekly, monthly, yearly]
+      description: Once, every week, every month or every year, on the day of `on`.
+
     NewOccasion:
       type: object
-      required: [name, month, day]
+      required: [name, on]
       properties:
         name: { type: string, minLength: 1, maxLength: 60 }
-        month: { type: integer, minimum: 1, maximum: 12 }
-        day: { type: integer, minimum: 1, maximum: 31 }
-        year: { type: integer, minimum: 1900, description: "The year it first happened, up to this year. Optional." }
+        on: { type: string, format: date, description: "The day it falls, or first falls. A weekly one repeats on that weekday, a monthly one on that day of the month, a yearly one on that date." }
+        repeat:
+          allOf:
+            - $ref: "#/components/schemas/OccasionRepeat"
+          description: Yearly when absent.
 
     Occasion:
       type: object
-      required: [id, name, month, day, next, days]
+      required: [id, name, on, repeat, next, days]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
-        month: { type: integer }
-        day: { type: integer }
-        year: { type: integer, description: "The year it first happened; absent when not given." }
+        on: { type: string, format: date }
+        repeat: { $ref: "#/components/schemas/OccasionRepeat" }
         next: { type: string, format: date, description: When it next falls. }
         days: { type: integer, description: How many days until `next`; 0 is today. }
 
@@ -4562,7 +4568,7 @@ components:
         myBirthday: { $ref: "#/components/schemas/Birthday" }
         occasions:
           type: array
-          description: The household's yearly dates besides birthdays, soonest first.
+          description: The household's other dates besides birthdays that are still to come, soonest first.
           items: { $ref: "#/components/schemas/Occasion" }
         people:
           type: array

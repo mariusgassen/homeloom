@@ -210,14 +210,13 @@ var moreTools = []domain.Tool{
 	},
 	{
 		Name: "add_occasion",
-		Description: "Add a date the household keeps every year, such as Christmas or a wedding anniversary, so gift ideas can be kept for it. " +
-			"Any member can; everyone in the household sees it.",
+		Description: "Add a date the household keeps, such as Christmas, a wedding anniversary or a weekly game night, so gift ideas can be kept for it. " +
+			"Any member can; everyone in the household sees it. repeat is never (once), weekly (on that weekday), monthly or yearly; yearly when left out.",
 		Schema: object(map[string]any{
-			"name":  str("What the date is, e.g. Christmas."),
-			"month": map[string]any{"type": "integer", "minimum": 1, "maximum": 12},
-			"day":   map[string]any{"type": "integer", "minimum": 1, "maximum": 31},
-			"year":  map[string]any{"type": "integer", "description": "The year it first happened. Optional."},
-		}, "name", "month", "day"),
+			"name":   str("What the date is, e.g. Christmas."),
+			"date":   str("The day it falls or first falls, YYYY-MM-DD."),
+			"repeat": map[string]any{"type": "string", "enum": []string{"never", "weekly", "monthly", "yearly"}},
+		}, "name", "date"),
 	},
 	{
 		Name:        "get_chore_history",
@@ -634,10 +633,9 @@ func (t *toolbox) callMore(ctx context.Context, call domain.ToolCall) (any, erro
 		return map[string]any{"month": in.Month, "day": in.Day, "year": in.Year}, nil
 	case "add_occasion":
 		var in struct {
-			Name  string `json:"name"`
-			Month int    `json:"month"`
-			Day   int    `json:"day"`
-			Year  int    `json:"year"`
+			Name   string `json:"name"`
+			Date   string `json:"date"`
+			Repeat string `json:"repeat"`
 		}
 		if err := decode(call.Input, &in); err != nil {
 			return nil, err
@@ -645,11 +643,15 @@ func (t *toolbox) callMore(ctx context.Context, call domain.ToolCall) (any, erro
 		if t.s.gifts == nil {
 			return nil, domain.ErrUnavailable
 		}
-		o, err := t.s.gifts.AddOccasion(ctx, t.actor, t.householdID, in.Name, domain.Birthday{Month: time.Month(in.Month), Day: in.Day, Year: in.Year})
+		on, err := time.Parse("2006-01-02", strings.TrimSpace(in.Date))
+		if err != nil {
+			return nil, fmt.Errorf("%w: date %q is not YYYY-MM-DD", domain.ErrInvalid, in.Date)
+		}
+		o, err := t.s.gifts.AddOccasion(ctx, t.actor, t.householdID, in.Name, on, domain.Repeat(in.Repeat))
 		if err != nil {
 			return nil, err
 		}
-		return map[string]any{"name": o.Name, "month": in.Month, "day": in.Day}, nil
+		return map[string]any{"name": o.Name, "date": in.Date, "repeat": o.Repeat}, nil
 	case "get_chore_history":
 		if err := decode(call.Input, &struct{}{}); err != nil {
 			return nil, err

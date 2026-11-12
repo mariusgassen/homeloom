@@ -26,6 +26,7 @@
   "error.invalid_event_time": "Prüf die Zeit: Ein Termin braucht einen Beginn und kann nicht vor ihm enden.",
   "error.invalid_gift_for": "Such dir jemand anderen aus deinem Haushalt aus.",
   "error.invalid_occasion": "Such dir ein Datum aus deinem Haushalt aus.",
+  "error.invalid_occasion_repeat": "Wähle einmalig, wöchentlich, monatlich oder jährlich.",
   "error.invalid_household_name": "Gib dem Haushalt einen Namen mit 1 bis {max} Zeichen.",
   "error.invalid_ingredients": "Wähl mindestens eine Zutat aus diesem Rezept.",
   "error.invalid_moment_day": "Ein Moment kann nicht in der Zukunft liegen.",
