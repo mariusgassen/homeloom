@@ -151,7 +151,7 @@
   "us": {
     "title": "No questions yet",
     "body": "Ask the first one.",
-    "tabs": { "moments": "Moments", "questions": "Questions", "together": "Together" },
+    "tabs": { "moments": "Moments", "questions": "Questions", "together": "Together", "gifts": "Gifts" },
     "alone": { "title": "It takes two", "body": "Invite your partner first." }
   },
   "moments": {

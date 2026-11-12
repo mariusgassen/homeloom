@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router";
 import { api, type GiftIdea, type GiftPerson, type Occasion } from "../api/client";
 import { birthdayValue, parseBirthday, turns, useGifts } from "../gifts";
 import { useSession } from "../session";
@@ -9,7 +8,6 @@ import { Empty } from "../ui/Empty";
 import { Icon } from "../ui/Icon";
 import { ListRow } from "../ui/ListRow";
 import { Swipe } from "../ui/Swipe";
-import { Screen } from "./Screen";
 
 // How far off a birthday is, in words.
 export function useInDays() {
@@ -17,11 +15,10 @@ export function useInDays() {
   return (days: number) => (days === 0 ? t("gifts.today") : days === 1 ? t("gifts.tomorrow") : t("gifts.inDays", { count: days }));
 }
 
-// The gift ideas page, opened from Today or Settings: for each of the others, their birthday and
-// the ideas only you can see, and your own birthday so they can do the same for you.
+// The gift ideas, a tab of Us: for each of the others, their birthday and the ideas only you can
+// see, the household's yearly dates, and your own birthday so they can do the same for you.
 export function Gifts() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const { session } = useSession();
   if (session.state !== "signedIn" || !session.household) throw new Error("page without a household");
   const household = session.household;
@@ -54,17 +51,7 @@ export function Gifts() {
   };
 
   return (
-    <Screen
-      title={t("gifts.title")}
-      back={
-        <Button variant="plain" size="sm" className="back" onClick={() => navigate("/")}>
-          <span className="back-icon">
-            <Icon name="chevron" size="sm" />
-          </span>
-          {t("tabs.today")}
-        </Button>
-      }
-    >
+    <>
       <p className="caption muted gifts-private">
         <Icon name="lock" size="sm" /> {t("gifts.private")}
       </p>
@@ -98,7 +85,7 @@ export function Gifts() {
           <p className="caption muted">{t("gifts.mineBody")}</p>
         </section>
       )}
-    </Screen>
+    </>
   );
 }
 

@@ -151,7 +151,7 @@
   "us": {
     "title": "Noch keine Fragen",
     "body": "Stell die erste.",
-    "tabs": { "moments": "Momente", "questions": "Fragen", "together": "Zu zweit" },
+    "tabs": { "moments": "Momente", "questions": "Fragen", "together": "Zu zweit", "gifts": "Geschenke" },
     "alone": { "title": "Zu zweit geht's besser", "body": "Lade zuerst deinen Schatz ein." }
   },
   "moments": {

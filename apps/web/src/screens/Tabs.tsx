@@ -19,7 +19,7 @@ import { CallButton } from "./Call";
 import { choreAvatar, useChoreDay } from "./Chores";
 import { useWishes } from "../wishes";
 import { EntrySheet } from "./EntrySheet";
-import { useInDays } from "./Gifts";
+import { Gifts, useInDays } from "./Gifts";
 import { useWhen } from "./Lists";
 import { MomentSheet } from "./MomentSheet";
 import { AskForm, QuestionCard, useQuestions } from "./questions";
@@ -178,7 +178,7 @@ function TodayGifts({ household }: { household: HouseholdDetail }) {
   const next = gifts?.people.find((p) => p.days !== undefined && p.days <= giftHorizonDays);
   if (!next || next.days === undefined) return null;
   return (
-    <button type="button" className="today-tile today-gifts" onClick={() => navigate("/gifts")}>
+    <button type="button" className="today-tile today-gifts" onClick={() => navigate("/us?show=gifts")}>
       <span className="today-tile-icon">
         <Icon name="gift" />
       </span>
@@ -497,7 +497,7 @@ function TodayMoment({ household, me }: { household: HouseholdDetail; me: User }
   );
 }
 
-const usTabs = ["moments", "questions", "together"] as const;
+const usTabs = ["moments", "questions", "together", "gifts"] as const;
 
 export function Us() {
   const { t } = useTranslation();
@@ -532,6 +532,7 @@ export function Us() {
       {tab === "moments" && <Timeline key={generation} household={household} me={me} month={params.get("month") ?? undefined} onOpen={setSheet} />}
       {tab === "questions" && <Questions household={household} me={me} />}
       {tab === "together" && <Together household={household} />}
+      {tab === "gifts" && <Gifts />}
       {sheet && (
         <MomentSheet
           household={household}
