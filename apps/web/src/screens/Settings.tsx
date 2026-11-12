@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router";
-import { api, type McpToken, type PushTopic, type TokenAccess, type VoiceSettings } from "../api/client";
-import { ownAvatar, removeAvatar, square, uploadAvatar } from "../avatar";
+import { api, type Member, type McpToken, type PushTopic, type TokenAccess, type VoiceSettings } from "../api/client";
+import { type AvatarOwner, ownAvatar, removeAvatar, square, uploadAvatar } from "../avatar";
+import { birthdayValue, parseBirthday } from "../gifts";
 import { sharing, startSharing, stopSharing } from "../location";
 import { useAutoplay } from "../moments";
 import { currentSubscription, pushKey, pushSupport, subscribe, unsubscribe } from "../push";
@@ -11,7 +12,7 @@ import { Button } from "../ui/Button";
 import { ListRow } from "../ui/ListRow";
 import { SwitchRow } from "../ui/Form";
 import { PlaceInput } from "../ui/PlaceInput";
-import { ThreadAvatar, threadFor } from "../ui/ThreadAvatar";
+import { type Thread, ThreadAvatar, threadFor } from "../ui/ThreadAvatar";
 import { Screen } from "./Screen";
 
 export function Settings() {
@@ -21,30 +22,25 @@ export function Settings() {
   const { user, household } = session;
   return (
     <Screen title={t("settings.title")}>
-      <section className="group">
-        <h2 className="label group-title">{t("settings.you")}</h2>
-        <div className="hl-list">
-          <ListRow leading={<ThreadAvatar name={user.name} src={user.avatarUrl} />} title={user.name} subtitle={user.email} />
-        </div>
-        <Photo url={user.avatarUrl} />
-      </section>
-      {household && (
+      {household ? (
         <section className="group">
           <h2 className="label group-title">
             {t("settings.household")} · {household.name}
           </h2>
           <div className="hl-list">
             {household.members.map((m, i) => (
-              <ListRow
-                key={m.user.id}
-                leading={<ThreadAvatar name={m.user.name} src={m.user.avatarUrl} thread={threadFor(i)} />}
-                title={m.user.name}
-                trailing={t(`settings.${m.role}`)}
-              />
+              <MemberRow key={m.user.id} member={m} index={i} householdId={household.id} me={user.id} owner={household.role === "owner"} />
             ))}
           </div>
           <Place householdId={household.id} place={household.place ?? ""} />
           <Invite householdId={household.id} />
+        </section>
+      ) : (
+        <section className="group">
+          <h2 className="label group-title">{t("settings.you")}</h2>
+          <div className="hl-list">
+            <ListRow leading={<PhotoAvatar name={user.name} url={user.avatarUrl} />} title={user.name} subtitle={user.email} />
+          </div>
         </section>
       )}
       {household && <GiftsLink />}
@@ -93,8 +89,9 @@ function Videos() {
   );
 }
 
-// Your own picture: one picked here wins over the one the sign-in sends, until it is removed.
-function Photo({ url }: { url?: string }) {
+// A picture you can change by tapping it: yours, or, for the household's owner, anyone's. One
+// picked here wins over the one the sign-in sends, until it is removed.
+function PhotoAvatar({ name, url, thread, member }: { name: string; url?: string; thread?: Thread; member?: AvatarOwner }) {
   const { t } = useTranslation();
   const { reload } = useSession();
   const [busy, setBusy] = useState(false);
@@ -111,30 +108,83 @@ function Photo({ url }: { url?: string }) {
 
   return (
     <>
-      <div className="avatar-actions">
-        <label className="hl-btn hl-btn-secondary hl-btn-sm">
-          {t(url ? "settings.photoChange" : "settings.photo")}
-          <input
-            className="visually-hidden"
-            type="file"
-            accept="image/*"
-            disabled={busy}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              e.target.value = "";
-              if (file) void run(async () => uploadAvatar(await square(file)));
-            }}
-          />
-        </label>
-        {ownAvatar(url) && (
-          <Button variant="plain" size="sm" disabled={busy} onClick={() => void run(removeAvatar)}>
-            {t("settings.photoRemove")}
-          </Button>
-        )}
-      </div>
+      <label className="avatar-pick" aria-label={t(url ? "settings.photoChange" : "settings.photo", { name })}>
+        <ThreadAvatar name={name} src={url} thread={thread} />
+        <input
+          className="visually-hidden"
+          type="file"
+          accept="image/*"
+          disabled={busy}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) void run(async () => uploadAvatar(await square(file), member));
+          }}
+        />
+      </label>
+      {ownAvatar(url) && (
+        <Button variant="plain" size="sm" disabled={busy} onClick={() => void run(() => removeAvatar(member))}>
+          {t("settings.photoRemove")}
+        </Button>
+      )}
       {failed && (
         <p className="callout error" role="alert">
           {t("settings.photoFailed")}
+        </p>
+      )}
+    </>
+  );
+}
+
+// One person of the household. They change their own picture, the owner anyone's and also the
+// birthday, which is the owner's to keep.
+function MemberRow({ member, index, householdId, me, owner }: { member: Member; index: number; householdId: string; me: string; owner: boolean }) {
+  const { t } = useTranslation();
+  const { reload } = useSession();
+  const [failed, setFailed] = useState(false);
+  const { user, birthday } = member;
+  const path = { params: { path: { householdId, userId: user.id } } };
+  const mine = user.id === me;
+
+  async function save(work: Promise<{ response: Response }>) {
+    setFailed(false);
+    const res = await work.catch(() => undefined);
+    if (res?.response.ok) reload();
+    else setFailed(true);
+  }
+
+  return (
+    <>
+      <ListRow
+        leading={mine || owner ? <PhotoAvatar name={user.name} url={user.avatarUrl} thread={threadFor(index)} member={mine ? undefined : { householdId, userId: user.id }} /> : <ThreadAvatar name={user.name} src={user.avatarUrl} thread={threadFor(index)} />}
+        title={user.name}
+        subtitle={mine ? t("settings.you") : undefined}
+        trailing={t(`settings.${member.role}`)}
+      />
+      {owner && (
+        <div className="gifts-mine">
+          <input
+            className="input"
+            type="date"
+            min="1900-01-01"
+            max={new Date().toISOString().slice(0, 10)}
+            aria-label={t("settings.birthday", { name: user.name })}
+            value={birthday ? birthdayValue(birthday) : ""}
+            onChange={(e) => {
+              const body = parseBirthday(e.target.value);
+              if (body) void save(api.PUT("/v1/households/{householdId}/members/{userId}/birthday", { ...path, body }));
+            }}
+          />
+          {birthday && (
+            <Button variant="plain" size="sm" onClick={() => void save(api.DELETE("/v1/households/{householdId}/members/{userId}/birthday", path))}>
+              {t("gifts.remove")}
+            </Button>
+          )}
+        </div>
+      )}
+      {failed && (
+        <p className="callout error" role="alert">
+          {t("gifts.failed")}
         </p>
       )}
     </>

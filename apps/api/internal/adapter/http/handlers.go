@@ -18,6 +18,7 @@ type handlers struct {
 	publicURL  string
 	households port.HouseholdService
 	avatars    port.AvatarService
+	members    port.MemberService
 	questions  port.QuestionService
 	entries    port.EntryService
 	moments    port.MomentService
@@ -157,7 +158,7 @@ func (h *handlers) UpdateHousehold(ctx context.Context, req oapi.UpdateHousehold
 func toHouseholdDetail(d domain.HouseholdDetail) oapi.HouseholdDetail {
 	members := make([]oapi.Member, len(d.Members))
 	for i, m := range d.Members {
-		members[i] = oapi.Member{User: toUser(m.User), Role: oapi.Role(m.Role)}
+		members[i] = oapi.Member{User: toUser(m.User), Role: oapi.Role(m.Role), Birthday: toBirthday(m.Birthday)}
 	}
 	return oapi.HouseholdDetail{Id: d.Household.ID, Name: d.Household.Name, Role: oapi.Role(d.Role), Place: optional(d.Household.Place), Members: members}
 }

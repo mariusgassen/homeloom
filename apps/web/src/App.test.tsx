@@ -474,6 +474,27 @@ test("settings creates an invite link", async () => {
   expect(await screen.findByText(`${window.location.origin}/join/abc`)).toBeInTheDocument();
 });
 
+test("settings lists each person once and lets the owner set a birthday", async () => {
+  const calls = serve(
+    ...signedIn({ ...home, members: [{ user: marius, role: "owner" }, { user: jo, role: "member" }] }),
+    at("PUT", `/v1/households/${home.id}/members/${jo.id}/birthday`, () => new Response(null, { status: 204 })),
+  );
+  renderApp("/settings");
+  expect(await screen.findByLabelText("Birthday of Jo")).toBeInTheDocument();
+  expect(screen.getAllByText("Jo")).toHaveLength(1);
+  expect(screen.getAllByText("Marius")).toHaveLength(1);
+  fireEvent.change(screen.getByLabelText("Birthday of Jo"), { target: { value: "1990-03-14" } });
+  await waitFor(() => expect(calls.some((c) => c.method === "PUT")).toBe(true));
+  expect(await calls.find((c) => c.method === "PUT")?.json()).toEqual({ year: 1990, month: 3, day: 14 });
+});
+
+test("settings gives a member no control over the others' birthdays", async () => {
+  serve(...signedIn({ ...home, role: "member", members: [{ user: jo, role: "owner" }, { user: marius, role: "member" }] }));
+  renderApp("/settings");
+  expect(await screen.findByText("Our place", { exact: false })).toBeInTheDocument();
+  expect(screen.queryByLabelText("Birthday of Jo")).not.toBeInTheDocument();
+});
+
 // A browser that can do Web Push, with a push service that hands out one fixed subscription.
 function stubPush(permission: NotificationPermission) {
   let current: PushSubscription | null = null;

@@ -26,6 +26,16 @@ type AvatarService interface {
 	Get(ctx context.Context, actor domain.User, userID uuid.UUID) (domain.Photo, error)
 }
 
+// MemberService lets the owner of a household keep its members' details.
+type MemberService interface {
+	// Every method returns domain.ErrNotFound unless the actor is in the household and the
+	// member is too, and domain.ErrForbidden when the actor is not the owner.
+	SetBirthday(ctx context.Context, actor domain.User, householdID, userID uuid.UUID, b domain.Birthday) error
+	ClearBirthday(ctx context.Context, actor domain.User, householdID, userID uuid.UUID) error
+	SetAvatar(ctx context.Context, actor domain.User, householdID, userID uuid.UUID, p domain.Photo) (domain.User, error)
+	DeleteAvatar(ctx context.Context, actor domain.User, householdID, userID uuid.UUID) (domain.User, error)
+}
+
 type LoginService interface {
 	// Begin starts a sign-in: state is to be bound to the browser, url is where to send it.
 	Begin(ctx context.Context) (state, url string, err error)

@@ -237,7 +237,7 @@ func run() error {
 	go notifyDaily(ctx, map[string]dailyJob{"moments": moments, "chores": chores, "briefing": briefing, "gifts": gifts})
 	cook := service.NewCook(store, book, chef, shopping).WithPlan(store).WithTaste(store, store)
 	homeService := service.NewHome(store, homeConnections, sessions, home)
-	households := service.NewHousehold(store).WithWeather(forecaster)
+	households := service.NewHousehold(store).WithWeather(forecaster).WithBirthdays(store)
 	watch := service.NewWatch(store, watchConnections, sessions, media, critic).WithTonight(store, push, cfg.TimeZone).WithNight(store)
 	dateNight := service.NewDateNight(store, planner, forecaster, cfg.TimeZone).WithNamer(placeNamer)
 	questions := service.NewQuestion(store, store, push, muse)
@@ -273,6 +273,7 @@ func run() error {
 		Calls:          service.NewCall(store, sessions, calls, push).WithVoiceAgent(cfg.VoiceAgent, agents).WithVoice(voice),
 		Voice:          voice,
 		Avatars:        service.NewAvatars(users),
+		Members:        service.NewMembers(store, users, store),
 		Assistant:      assistant,
 		Agents:         agents,
 		HealthChecks:   []port.HealthCheck{postgres.HealthCheck{Pool: pool}, redis.HealthCheck{Client: rdb}},
