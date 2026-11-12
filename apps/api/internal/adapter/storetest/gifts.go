@@ -86,11 +86,11 @@ func Gifts(t *testing.T, s interface {
 	}
 
 	// Occasions belong to the household; deleting one keeps the ideas for it, without it.
-	o, err := s.AddOccasion(ctx, domain.Occasion{HouseholdID: hh, Name: "Christmas", Date: domain.Birthday{Month: time.December, Day: 25}})
+	o, err := s.AddOccasion(ctx, domain.Occasion{HouseholdID: hh, Name: "Christmas", On: time.Date(2020, time.December, 25, 0, 0, 0, 0, time.UTC), Repeat: domain.RepeatYearly})
 	if err != nil || o.ID.String() == "" {
 		t.Fatalf("add occasion: %+v, %v", o, err)
 	}
-	if os, err := s.Occasions(ctx, hh); err != nil || len(os) != 1 || os[0].Name != "Christmas" || os[0].Date.Day != 25 {
+	if os, err := s.Occasions(ctx, hh); err != nil || len(os) != 1 || os[0].Name != "Christmas" || os[0].On.Day() != 25 || os[0].Repeat != domain.RepeatYearly {
 		t.Fatalf("occasions: %+v, %v", os, err)
 	}
 	c, err := s.AddGiftIdea(ctx, domain.GiftIdea{HouseholdID: hh, AuthorID: alice.ID, ForID: bob.ID, OccasionID: &o.ID, Text: "Scarf"})

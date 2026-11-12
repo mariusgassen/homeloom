@@ -67,20 +67,25 @@ func (h *handlers) AddOccasion(ctx context.Context, req oapi.AddOccasionRequestO
 	if err != nil {
 		return nil, err
 	}
-	date := domain.Birthday{Month: time.Month(req.Body.Month), Day: req.Body.Day, Year: derefInt(req.Body.Year)}
-	o, err := h.gifts.AddOccasion(ctx, u, req.HouseholdId, req.Body.Name, date)
+	repeat := domain.RepeatYearly
+	if req.Body.Repeat != nil {
+		repeat = domain.Repeat(*req.Body.Repeat)
+	}
+	o, err := h.gifts.AddOccasion(ctx, u, req.HouseholdId, req.Body.Name, req.Body.On.Time, repeat)
 	var te domain.TextError
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
 		return oapi.AddOccasion404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
 	case errors.As(err, &te):
 		return oapi.AddOccasion400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "invalid_text", err.Error(), "max", te.Max))}, nil
+	case errors.Is(err, domain.ErrOccasionRepeat):
+		return oapi.AddOccasion400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "invalid_occasion_repeat", err.Error()))}, nil
 	case errors.Is(err, domain.ErrBirthday):
 		return oapi.AddOccasion400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "invalid_birthday", err.Error()))}, nil
 	case err != nil:
 		return nil, err
 	}
-	next, days := o.Date.Next(time.Now())
+	next, days, _ := o.Next(time.Now())
 	return oapi.AddOccasion201JSONResponse(toOccasion(o, next, days)), nil
 }
 
@@ -167,11 +172,7 @@ func toBirthday(b *domain.Birthday) *oapi.Birthday {
 }
 
 func toOccasion(o domain.Occasion, next time.Time, days int) oapi.Occasion {
-	out := oapi.Occasion{Id: o.ID, Name: o.Name, Month: int(o.Date.Month), Day: o.Date.Day, Next: openapi_types.Date{Time: next}, Days: days}
-	if o.Date.Year != 0 {
-		out.Year = &o.Date.Year
-	}
-	return out
+	return oapi.Occasion{Id: o.ID, Name: o.Name, On: openapi_types.Date{Time: o.On}, Repeat: oapi.OccasionRepeat(o.Repeat), Next: openapi_types.Date{Time: next}, Days: days}
 }
 
 func toGiftIdea(i domain.GiftIdea) oapi.GiftIdea {

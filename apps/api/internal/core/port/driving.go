@@ -437,7 +437,7 @@ type GiftService interface {
 	// occasionID is set.
 	Add(ctx context.Context, actor domain.User, householdID, forID uuid.UUID, occasionID *uuid.UUID, text string) (domain.GiftIdea, error)
 	// AddOccasion adds a date the household keeps every year; any member can.
-	AddOccasion(ctx context.Context, actor domain.User, householdID uuid.UUID, name string, date domain.Birthday) (domain.Occasion, error)
+	AddOccasion(ctx context.Context, actor domain.User, householdID uuid.UUID, name string, on time.Time, repeat domain.Repeat) (domain.Occasion, error)
 	DeleteOccasion(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
 	SetGiven(ctx context.Context, actor domain.User, householdID, id uuid.UUID, given bool) (domain.GiftIdea, error)
 	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error

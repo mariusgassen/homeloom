@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { api, type GiftIdea, type GiftPerson, type Occasion } from "../api/client";
+import { api, type GiftIdea, type GiftPerson, type Occasion, type OccasionRepeat } from "../api/client";
 import { birthdayValue, parseBirthday, turns, useGifts } from "../gifts";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
@@ -39,10 +39,8 @@ export function Gifts() {
   const remove = (i: GiftIdea) => run(api.DELETE("/v1/households/{householdId}/gifts/ideas/{ideaId}", idea(i.id)));
   const add = (forId: string, text: string, occasionId?: string) =>
     run(api.POST("/v1/households/{householdId}/gifts/ideas", { ...path, body: { forId, text, occasionId } }));
-  const addDate = (name: string, value: string) => {
-    const date = parseBirthday(value);
-    return date ? run(api.POST("/v1/households/{householdId}/gifts/occasions", { ...path, body: { name, month: date.month, day: date.day } })) : Promise.resolve(false);
-  };
+  const addDate = (name: string, on: string, repeat: OccasionRepeat) =>
+    run(api.POST("/v1/households/{householdId}/gifts/occasions", { ...path, body: { name, on, repeat } }));
   const removeDate = (o: Occasion) =>
     run(api.DELETE("/v1/households/{householdId}/gifts/occasions/{occasionId}", { params: { path: { householdId: household.id, occasionId: o.id } } }));
   const setBirthday = (value: string) => {
@@ -89,18 +87,21 @@ export function Gifts() {
   );
 }
 
+const repeats: OccasionRepeat[] = ["yearly", "monthly", "weekly", "never"];
+
 function Dates({ occasions, when, onAdd, onDelete }: {
   occasions: Occasion[];
   when: (days: number) => string;
-  onAdd: (name: string, date: string) => Promise<boolean>;
+  onAdd: (name: string, date: string, repeat: OccasionRepeat) => Promise<boolean>;
   onDelete: (o: Occasion) => Promise<boolean>;
 }) {
   const { t } = useTranslation();
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
+  const [repeat, setRepeat] = useState<OccasionRepeat>("yearly");
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (name.trim() && date && (await onAdd(name, date))) {
+    if (name.trim() && date && (await onAdd(name, date, repeat))) {
       setName("");
       setDate("");
     }
@@ -112,7 +113,7 @@ function Dates({ occasions, when, onAdd, onDelete }: {
         <div className="hl-list">
           {occasions.map((o) => (
             <Swipe key={o.id} end={{ label: t("gifts.dateDelete"), icon: "trash", tone: "danger", onAction: () => void onDelete(o) }}>
-              <ListRow title={o.name} subtitle={when(o.days)} />
+              <ListRow title={o.name} subtitle={`${when(o.days)} · ${t(`gifts.repeat.${o.repeat}`)}`} />
             </Swipe>
           ))}
         </div>
@@ -122,6 +123,13 @@ function Dates({ occasions, when, onAdd, onDelete }: {
         <input className="input" type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label={t("gifts.dateWhen")} />
         <Button type="submit" icon="plus" disabled={!name.trim() || !date} aria-label={t("gifts.dateAdd")} />
       </form>
+      <select className="input" value={repeat} onChange={(e) => setRepeat(e.target.value as OccasionRepeat)} aria-label={t("gifts.repeatLabel")}>
+        {repeats.map((r) => (
+          <option key={r} value={r}>
+            {t(`gifts.repeat.${r}`)}
+          </option>
+        ))}
+      </select>
     </section>
   );
 }

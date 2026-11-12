@@ -306,7 +306,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Add a date the household keeps every year, such as Christmas (any member) */
+        /** Add a date the household keeps, such as Christmas, with how it repeats (any member) */
         post: operations["addOccasion"];
         delete?: never;
         options?: never;
@@ -3500,21 +3500,28 @@ export interface components {
             occasionId?: string;
             text: string;
         };
+        /**
+         * @description Once, every week, every month or every year, on the day of `on`.
+         * @enum {string}
+         */
+        OccasionRepeat: "never" | "weekly" | "monthly" | "yearly";
         NewOccasion: {
             name: string;
-            month: number;
-            day: number;
-            /** @description The year it first happened, up to this year. Optional. */
-            year?: number;
+            /**
+             * Format: date
+             * @description The day it falls, or first falls. A weekly one repeats on that weekday, a monthly one on that day of the month, a yearly one on that date.
+             */
+            on: string;
+            /** @description Yearly when absent. */
+            repeat?: components["schemas"]["OccasionRepeat"];
         };
         Occasion: {
             /** Format: uuid */
             id: string;
             name: string;
-            month: number;
-            day: number;
-            /** @description The year it first happened; absent when not given. */
-            year?: number;
+            /** Format: date */
+            on: string;
+            repeat: components["schemas"]["OccasionRepeat"];
             /**
              * Format: date
              * @description When it next falls.
@@ -3541,7 +3548,7 @@ export interface components {
         };
         Gifts: {
             myBirthday?: components["schemas"]["Birthday"];
-            /** @description The household's yearly dates besides birthdays, soonest first. */
+            /** @description The household's other dates besides birthdays that are still to come, soonest first. */
             occasions: components["schemas"]["Occasion"][];
             /** @description The other members, soonest birthday first. */
             people: components["schemas"]["GiftPerson"][];

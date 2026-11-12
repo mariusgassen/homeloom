@@ -26,6 +26,7 @@
   "error.invalid_event_time": "Check the time: an event needs a start, and it can't end before it starts.",
   "error.invalid_gift_for": "Pick someone else from your household.",
   "error.invalid_occasion": "Pick one of your household's dates.",
+  "error.invalid_occasion_repeat": "Pick once, weekly, monthly or yearly.",
   "error.invalid_household_name": "Give the household a name of 1 to {max} characters.",
   "error.invalid_ingredients": "Pick at least one ingredient from this recipe.",
   "error.invalid_moment_day": "A moment can't be in the future.",

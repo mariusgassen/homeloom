@@ -739,6 +739,7 @@ func (t *toolbox) giftIdeas(ctx context.Context) (any, error) {
 	type occasion struct {
 		Name   string `json:"name"`
 		Date   string `json:"date"`
+		Repeat string `json:"repeat"`
 		InDays int    `json:"in_days"`
 	}
 	type idea struct {
@@ -753,7 +754,7 @@ func (t *toolbox) giftIdeas(ctx context.Context) (any, error) {
 		Ideas     []idea     `json:"ideas"`
 	}{People: []person{}, Occasions: []occasion{}, Ideas: []idea{}}
 	for _, o := range g.Occasions {
-		out.Occasions = append(out.Occasions, occasion{Name: o.Name, Date: o.Next.Format("2006-01-02"), InDays: o.Days})
+		out.Occasions = append(out.Occasions, occasion{Name: o.Name, Date: o.Next.Format("2006-01-02"), Repeat: string(o.Repeat), InDays: o.Days})
 	}
 	for _, p := range g.People {
 		v := person{Name: p.User.Name}

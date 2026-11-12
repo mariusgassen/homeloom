@@ -34,7 +34,7 @@ DELETE FROM gift_ideas WHERE id = $1 AND household_id = $2 AND author_id = $3;
 SELECT * FROM occasions WHERE household_id = $1 ORDER BY created_at, id;
 
 -- name: AddOccasion :one
-INSERT INTO occasions (household_id, name, month, day, year) VALUES ($1, $2, $3, $4, $5)
+INSERT INTO occasions (household_id, name, on_date, repeat) VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: DeleteOccasion :execrows
