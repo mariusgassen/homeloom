@@ -61,6 +61,8 @@ var pushTopicByKey = map[string]PushTopic{
 	"push.chores_due":         PushTopicChores,
 	"push.gift_birthday":      PushTopicGifts,
 	"push.gift_birthday_none": PushTopicGifts,
+	"push.gift_occasion":      PushTopicGifts,
+	"push.gift_occasion_none": PushTopicGifts,
 	"push.gratitude":          PushTopicUs,
 	"push.gratitude_own":      PushTopicUs,
 	"push.moment_reaction":    PushTopicUs,

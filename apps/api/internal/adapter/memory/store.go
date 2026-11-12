@@ -71,6 +71,7 @@ type Store struct {
 	expenses         []domain.Expense
 	birthdays        map[uuid.UUID]domain.Birthday
 	giftIdeas        []domain.GiftIdea
+	occasions        []domain.Occasion
 	wishes           []domain.Wish
 }
 

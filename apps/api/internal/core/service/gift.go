@@ -65,11 +65,20 @@ func (s *Gifts) Overview(ctx context.Context, actor domain.User, householdID uui
 	if err != nil {
 		return domain.Gifts{}, err
 	}
+	occasions, err := s.gifts.Occasions(ctx, householdID)
+	if err != nil {
+		return domain.Gifts{}, err
+	}
 	out := domain.Gifts{Ideas: ideas}
 	if b, ok := birthdays[actor.ID]; ok {
 		out.MyBirthday = &b
 	}
 	today := s.today()
+	for _, o := range occasions {
+		next, days := o.Date.Next(today)
+		out.Occasions = append(out.Occasions, domain.GiftOccasion{Occasion: o, Next: next, Days: days})
+	}
+	slices.SortStableFunc(out.Occasions, func(a, b domain.GiftOccasion) int { return a.Days - b.Days })
 	for _, m := range members {
 		if m.User.ID == actor.ID {
 			continue
@@ -108,7 +117,7 @@ func (s *Gifts) SetBirthday(ctx context.Context, actor domain.User, b *domain.Bi
 	return s.gifts.SetBirthday(ctx, actor.ID, b)
 }
 
-func (s *Gifts) Add(ctx context.Context, actor domain.User, householdID, forID uuid.UUID, text string) (domain.GiftIdea, error) {
+func (s *Gifts) Add(ctx context.Context, actor domain.User, householdID, forID uuid.UUID, occasionID *uuid.UUID, text string) (domain.GiftIdea, error) {
 	members, err := s.members(ctx, actor, householdID)
 	if err != nil {
 		return domain.GiftIdea{}, err
@@ -120,6 +129,15 @@ func (s *Gifts) Add(ctx context.Context, actor domain.User, householdID, forID u
 	if forID == actor.ID || !slices.ContainsFunc(members, func(m domain.Member) bool { return m.User.ID == forID }) {
 		return domain.GiftIdea{}, domain.ErrGiftFor
 	}
+	if occasionID != nil {
+		occasions, err := s.gifts.Occasions(ctx, householdID)
+		if err != nil {
+			return domain.GiftIdea{}, err
+		}
+		if !slices.ContainsFunc(occasions, func(o domain.Occasion) bool { return o.ID == *occasionID }) {
+			return domain.GiftIdea{}, domain.ErrOccasion
+		}
+	}
 	have, err := s.gifts.GiftIdeas(ctx, householdID, actor.ID, domain.MaxGiftIdeas)
 	if err != nil {
 		return domain.GiftIdea{}, err
@@ -127,7 +145,35 @@ func (s *Gifts) Add(ctx context.Context, actor domain.User, householdID, forID u
 	if len(have) >= domain.MaxGiftIdeas {
 		return domain.GiftIdea{}, fmt.Errorf("%w: at most %d ideas", domain.ErrInvalid, domain.MaxGiftIdeas)
 	}
-	return s.gifts.AddGiftIdea(ctx, domain.GiftIdea{HouseholdID: householdID, AuthorID: actor.ID, ForID: forID, Text: text})
+	return s.gifts.AddGiftIdea(ctx, domain.GiftIdea{HouseholdID: householdID, AuthorID: actor.ID, ForID: forID, OccasionID: occasionID, Text: text})
+}
+
+func (s *Gifts) AddOccasion(ctx context.Context, actor domain.User, householdID uuid.UUID, name string, date domain.Birthday) (domain.Occasion, error) {
+	if _, err := s.households.Role(ctx, householdID, actor.ID); err != nil {
+		return domain.Occasion{}, err
+	}
+	name = strings.TrimSpace(name)
+	if name == "" || utf8.RuneCountInString(name) > domain.MaxOccasionName {
+		return domain.Occasion{}, domain.TextError{Max: domain.MaxOccasionName}
+	}
+	if !date.Valid() {
+		return domain.Occasion{}, domain.ErrBirthday
+	}
+	have, err := s.gifts.Occasions(ctx, householdID)
+	if err != nil {
+		return domain.Occasion{}, err
+	}
+	if len(have) >= domain.MaxOccasions {
+		return domain.Occasion{}, fmt.Errorf("%w: at most %d dates", domain.ErrInvalid, domain.MaxOccasions)
+	}
+	return s.gifts.AddOccasion(ctx, domain.Occasion{HouseholdID: householdID, Name: name, Date: date})
+}
+
+func (s *Gifts) DeleteOccasion(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error {
+	if _, err := s.households.Role(ctx, householdID, actor.ID); err != nil {
+		return err
+	}
+	return s.gifts.DeleteOccasion(ctx, householdID, id)
 }
 
 func (s *Gifts) SetGiven(ctx context.Context, actor domain.User, householdID, id uuid.UUID, given bool) (domain.GiftIdea, error) {
@@ -144,7 +190,7 @@ func (s *Gifts) Delete(ctx context.Context, actor domain.User, householdID, id u
 	return s.gifts.DeleteGiftIdea(ctx, householdID, actor.ID, id)
 }
 
-// NotifyDaily tells every member, a week and a day before another member's birthday, how many
+// NotifyDaily tells every member, a week and a day before another member's birthday or an occasion, how many
 // ideas they have for them. It goes only to the author, with only their own count. It is meant to
 // run every minute or so; it goes out once per day, also with several API instances.
 func (s *Gifts) NotifyDaily(ctx context.Context) error {
@@ -176,6 +222,35 @@ func (s *Gifts) nudge(ctx context.Context, householdID uuid.UUID, today time.Tim
 	birthdays, err := s.gifts.Birthdays(ctx, householdID)
 	if err != nil {
 		return err
+	}
+	occasions, err := s.gifts.Occasions(ctx, householdID)
+	if err != nil {
+		return err
+	}
+	for _, o := range occasions {
+		_, days := o.Date.Next(today)
+		if !slices.Contains(giftNudgeDays, days) {
+			continue
+		}
+		for _, m := range members {
+			ideas, err := s.gifts.GiftIdeas(ctx, householdID, m.User.ID, domain.MaxGiftIdeas)
+			if err != nil {
+				return err
+			}
+			open := 0
+			for _, i := range ideas {
+				if i.OccasionID != nil && *i.OccasionID == o.ID && i.GivenAt == nil {
+					open++
+				}
+			}
+			key := "push.gift_occasion"
+			if open == 0 {
+				key = "push.gift_occasion_none"
+			}
+			s.notify.Notify(ctx, []uuid.UUID{m.User.ID}, domain.Notification{
+				Key: key, Args: []any{"name", o.Name, "count", open}, URL: "/gifts", Tag: "gift-occasion-" + o.ID.String(),
+			})
+		}
 	}
 	for _, celebrant := range members {
 		b, ok := birthdays[celebrant.User.ID]

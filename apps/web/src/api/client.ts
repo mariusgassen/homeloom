@@ -52,6 +52,7 @@ export type BucketKind = components["schemas"]["BucketKind"];
 export type Chore = components["schemas"]["Chore"];
 export type Gifts = components["schemas"]["Gifts"];
 export type GiftIdea = components["schemas"]["GiftIdea"];
+export type Occasion = components["schemas"]["Occasion"];
 export type GiftPerson = components["schemas"]["GiftPerson"];
 export type ChoreFields = components["schemas"]["ChoreFields"];
 export type ChoreCompletion = components["schemas"]["ChoreCompletion"];

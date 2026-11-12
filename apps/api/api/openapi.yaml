@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.50.0
+  version: 0.51.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -308,7 +308,7 @@ paths:
         in the API, the assistant or a notification shows an idea to anyone else.
       responses:
         "200":
-          description: Your birthday, the other members soonest birthday first, and your own ideas.
+          description: Your birthday, the household's other yearly dates, the other members soonest birthday first, and your own ideas.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Gifts" }
@@ -334,6 +334,41 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/GiftIdea" }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/gifts/occasions:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+    post:
+      tags: [gifts]
+      operationId: addOccasion
+      summary: Add a date the household keeps every year, such as Christmas (any member)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NewOccasion" }
+      responses:
+        "201":
+          description: The occasion.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Occasion" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/households/{householdId}/gifts/occasions/{occasionId}:
+    parameters:
+      - $ref: "#/components/parameters/HouseholdId"
+      - $ref: "#/components/parameters/OccasionId"
+    delete:
+      tags: [gifts]
+      operationId: deleteOccasion
+      summary: Delete an occasion (any member); ideas for it stay, without it
+      responses:
+        "204": { description: Deleted. }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
 
@@ -3697,6 +3732,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    OccasionId:
+      name: occasionId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
     TripId:
       name: tripId
       in: path
@@ -4461,6 +4501,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         forId: { type: string, format: uuid, description: The member it is for. }
+        occasionId: { type: string, format: uuid, description: The occasion it is for. Absent when it isn't tied to one. }
         text: { type: string }
         given: { type: boolean }
         givenAt: { type: string, format: date-time }
@@ -4471,7 +4512,29 @@ components:
       required: [forId, text]
       properties:
         forId: { type: string, format: uuid, description: Another member of the household. }
+        occasionId: { type: string, format: uuid, description: One of the household's occasions. }
         text: { type: string, minLength: 1, maxLength: 200 }
+
+    NewOccasion:
+      type: object
+      required: [name, month, day]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        month: { type: integer, minimum: 1, maximum: 12 }
+        day: { type: integer, minimum: 1, maximum: 31 }
+        year: { type: integer, minimum: 1900, description: "The year it first happened, up to this year. Optional." }
+
+    Occasion:
+      type: object
+      required: [id, name, month, day, next, days]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        month: { type: integer }
+        day: { type: integer }
+        year: { type: integer, description: "The year it first happened; absent when not given." }
+        next: { type: string, format: date, description: When it next falls. }
+        days: { type: integer, description: How many days until `next`; 0 is today. }
 
     GiftIdeaUpdate:
       type: object
@@ -4494,9 +4557,13 @@ components:
 
     Gifts:
       type: object
-      required: [people, ideas]
+      required: [people, occasions, ideas]
       properties:
         myBirthday: { $ref: "#/components/schemas/Birthday" }
+        occasions:
+          type: array
+          description: The household's yearly dates besides birthdays, soonest first.
+          items: { $ref: "#/components/schemas/Occasion" }
         people:
           type: array
           description: The other members, soonest birthday first.

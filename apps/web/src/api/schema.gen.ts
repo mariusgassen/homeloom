@@ -295,6 +295,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/households/{householdId}/gifts/occasions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a date the household keeps every year, such as Christmas (any member) */
+        post: operations["addOccasion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/households/{householdId}/gifts/occasions/{occasionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                occasionId: components["parameters"]["OccasionId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete an occasion (any member); ideas for it stay, without it */
+        delete: operations["deleteOccasion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/households/{householdId}/gifts/ideas/{ideaId}": {
         parameters: {
             query?: never;
@@ -3436,6 +3475,11 @@ export interface components {
              * @description The member it is for.
              */
             forId: string;
+            /**
+             * Format: uuid
+             * @description The occasion it is for. Absent when it isn't tied to one.
+             */
+            occasionId?: string;
             text: string;
             given: boolean;
             /** Format: date-time */
@@ -3449,7 +3493,35 @@ export interface components {
              * @description Another member of the household.
              */
             forId: string;
+            /**
+             * Format: uuid
+             * @description One of the household's occasions.
+             */
+            occasionId?: string;
             text: string;
+        };
+        NewOccasion: {
+            name: string;
+            month: number;
+            day: number;
+            /** @description The year it first happened, up to this year. Optional. */
+            year?: number;
+        };
+        Occasion: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            month: number;
+            day: number;
+            /** @description The year it first happened; absent when not given. */
+            year?: number;
+            /**
+             * Format: date
+             * @description When it next falls.
+             */
+            next: string;
+            /** @description How many days until `next`; 0 is today. */
+            days: number;
         };
         GiftIdeaUpdate: {
             given: boolean;
@@ -3469,6 +3541,8 @@ export interface components {
         };
         Gifts: {
             myBirthday?: components["schemas"]["Birthday"];
+            /** @description The household's yearly dates besides birthdays, soonest first. */
+            occasions: components["schemas"]["Occasion"][];
             /** @description The other members, soonest birthday first. */
             people: components["schemas"]["GiftPerson"][];
             /** @description Only the caller's own ideas, open ones first. */
@@ -4082,6 +4156,7 @@ export interface components {
         ShoppingItemId: string;
         ExpenseId: string;
         GiftIdeaId: string;
+        OccasionId: string;
         TripId: string;
         OptionId: string;
         PhotoId: string;
@@ -4459,7 +4534,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Your birthday, the other members soonest birthday first, and your own ideas. */
+            /** @description Your birthday, the household's other yearly dates, the other members soonest birthday first, and your own ideas. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -4497,6 +4572,58 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    addOccasion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewOccasion"];
+            };
+        };
+        responses: {
+            /** @description The occasion. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Occasion"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteOccasion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                householdId: components["parameters"]["HouseholdId"];
+                occasionId: components["parameters"]["OccasionId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             401: components["responses"]["Unauthorized"];
             404: components["responses"]["NotFound"];
         };

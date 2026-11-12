@@ -99,3 +99,39 @@ func (s *Store) DeleteGiftIdea(_ context.Context, householdID, authorID, id uuid
 	s.giftIdeas = slices.Delete(s.giftIdeas, i, i+1)
 	return nil
 }
+
+func (s *Store) Occasions(_ context.Context, householdID uuid.UUID) ([]domain.Occasion, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := []domain.Occasion{}
+	for _, o := range s.occasions {
+		if o.HouseholdID == householdID {
+			out = append(out, o)
+		}
+	}
+	return out, nil
+}
+
+func (s *Store) AddOccasion(_ context.Context, o domain.Occasion) (domain.Occasion, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	o.ID, o.Created = uuid.New(), time.Now()
+	s.occasions = append(s.occasions, o)
+	return o, nil
+}
+
+func (s *Store) DeleteOccasion(_ context.Context, householdID, id uuid.UUID) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	i := slices.IndexFunc(s.occasions, func(o domain.Occasion) bool { return o.ID == id && o.HouseholdID == householdID })
+	if i < 0 {
+		return domain.ErrNotFound
+	}
+	s.occasions = slices.Delete(s.occasions, i, i+1)
+	for j := range s.giftIdeas {
+		if s.giftIdeas[j].OccasionID != nil && *s.giftIdeas[j].OccasionID == id {
+			s.giftIdeas[j].OccasionID = nil
+		}
+	}
+	return nil
+}

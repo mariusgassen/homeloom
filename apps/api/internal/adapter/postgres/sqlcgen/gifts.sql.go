@@ -12,8 +12,8 @@ import (
 )
 
 const addGiftIdea = `-- name: AddGiftIdea :one
-INSERT INTO gift_ideas (household_id, author_id, for_id, text) VALUES ($1, $2, $3, $4)
-RETURNING id, household_id, author_id, for_id, text, given_at, created_at
+INSERT INTO gift_ideas (household_id, author_id, for_id, text, occasion_id) VALUES ($1, $2, $3, $4, $5)
+RETURNING id, household_id, author_id, for_id, text, given_at, created_at, occasion_id
 `
 
 type AddGiftIdeaParams struct {
@@ -21,6 +21,7 @@ type AddGiftIdeaParams struct {
 	AuthorID    uuid.UUID
 	ForID       uuid.UUID
 	Text        string
+	OccasionID  *uuid.UUID
 }
 
 func (q *Queries) AddGiftIdea(ctx context.Context, arg AddGiftIdeaParams) (GiftIdea, error) {
@@ -29,6 +30,7 @@ func (q *Queries) AddGiftIdea(ctx context.Context, arg AddGiftIdeaParams) (GiftI
 		arg.AuthorID,
 		arg.ForID,
 		arg.Text,
+		arg.OccasionID,
 	)
 	var i GiftIdea
 	err := row.Scan(
@@ -38,6 +40,41 @@ func (q *Queries) AddGiftIdea(ctx context.Context, arg AddGiftIdeaParams) (GiftI
 		&i.ForID,
 		&i.Text,
 		&i.GivenAt,
+		&i.CreatedAt,
+		&i.OccasionID,
+	)
+	return i, err
+}
+
+const addOccasion = `-- name: AddOccasion :one
+INSERT INTO occasions (household_id, name, month, day, year) VALUES ($1, $2, $3, $4, $5)
+RETURNING id, household_id, name, month, day, year, created_at
+`
+
+type AddOccasionParams struct {
+	HouseholdID uuid.UUID
+	Name        string
+	Month       int16
+	Day         int16
+	Year        *int16
+}
+
+func (q *Queries) AddOccasion(ctx context.Context, arg AddOccasionParams) (Occasion, error) {
+	row := q.db.QueryRow(ctx, addOccasion,
+		arg.HouseholdID,
+		arg.Name,
+		arg.Month,
+		arg.Day,
+		arg.Year,
+	)
+	var i Occasion
+	err := row.Scan(
+		&i.ID,
+		&i.HouseholdID,
+		&i.Name,
+		&i.Month,
+		&i.Day,
+		&i.Year,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -64,6 +101,23 @@ type DeleteGiftIdeaParams struct {
 
 func (q *Queries) DeleteGiftIdea(ctx context.Context, arg DeleteGiftIdeaParams) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteGiftIdea, arg.ID, arg.HouseholdID, arg.AuthorID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteOccasion = `-- name: DeleteOccasion :execrows
+DELETE FROM occasions WHERE id = $1 AND household_id = $2
+`
+
+type DeleteOccasionParams struct {
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+}
+
+func (q *Queries) DeleteOccasion(ctx context.Context, arg DeleteOccasionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteOccasion, arg.ID, arg.HouseholdID)
 	if err != nil {
 		return 0, err
 	}
@@ -102,7 +156,7 @@ func (q *Queries) HouseholdBirthdays(ctx context.Context, householdID uuid.UUID)
 }
 
 const listGiftIdeas = `-- name: ListGiftIdeas :many
-SELECT id, household_id, author_id, for_id, text, given_at, created_at FROM gift_ideas
+SELECT id, household_id, author_id, for_id, text, given_at, created_at, occasion_id FROM gift_ideas
 WHERE household_id = $1 AND author_id = $2
 ORDER BY given_at IS NOT NULL, created_at DESC, id
 LIMIT $3
@@ -131,6 +185,39 @@ func (q *Queries) ListGiftIdeas(ctx context.Context, arg ListGiftIdeasParams) ([
 			&i.ForID,
 			&i.Text,
 			&i.GivenAt,
+			&i.CreatedAt,
+			&i.OccasionID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOccasions = `-- name: ListOccasions :many
+SELECT id, household_id, name, month, day, year, created_at FROM occasions WHERE household_id = $1 ORDER BY created_at, id
+`
+
+func (q *Queries) ListOccasions(ctx context.Context, householdID uuid.UUID) ([]Occasion, error) {
+	rows, err := q.db.Query(ctx, listOccasions, householdID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Occasion
+	for rows.Next() {
+		var i Occasion
+		if err := rows.Scan(
+			&i.ID,
+			&i.HouseholdID,
+			&i.Name,
+			&i.Month,
+			&i.Day,
+			&i.Year,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -169,7 +256,7 @@ const setGiftIdeaGiven = `-- name: SetGiftIdeaGiven :one
 UPDATE gift_ideas
 SET given_at = CASE WHEN $1::boolean THEN coalesce(given_at, now()) END
 WHERE id = $2 AND household_id = $3 AND author_id = $4
-RETURNING id, household_id, author_id, for_id, text, given_at, created_at
+RETURNING id, household_id, author_id, for_id, text, given_at, created_at, occasion_id
 `
 
 type SetGiftIdeaGivenParams struct {
@@ -195,6 +282,7 @@ func (q *Queries) SetGiftIdeaGiven(ctx context.Context, arg SetGiftIdeaGivenPara
 		&i.Text,
 		&i.GivenAt,
 		&i.CreatedAt,
+		&i.OccasionID,
 	)
 	return i, err
 }

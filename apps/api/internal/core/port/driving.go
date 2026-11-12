@@ -433,8 +433,12 @@ type GiftService interface {
 	Overview(ctx context.Context, actor domain.User, householdID uuid.UUID) (domain.Gifts, error)
 	// SetBirthday sets the caller's own birthday; nil removes it.
 	SetBirthday(ctx context.Context, actor domain.User, b *domain.Birthday) error
-	// Add keeps an idea for another member of the household.
-	Add(ctx context.Context, actor domain.User, householdID, forID uuid.UUID, text string) (domain.GiftIdea, error)
+	// Add keeps an idea for another member of the household, for one of its occasions when
+	// occasionID is set.
+	Add(ctx context.Context, actor domain.User, householdID, forID uuid.UUID, occasionID *uuid.UUID, text string) (domain.GiftIdea, error)
+	// AddOccasion adds a date the household keeps every year; any member can.
+	AddOccasion(ctx context.Context, actor domain.User, householdID uuid.UUID, name string, date domain.Birthday) (domain.Occasion, error)
+	DeleteOccasion(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
 	SetGiven(ctx context.Context, actor domain.User, householdID, id uuid.UUID, given bool) (domain.GiftIdea, error)
 	Delete(ctx context.Context, actor domain.User, householdID, id uuid.UUID) error
 }
