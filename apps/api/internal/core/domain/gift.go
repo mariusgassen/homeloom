@@ -13,6 +13,9 @@ const (
 	MaxGiftIdeas = 300
 	// GiftHorizonDays is how many days ahead a birthday is surfaced with its gift ideas.
 	GiftHorizonDays = 21
+	// MaxOccasionName and MaxOccasions bound the dates a household keeps besides birthdays.
+	MaxOccasionName = 60
+	MaxOccasions    = 100
 )
 
 // ErrBirthday means a month and day that don't exist.
@@ -76,10 +79,29 @@ type GiftIdea struct {
 	HouseholdID uuid.UUID
 	AuthorID    uuid.UUID
 	ForID       uuid.UUID
-	Text        string
+	// OccasionID is the occasion the idea is for; nil when it isn't tied to one.
+	OccasionID *uuid.UUID
+	Text       string
 	// GivenAt is when the author marked it as given; nil while it's still an idea.
 	GivenAt *time.Time
 	Created time.Time
+}
+
+// Occasion is a date the household keeps every year, such as Christmas or a wedding anniversary.
+// Date is its month and day, with the year it first happened when known.
+type Occasion struct {
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+	Name        string
+	Date        Birthday
+	Created     time.Time
+}
+
+// GiftOccasion is an occasion with when it next falls.
+type GiftOccasion struct {
+	Occasion
+	Next time.Time
+	Days int
 }
 
 // GiftPerson is a member the caller can give something to, with their birthday if they set one.
@@ -96,9 +118,14 @@ type GiftPerson struct {
 // Gifts is what the caller sees: their own birthday, the others, and only their own ideas.
 type Gifts struct {
 	MyBirthday *Birthday
-	People     []GiftPerson
-	Ideas      []GiftIdea
+	// Occasions are the household's other yearly dates, soonest first.
+	Occasions []GiftOccasion
+	People    []GiftPerson
+	Ideas     []GiftIdea
 }
+
+// ErrOccasion means an idea for an occasion the household doesn't have.
+var ErrOccasion = fmt.Errorf("%w: not an occasion of this household", ErrInvalid)
 
 // ErrGiftFor means an idea for oneself or for someone outside the household.
 var ErrGiftFor = fmt.Errorf("%w: an idea is for another member", ErrInvalid)

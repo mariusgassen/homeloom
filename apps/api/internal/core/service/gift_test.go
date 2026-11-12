@@ -38,11 +38,11 @@ func TestGiftIdeasAreOnlyTheirAuthors(t *testing.T) {
 	ctx := context.Background()
 	f := newGiftFixture(t)
 
-	idea, err := f.gifts.Add(ctx, f.alice, f.household, f.bob.ID, "  Climbing shoes  ")
+	idea, err := f.gifts.Add(ctx, f.alice, f.household, f.bob.ID, nil, "  Climbing shoes  ")
 	if err != nil || idea.Text != "Climbing shoes" || idea.AuthorID != f.alice.ID || idea.ForID != f.bob.ID {
 		t.Fatalf("add: %+v, %v", idea, err)
 	}
-	if _, err := f.gifts.Add(ctx, f.bob, f.household, f.alice.ID, "Plant"); err != nil {
+	if _, err := f.gifts.Add(ctx, f.bob, f.household, f.alice.ID, nil, "Plant"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -65,13 +65,13 @@ func TestGiftIdeasAreOnlyTheirAuthors(t *testing.T) {
 	if _, err := f.gifts.Overview(ctx, f.eve, f.household); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("outsider: %v", err)
 	}
-	if _, err := f.gifts.Add(ctx, f.alice, f.household, f.alice.ID, "Me"); !errors.Is(err, domain.ErrGiftFor) {
+	if _, err := f.gifts.Add(ctx, f.alice, f.household, f.alice.ID, nil, "Me"); !errors.Is(err, domain.ErrGiftFor) {
 		t.Fatalf("for oneself: %v", err)
 	}
-	if _, err := f.gifts.Add(ctx, f.alice, f.household, f.eve.ID, "Eve"); !errors.Is(err, domain.ErrGiftFor) {
+	if _, err := f.gifts.Add(ctx, f.alice, f.household, f.eve.ID, nil, "Eve"); !errors.Is(err, domain.ErrGiftFor) {
 		t.Fatalf("for an outsider: %v", err)
 	}
-	if _, err := f.gifts.Add(ctx, f.alice, f.household, f.bob.ID, "  "); !errors.As(err, new(domain.TextError)) {
+	if _, err := f.gifts.Add(ctx, f.alice, f.household, f.bob.ID, nil, "  "); !errors.As(err, new(domain.TextError)) {
 		t.Fatalf("empty: %v", err)
 	}
 
@@ -126,7 +126,7 @@ func TestBirthdayNudgeGoesToEachAuthorWithOnlyTheirOwnCount(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, text := range []string{"Shoes", "Chalk bag"} {
-		if _, err := f.gifts.Add(ctx, f.alice, f.household, f.bob.ID, text); err != nil {
+		if _, err := f.gifts.Add(ctx, f.alice, f.household, f.bob.ID, nil, text); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -191,4 +191,59 @@ func ideasOf(t *testing.T, s *memory.Store, hh, author uuid.UUID) []domain.GiftI
 		t.Fatal(err)
 	}
 	return ideas
+}
+
+func TestOccasionsAreSharedAndIdeasCanBeForOne(t *testing.T) {
+	ctx := context.Background()
+	f := newGiftFixture(t) // 28 October 2026
+	f.gifts.SetClock(func() time.Time { return time.Date(2026, 12, 18, 9, 0, 0, 0, time.UTC) })
+
+	if _, err := f.gifts.AddOccasion(ctx, f.eve, f.household, "Spy", domain.Birthday{Month: time.May, Day: 1}); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("outsider adds: %v", err)
+	}
+	if _, err := f.gifts.AddOccasion(ctx, f.alice, f.household, "Day", domain.Birthday{Month: time.February, Day: 30}); !errors.Is(err, domain.ErrBirthday) {
+		t.Fatalf("30 February: %v", err)
+	}
+	xmas, err := f.gifts.AddOccasion(ctx, f.alice, f.household, " Christmas ", domain.Birthday{Month: time.December, Day: 25})
+	if err != nil || xmas.Name != "Christmas" {
+		t.Fatalf("add: %+v, %v", xmas, err)
+	}
+	// Bob sees Alice's occasion, 7 days away.
+	g, err := f.gifts.Overview(ctx, f.bob, f.household)
+	if err != nil || len(g.Occasions) != 1 || g.Occasions[0].Days != 7 {
+		t.Fatalf("bob's overview: %+v, %v", g, err)
+	}
+
+	if _, err := f.gifts.Add(ctx, f.bob, f.household, f.alice.ID, &xmas.ID, "Scarf"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.gifts.Add(ctx, f.bob, f.household, f.alice.ID, &uuid.UUID{1}, "Hat"); !errors.Is(err, domain.ErrOccasion) {
+		t.Fatalf("unknown occasion: %v", err)
+	}
+	if err := f.gifts.NotifyDaily(ctx); err != nil {
+		t.Fatal(err)
+	}
+	f.push.Wait()
+	counts := map[string]any{}
+	for _, s := range f.pusher.Sent() {
+		counts[s.Notification.Key+" "+s.Subscription.Endpoint] = s.Notification.Args[3]
+	}
+	var bob, alice string
+	for k := range counts {
+		if strings.HasSuffix(k, "bob") {
+			bob = k
+		} else if strings.HasSuffix(k, "alice") {
+			alice = k
+		}
+	}
+	if len(counts) != 2 || !strings.HasPrefix(bob, "push.gift_occasion ") || counts[bob] != 1 || !strings.HasPrefix(alice, "push.gift_occasion_none ") {
+		t.Fatalf("nudges: %v", counts)
+	}
+
+	if err := f.gifts.DeleteOccasion(ctx, f.bob, f.household, xmas.ID); err != nil {
+		t.Fatal(err)
+	}
+	if g, _ := f.gifts.Overview(ctx, f.bob, f.household); len(g.Occasions) != 0 || len(g.Ideas) != 1 || g.Ideas[0].OccasionID != nil {
+		t.Fatalf("after delete: %+v", g)
+	}
 }

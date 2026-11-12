@@ -23,13 +23,16 @@ func (h *handlers) GetGifts(ctx context.Context, req oapi.GetGiftsRequestObject)
 	case err != nil:
 		return nil, err
 	}
-	out := oapi.Gifts{MyBirthday: toBirthday(g.MyBirthday), People: make([]oapi.GiftPerson, len(g.People)), Ideas: make([]oapi.GiftIdea, len(g.Ideas))}
+	out := oapi.Gifts{MyBirthday: toBirthday(g.MyBirthday), Occasions: make([]oapi.Occasion, len(g.Occasions)), People: make([]oapi.GiftPerson, len(g.People)), Ideas: make([]oapi.GiftIdea, len(g.Ideas))}
 	for i, p := range g.People {
 		out.People[i] = oapi.GiftPerson{User: toUser(p.User), Birthday: toBirthday(p.Birthday), Ideas: p.Ideas}
 		if p.Birthday != nil {
 			next, days := openapi_types.Date{Time: p.Next}, p.Days
 			out.People[i].Next, out.People[i].Days = &next, &days
 		}
+	}
+	for i, o := range g.Occasions {
+		out.Occasions[i] = toOccasion(o.Occasion, o.Next, o.Days)
 	}
 	for i, idea := range g.Ideas {
 		out.Ideas[i] = toGiftIdea(idea)
@@ -42,19 +45,58 @@ func (h *handlers) AddGiftIdea(ctx context.Context, req oapi.AddGiftIdeaRequestO
 	if err != nil {
 		return nil, err
 	}
-	idea, err := h.gifts.Add(ctx, u, req.HouseholdId, req.Body.ForId, req.Body.Text)
+	idea, err := h.gifts.Add(ctx, u, req.HouseholdId, req.Body.ForId, req.Body.OccasionId, req.Body.Text)
 	var te domain.TextError
 	switch {
 	case errors.Is(err, domain.ErrNotFound):
 		return oapi.AddGiftIdea404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
 	case errors.As(err, &te):
 		return oapi.AddGiftIdea400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "invalid_text", err.Error(), "max", te.Max))}, nil
+	case errors.Is(err, domain.ErrOccasion):
+		return oapi.AddGiftIdea400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "invalid_occasion", err.Error()))}, nil
 	case errors.Is(err, domain.ErrGiftFor):
 		return oapi.AddGiftIdea400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "invalid_gift_for", err.Error()))}, nil
 	case err != nil:
 		return nil, err
 	}
 	return oapi.AddGiftIdea201JSONResponse(toGiftIdea(idea)), nil
+}
+
+func (h *handlers) AddOccasion(ctx context.Context, req oapi.AddOccasionRequestObject) (oapi.AddOccasionResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	date := domain.Birthday{Month: time.Month(req.Body.Month), Day: req.Body.Day, Year: derefInt(req.Body.Year)}
+	o, err := h.gifts.AddOccasion(ctx, u, req.HouseholdId, req.Body.Name, date)
+	var te domain.TextError
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.AddOccasion404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case errors.As(err, &te):
+		return oapi.AddOccasion400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "invalid_text", err.Error(), "max", te.Max))}, nil
+	case errors.Is(err, domain.ErrBirthday):
+		return oapi.AddOccasion400JSONResponse{BadRequestJSONResponse: oapi.BadRequestJSONResponse(errorBody(ctx, "invalid_birthday", err.Error()))}, nil
+	case err != nil:
+		return nil, err
+	}
+	next, days := o.Date.Next(time.Now())
+	return oapi.AddOccasion201JSONResponse(toOccasion(o, next, days)), nil
+}
+
+func (h *handlers) DeleteOccasion(ctx context.Context, req oapi.DeleteOccasionRequestObject) (oapi.DeleteOccasionResponseObject, error) {
+	u, err := actor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = h.gifts.DeleteOccasion(ctx, u, req.HouseholdId, req.OccasionId)
+	switch {
+	case errors.Is(err, domain.ErrNotFound):
+		return oapi.DeleteOccasion404JSONResponse{NotFoundJSONResponse: notFound(ctx)}, nil
+	case err != nil:
+		return nil, err
+	}
+	return oapi.DeleteOccasion204Response{}, nil
 }
 
 func (h *handlers) UpdateGiftIdea(ctx context.Context, req oapi.UpdateGiftIdeaRequestObject) (oapi.UpdateGiftIdeaResponseObject, error) {
@@ -124,8 +166,16 @@ func toBirthday(b *domain.Birthday) *oapi.Birthday {
 	return out
 }
 
+func toOccasion(o domain.Occasion, next time.Time, days int) oapi.Occasion {
+	out := oapi.Occasion{Id: o.ID, Name: o.Name, Month: int(o.Date.Month), Day: o.Date.Day, Next: openapi_types.Date{Time: next}, Days: days}
+	if o.Date.Year != 0 {
+		out.Year = &o.Date.Year
+	}
+	return out
+}
+
 func toGiftIdea(i domain.GiftIdea) oapi.GiftIdea {
-	return oapi.GiftIdea{Id: i.ID, ForId: i.ForID, Text: i.Text, Given: i.GivenAt != nil, GivenAt: i.GivenAt, CreatedAt: i.Created}
+	return oapi.GiftIdea{Id: i.ID, ForId: i.ForID, OccasionId: i.OccasionID, Text: i.Text, Given: i.GivenAt != nil, GivenAt: i.GivenAt, CreatedAt: i.Created}
 }
 
 func derefInt(p *int) int {

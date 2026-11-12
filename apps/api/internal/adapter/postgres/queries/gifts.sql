@@ -18,7 +18,7 @@ ORDER BY given_at IS NOT NULL, created_at DESC, id
 LIMIT @lim;
 
 -- name: AddGiftIdea :one
-INSERT INTO gift_ideas (household_id, author_id, for_id, text) VALUES ($1, $2, $3, $4)
+INSERT INTO gift_ideas (household_id, author_id, for_id, text, occasion_id) VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: SetGiftIdeaGiven :one
@@ -29,3 +29,13 @@ RETURNING *;
 
 -- name: DeleteGiftIdea :execrows
 DELETE FROM gift_ideas WHERE id = $1 AND household_id = $2 AND author_id = $3;
+
+-- name: ListOccasions :many
+SELECT * FROM occasions WHERE household_id = $1 ORDER BY created_at, id;
+
+-- name: AddOccasion :one
+INSERT INTO occasions (household_id, name, month, day, year) VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: DeleteOccasion :execrows
+DELETE FROM occasions WHERE id = $1 AND household_id = $2;

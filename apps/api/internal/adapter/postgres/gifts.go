@@ -46,7 +46,7 @@ func (s *Store) GiftIdeas(ctx context.Context, householdID, authorID uuid.UUID, 
 }
 
 func (s *Store) AddGiftIdea(ctx context.Context, idea domain.GiftIdea) (domain.GiftIdea, error) {
-	row, err := s.q.AddGiftIdea(ctx, sqlcgen.AddGiftIdeaParams{HouseholdID: idea.HouseholdID, AuthorID: idea.AuthorID, ForID: idea.ForID, Text: idea.Text})
+	row, err := s.q.AddGiftIdea(ctx, sqlcgen.AddGiftIdeaParams{HouseholdID: idea.HouseholdID, AuthorID: idea.AuthorID, ForID: idea.ForID, Text: idea.Text, OccasionID: idea.OccasionID})
 	if err != nil {
 		return domain.GiftIdea{}, err
 	}
@@ -76,7 +76,7 @@ func (s *Store) DeleteGiftIdea(ctx context.Context, householdID, authorID, id uu
 }
 
 func toGiftIdea(r sqlcgen.GiftIdea) domain.GiftIdea {
-	return domain.GiftIdea{ID: r.ID, HouseholdID: r.HouseholdID, AuthorID: r.AuthorID, ForID: r.ForID, Text: r.Text, GivenAt: r.GivenAt, Created: r.CreatedAt}
+	return domain.GiftIdea{ID: r.ID, HouseholdID: r.HouseholdID, AuthorID: r.AuthorID, ForID: r.ForID, OccasionID: r.OccasionID, Text: r.Text, GivenAt: r.GivenAt, Created: r.CreatedAt}
 }
 
 // yearArg is the year of birth as a nullable column; 0 means not given.
@@ -93,4 +93,44 @@ func yearOf(y *int16) int {
 		return 0
 	}
 	return int(*y)
+}
+
+func (s *Store) Occasions(ctx context.Context, householdID uuid.UUID) ([]domain.Occasion, error) {
+	rows, err := s.q.ListOccasions(ctx, householdID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]domain.Occasion, len(rows))
+	for i, r := range rows {
+		out[i] = toOccasion(r)
+	}
+	return out, nil
+}
+
+func (s *Store) AddOccasion(ctx context.Context, o domain.Occasion) (domain.Occasion, error) {
+	row, err := s.q.AddOccasion(ctx, sqlcgen.AddOccasionParams{
+		HouseholdID: o.HouseholdID, Name: o.Name, Month: int16(o.Date.Month), Day: int16(o.Date.Day), Year: yearArg(o.Date.Year), //nolint:gosec // validated 1-12, 1-31 and 1900-now
+	})
+	if err != nil {
+		return domain.Occasion{}, err
+	}
+	return toOccasion(row), nil
+}
+
+func (s *Store) DeleteOccasion(ctx context.Context, householdID, id uuid.UUID) error {
+	n, err := s.q.DeleteOccasion(ctx, sqlcgen.DeleteOccasionParams{ID: id, HouseholdID: householdID})
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
+}
+
+func toOccasion(r sqlcgen.Occasion) domain.Occasion {
+	return domain.Occasion{
+		ID: r.ID, HouseholdID: r.HouseholdID, Name: r.Name, Created: r.CreatedAt,
+		Date: domain.Birthday{Month: time.Month(r.Month), Day: int(r.Day), Year: yearOf(r.Year)},
+	}
 }

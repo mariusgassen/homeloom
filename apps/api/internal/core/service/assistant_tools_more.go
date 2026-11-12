@@ -209,6 +209,17 @@ var moreTools = []domain.Tool{
 		}, "month", "day"),
 	},
 	{
+		Name: "add_occasion",
+		Description: "Add a date the household keeps every year, such as Christmas or a wedding anniversary, so gift ideas can be kept for it. " +
+			"Any member can; everyone in the household sees it.",
+		Schema: object(map[string]any{
+			"name":  str("What the date is, e.g. Christmas."),
+			"month": map[string]any{"type": "integer", "minimum": 1, "maximum": 12},
+			"day":   map[string]any{"type": "integer", "minimum": 1, "maximum": 31},
+			"year":  map[string]any{"type": "integer", "description": "The year it first happened. Optional."},
+		}, "name", "month", "day"),
+	},
+	{
 		Name:        "get_chore_history",
 		ReadOnly:    true,
 		Description: "Read what was done lately around the house, newest first, and how many points each member earned this week and this month.",
@@ -621,6 +632,24 @@ func (t *toolbox) callMore(ctx context.Context, call domain.ToolCall) (any, erro
 			return nil, err
 		}
 		return map[string]any{"month": in.Month, "day": in.Day, "year": in.Year}, nil
+	case "add_occasion":
+		var in struct {
+			Name  string `json:"name"`
+			Month int    `json:"month"`
+			Day   int    `json:"day"`
+			Year  int    `json:"year"`
+		}
+		if err := decode(call.Input, &in); err != nil {
+			return nil, err
+		}
+		if t.s.gifts == nil {
+			return nil, domain.ErrUnavailable
+		}
+		o, err := t.s.gifts.AddOccasion(ctx, t.actor, t.householdID, in.Name, domain.Birthday{Month: time.Month(in.Month), Day: in.Day, Year: in.Year})
+		if err != nil {
+			return nil, err
+		}
+		return map[string]any{"name": o.Name, "month": in.Month, "day": in.Day}, nil
 	case "get_chore_history":
 		if err := decode(call.Input, &struct{}{}); err != nil {
 			return nil, err
