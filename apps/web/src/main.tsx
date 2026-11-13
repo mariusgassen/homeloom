@@ -2,6 +2,7 @@ import "@fontsource-variable/bricolage-grotesque";
 import "./styles/tokens.css";
 import "./styles/components.css";
 import "./styles/app.css";
+import "./styles/desktop.css";
 import "./i18n";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
