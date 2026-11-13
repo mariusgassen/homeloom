@@ -19,11 +19,14 @@ type Config struct {
 	OIDCClientID     string
 	OIDCClientSecret string
 	// OIDCClientIDs are further clients (iOS, MCP, ...) whose bearer tokens are accepted.
-	OIDCClientIDs  []string
-	AllowedOrigins []string
-	UserCacheTTL   time.Duration
-	SessionTTL     time.Duration
-	LogLevel       string
+	OIDCClientIDs []string
+	// OIDCExtraIssuerURLs are further authentik providers (each has its own issuer) whose
+	// tokens are accepted for OIDCClientIDs.
+	OIDCExtraIssuerURLs []string
+	AllowedOrigins      []string
+	UserCacheTTL        time.Duration
+	SessionTTL          time.Duration
+	LogLevel            string
 	// Mealie is optional and reached through its MCP server: without MealieMCPURL cooking is
 	// switched off. MealieURL is Mealie itself, only for links into it.
 	MealieMCPURL   string
@@ -86,31 +89,32 @@ func (c Config) SecureCookies() bool { return strings.HasPrefix(c.PublicURL, "ht
 
 func Load() (Config, error) {
 	c := Config{
-		HTTPAddr:         env("HTTP_ADDR", ":8080"),
-		DatabaseURL:      os.Getenv("DATABASE_URL"),
-		RedisURL:         os.Getenv("REDIS_URL"),
-		PublicURL:        os.Getenv("PUBLIC_URL"),
-		OIDCIssuerURL:    os.Getenv("OIDC_ISSUER_URL"),
-		OIDCClientID:     os.Getenv("OIDC_CLIENT_ID"),
-		OIDCClientSecret: os.Getenv("OIDC_CLIENT_SECRET"),
-		OIDCClientIDs:    list(os.Getenv("OIDC_CLIENT_IDS")),
-		AllowedOrigins:   list(os.Getenv("CORS_ALLOWED_ORIGINS")),
-		LogLevel:         env("LOG_LEVEL", "info"),
-		MealieMCPURL:     os.Getenv("MEALIE_MCP_URL"),
-		MealieMCPToken:   os.Getenv("MEALIE_MCP_TOKEN"),
-		MealieURL:        os.Getenv("MEALIE_URL"),
-		AnthropicAPIKey:  os.Getenv("ANTHROPIC_API_KEY"),
-		LLMModel:         env("LLM_MODEL", "claude-opus-5-5"),
-		HomeAssistantURL: os.Getenv("HOME_ASSISTANT_URL"),
-		SecretKey:        os.Getenv("HOMELOOM_SECRET_KEY"),
-		VAPIDPublicKey:   os.Getenv("VAPID_PUBLIC_KEY"),
-		VAPIDPrivateKey:  os.Getenv("VAPID_PRIVATE_KEY"),
-		VAPIDSubject:     env("VAPID_SUBJECT", os.Getenv("PUBLIC_URL")),
-		LiveKitURL:       env("LIVEKIT_URL", "http://homeloom-livekit:7880"),
-		LiveKitAPIKey:    os.Getenv("LIVEKIT_API_KEY"),
-		LiveKitAPISecret: os.Getenv("LIVEKIT_API_SECRET"),
-		VoiceAgent:       env("VOICE_AGENT", "homeloom"),
-		OpenAIAPIKey:     os.Getenv("OPENAI_API_KEY"),
+		HTTPAddr:            env("HTTP_ADDR", ":8080"),
+		DatabaseURL:         os.Getenv("DATABASE_URL"),
+		RedisURL:            os.Getenv("REDIS_URL"),
+		PublicURL:           os.Getenv("PUBLIC_URL"),
+		OIDCIssuerURL:       os.Getenv("OIDC_ISSUER_URL"),
+		OIDCClientID:        os.Getenv("OIDC_CLIENT_ID"),
+		OIDCClientSecret:    os.Getenv("OIDC_CLIENT_SECRET"),
+		OIDCClientIDs:       list(os.Getenv("OIDC_CLIENT_IDS")),
+		OIDCExtraIssuerURLs: list(os.Getenv("OIDC_EXTRA_ISSUER_URLS")),
+		AllowedOrigins:      list(os.Getenv("CORS_ALLOWED_ORIGINS")),
+		LogLevel:            env("LOG_LEVEL", "info"),
+		MealieMCPURL:        os.Getenv("MEALIE_MCP_URL"),
+		MealieMCPToken:      os.Getenv("MEALIE_MCP_TOKEN"),
+		MealieURL:           os.Getenv("MEALIE_URL"),
+		AnthropicAPIKey:     os.Getenv("ANTHROPIC_API_KEY"),
+		LLMModel:            env("LLM_MODEL", "claude-opus-5-5"),
+		HomeAssistantURL:    os.Getenv("HOME_ASSISTANT_URL"),
+		SecretKey:           os.Getenv("HOMELOOM_SECRET_KEY"),
+		VAPIDPublicKey:      os.Getenv("VAPID_PUBLIC_KEY"),
+		VAPIDPrivateKey:     os.Getenv("VAPID_PRIVATE_KEY"),
+		VAPIDSubject:        env("VAPID_SUBJECT", os.Getenv("PUBLIC_URL")),
+		LiveKitURL:          env("LIVEKIT_URL", "http://homeloom-livekit:7880"),
+		LiveKitAPIKey:       os.Getenv("LIVEKIT_API_KEY"),
+		LiveKitAPISecret:    os.Getenv("LIVEKIT_API_SECRET"),
+		VoiceAgent:          env("VOICE_AGENT", "homeloom"),
+		OpenAIAPIKey:        os.Getenv("OPENAI_API_KEY"),
 	}
 	c.S3Endpoint, c.S3Region, c.S3Bucket = env("S3_ENDPOINT", "http://homeloom-garage:3900"), env("S3_REGION", "garage"), env("S3_BUCKET", "homeloom")
 	c.S3AccessKeyID, c.S3SecretAccessKey = os.Getenv("S3_ACCESS_KEY_ID"), os.Getenv("S3_SECRET_ACCESS_KEY")

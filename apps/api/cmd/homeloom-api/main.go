@@ -114,9 +114,13 @@ func run() error {
 	store := postgres.NewStore(pool)
 	sessions := redis.NewSessions(rdb, cfg.SessionTTL)
 	provider := oidc.NewProvider(cfg.OIDCIssuerURL)
+	var extraIssuers []*oidc.Provider
+	for _, u := range cfg.OIDCExtraIssuerURLs {
+		extraIssuers = append(extraIssuers, oidc.NewProvider(u))
+	}
 	users := redis.NewUserCache(store, rdb, cfg.UserCacheTTL)
 	identity := service.NewIdentity(
-		oidc.NewVerifier(provider, append([]string{cfg.OIDCClientID}, cfg.OIDCClientIDs...)),
+		oidc.NewVerifier(provider, append([]string{cfg.OIDCClientID}, cfg.OIDCClientIDs...), extraIssuers...),
 		sessions,
 		users,
 	)
