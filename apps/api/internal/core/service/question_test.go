@@ -198,3 +198,25 @@ func TestSuggestQuestions(t *testing.T) {
 		t.Errorf("without an LLM: want ErrUnavailable, got %v", err)
 	}
 }
+
+func TestQuestionOwnerDeletesOthers(t *testing.T) {
+	ctx := context.Background()
+	store := memory.NewStore()
+	households := service.NewHousehold(store)
+	questions := service.NewQuestion(store, store, service.NewPush(store, nil), nil)
+	alice, bob, carol := newUser(t, store, "alice"), newUser(t, store, "bob"), newUser(t, store, "carol")
+	m, _ := households.Create(ctx, alice, "Home")
+	store.AddMember(m.Household.ID, bob.ID, domain.RoleMember)
+	store.AddMember(m.Household.ID, carol.ID, domain.RoleMember)
+
+	q, _ := questions.Ask(ctx, bob, m.Household.ID, "Best trip?")
+	if err := questions.Delete(ctx, carol, q.ID); !errors.Is(err, domain.ErrForbidden) {
+		t.Errorf("non-owner delete of someone else's question: want ErrForbidden, got %v", err)
+	}
+	if err := questions.Delete(ctx, alice, q.ID); err != nil {
+		t.Fatalf("owner delete: %v", err)
+	}
+	if list, _ := questions.List(ctx, alice, m.Household.ID); len(list) != 0 {
+		t.Errorf("deleted question still listed: %+v", list)
+	}
+}

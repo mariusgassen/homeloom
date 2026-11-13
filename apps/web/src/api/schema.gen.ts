@@ -593,7 +593,7 @@ export interface paths {
         /** Reword your question, until someone else has answered it */
         put: operations["updateQuestion"];
         post?: never;
-        /** Delete your question and its answers */
+        /** Delete a question and its answers (whoever asked, or the household's owner) */
         delete: operations["deleteQuestion"];
         options?: never;
         head?: never;
@@ -5205,7 +5205,7 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["Unauthorized"];
-            /** @description Someone else asked this question (code `not_yours`). */
+            /** @description Neither asked by you nor are you the owner (code `not_yours`). */
             403: {
                 headers: {
                     [name: string]: unknown;

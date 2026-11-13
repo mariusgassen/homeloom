@@ -49,7 +49,7 @@ function people(q: Question, household: HouseholdDetail, me: User): Person[] {
 }
 
 // A question with its answers and, until it opens, a form for your own answer. With onRemoved,
-// whoever asked can also reword it (until someone else answers) or delete it.
+// whoever asked can also reword it (until someone else answers) or delete it; the owner can delete any.
 export function QuestionCard({ question, household, me, eyebrow, onChange, onRemoved }: {
   question: Question;
   household: HouseholdDetail;
@@ -87,7 +87,8 @@ export function QuestionCard({ question, household, me, eyebrow, onChange, onRem
     return (
       <RewordForm
         question={question}
-        canReword={!question.answers.some((a) => a.userId !== me.id)}
+        asker={question.askedBy === me.id}
+        canReword={question.askedBy === me.id && !question.answers.some((a) => a.userId !== me.id)}
         onDone={(q) => {
           setRewording(false);
           if (q) onChange(q);
@@ -122,7 +123,7 @@ export function QuestionCard({ question, household, me, eyebrow, onChange, onRem
           </Button>
         )
       )}
-      {onRemoved && question.askedBy === me.id && (
+      {onRemoved && (question.askedBy === me.id || household.role === "owner") && (
         <Button variant="plain" size="sm" className="question-manage" onClick={() => setRewording(true)}>
           {t("questions.manage")}
         </Button>
@@ -131,9 +132,10 @@ export function QuestionCard({ question, household, me, eyebrow, onChange, onRem
   );
 }
 
-// Rewording your own question, or deleting it with its answers.
-function RewordForm({ question, canReword, onDone, onRemoved }: {
+// Rewording your own question, or deleting it with its answers (the owner can delete any).
+function RewordForm({ question, asker, canReword, onDone, onRemoved }: {
   question: Question;
+  asker: boolean;
   canReword: boolean;
   onDone: (q?: Question) => void;
   onRemoved: () => void;
@@ -176,7 +178,7 @@ function RewordForm({ question, canReword, onDone, onRemoved }: {
       ) : (
         <>
           <h2 className="hl-reveal-q">{question.text}</h2>
-          <p className="caption muted">{t("questions.answeredAlready")}</p>
+          {asker && <p className="caption muted">{t("questions.answeredAlready")}</p>}
         </>
       )}
       {error && (

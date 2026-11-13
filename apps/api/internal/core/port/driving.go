@@ -61,7 +61,7 @@ type QuestionService interface {
 	List(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.Question, error)
 	Ask(ctx context.Context, actor domain.User, householdID uuid.UUID, text string) (domain.Question, error)
 	Answer(ctx context.Context, actor domain.User, questionID uuid.UUID, text string) (domain.Question, error)
-	// Reword and Delete are for whoever asked; others get domain.ErrForbidden.
+	// Reword is for whoever asked, Delete also for the household's owner; others get domain.ErrForbidden.
 	Reword(ctx context.Context, actor domain.User, questionID uuid.UUID, text string) (domain.Question, error)
 	Delete(ctx context.Context, actor domain.User, questionID uuid.UUID) error
 	// Suggest returns new questions to ask, written in lang; domain.ErrUnavailable without an LLM.
