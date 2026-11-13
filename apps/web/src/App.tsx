@@ -28,6 +28,7 @@ import { Watch } from "./screens/Watch";
 import { WatchNight } from "./screens/WatchNight";
 import { Loading, Unavailable, Welcome } from "./screens/Welcome";
 import { useSession } from "./session";
+import { useDesktop } from "./viewport";
 import { TabBar } from "./ui/TabBar";
 
 export function App() {
@@ -42,6 +43,7 @@ export function App() {
   const [generation, setGeneration] = useState(0);
   const assistant = useMemo(() => ({ open: () => setAsking(true) }), []);
   useNotificationLinks();
+  const desktop = useDesktop();
 
   useEffect(() => {
     if (linked) pendingInvite.set(linked);
@@ -88,7 +90,7 @@ export function App() {
               <Route path="/trips" element={<Trips />} />
               <Route path="/trips/:id" element={<TripPage />} />
               <Route path="/lists" element={<Lists />} />
-              <Route path="/lists/notes/:id" element={<NotePage />} />
+              <Route path="/lists/notes/:id" element={desktop ? <Lists /> : <NotePage />} />
               <Route path="/bucket" element={<Bucket />} />
               <Route path="/chores" element={<Chores />} />
               <Route path="/gifts" element={<Navigate to="/us?show=gifts" replace />} />

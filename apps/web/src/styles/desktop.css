@@ -29,3 +29,14 @@
   .assistant { left: auto; width: 440px; box-shadow: var(--shadow-sheet); border-left: 1px solid var(--line); }
   .assistant-main { max-width: none; }
 }
+
+/* Master-detail: a list beside the open item. */
+@media (min-width: 1024px) {
+  .screen:has(.split) { max-width: 1280px; }
+  .split { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: var(--space-6); align-items: start; }
+  .split-list { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+  .split-detail { position: sticky; top: calc(var(--hit-min) + var(--space-4)); min-height: 50dvh; border-radius: var(--radius-lg); background: var(--surface-raised); min-width: 0; }
+  .split-detail .note-page { max-width: none; padding: 0 var(--space-4) var(--space-4); }
+  .split-detail .note-bar { position: static; margin: 0; padding: var(--space-2) 0 0; min-height: 0; background: none; }
+  .split .note[aria-current="true"] { box-shadow: 0 0 0 2px var(--spruce); }
+}

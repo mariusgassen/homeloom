@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { api, type Entry, type EntryKind, type HouseholdDetail, type User } from "../api/client";
 import { removeEntry, sameDay, setDone, startOfDay, useEntries, useShowDone } from "../entries";
 import { useMoney } from "../money";
 import { excerpt, firstPhoto } from "../notes";
 import { useSession } from "../session";
+import { useDesktop } from "../viewport";
 import { Empty } from "../ui/Empty";
 import { Icon } from "../ui/Icon";
 import { ListRow } from "../ui/ListRow";
@@ -15,6 +16,7 @@ import { ThreadAvatar, threadFor } from "../ui/ThreadAvatar";
 import { DoneToggle } from "./DoneToggle";
 import { EntrySheet } from "./EntrySheet";
 import { Shopping } from "./Shopping";
+import { NotePage } from "./NotePage";
 import { Screen } from "./Screen";
 
 const tabs = ["reminder", "event", "note", "shopping"] as const;
@@ -27,12 +29,22 @@ export function Lists() {
   const [params, setParams] = useSearchParams();
   const [sheet, setSheet] = useState<Sheet>(null);
   const navigate = useNavigate();
+  const desktop = useDesktop();
+  // On desktop a note opens beside the list (/lists/notes/:id renders this screen); on a phone it is its own page.
+  const noteId = useParams().id;
   if (session.state !== "signedIn" || !session.household) throw new Error("tab without a household");
   const { user: me, household } = session;
-  const tab = tabs.find((k) => k === params.get("show")) ?? "reminder";
+  const tab = noteId ? "note" : (tabs.find((k) => k === params.get("show")) ?? "reminder");
   const kind = tab === "shopping" ? null : tab;
   const { entries, failed, reload } = useEntries(household.id, kind);
   const linked = params.get("entry");
+  // The list shows what the open note changed when another note opens or this one closes.
+  const shown = useRef(noteId);
+  useEffect(() => {
+    if (shown.current === noteId) return;
+    shown.current = noteId;
+    reload();
+  }, [noteId, reload]);
 
   // A notification opens /lists?entry=<id>: show that entry's tab and open it.
   useEffect(() => {
@@ -55,7 +67,7 @@ export function Lists() {
     <Screen title={t("tabs.lists")} add={add}>
       <div className="segmented" role="tablist" aria-label={t("entries.kind")}>
         {tabs.map((k) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setParams({ show: k }, { replace: true })}>
+          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => (noteId ? navigate(`/lists?show=${k}`, { replace: true }) : setParams({ show: k }, { replace: true }))}>
             {k === "shopping" ? t("shopping.tab") : t(`entries.tabs.${k}`)}
           </button>
         ))}
@@ -71,7 +83,18 @@ export function Lists() {
       )}
       {entries && entries.length > 0 && tab === "reminder" && <Reminders entries={entries} household={household} me={me} onOpen={(entry) => setSheet({ entry, kind: entry.kind })} onChange={reload} />}
       {entries && entries.length > 0 && tab === "event" && <Agenda entries={entries} me={me} onOpen={(entry) => setSheet({ entry, kind: entry.kind })} onChange={reload} />}
-      {entries && entries.length > 0 && tab === "note" && <Notes entries={entries} household={household} me={me} onOpen={(entry) => navigate(`/lists/notes/${entry.id}`)} onChange={reload} />}
+      {entries && entries.length > 0 && tab === "note" && (
+        desktop ? (
+          <div className="split">
+            <div className="split-list">
+              <Notes entries={entries} household={household} me={me} selected={noteId} onOpen={(entry) => navigate(`/lists/notes/${entry.id}`)} onChange={reload} />
+            </div>
+            <div className="split-detail">{noteId && <NotePage key={noteId} />}</div>
+          </div>
+        ) : (
+          <Notes entries={entries} household={household} me={me} onOpen={(entry) => navigate(`/lists/notes/${entry.id}`)} onChange={reload} />
+        )
+      )}
       {sheet && (
         <EntrySheet
           household={household}
@@ -219,7 +242,7 @@ function Agenda({ entries, me, onOpen, onChange }: { entries: Entry[]; me: User;
   ));
 }
 
-function Notes({ entries, household, me, onOpen, onChange }: { entries: Entry[]; household: HouseholdDetail; me: User; onOpen: (e: Entry) => void; onChange: () => void }) {
+function Notes({ entries, household, me, selected, onOpen, onChange }: { entries: Entry[]; household: HouseholdDetail; me: User; selected?: string; onOpen: (e: Entry) => void; onChange: () => void }) {
   const { t } = useTranslation();
   const { day } = useWhen();
   const actions = useEntryActions(me, onChange);
@@ -255,7 +278,7 @@ function Notes({ entries, household, me, onOpen, onChange }: { entries: Entry[];
     const more = excerpt(e.text ?? "");
     return (
       <Swipe key={e.id} className="swipe-card" {...actions(e)}>
-        <button type="button" className="hl-card note" onClick={() => onOpen(e)}>
+        <button type="button" className="hl-card note" aria-current={e.id === selected ? "true" : undefined} onClick={() => onOpen(e)}>
           <span className="hl-eyebrow">{eyebrow}</span>
           <span className="note-head">
             <span className="note-head-text">
