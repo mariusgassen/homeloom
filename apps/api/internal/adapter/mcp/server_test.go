@@ -3,6 +3,7 @@ package mcp_test
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -254,5 +255,45 @@ func TestAuthentication(t *testing.T) {
 		if tc.status == http.StatusUnauthorized && resp.Header.Get("WWW-Authenticate") == "" {
 			t.Errorf("%q: no WWW-Authenticate", tc.token)
 		}
+	}
+}
+
+// A client that makes one bare tools/call per request, with no initialize first, such as the
+// Raycast extension, works with a personal key; a key made for something else does not.
+func TestBareToolCallWithPersonalKey(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	alice := f.user(t, "token-alice")
+	m, err := f.households.Create(ctx, alice, "Home")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, key, err := f.agents.CreateToken(ctx, alice, m.Household.ID, "Raycast", domain.AccessTools)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, calendar, err := f.agents.CreateToken(ctx, alice, m.Household.ID, "iPhone", domain.AccessCalendar)
+	if err != nil {
+		t.Fatal(err)
+	}
+	post := func(token string) (int, string) {
+		body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"add_reminder","arguments":{"text":"Call grandma","visibility":"private"}}}`
+		req, _ := http.NewRequest("POST", f.url, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json, text/event-stream")
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		b, _ := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(b)
+	}
+	if status, body := post(key); status != http.StatusOK || !strings.Contains(body, "Call grandma") {
+		t.Fatalf("personal key: %d %s", status, body)
+	}
+	if status, _ := post(calendar); status != http.StatusUnauthorized {
+		t.Fatalf("calendar password: got %d, want 401", status)
 	}
 }
