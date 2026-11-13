@@ -12,8 +12,8 @@ import (
 )
 
 const addShoppingItem = `-- name: AddShoppingItem :one
-INSERT INTO shopping_items (household_id, text, recipe, added_by, aisle, created_at) VALUES ($1, $2, $3, $4, $5, clock_timestamp())
-RETURNING id, household_id, text, recipe, added_by, done_at, created_at, aisle
+INSERT INTO shopping_items (household_id, text, recipe, added_by, aisle, ical_uid, ical_name, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, clock_timestamp())
+RETURNING id, household_id, text, recipe, added_by, done_at, created_at, aisle, ical_uid, ical_name
 `
 
 type AddShoppingItemParams struct {
@@ -22,6 +22,8 @@ type AddShoppingItemParams struct {
 	Recipe      *string
 	AddedBy     *uuid.UUID
 	Aisle       string
+	IcalUid     *string
+	IcalName    *string
 }
 
 // clock_timestamp keeps the order of items added in one transaction.
@@ -32,6 +34,8 @@ func (q *Queries) AddShoppingItem(ctx context.Context, arg AddShoppingItemParams
 		arg.Recipe,
 		arg.AddedBy,
 		arg.Aisle,
+		arg.IcalUid,
+		arg.IcalName,
 	)
 	var i ShoppingItem
 	err := row.Scan(
@@ -43,6 +47,8 @@ func (q *Queries) AddShoppingItem(ctx context.Context, arg AddShoppingItemParams
 		&i.DoneAt,
 		&i.CreatedAt,
 		&i.Aisle,
+		&i.IcalUid,
+		&i.IcalName,
 	)
 	return i, err
 }
@@ -108,7 +114,7 @@ func (q *Queries) KnownShoppingAisles(ctx context.Context, arg KnownShoppingAisl
 }
 
 const listShoppingItems = `-- name: ListShoppingItems :many
-SELECT id, household_id, text, recipe, added_by, done_at, created_at, aisle FROM shopping_items
+SELECT id, household_id, text, recipe, added_by, done_at, created_at, aisle, ical_uid, ical_name FROM shopping_items
 WHERE household_id = $1
 ORDER BY done_at IS NOT NULL, done_at DESC, created_at, id
 LIMIT $2
@@ -138,6 +144,8 @@ func (q *Queries) ListShoppingItems(ctx context.Context, arg ListShoppingItemsPa
 			&i.DoneAt,
 			&i.CreatedAt,
 			&i.Aisle,
+			&i.IcalUid,
+			&i.IcalName,
 		); err != nil {
 			return nil, err
 		}
@@ -183,7 +191,7 @@ func (q *Queries) RememberShoppingAisle(ctx context.Context, arg RememberShoppin
 const setShoppingItemAisle = `-- name: SetShoppingItemAisle :one
 UPDATE shopping_items SET aisle = $1
 WHERE id = $2 AND household_id = $3
-RETURNING id, household_id, text, recipe, added_by, done_at, created_at, aisle
+RETURNING id, household_id, text, recipe, added_by, done_at, created_at, aisle, ical_uid, ical_name
 `
 
 type SetShoppingItemAisleParams struct {
@@ -204,6 +212,8 @@ func (q *Queries) SetShoppingItemAisle(ctx context.Context, arg SetShoppingItemA
 		&i.DoneAt,
 		&i.CreatedAt,
 		&i.Aisle,
+		&i.IcalUid,
+		&i.IcalName,
 	)
 	return i, err
 }
@@ -212,7 +222,7 @@ const setShoppingItemDone = `-- name: SetShoppingItemDone :one
 UPDATE shopping_items
 SET done_at = CASE WHEN $1::boolean THEN coalesce(done_at, now()) END
 WHERE id = $2 AND household_id = $3
-RETURNING id, household_id, text, recipe, added_by, done_at, created_at, aisle
+RETURNING id, household_id, text, recipe, added_by, done_at, created_at, aisle, ical_uid, ical_name
 `
 
 type SetShoppingItemDoneParams struct {
@@ -233,6 +243,38 @@ func (q *Queries) SetShoppingItemDone(ctx context.Context, arg SetShoppingItemDo
 		&i.DoneAt,
 		&i.CreatedAt,
 		&i.Aisle,
+		&i.IcalUid,
+		&i.IcalName,
+	)
+	return i, err
+}
+
+const setShoppingItemText = `-- name: SetShoppingItemText :one
+UPDATE shopping_items SET text = $1
+WHERE id = $2 AND household_id = $3
+RETURNING id, household_id, text, recipe, added_by, done_at, created_at, aisle, ical_uid, ical_name
+`
+
+type SetShoppingItemTextParams struct {
+	Text        string
+	ID          uuid.UUID
+	HouseholdID uuid.UUID
+}
+
+func (q *Queries) SetShoppingItemText(ctx context.Context, arg SetShoppingItemTextParams) (ShoppingItem, error) {
+	row := q.db.QueryRow(ctx, setShoppingItemText, arg.Text, arg.ID, arg.HouseholdID)
+	var i ShoppingItem
+	err := row.Scan(
+		&i.ID,
+		&i.HouseholdID,
+		&i.Text,
+		&i.Recipe,
+		&i.AddedBy,
+		&i.DoneAt,
+		&i.CreatedAt,
+		&i.Aisle,
+		&i.IcalUid,
+		&i.IcalName,
 	)
 	return i, err
 }

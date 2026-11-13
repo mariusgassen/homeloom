@@ -198,7 +198,7 @@ type ShoppingService interface {
 	Items(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.ShoppingItem, error)
 	// Add puts the texts on the list, noting the recipe they came from ("" for none).
 	Add(ctx context.Context, actor domain.User, householdID uuid.UUID, texts []string, recipe string) ([]domain.ShoppingItem, error)
-	// AddItems puts several items on the list at once; only their Text and Recipe are read.
+	// AddItems puts several items on the list at once; only their Text, Recipe and ICal names are read.
 	AddItems(ctx context.Context, actor domain.User, householdID uuid.UUID, items []domain.ShoppingItem) ([]domain.ShoppingItem, error)
 	SetDone(ctx context.Context, actor domain.User, householdID, id uuid.UUID, done bool) (domain.ShoppingItem, error)
 	// SetAisle moves an item to another aisle; things with the same text go there from now on.
@@ -208,6 +208,16 @@ type ShoppingService interface {
 	ClearDone(ctx context.Context, actor domain.User, householdID uuid.UUID) error
 	// Suggestions returns what was on the list before, to put on it again.
 	Suggestions(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.TitleSuggestion, error)
+}
+
+// ShoppingSyncService lets a reminders app (over CalDAV) read and change the shopping list. Items
+// are named the way the app names them; an item the app didn't make is named by its id.
+type ShoppingSyncService interface {
+	SyncItems(ctx context.Context, actor domain.User, householdID uuid.UUID) ([]domain.ShoppingItem, error)
+	SyncItem(ctx context.Context, actor domain.User, householdID uuid.UUID, name string) (domain.ShoppingItem, error)
+	// SyncPut changes the item with that name, or adds it if there is none.
+	SyncPut(ctx context.Context, actor domain.User, householdID uuid.UUID, name, uid, text string, done bool) (domain.ShoppingItem, error)
+	SyncDelete(ctx context.Context, actor domain.User, householdID uuid.UUID, name string) error
 }
 
 // DocumentService is the vault: members' files, private unless shared.

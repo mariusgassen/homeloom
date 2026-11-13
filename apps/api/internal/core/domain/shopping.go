@@ -65,4 +65,15 @@ type ShoppingItem struct {
 	AddedBy *uuid.UUID
 	DoneAt  *time.Time
 	Created time.Time
+	// ICalUID and ICalName are how a reminders app knows an item it made; empty otherwise.
+	ICalUID  string
+	ICalName string
+}
+
+// SyncName is the resource name reminders apps know the item by.
+func (it ShoppingItem) SyncName() string {
+	if it.ICalName != "" {
+		return it.ICalName
+	}
+	return it.ID.String() + ".ics"
 }

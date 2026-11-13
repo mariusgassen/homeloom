@@ -55,7 +55,7 @@ func (s *Shopping) AddItems(ctx context.Context, actor domain.User, householdID 
 		if text == "" || utf8.RuneCountInString(text) > domain.MaxShoppingText {
 			return nil, domain.TextError{Max: domain.MaxShoppingText}
 		}
-		items[i] = domain.ShoppingItem{HouseholdID: householdID, Text: text, Recipe: d.Recipe, AddedBy: &actor.ID, Aisle: domain.AisleOther}
+		items[i] = domain.ShoppingItem{HouseholdID: householdID, Text: text, Recipe: d.Recipe, AddedBy: &actor.ID, Aisle: domain.AisleOther, ICalUID: d.ICalUID, ICalName: d.ICalName}
 	}
 	s.sort(ctx, householdID, items)
 	return s.items.AddShoppingItems(ctx, items)

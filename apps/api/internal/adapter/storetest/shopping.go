@@ -63,6 +63,20 @@ func ShoppingItems(t *testing.T, s interface {
 		t.Fatalf("aisles of another household: %v, %v", known, err)
 	}
 
+	if _, err := s.SetShoppingItemText(ctx, other.Household.ID, milk, "Oat milk"); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("rename in another household: want ErrNotFound, got %v", err)
+	}
+	named, err := s.AddShoppingItems(ctx, []domain.ShoppingItem{{HouseholdID: hh, Text: "Rice", ICalUID: "U1", ICalName: "U1.ics"}})
+	if err != nil || named[0].ICalUID != "U1" || named[0].SyncName() != "U1.ics" {
+		t.Fatalf("named: %+v, %v", named, err)
+	}
+	if it, err := s.SetShoppingItemText(ctx, hh, named[0].ID, "Basmati"); err != nil || it.Text != "Basmati" || it.ICalName != "U1.ics" {
+		t.Fatalf("rename: %+v, %v", it, err)
+	}
+	if err := s.DeleteShoppingItem(ctx, hh, named[0].ID); err != nil {
+		t.Fatal(err)
+	}
+
 	if _, err := s.SetShoppingItemDone(ctx, other.Household.ID, milk, true); !errors.Is(err, domain.ErrNotFound) {
 		t.Fatalf("tick in another household: want ErrNotFound, got %v", err)
 	}

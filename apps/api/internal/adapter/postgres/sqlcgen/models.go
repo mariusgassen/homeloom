@@ -371,6 +371,8 @@ type ShoppingItem struct {
 	DoneAt      *time.Time
 	CreatedAt   time.Time
 	Aisle       string
+	IcalUid     *string
+	IcalName    *string
 }
 
 type Trip struct {
