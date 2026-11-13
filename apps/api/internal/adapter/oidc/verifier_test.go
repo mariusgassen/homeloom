@@ -103,6 +103,30 @@ func TestVerifier(t *testing.T) {
 	}
 }
 
+func TestVerifierExtraIssuer(t *testing.T) {
+	main, extra := newIssuer(t), newIssuer(t)
+	v := oidc.NewVerifier(oidc.NewProvider(main.srv.URL), []string{"homeloom-pwa", "raycast"}, oidc.NewProvider(extra.srv.URL))
+	ctx := context.Background()
+
+	if _, err := v.Verify(ctx, extra.token(t, "raycast", time.Now().Add(time.Hour))); err != nil {
+		t.Fatalf("extra issuer: %v", err)
+	}
+	if _, err := v.Verify(ctx, main.token(t, "homeloom-pwa", time.Now().Add(time.Hour))); err != nil {
+		t.Fatalf("main issuer: %v", err)
+	}
+	// A token for an unconfigured client, and one signed by the extra issuer's key but naming the
+	// main issuer, are both refused.
+	forged := extra.token(t, "raycast", time.Now().Add(time.Hour), map[string]any{"iss": main.srv.URL})
+	for name, tok := range map[string]string{
+		"extra issuer, other client": extra.token(t, "someone-else", time.Now().Add(time.Hour)),
+		"claims the main issuer":     forged,
+	} {
+		if _, err := v.Verify(ctx, tok); !errors.Is(err, domain.ErrUnauthenticated) {
+			t.Errorf("%s: want ErrUnauthenticated, got %v", name, err)
+		}
+	}
+}
+
 func TestVerifierProviderDownIsNotAnAuthFailure(t *testing.T) {
 	v := oidc.NewVerifier(oidc.NewProvider("http://127.0.0.1:1"), []string{"homeloom-pwa"})
 	_, err := v.Verify(context.Background(), "whatever")
