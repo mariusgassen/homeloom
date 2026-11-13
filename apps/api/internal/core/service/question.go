@@ -106,9 +106,18 @@ func (s *Question) Reword(ctx context.Context, actor domain.User, questionID uui
 	return sealFor(q, actor.ID), nil
 }
 
+// Delete is for whoever asked and for the household's owner.
 func (s *Question) Delete(ctx context.Context, actor domain.User, questionID uuid.UUID) error {
-	if _, err := s.own(ctx, actor, questionID); err != nil {
+	q, err := s.questions.GetQuestion(ctx, questionID)
+	if err != nil {
 		return err
+	}
+	role, err := s.households.Role(ctx, q.HouseholdID, actor.ID)
+	if err != nil {
+		return err
+	}
+	if q.AskedBy != actor.ID && role != domain.RoleOwner {
+		return fmt.Errorf("%w: only whoever asked or the owner can delete a question", domain.ErrForbidden)
 	}
 	return s.questions.DeleteQuestion(ctx, questionID)
 }

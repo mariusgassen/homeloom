@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Homeloom API
-  version: 0.52.0
+  version: 0.53.0
   description: |
     The contract for every Homeloom client (PWA, native apps, MCP, third-party apps).
     This file is the source of truth: server code is generated from it, never the other way round.
@@ -761,12 +761,12 @@ paths:
     delete:
       tags: [questions]
       operationId: deleteQuestion
-      summary: Delete your question and its answers
+      summary: Delete a question and its answers (whoever asked, or the household's owner)
       responses:
         "204": { description: Deleted. }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403":
-          description: Someone else asked this question (code `not_yours`).
+          description: Neither asked by you nor are you the owner (code `not_yours`).
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
