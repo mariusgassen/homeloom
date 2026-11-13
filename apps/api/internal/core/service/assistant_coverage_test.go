@@ -162,6 +162,11 @@ var serviceToolCoverage = map[string]string{ //nolint:gosec // method names in p
 	"EntrySyncService.SyncPut":     "-: CalDAV/WebDAV sync protocol",
 	"EntrySyncService.SyncDelete":  "-: CalDAV/WebDAV sync protocol",
 	"EntrySyncService.SyncMove":    "-: CalDAV/WebDAV sync protocol",
+	// ShoppingSyncService — CalDAV protocol adapter surface.
+	"ShoppingSyncService.SyncItems":  "-: CalDAV sync protocol",
+	"ShoppingSyncService.SyncItem":   "-: CalDAV sync protocol",
+	"ShoppingSyncService.SyncPut":    "-: CalDAV sync protocol",
+	"ShoppingSyncService.SyncDelete": "-: CalDAV sync protocol",
 
 	// CookService — recipes, dinner plan and ratings.
 	"CookService.Find":                   "search_recipes",

@@ -287,7 +287,7 @@ func run() error {
 			Households: households,
 			Tools:      assistant,
 		}),
-		CalDAV: caldav.NewHandler(caldav.Deps{Agents: agents, Entries: entries, Location: cfg.TimeZone}),
+		CalDAV: caldav.NewHandler(caldav.Deps{Agents: agents, Entries: entries, Shopping: shopping, Location: cfg.TimeZone}),
 		Notes:  notesdav.NewHandler(notesdav.Deps{Agents: agents, Entries: entries}),
 	})
 	if err != nil {

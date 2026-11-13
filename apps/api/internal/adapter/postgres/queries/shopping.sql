@@ -7,12 +7,17 @@ LIMIT @lim;
 
 -- name: AddShoppingItem :one
 -- clock_timestamp keeps the order of items added in one transaction.
-INSERT INTO shopping_items (household_id, text, recipe, added_by, aisle, created_at) VALUES ($1, $2, $3, $4, $5, clock_timestamp())
+INSERT INTO shopping_items (household_id, text, recipe, added_by, aisle, ical_uid, ical_name, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, clock_timestamp())
 RETURNING *;
 
 -- name: SetShoppingItemDone :one
 UPDATE shopping_items
 SET done_at = CASE WHEN @done::boolean THEN coalesce(done_at, now()) END
+WHERE id = @id AND household_id = @household_id
+RETURNING *;
+
+-- name: SetShoppingItemText :one
+UPDATE shopping_items SET text = @text
 WHERE id = @id AND household_id = @household_id
 RETURNING *;
 

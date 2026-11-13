@@ -35,7 +35,7 @@ func (s *Store) AddShoppingItems(ctx context.Context, items []domain.ShoppingIte
 			if it.Recipe != "" {
 				recipe = &it.Recipe
 			}
-			row, err := q.AddShoppingItem(ctx, sqlcgen.AddShoppingItemParams{HouseholdID: it.HouseholdID, Text: it.Text, Recipe: recipe, AddedBy: it.AddedBy, Aisle: string(cmp.Or(it.Aisle, domain.AisleOther))})
+			row, err := q.AddShoppingItem(ctx, sqlcgen.AddShoppingItemParams{HouseholdID: it.HouseholdID, Text: it.Text, Recipe: recipe, AddedBy: it.AddedBy, Aisle: string(cmp.Or(it.Aisle, domain.AisleOther)), IcalUid: nullable(it.ICalUID), IcalName: nullable(it.ICalName)})
 			if err != nil {
 				return err
 			}
@@ -54,6 +54,17 @@ func (s *Store) AddShoppingItems(ctx context.Context, items []domain.ShoppingIte
 
 func (s *Store) SetShoppingItemDone(ctx context.Context, householdID, id uuid.UUID, done bool) (domain.ShoppingItem, error) {
 	row, err := s.q.SetShoppingItemDone(ctx, sqlcgen.SetShoppingItemDoneParams{Done: done, ID: id, HouseholdID: householdID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ShoppingItem{}, domain.ErrNotFound
+	}
+	if err != nil {
+		return domain.ShoppingItem{}, err
+	}
+	return toShoppingItem(row), nil
+}
+
+func (s *Store) SetShoppingItemText(ctx context.Context, householdID, id uuid.UUID, text string) (domain.ShoppingItem, error) {
+	row, err := s.q.SetShoppingItemText(ctx, sqlcgen.SetShoppingItemTextParams{Text: text, ID: id, HouseholdID: householdID})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.ShoppingItem{}, domain.ErrNotFound
 	}
@@ -132,5 +143,6 @@ func toShoppingItem(r sqlcgen.ShoppingItem) domain.ShoppingItem {
 	if r.Recipe != nil {
 		it.Recipe = *r.Recipe
 	}
+	it.ICalUID, it.ICalName = deref(r.IcalUid), deref(r.IcalName)
 	return it
 }

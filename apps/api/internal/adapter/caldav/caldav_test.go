@@ -18,6 +18,7 @@ import (
 type fixture struct {
 	url, password, home string
 	entries             *service.Entry
+	shopping            *service.Shopping
 	alice               domain.User
 	household           domain.Household
 }
@@ -31,6 +32,7 @@ func newFixture(t *testing.T) *fixture {
 	}
 	store := memory.NewStore()
 	entries := service.NewEntry(store, store, store, service.NewPush(store, &memory.Pusher{}), berlin)
+	shopping := service.NewShopping(store, store, nil)
 	agents := service.NewAgentAccess(store, memory.NewSessions(), store)
 	alice, err := store.UpsertByIdentity(ctx, domain.Identity{Subject: "alice", Name: "Alice"})
 	if err != nil {
@@ -44,11 +46,11 @@ func newFixture(t *testing.T) *fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv := httptest.NewServer(caldav.NewHandler(caldav.Deps{Agents: agents, Entries: entries, Location: berlin}))
+	srv := httptest.NewServer(caldav.NewHandler(caldav.Deps{Agents: agents, Entries: entries, Shopping: shopping, Location: berlin}))
 	t.Cleanup(srv.Close)
 	return &fixture{
 		url: srv.URL, password: password, home: "/dav/" + m.Household.ID.String() + "/calendars/",
-		entries: entries, alice: alice, household: m.Household,
+		entries: entries, shopping: shopping, alice: alice, household: m.Household,
 	}
 }
 
@@ -108,7 +110,7 @@ func TestListsAndObjects(t *testing.T) {
 	if res.StatusCode != http.StatusMultiStatus {
 		t.Fatalf("home: %d %s", res.StatusCode, body)
 	}
-	for _, want := range []string{"events/", "events-private/", "reminders/", "reminders-private/", "VTODO", "VEVENT"} {
+	for _, want := range []string{"events/", "events-private/", "reminders/", "reminders-private/", "shopping/", "Homeloom · Shopping", "VTODO", "VEVENT"} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("home lacks %q: %s", want, body)
 		}
@@ -218,7 +220,7 @@ func TestDiscovery(t *testing.T) {
 	ctag := func() string {
 		t.Helper()
 		res, body := f.do(t, "PROPFIND", strings.TrimSuffix(f.home, "/"), f.password, homeProps, "Content-Type", "text/xml", "Depth", "1")
-		if res.StatusCode != http.StatusMultiStatus || strings.Count(body, "<response>") != 5 ||
+		if res.StatusCode != http.StatusMultiStatus || strings.Count(body, "<response>") != 6 ||
 			!strings.Contains(body, "<write-content/>") || !strings.Contains(body, "<calendar-multiget") {
 			t.Fatalf("home: %d %s", res.StatusCode, body)
 		}
@@ -247,5 +249,71 @@ func TestDiscovery(t *testing.T) {
 	if res.StatusCode != http.StatusMultiStatus || !strings.Contains(body, f.home+"events/E2.ics</href>") ||
 		!strings.Contains(body, "<getetag xmlns=\"DAV:\">"+strings.ReplaceAll(get.Header.Get("ETag"), `"`, "&#34;")+"</getetag>") {
 		t.Fatalf("list: %d %s (etag %s)", res.StatusCode, body, get.Header.Get("ETag"))
+	}
+}
+
+// TestShoppingList: the shopping list is a shared reminders list that works both ways.
+func TestShoppingList(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	ics := []string{"Content-Type", "text/calendar; charset=utf-8"}
+
+	// An item made in Homeloom shows up, named by its id.
+	added, err := f.shopping.Add(ctx, f.alice, f.household.ID, []string{"Milk"}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, body := f.do(t, "GET", f.home+"shopping/"+added[0].ID.String()+".ics", f.password, "")
+	if res.StatusCode != http.StatusOK || !strings.Contains(body, "SUMMARY:Milk") || !strings.Contains(body, "STATUS:NEEDS-ACTION") {
+		t.Fatalf("get: %d %s", res.StatusCode, body)
+	}
+
+	// An item the app makes keeps the name and UID the app gave it, and is on the list.
+	todo := "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:x\r\nBEGIN:VTODO\r\nUID:A1\r\nDTSTAMP:20261028T100000Z\r\nSUMMARY:Bread\r\nEND:VTODO\r\nEND:VCALENDAR\r\n"
+	res, _ = f.do(t, "PUT", f.home+"shopping/A1.ics", f.password, todo, append(ics, "If-None-Match", "*")...)
+	if res.StatusCode != http.StatusCreated || res.Header.Get("ETag") == "" {
+		t.Fatalf("put: %d", res.StatusCode)
+	}
+	if res, _ := f.do(t, "PUT", f.home+"shopping/A1.ics", f.password, todo, append(ics, "If-None-Match", "*")...); res.StatusCode != http.StatusPreconditionFailed {
+		t.Fatalf("second create: %d", res.StatusCode)
+	}
+	items, err := f.shopping.Items(ctx, f.alice, f.household.ID)
+	if err != nil || len(items) != 2 || items[1].Text != "Bread" {
+		t.Fatalf("items: %+v, %v", items, err)
+	}
+	if _, body := f.do(t, "GET", f.home+"shopping/A1.ics", f.password, ""); !strings.Contains(body, "UID:A1") {
+		t.Fatalf("uid lost: %s", body)
+	}
+
+	// Ticking it off in the app, and renaming it, reach the list; so does ticking it off back.
+	done := strings.Replace(todo, "SUMMARY:Bread", "SUMMARY:Rye bread\r\nSTATUS:COMPLETED", 1)
+	if res, body := f.do(t, "PUT", f.home+"shopping/A1.ics", f.password, done, ics...); res.StatusCode != http.StatusNoContent && res.StatusCode != http.StatusCreated {
+		t.Fatalf("tick off: %d %s", res.StatusCode, body)
+	}
+	if items, _ = f.shopping.Items(ctx, f.alice, f.household.ID); len(items) != 2 || items[1].Text != "Rye bread" || items[1].DoneAt == nil {
+		t.Fatalf("after tick off: %+v", items)
+	}
+	if res, body := f.do(t, "PUT", f.home+"shopping/A1.ics", f.password, todo, ics...); res.StatusCode >= 300 {
+		t.Fatalf("untick: %d %s", res.StatusCode, body)
+	}
+	if items, _ = f.shopping.Items(ctx, f.alice, f.household.ID); items[len(items)-1].DoneAt != nil && items[0].DoneAt != nil {
+		t.Fatalf("after untick: %+v", items)
+	}
+
+	// An item ticked off in Homeloom is completed in the app; a delete in the app removes it.
+	if _, err := f.shopping.SetDone(ctx, f.alice, f.household.ID, added[0].ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, body := f.do(t, "GET", f.home+"shopping/"+added[0].ID.String()+".ics", f.password, ""); !strings.Contains(body, "STATUS:COMPLETED") {
+		t.Fatalf("not completed: %s", body)
+	}
+	if res, _ := f.do(t, "DELETE", f.home+"shopping/A1.ics", f.password, ""); res.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete: %d", res.StatusCode)
+	}
+	if items, _ = f.shopping.Items(ctx, f.alice, f.household.ID); len(items) != 1 {
+		t.Fatalf("after delete: %+v", items)
+	}
+	if res, _ := f.do(t, "GET", f.home+"shopping/A1.ics", f.password, ""); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("after delete: %d", res.StatusCode)
 	}
 }

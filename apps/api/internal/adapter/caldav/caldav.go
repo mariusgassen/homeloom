@@ -35,6 +35,8 @@ const (
 type Deps struct {
 	Agents  port.AgentAccessService
 	Entries port.EntrySyncService
+	// Shopping serves the shopping list as one more reminders list.
+	Shopping port.ShoppingSyncService
 	// Location is the household's time zone, for times an app sends without one.
 	Location *time.Location
 }
@@ -44,13 +46,16 @@ type list struct {
 	slug string
 	domain.SyncList
 	comp, title string
+	// shopping marks the household's shopping list, which is not made of entries.
+	shopping bool
 }
 
 var lists = []list{
-	{"events", domain.SyncList{Kind: domain.KindEvent, Visibility: domain.VisibilityShared}, ical.CompEvent, "dav.shared"},
-	{"events-private", domain.SyncList{Kind: domain.KindEvent, Visibility: domain.VisibilityPrivate}, ical.CompEvent, "dav.private"},
-	{"reminders", domain.SyncList{Kind: domain.KindReminder, Visibility: domain.VisibilityShared}, ical.CompToDo, "dav.shared"},
-	{"reminders-private", domain.SyncList{Kind: domain.KindReminder, Visibility: domain.VisibilityPrivate}, ical.CompToDo, "dav.private"},
+	{"events", domain.SyncList{Kind: domain.KindEvent, Visibility: domain.VisibilityShared}, ical.CompEvent, "dav.shared", false},
+	{"events-private", domain.SyncList{Kind: domain.KindEvent, Visibility: domain.VisibilityPrivate}, ical.CompEvent, "dav.private", false},
+	{"reminders", domain.SyncList{Kind: domain.KindReminder, Visibility: domain.VisibilityShared}, ical.CompToDo, "dav.shared", false},
+	{"reminders-private", domain.SyncList{Kind: domain.KindReminder, Visibility: domain.VisibilityPrivate}, ical.CompToDo, "dav.private", false},
+	{"shopping", domain.SyncList{}, ical.CompToDo, "dav.shopping", true},
 }
 
 type grantKey struct{}
@@ -177,6 +182,9 @@ func (b *backend) GetCalendarObject(ctx context.Context, path string, _ *caldav.
 	if err != nil {
 		return nil, err
 	}
+	if l.shopping {
+		return b.shoppingGet(ctx, l, name)
+	}
 	g := grant(ctx)
 	e, err := b.Entries.SyncEntry(ctx, g.User, g.HouseholdID, l.SyncList, name)
 	if err != nil {
@@ -192,6 +200,9 @@ func (b *backend) ListCalendarObjects(ctx context.Context, path string, _ *calda
 	}
 	if name != "" {
 		return nil, webdav.NewHTTPError(http.StatusNotFound, nil)
+	}
+	if l.shopping {
+		return b.shoppingObjects(ctx, l)
 	}
 	g := grant(ctx)
 	es, err := b.Entries.SyncEntries(ctx, g.User, g.HouseholdID, l.SyncList)
@@ -230,6 +241,9 @@ func (b *backend) PutCalendarObject(ctx context.Context, path string, cal *ical.
 	}
 	if name == "" {
 		return nil, webdav.NewHTTPError(http.StatusMethodNotAllowed, nil)
+	}
+	if l.shopping {
+		return b.shoppingPut(ctx, l, name, cal, opts)
 	}
 	kind, uid, err := caldav.ValidateCalendarObject(cal)
 	if err != nil {
@@ -298,6 +312,9 @@ func (b *backend) DeleteCalendarObject(ctx context.Context, path string) error {
 		return webdav.NewHTTPError(http.StatusForbidden, errors.New("the lists are fixed"))
 	}
 	g := grant(ctx)
+	if l.shopping {
+		return httpError(ctx, b.Shopping.SyncDelete(ctx, g.User, g.HouseholdID, name))
+	}
 	return httpError(ctx, b.Entries.SyncDelete(ctx, g.User, g.HouseholdID, l.SyncList, name))
 }
 

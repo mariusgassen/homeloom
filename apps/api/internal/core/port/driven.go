@@ -289,6 +289,7 @@ type ShoppingRepository interface {
 	// AddShoppingItems stores the items, all or none.
 	AddShoppingItems(ctx context.Context, items []domain.ShoppingItem) ([]domain.ShoppingItem, error)
 	SetShoppingItemDone(ctx context.Context, householdID, id uuid.UUID, done bool) (domain.ShoppingItem, error)
+	SetShoppingItemText(ctx context.Context, householdID, id uuid.UUID, text string) (domain.ShoppingItem, error)
 	DeleteShoppingItem(ctx context.Context, householdID, id uuid.UUID) error
 	ClearDoneShoppingItems(ctx context.Context, householdID uuid.UUID) error
 	// ShoppingSuggestions returns what the household put on the list before, kept after items

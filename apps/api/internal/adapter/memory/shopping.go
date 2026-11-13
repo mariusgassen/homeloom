@@ -73,6 +73,19 @@ func (s *Store) SetShoppingItemDone(_ context.Context, householdID, id uuid.UUID
 	return domain.ShoppingItem{}, domain.ErrNotFound
 }
 
+func (s *Store) SetShoppingItemText(_ context.Context, householdID, id uuid.UUID, text string) (domain.ShoppingItem, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, it := range s.shopping {
+		if it.ID == id && it.HouseholdID == householdID {
+			it.Text = text
+			s.shopping[i] = it
+			return it, nil
+		}
+	}
+	return domain.ShoppingItem{}, domain.ErrNotFound
+}
+
 func (s *Store) DeleteShoppingItem(_ context.Context, householdID, id uuid.UUID) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
