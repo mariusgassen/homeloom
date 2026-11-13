@@ -4,7 +4,6 @@ import { api, type HouseholdDetail, type Wish } from "../api/client";
 import { centsText, parseCents } from "../money";
 import { shrink } from "../moments";
 import { Button } from "../ui/Button";
-import { FormGroup } from "../ui/Form";
 import { Icon } from "../ui/Icon";
 import { Sheet } from "../ui/Sheet";
 
@@ -154,42 +153,40 @@ export function WishSheet({
         />
       </label>
 
-      <FormGroup>
-        <label className="field">
-          <span className="label">{t("wishes.price")}</span>
-          <input
-            className="input"
-            value={price}
-            inputMode="decimal"
-            onChange={(e) => setPrice(e.target.value)}
-            placeholder="0,00"
-            aria-invalid={cents !== undefined && !(cents > 0)}
-          />
-        </label>
-        <label className="field">
-          <span className="label">{t("wishes.link")}</span>
-          <input
-            className="input"
-            type="url"
-            value={link}
-            maxLength={2000}
-            onChange={(e) => setLink(e.target.value)}
-            placeholder="https://"
-            autoCapitalize="none"
-            autoCorrect="off"
-          />
-        </label>
-        <label className="field">
-          <span className="label">{t("wishes.note")}</span>
-          <textarea
-            className="input"
-            value={note}
-            maxLength={500}
-            rows={3}
-            onChange={(e) => setNote(e.target.value)}
-          />
-        </label>
-      </FormGroup>
+      <label className="field">
+        <span className="label">{t("wishes.price")}</span>
+        <input
+          className="input"
+          value={price}
+          inputMode="decimal"
+          onChange={(e) => setPrice(e.target.value)}
+          placeholder="0,00"
+          aria-invalid={cents !== undefined && !(cents > 0)}
+        />
+      </label>
+      <label className="field">
+        <span className="label">{t("wishes.link")}</span>
+        <input
+          className="input"
+          type="url"
+          value={link}
+          maxLength={2000}
+          onChange={(e) => setLink(e.target.value)}
+          placeholder="https://"
+          autoCapitalize="none"
+          autoCorrect="off"
+        />
+      </label>
+      <label className="field">
+        <span className="label">{t("wishes.note")}</span>
+        <textarea
+          className="input"
+          value={note}
+          maxLength={500}
+          rows={3}
+          onChange={(e) => setNote(e.target.value)}
+        />
+      </label>
 
       {preview && (
         <img className="moment-photo" src={preview} alt={t("wishes.photo")} />
