@@ -66,7 +66,7 @@ export function Today() {
   const [generation, setGeneration] = useState(0);
   const date = new Intl.DateTimeFormat(i18n.language, { weekday: "long", day: "numeric", month: "long" }).format(new Date());
   return (
-    <Screen wide title={t("tabs.today")} overline={date} add={{ label: t("entries.add"), onClick: () => setAdding(true) }}>
+    <Screen title={t("tabs.today")} overline={date} add={{ label: t("entries.add"), onClick: () => setAdding(true) }}>
       <Greeting household={household} me={me} />
       <NextUp key={generation} household={household} />
       <TodayGifts household={household} />
@@ -508,7 +508,7 @@ export function Us() {
   const [generation, setGeneration] = useState(0);
   const tab = usTabs.find((k) => k === params.get("show")) ?? "moments";
   return (
-    <Screen wide title={t("tabs.us")} action={<CallButton />} add={tab === "moments" ? { label: t("moments.add"), onClick: () => setSheet("new") } : undefined}>
+    <Screen title={t("tabs.us")} action={<CallButton />} add={tab === "moments" ? { label: t("moments.add"), onClick: () => setSheet("new") } : undefined}>
       {household.members.length < 2 && (
         <Card
           tone="sunken"
@@ -565,7 +565,7 @@ export function Household() {
   const { t } = useTranslation();
   const { household, me } = useHome();
   return (
-    <Screen wide title={t("tabs.household")}>
+    <Screen title={t("tabs.household")}>
       <HouseholdCook household={household} />
       <HouseholdChores household={household} me={me} />
       <Money household={household} me={me} />

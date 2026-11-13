@@ -103,7 +103,7 @@ export function Home() {
 
   if (unavailable) {
     return (
-      <Screen wide title={t("tabs.home")}>
+      <Screen title={t("tabs.home")}>
         <Empty title={t("home.offTitle")}>{unavailable}</Empty>
       </Screen>
     );
@@ -158,7 +158,7 @@ export function Home() {
   const empty = home?.connected && home.scenes.length + home.lights.length + home.readings.length === 0;
   const lit = home?.lights.filter((l) => l.on).length ?? 0;
   return (
-    <Screen wide title={t("tabs.home")}>
+    <Screen title={t("tabs.home")}>
       {error && (
         <p className="callout error" role="alert">
           {error}
