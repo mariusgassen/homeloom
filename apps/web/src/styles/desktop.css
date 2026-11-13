@@ -1,0 +1,40 @@
+/* Desktop layout, from 1024px up: the tab bar becomes a sidebar, tab screens use the width, sheets and the assistant stop spanning the window. Phones never match. */
+@media (min-width: 1024px) {
+  :root { --sidebar-width: 232px; }
+  .app { padding-left: var(--sidebar-width); }
+  .app::before { left: var(--sidebar-width); }
+
+  .hl-tabbar {
+    left: 0; top: 0; bottom: 0; transform: none; width: var(--sidebar-width); max-width: none; height: auto;
+    display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: var(--space-1);
+    padding: var(--space-8) var(--space-3) var(--space-4);
+    border: 0; border-right: 1px solid var(--line); border-radius: 0; box-shadow: none;
+    background: var(--surface-raised); backdrop-filter: none; -webkit-backdrop-filter: none;
+  }
+  .hl-tab { flex-direction: row; justify-content: flex-start; gap: var(--space-3); height: var(--hit-min); padding: 0 var(--space-3); font-size: 15px; line-height: 20px; border-radius: var(--radius-md); }
+  .hl-tab[aria-current="page"] { background: var(--spruce-tint); }
+  .hl-tab-mark { width: auto; height: auto; background: none !important; }
+  @media (hover: hover) { .hl-tab:hover:not([aria-current="page"]) { background: color-mix(in srgb, var(--ink) 6%, transparent); } }
+
+  .screen { --screen-pad-left: var(--space-8); --screen-pad-right: var(--space-8); max-width: 760px; }
+  .screen-main, .screen-with-add .screen-main { padding-bottom: var(--space-8); }
+  .screen-add { right: var(--space-8); bottom: var(--space-8); }
+
+  /* Tab screens: the groups flow into columns and keep whole. */
+  .screen-wide { max-width: 1280px; }
+  .screen-wide .screen-main { display: block; column-count: 2; column-gap: var(--space-6); }
+  .screen-wide .screen-main > * { break-inside: avoid; margin-bottom: var(--space-6); }
+
+  /* Sheets become centred dialogs. */
+  .sheet-backdrop { align-items: center; }
+  .sheet { max-width: 520px; border-radius: 24px; padding-bottom: var(--space-6); box-shadow: 0 24px 64px rgba(22, 32, 30, 0.3); }
+  .sheet > .sheet-grabber:first-child, .sheet-head > .sheet-grabber { display: none; }
+
+  /* The assistant is a panel on the right; the page behind stays visible. */
+  .assistant { left: auto; width: 440px; box-shadow: var(--shadow-sheet); border-left: 1px solid var(--line); }
+  .assistant-main { max-width: none; }
+}
+@media (min-width: 1600px) {
+  .screen-wide { max-width: 1520px; }
+  .screen-wide .screen-main { column-count: 3; }
+}
