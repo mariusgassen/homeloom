@@ -12,15 +12,14 @@ import { ThreadAvatar, threadFor } from "../ui/ThreadAvatar";
 // A tab's page: the assistant and household buttons top right, a large title, then content. back
 // replaces the overline on pages below a tab; action is a button left of those, such as call. add
 // is the round plus above the tab bar, in reach of the thumb, for what this screen holds.
-// wide lets a tab's content flow into columns on desktop. Pulling down from the top loads the screen again, unless refreshable is false.
-export function Screen({ title, overline, back, action, add, refreshable = true, wide, children }: {
+// Pulling down from the top loads the screen again, unless refreshable is false.
+export function Screen({ title, overline, back, action, add, refreshable = true, children }: {
   title: string;
   overline?: string;
   back?: ReactNode;
   action?: ReactNode;
   add?: { label: string; onClick: () => void };
   refreshable?: boolean;
-  wide?: boolean;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -30,7 +29,7 @@ export function Screen({ title, overline, back, action, add, refreshable = true,
   const pull = usePullToRefresh(refreshable);
   const members = session.state === "signedIn" ? (session.household?.members ?? []) : [];
   return (
-    <div className={cx("screen", add && "screen-with-add", wide && "screen-wide")} {...pull.handlers}>
+    <div className={cx("screen", add && "screen-with-add",)} {...pull.handlers}>
       <div className="screen-toolbar">
         {back ?? <span className="caption screen-overline">{overline}</span>}
         {action}

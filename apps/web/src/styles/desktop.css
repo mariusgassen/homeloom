@@ -1,4 +1,4 @@
-/* Desktop layout, from 1024px up: the tab bar becomes a sidebar, tab screens use the width, sheets and the assistant stop spanning the window. Phones never match. */
+/* Desktop layout, from 1024px up: the tab bar becomes a sidebar, sheets and the assistant stop spanning the window. Phones never match. */
 @media (min-width: 1024px) {
   :root { --sidebar-width: 232px; }
   .app { padding-left: var(--sidebar-width); }
@@ -20,11 +20,6 @@
   .screen-main, .screen-with-add .screen-main { padding-bottom: var(--space-8); }
   .screen-add { right: var(--space-8); bottom: var(--space-8); }
 
-  /* Tab screens: the groups flow into columns and keep whole. */
-  .screen-wide { max-width: 1280px; }
-  .screen-wide .screen-main { display: block; column-count: 2; column-gap: var(--space-6); }
-  .screen-wide .screen-main > * { break-inside: avoid; margin-bottom: var(--space-6); }
-
   /* Sheets become centred dialogs. */
   .sheet-backdrop { align-items: center; }
   .sheet { max-width: 520px; border-radius: 24px; padding-bottom: var(--space-6); box-shadow: 0 24px 64px rgba(22, 32, 30, 0.3); }
@@ -34,7 +29,14 @@
   .assistant { left: auto; width: 440px; box-shadow: var(--shadow-sheet); border-left: 1px solid var(--line); }
   .assistant-main { max-width: none; }
 }
-@media (min-width: 1600px) {
-  .screen-wide { max-width: 1520px; }
-  .screen-wide .screen-main { column-count: 3; }
+
+/* Master-detail: a list beside the open item. */
+@media (min-width: 1024px) {
+  .screen:has(.split) { max-width: 1280px; }
+  .split { display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: var(--space-6); align-items: start; }
+  .split-list { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+  .split-detail { position: sticky; top: calc(var(--hit-min) + var(--space-4)); min-height: 50dvh; border-radius: var(--radius-lg); background: var(--surface-raised); min-width: 0; }
+  .split-detail .note-page { max-width: none; padding: 0 var(--space-4) var(--space-4); }
+  .split-detail .note-bar { position: static; margin: 0; padding: var(--space-2) 0 0; min-height: 0; background: none; }
+  .split .note[aria-current="true"] { box-shadow: 0 0 0 2px var(--spruce); }
 }
