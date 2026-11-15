@@ -10,16 +10,17 @@ import { Video } from "../ui/Video";
 
 // Keep a moment: what happened, the day, a photo and a video if there are any, and who sees it. With a moment it
 // edits that one instead. With a meal it is a memory of that dish.
-export function MomentSheet({ household, me, moment, meal: dish, onClose, onSaved }: {
+export function MomentSheet({ household, me, moment, meal: dish, initialText, onClose, onSaved }: {
   household: HouseholdDetail;
   me: User;
   moment?: Moment;
   meal?: MealRef;
+  initialText?: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
-  const [text, setText] = useState(moment?.text ?? "");
+  const [text, setText] = useState(moment?.text ?? initialText ?? "");
   const [day, setDay] = useState(moment?.day ?? today());
   const [meal, setMeal] = useState<MealRef | undefined>(moment ? moment.meal : dish);
   const [visibility, setVisibility] = useState<Visibility>(moment?.visibility === "private" ? "private" : "shared");

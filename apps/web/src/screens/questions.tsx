@@ -6,6 +6,7 @@ import { useRefresh } from "../refresh";
 import { Button } from "../ui/Button";
 import { RevealCard, type Person } from "../ui/RevealCard";
 import { threadFor } from "../ui/ThreadAvatar";
+import { MomentSheet } from "./MomentSheet";
 
 export function useQuestions(householdId: string) {
   const [questions, setQuestions] = useState<Question[] | null>(() => cached<Question[]>(`/v1/households/${householdId}/questions`) ?? null);
@@ -48,6 +49,14 @@ function people(q: Question, household: HouseholdDetail, me: User): Person[] {
   });
 }
 
+function formatQuestionMoment(q: Question, household: HouseholdDetail) {
+  const lines = q.answers.map((a) => {
+    const name = household.members.find((m) => m.user.id === a.userId)?.user.name ?? "";
+    return `${name ? `${name}: ` : ""}${a.text ?? ""}`;
+  });
+  return [q.text, "", ...lines].join("\n").slice(0, 2000);
+}
+
 // A question with its answers and, until it opens, a form for your own answer. With onRemoved,
 // whoever asked can also reword it (until someone else answers) or delete it; the owner can delete any.
 export function QuestionCard({ question, household, me, eyebrow, onChange, onRemoved }: {
@@ -62,6 +71,8 @@ export function QuestionCard({ question, household, me, eyebrow, onChange, onRem
   const mine = question.answers.find((a) => a.userId === me.id);
   const [editing, setEditing] = useState(false);
   const [rewording, setRewording] = useState(false);
+  const [keeping, setKeeping] = useState(false);
+  const [kept, setKept] = useState(false);
   const [text, setText] = useState(mine?.text ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,36 +110,55 @@ export function QuestionCard({ question, household, me, eyebrow, onChange, onRem
   }
 
   return (
-    <RevealCard question={question.text} eyebrow={eyebrow} revealed={question.revealed} people={people(question, household, me)}>
-      {showForm ? (
-        <form className="answer-form" onSubmit={submit}>
-          <label className="field">
-            <span className="label">{t("questions.yourAnswer")}</span>
-            <textarea className="input textarea" value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} rows={3} required />
-          </label>
-          <p className="caption muted">{t("questions.private")}</p>
-          {error && (
-            <p className="callout error" role="alert">
-              {error}
-            </p>
-          )}
-          <Button type="submit" block disabled={busy || !text.trim()}>
-            {t(mine ? "questions.save" : "questions.send")}
+    <>
+      <RevealCard question={question.text} eyebrow={eyebrow} revealed={question.revealed} people={people(question, household, me)}>
+        {showForm ? (
+          <form className="answer-form" onSubmit={submit}>
+            <label className="field">
+              <span className="label">{t("questions.yourAnswer")}</span>
+              <textarea className="input textarea" value={text} onChange={(e) => setText(e.target.value)} maxLength={2000} rows={3} required />
+            </label>
+            <p className="caption muted">{t("questions.private")}</p>
+            {error && (
+              <p className="callout error" role="alert">
+                {error}
+              </p>
+            )}
+            <Button type="submit" block disabled={busy || !text.trim()}>
+              {t(mine ? "questions.save" : "questions.send")}
+            </Button>
+          </form>
+        ) : (
+          !question.revealed && (
+            <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
+              {t("questions.edit")}
+            </Button>
+          )
+        )}
+        {question.revealed && (
+          <Button variant="secondary" size="sm" icon={kept ? "check" : "us"} onClick={() => setKeeping(true)}>
+            {t(kept ? "questions.kept" : "questions.keep")}
           </Button>
-        </form>
-      ) : (
-        !question.revealed && (
-          <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
-            {t("questions.edit")}
+        )}
+        {onRemoved && (question.askedBy === me.id || household.role === "owner") && (
+          <Button variant="plain" size="sm" className="question-manage" onClick={() => setRewording(true)}>
+            {t("questions.manage")}
           </Button>
-        )
+        )}
+      </RevealCard>
+      {keeping && (
+        <MomentSheet
+          household={household}
+          me={me}
+          initialText={formatQuestionMoment(question, household)}
+          onClose={() => setKeeping(false)}
+          onSaved={() => {
+            setKeeping(false);
+            setKept(true);
+          }}
+        />
       )}
-      {onRemoved && (question.askedBy === me.id || household.role === "owner") && (
-        <Button variant="plain" size="sm" className="question-manage" onClick={() => setRewording(true)}>
-          {t("questions.manage")}
-        </Button>
-      )}
-    </RevealCard>
+    </>
   );
 }
 
