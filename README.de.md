@@ -75,61 +75,47 @@ Homeloom wächst mit eurem gemeinsamen Alltag. Die Funktionen sind danach sortie
 - **Wochenrückblick am Sonntag:** eine Seite, die die Woche zusammenfasst.
 
 **Rund um euch zwei**
-- **Briefe an die Zukunft:** schreibt euch, versiegelt bis zu einem Datum oder Meilenstein.
-- **Dankbarkeitswand:** eine Zeile am Tag, die zufällig wieder auftaucht (begonnen).
-- **„Wir“-Zeitstrahl:** eure gemeinsamen Momente, mit Monatsrückblick und „Heute vor …“ (begonnen).
+- **Briefe an die Zukunft:** schreibt euch, versiegelt bis zu einem Datum oder Meilenstein (Notizen unterstützen das spätere Öffnen bereits; Zeitkapsel-Momente folgen).
 - **Dankbarkeit auf Heute:** die Zeile des Tages direkt unter Heute schreiben, mit einem optionalen Hinweis am Abend, falls sie noch fehlt.
 - **Antworten aufheben:** eine geöffnete Frage mit einem Tipp auf euren Zeitstrahl legen.
-- **Reaktionen auf Momente:** ein Herz oder ein anderes Emoji auf die Momente des anderen (begonnen).
+- **Monatsrückblick im Zeitstrahl:** ein monatlicher Rückblick auf dem „Wir“-Zeitstrahl (Dankbarkeit-Rückblicke, „Heute vor …“ und Emoji-Reaktionen sind bereits da).
 - **Gemeinsame Serien:** wie viele Tage am Stück ihr beide eine Zeile geschrieben habt, ohne schlechtes Gewissen für einen verpassten Tag.
 - **Jahresrückblick:** zu Neujahr ein geschriebener Blick zurück auf eure Momente und euer Danke.
-- **Frag nach Erinnerungen:** der Assistent schaut auf eurem Zeitstrahl nach („Was haben wir letzten Mai gemacht?“).
+- **Frag nach Erinnerungen:** gezielte Erinnerungssuche auf eurem Zeitstrahl („Was haben wir letzten Mai gemacht?“).
 
 **Ausgehen und Daheimbleiben**
-- **Film- und Spieleabend:** ihr wischt beide durch eure Plex-Mediatheken, die Schnittmenge gewinnt, der Raum stellt sich passend ein.
+- **Spieleabend:** gemeinsam Spiele aussuchen, passend zum Filmabend über Plex.
 
 **Verbundene Apps**
-- **Plex:** eure eigenen und geteilten Film- und Serien-Mediatheken (begonnen, siehe oben).
 - **Fotos:** Fotos vom iPhone zu Momenten und Gerichten hinzufügen, auch übers Teilen-Menü mit einem Kurzbefehl. iCloud hat keine API; öffentliche geteilte Alben ließen sich lesen, aber nur, wenn sie öffentlich sind.
 - **Gemeinsam lesen:** was ihr gerade lest und wie weit, aus einem selbst gehosteten BookOrbit.
 - **Gemeinsame Ausgaben:** Salden und letzte Ausgaben aus Tricount, nur lesend. Tricount hat keine offizielle API, das kann also kaputtgehen.
-- **Ausgehende Hooks und App-Tokens:** andere Apps reagieren auf Homeloom (Film gewählt, Buch fertig) und schicken mit einem Token, das nur genau das darf, etwas herein.
+- **Ausgehende Hooks und begrenzte App-Tokens:** andere Apps reagieren auf Homeloom (Film gewählt, Buch fertig) und schicken mit einem Token, das nur genau das darf, etwas herein.
 
 ### Später
 
 - **Traumboard:** gemeinsame Ziele in kleinen Schritten, mit einem Check-in pro Quartal.
 - **Perspektivenhilfe:** ihr schreibt beide eure Sicht privat und bekommt eine neutrale Zusammenfassung mit Kompromissideen. Zeigt nie den Text des anderen. Pro Eintrag freiwillig.
 - **Ambient-Anzeige:** die Dankbarkeitszeile des Tages auf einem E-Ink-Display oder einem smarten Licht.
-- **Haushaltsassistent:** stell deinem Zuhause eine Frage in ganz normaler Sprache.
 
 ### Ideen
 
 Noch nicht sortiert und nicht versprochen.
 
 **Rund ums Zuhause**
-- **Haushaltsplan:** gemeinsame Aufgaben, die sich fair abwechseln.
 - **Ankommen-Szenen:** Licht und Musik, wie ihr sie mögt, wenn ihr heimkommt, zusammen mit „Fast zu Hause“.
 - **Pflanzen- und Hauspflege:** Gießen, Filter, Wartung, zur richtigen Zeit erinnert.
 - **Energie im Blick:** ein ruhiger Blick darauf, was euer Zuhause diese Woche verbraucht hat.
-- **Wunschliste fürs Zuhause:** Dinge, die ihr euch fürs Zuhause wünscht, gemeinsam gesammelt und sortiert.
 - **Ruhezeiten:** Nicht stören für euch beide, und das Zuhause bleibt auch leise.
-- **Ansicht für Gäste und Sitter:** eine kleine, zeitlich begrenzte Ansicht für Gäste oder Haussitter.
+- **Ansicht für Gäste und Sitter:** eine kleine, zeitlich begrenzte Haushalts-Ansicht für Gäste oder Haussitter.
 
 **Rund um den Tisch**
 - **Was ist noch da:** Ideen aus dem Vorrat, was zuerst abläuft, kommt zuerst dran.
 
 **Rund um euch zwei**
 - **Wöchentlicher Check-in:** ein kurzes Ritual mit ein paar Fragen, die ihr zusammen beantwortet.
-- **Jahrestage und Meilensteine:** die Daten, die zählen, nie mehr vergessen.
-- **Geschenkideen:** private Ideen für deinen Schatz notieren, die vor Geburtstagen wieder auftauchen.
 - **Sprachnachrichten:** hinterlasst euch kurze Nachrichten.
 - **Gemeinsame Orte:** speichert die Orte, an denen ihr zusammen wart.
-
-**Alltag**
-- **Budget im Blick:** ein einfacher Überblick über gemeinsame Ausgaben.
-- **Reisen und Packlisten:** Reisen planen und mit gemeinsamen Listen packen.
-- **Dokumentenablage:** wichtige Unterlagen an einem privaten Ort.
-- **Merkliste:** alles, was ihr zusammen schauen, lesen oder besuchen wollt.
 
 ## An der API entwickeln
 
