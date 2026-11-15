@@ -8,7 +8,7 @@ import { giftHorizonDays, useGifts } from "../gifts";
 import { nextDays, useMealPlan } from "../meals";
 import { nextBill, useBalance, useMoney, useStanding } from "../money";
 import { nextTrip, useTrips, useTripDates } from "../trips";
-import { dayOf, useResurfaced } from "../moments";
+import { dayOf, today, useResurfaced, useTimeline } from "../moments";
 import { useSession } from "../session";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
@@ -24,7 +24,7 @@ import { useWhen } from "./Lists";
 import { MomentSheet } from "./MomentSheet";
 import { AskForm, QuestionCard, useQuestions } from "./questions";
 import { Screen } from "./Screen";
-import { Timeline } from "./Timeline";
+import { Gratitude, Timeline, usePeople } from "./Timeline";
 import { usePickedBy, useTonight } from "./Watch";
 
 function useHome() {
@@ -451,49 +451,58 @@ function Wishlist({ household }: { household: HouseholdDetail }) {
 }
 
 // Something shared from your story: this day in an earlier year, a thank-you from a while ago,
-// or else a nudge to write today's.
+// and today's one-line gratitude right on Today.
 function TodayMoment({ household, me }: { household: HouseholdDetail; me: User }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [savedInline, setSavedInline] = useState(false);
   const resurfaced = useResurfaced(household.id, 0);
+  const { months, reload } = useTimeline(household.id);
+  const people = usePeople(household, me);
   const memory = resurfaced?.onThisDay.find((m) => !m.sealed);
   const thanks = resurfaced?.gratitude;
   const author = (id: string) => household.members.find((m) => m.user.id === id)?.user.name ?? "";
-  if (memory) {
-    return (
-      <button type="button" className="today-memory" onClick={() => navigate("/us")}>
-        {memory.photoUrl && <img src={memory.photoUrl} alt="" loading="lazy" />}
-        <span className="today-memory-text">
-          <span className="label">{t("moments.onThisDay", { year: dayOf(memory).getFullYear() })}</span>
-          {memory.text && <span className="body">{memory.text}</span>}
-        </span>
-      </button>
-    );
-  }
-  if (thanks?.text) {
-    return (
-      <button type="button" className="today-tile today-thanks" onClick={() => navigate("/us")}>
-        <span className="today-tile-icon">
-          <Icon name="heart" />
-        </span>
-        <span className="today-tile-text">
-          <span className="label">{t(thanks.authorId === me.id ? "moments.gratefulMe" : "moments.grateful", { name: author(thanks.authorId) })}</span>
-          <span className="body">{thanks.text}</span>
-        </span>
-      </button>
-    );
-  }
+  const current = months?.[0]?.month === today().slice(0, 7);
+  const todays = current ? (months?.[0]?.moments.filter((m) => m.kind === "gratitude" && m.day === today()) ?? []) : [];
+  const mine = todays.find((m) => m.authorId === me.id);
+  const showGratitude = (!memory && !thanks?.text) || (current && !mine) || savedInline;
   return (
-    <button type="button" className="today-tile today-thanks" onClick={() => navigate("/us")}>
-      <span className="today-tile-icon">
-        <Icon name="heart" />
-      </span>
-      <span className="today-tile-text">
-        <span className="label">{t("moments.gratitude.eyebrow")}</span>
-        <span className="headline">{t("today.thanks")}</span>
-      </span>
-      <Icon name="chevron" size="sm" />
-    </button>
+    <>
+      {memory ? (
+        <button type="button" className="today-memory" onClick={() => navigate("/us")}>
+          {memory.photoUrl && <img src={memory.photoUrl} alt="" loading="lazy" />}
+          <span className="today-memory-text">
+            <span className="label">{t("moments.onThisDay", { year: dayOf(memory).getFullYear() })}</span>
+            {memory.text && <span className="body">{memory.text}</span>}
+          </span>
+        </button>
+      ) : (
+        thanks?.text && (
+          <button type="button" className="today-tile today-thanks" onClick={() => navigate("/us")}>
+            <span className="today-tile-icon">
+              <Icon name="heart" />
+            </span>
+            <span className="today-tile-text">
+              <span className="label">{t(thanks.authorId === me.id ? "moments.gratefulMe" : "moments.grateful", { name: author(thanks.authorId) })}</span>
+              <span className="body">{thanks.text}</span>
+            </span>
+          </button>
+        )
+      )}
+      {showGratitude && (
+        <Gratitude
+          key={mine?.updatedAt ?? "new"}
+          householdId={household.id}
+          me={me}
+          lines={todays}
+          people={people}
+          onSaved={() => {
+            setSavedInline(true);
+            reload();
+          }}
+        />
+      )}
+    </>
   );
 }
 

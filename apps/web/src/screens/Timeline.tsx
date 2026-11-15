@@ -75,7 +75,7 @@ export function Timeline({ household, me, month, onOpen }: {
 type People = ReturnType<typeof usePeople>;
 
 // Names and thread avatars of the household's members, "You" for the viewer.
-function usePeople(household: HouseholdDetail, me: User) {
+export function usePeople(household: HouseholdDetail, me: User) {
   const { t } = useTranslation();
   const index = (id: string) => household.members.findIndex((m) => m.user.id === id);
   return {
@@ -93,7 +93,7 @@ function useDayFormat() {
 }
 
 // One line a day: yours to write or change, and what the others wrote today.
-function Gratitude({ householdId, me, lines, people, onSaved }: {
+export function Gratitude({ householdId, me, lines, people, onSaved }: {
   householdId: string;
   me: User;
   lines: Moment[];
