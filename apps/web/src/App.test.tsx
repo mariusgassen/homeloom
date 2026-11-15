@@ -234,6 +234,42 @@ test("a question stays sealed until both have answered", async () => {
   expect(await calls.find((c) => c.method === "PUT")?.json()).toEqual({ text: "Porto" });
 });
 
+test("a revealed question can be kept as a moment", async () => {
+  const q = {
+    id: "44444444-4444-4444-8444-444444444446",
+    text: "Best trip?",
+    askedBy: jo.id,
+    createdAt: "2026-10-27T18:00:00Z",
+    revealed: true,
+    revealedAt: "2026-10-28T08:00:00Z",
+    answers: [
+      { userId: jo.id, text: "Lisbon", answeredAt: "2026-10-27T18:00:00Z" },
+      { userId: marius.id, text: "Porto", answeredAt: "2026-10-28T08:00:00Z" },
+    ],
+  };
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/questions`, () => json([q])),
+    at("POST", `/v1/households/${home.id}/moments`, () =>
+      json({ id: "77777777-7777-4777-8777-777777777781", kind: "moment", authorId: marius.id, day: isoDay(), visibility: "shared", sealed: false, text: "Best trip?\n\nJo: Lisbon\nMarius: Porto", createdAt: "2026-10-28T08:00:00Z", updatedAt: "2026-10-28T08:00:00Z" }, 201),
+    ),
+  );
+  renderApp("/us?show=questions");
+  await userEvent.click(await screen.findByRole("button", { name: "Keep as a moment" }));
+  const sheet = screen.getByRole("dialog", { name: "New moment" });
+  expect(within(sheet).getByLabelText("What happened")).toHaveValue("Best trip?\n\nJo: Lisbon\nMarius: Porto");
+  await userEvent.click(within(sheet).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(await screen.findByRole("button", { name: "Saved to moments" })).toBeInTheDocument();
+  const post = calls.find((c) => c.method === "POST");
+  expect(await post?.json()).toEqual({
+    kind: "moment",
+    text: "Best trip?\n\nJo: Lisbon\nMarius: Porto",
+    visibility: "shared",
+    day: isoDay(),
+  });
+});
+
 test("suggest asks for fresh questions and your own can be reworded or deleted", async () => {
   const q = { id: "44444444-4444-4444-8444-444444444445", text: "Bset trip?", askedBy: marius.id, createdAt: "2026-10-27T18:00:00Z", revealed: false, answers: [] };
   const calls = serve(
