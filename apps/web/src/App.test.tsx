@@ -1260,6 +1260,27 @@ test("today greets you and brings back a thank-you", async () => {
   expect(await screen.findByRole("button", { name: /Jo was grateful.*Pancakes/ })).toBeInTheDocument();
 });
 
+test("today lets you write today's gratitude inline", async () => {
+  const month = isoDay().slice(0, 7);
+  let mine: Record<string, unknown> | null = null;
+  const calls = serve(
+    ...signedIn(),
+    at("GET", `/v1/households/${home.id}/entries`, () => json([])),
+    at("GET", `/v1/households/${home.id}/moments`, () => json({ month, moments: mine ? [mine] : [] })),
+    at("GET", `/v1/households/${home.id}/moments/resurfaced`, () => json({ onThisDay: [] })),
+    at("POST", `/v1/households/${home.id}/moments`, () => {
+      mine = { id: "88888888-8888-4888-8888-888888888889", kind: "gratitude", authorId: marius.id, day: isoDay(), visibility: "shared", sealed: false, text: "Coffee together", createdAt: "2026-10-28T08:00:00Z", updatedAt: "2026-10-28T08:00:00Z" };
+      return json(mine, 201);
+    }),
+  );
+  renderApp("/");
+  await userEvent.type(await screen.findByLabelText("What are you grateful for today?"), "Coffee together");
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  expect(await screen.findByRole("button", { name: "Change my line" })).toHaveTextContent("Coffee together");
+  const post = calls.find((c) => c.method === "POST" && c.url.endsWith("/moments"));
+  expect(await post?.json()).toEqual({ kind: "gratitude", text: "Coffee together", visibility: "shared" });
+});
+
 test("settings makes a calendar subscription link", async () => {
   serve(
     ...signedIn(),
