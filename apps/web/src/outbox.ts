@@ -1,5 +1,5 @@
 import type { components } from "./api/schema.gen";
-import type { Chore, ChoreCompletion, Entry, EntryKind, Expense, ExpenseMonth, Household, HouseholdDetail, ShoppingItem, User } from "./api/client";
+import type { Chore, ChoreCompletion, Entry, EntryKind, Expense, ExpenseMonth, Household, HouseholdDetail, PackingItem, ShoppingItem, Trip, User } from "./api/client";
 
 type ExpenseShare = components["schemas"]["ExpenseShare"];
 import { cached, keep } from "./cache";
@@ -106,11 +106,14 @@ type Change =
   | { type: "createExpense" | "settle" | "createChore"; household: string }
   | { type: "updateExpense" | "deleteExpense"; household: string; expense: string }
   | { type: "updateChore" | "deleteChore" | "choreDone"; household: string; chore: string }
-  | { type: "undoCompletion"; household: string; completion: string };
+  | { type: "undoCompletion"; household: string; completion: string }
+  | { type: "addPacking" | "unvoteTrip"; household: string; trip: string }
+  | { type: "updatePacking" | "removePacking"; household: string; trip: string; item: string }
+  | { type: "voteTrip"; household: string; trip: string; option: string };
 
 // Kinds of change that make something, and so get a local id.
-const creates = ["createEntry", "addItem", "createExpense", "settle", "createChore", "choreDone"];
-const deletes = ["deleteEntry", "removeItem", "deleteExpense", "deleteChore", "undoCompletion"];
+const creates = ["createEntry", "addItem", "createExpense", "settle", "createChore", "choreDone", "addPacking"];
+const deletes = ["deleteEntry", "removeItem", "deleteExpense", "deleteChore", "undoCompletion", "removePacking"];
 
 function change(method: string, path: string): Change | undefined {
   let m: RegExpExecArray | null;
@@ -147,6 +150,19 @@ function change(method: string, path: string): Change | undefined {
   if ((m = /^\/v1\/households\/([^/]+)\/chores\/([^/]+)\/done$/.exec(path)) && method === "POST") return { type: "choreDone", household: m[1] ?? "", chore: m[2] ?? "" };
   if ((m = /^\/v1\/households\/([^/]+)\/chore-completions\/([^/]+)$/.exec(path)) && method === "DELETE") {
     return { type: "undoCompletion", household: m[1] ?? "", completion: m[2] ?? "" };
+  }
+  if ((m = /^\/v1\/households\/([^/]+)\/trips\/([^/]+)\/packing$/.exec(path)) && method === "POST") {
+    return { type: "addPacking", household: m[1] ?? "", trip: m[2] ?? "" };
+  }
+  if ((m = /^\/v1\/households\/([^/]+)\/trips\/([^/]+)\/packing\/([^/]+)$/.exec(path))) {
+    if (method === "PUT") return { type: "updatePacking", household: m[1] ?? "", trip: m[2] ?? "", item: m[3] ?? "" };
+    if (method === "DELETE") return { type: "removePacking", household: m[1] ?? "", trip: m[2] ?? "", item: m[3] ?? "" };
+  }
+  if ((m = /^\/v1\/households\/([^/]+)\/trips\/([^/]+)\/options\/([^/]+)\/vote$/.exec(path)) && method === "PUT") {
+    return { type: "voteTrip", household: m[1] ?? "", trip: m[2] ?? "", option: m[3] ?? "" };
+  }
+  if ((m = /^\/v1\/households\/([^/]+)\/trips\/([^/]+)\/vote$/.exec(path)) && method === "DELETE") {
+    return { type: "unvoteTrip", household: m[1] ?? "", trip: m[2] ?? "" };
   }
   return undefined;
 }
@@ -291,6 +307,41 @@ function onItem(it: ShoppingItem, op: Op): ShoppingItem | undefined {
   }
 }
 
+function madePacking(op: Op): PackingItem {
+  return { id: op.local ?? "", text: String(op.body?.text ?? ""), done: op.body?.done === true };
+}
+
+function onTrip(t: Trip, op: Op): Trip {
+  const c = change(op.method, op.path);
+  if (!c || !("trip" in c) || c.trip !== t.id) return t;
+  switch (c.type) {
+    case "addPacking":
+      return { ...t, packing: [...t.packing, madePacking(op)] };
+    case "updatePacking":
+      return {
+        ...t,
+        packing: t.packing.map((p) => (p.id === c.item ? { ...p, text: String(op.body?.text ?? p.text), done: op.body?.done === true } : p)),
+      };
+    case "removePacking":
+      return { ...t, packing: t.packing.filter((p) => p.id !== c.item) };
+    case "voteTrip":
+      return {
+        ...t,
+        options: t.options.map((o) => {
+          const votes = o.votes.filter((v) => v !== op.user);
+          return o.id === c.option ? { ...o, votes: [...votes, op.user] } : { ...o, votes };
+        }),
+      };
+    case "unvoteTrip":
+      return {
+        ...t,
+        options: t.options.map((o) => ({ ...o, votes: o.votes.filter((v) => v !== op.user) })),
+      };
+    default:
+      return t;
+  }
+}
+
 const mine = () => ops.filter((op) => op.user === me()?.id);
 
 // overlay applies the changes not sent yet to what a GET answered.
@@ -363,6 +414,15 @@ function overlay(path: string, search: string, value: unknown): unknown {
     }
     return list;
   }
+  if ((m = /^\/v1\/households\/([^/]+)\/trips$/.exec(path)) && Array.isArray(value)) {
+    let list = value as Trip[];
+    for (const op of pending) {
+      const c = change(op.method, op.path);
+      if (!c || !("household" in c) || c.household !== m[1] || !("trip" in c)) continue;
+      list = list.map((t) => (t.id === c.trip ? onTrip(t, op) : t));
+    }
+    return list;
+  }
   return value;
 }
 
@@ -375,9 +435,10 @@ export function local<T>(path: string, query?: Record<string, string | undefined
 }
 
 // What something local is about, as the app sees it now.
-function current(op: Op, id: string): Entry | ShoppingItem | Expense | Chore | undefined {
+function current(op: Op, id: string): Entry | ShoppingItem | Expense | Chore | Trip | undefined {
   const c = change(op.method, op.path);
   if (!c) return undefined;
+  if ("trip" in c) return local<Trip[]>(`/v1/households/${c.household}/trips`)?.find((t) => t.id === c.trip);
   if ("item" in c) return local<ShoppingItem[]>(`/v1/households/${c.household}/shopping-list`)?.find((it) => it.id === id);
   if (c.type === "createExpense" || c.type === "settle" || "expense" in c) {
     return local<ExpenseMonth>(`/v1/households/${c.household}/expenses`)?.expenses.find((e) => e.id === id) ?? (op.local === id ? madeExpense(op, c.household) : undefined);
@@ -423,6 +484,10 @@ function enqueue(method: string, path: string, body: Record<string, unknown> | u
     if (c.type === "addItem") return json(madeItem(op), 201);
     if (c.type === "createChore") return json(madeChore(op), 201);
     if (c.type === "choreDone") return json(madeCompletion(op, c.chore), 201);
+    if (c.type === "addPacking") {
+      const trip = local<Trip[]>(`/v1/households/${c.household}/trips`)?.find((t) => t.id === c.trip);
+      return json(trip ?? { id: c.trip, options: [], packing: [madePacking(op)] }, 201);
+    }
     return json(madeExpense(op, household), 201);
   }
   if (deletes.includes(c.type)) {
@@ -430,6 +495,10 @@ function enqueue(method: string, path: string, body: Record<string, unknown> | u
     ops = ops.filter((o) => target(o) !== id);
     if (!made) ops = [...ops, op];
     save();
+    if (c.type === "removePacking") {
+      const trip = local<Trip[]>(`/v1/households/${c.household}/trips`)?.find((t) => t.id === c.trip);
+      if (trip) return json(trip);
+    }
     return new Response(null, { status: 204 });
   }
   if (c.type === "updateEntry" || c.type === "updateExpense" || c.type === "updateChore") {
@@ -447,7 +516,7 @@ function enqueue(method: string, path: string, body: Record<string, unknown> | u
   }
   ops = [...ops, op];
   save();
-  const now = id ? current(op, id) : undefined;
+  const now = "trip" in c ? current(op, "") : id ? current(op, id) : undefined;
   return now ? json(now) : new Response(null, { status: 204 });
 }
 
@@ -547,11 +616,15 @@ export async function drain(fetcher: (req: Request) => Promise<Response> = (r) =
       const c = change(op.method, op.path);
       let next = ops.slice(1);
       if (res.ok) {
-        const data = res.status === 204 ? undefined : ((await res.json().catch(() => undefined)) as { id?: string; updatedAt?: string } | undefined);
-        if (op.local && data?.id) {
-          ids[op.local] = data.id;
+        const data = res.status === 204 ? undefined : ((await res.json().catch(() => undefined)) as { id?: string; updatedAt?: string; packing?: PackingItem[] } | undefined);
+        const createdId =
+          c?.type === "addPacking"
+            ? ([...(data?.packing ?? [])].reverse().find((p) => p.text === op.body?.text && !Object.values(ids).includes(p.id))?.id ?? data?.packing?.at(-1)?.id)
+            : data?.id;
+        if (op.local && createdId) {
+          ids[op.local] = createdId;
           const local = op.local;
-          next = next.map((o) => ({ ...o, path: o.path.replace(local, data.id ?? local) }));
+          next = next.map((o) => ({ ...o, path: o.path.replace(local, createdId) }));
         }
         // Later edits of this entry are based on the version this change made.
         const id = data?.id;

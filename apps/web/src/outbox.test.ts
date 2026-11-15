@@ -156,3 +156,64 @@ test("a chore ticked off offline leaves the list and shows as done; undone again
   expect(outboxState().pending).toBe(0);
   expect(await (await send(req("GET", chores), down)).json()).toMatchObject([{ title: "Bins" }]);
 });
+
+test("trip packing items added and ticked offline, and votes, show at once and sync in order", async () => {
+  const tripsPath = `/v1/households/${h}/trips`;
+  const tripId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const optA = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const optB = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+  const trip = {
+    id: tripId,
+    name: "Italy",
+    options: [
+      { id: optA, title: "Rome", votes: [], photos: [] },
+      { id: optB, title: "Amalfi", votes: [], photos: [] },
+    ],
+    packing: [],
+    createdAt: "2026-10-01T08:00:00Z",
+    updatedAt: "2026-10-01T08:00:00Z",
+  };
+  await keep(req("GET", tripsPath), async () => json([trip]));
+  online = false;
+
+  const addedRes = await send(req("POST", `${tripsPath}/${tripId}/packing`, { text: "Passport" }), down);
+  expect(addedRes.status).toBe(201);
+  const addedTrip = (await addedRes.json()) as { packing: { id: string; text: string; done: boolean }[] };
+  const localItemId = addedTrip.packing[0]?.id ?? "";
+  expect(addedTrip.packing).toMatchObject([{ text: "Passport", done: false }]);
+
+  await send(req("PUT", `${tripsPath}/${tripId}/packing/${localItemId}`, { text: "Passport", done: true }), down);
+  await send(req("PUT", `${tripsPath}/${tripId}/options/${optB}/vote`), down);
+
+  const localTrips = (await (await send(req("GET", tripsPath), down)).json()) as { packing: { text: string; done: boolean }[]; options: { id: string; votes: string[] }[] }[];
+  expect(localTrips[0]?.packing).toMatchObject([{ text: "Passport", done: true }]);
+  expect(localTrips[0]?.options.find((o) => o.id === optB)?.votes).toEqual([me.id]);
+  expect(outboxState().pending).toBe(3);
+
+  online = true;
+  const realItemId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+  const { sent, fetcher } = server((r) => {
+    if (r.method === "POST") return json({ ...trip, packing: [{ id: realItemId, text: "Passport", done: false }] }, 201);
+    return json({ ...trip, packing: [{ id: realItemId, text: "Passport", done: true }] });
+  });
+  await drain(fetcher);
+  expect(sent.map((s) => `${s.method} ${s.path}`)).toEqual([
+    `POST ${tripsPath}/${tripId}/packing`,
+    `PUT ${tripsPath}/${tripId}/packing/${realItemId}`,
+    `PUT ${tripsPath}/${tripId}/options/${optB}/vote`,
+  ]);
+  expect(outboxState().pending).toBe(0);
+});
+
+test("a trip packing item added and deleted offline is never sent", async () => {
+  const tripsPath = `/v1/households/${h}/trips`;
+  const tripId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  await keep(req("GET", tripsPath), async () => json([{ id: tripId, name: "Italy", options: [], packing: [], createdAt: "2026-10-01T08:00:00Z", updatedAt: "2026-10-01T08:00:00Z" }]));
+  online = false;
+
+  const added = (await (await send(req("POST", `${tripsPath}/${tripId}/packing`, { text: "Hat" }), down)).json()) as { packing: { id: string }[] };
+  const localItemId = added.packing[0]?.id ?? "";
+  const removed = (await (await send(req("DELETE", `${tripsPath}/${tripId}/packing/${localItemId}`), down)).json()) as { packing: unknown[] };
+  expect(removed.packing).toEqual([]);
+  expect(outboxState().pending).toBe(0);
+});
