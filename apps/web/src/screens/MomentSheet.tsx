@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { api, type HouseholdDetail, type MealRef, type Moment, type User, type Visibility } from "../api/client";
+import { api, type HouseholdDetail, type MealRef, type Moment, type MomentFields, type User, type Visibility } from "../api/client";
+import { fromLocal, toLocalDate } from "../entries";
 import { maxVideoMB, shrink, today, uploadPhoto, uploadVideo } from "../moments";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
@@ -23,7 +24,8 @@ export function MomentSheet({ household, me, moment, meal: dish, initialText, on
   const [text, setText] = useState(moment?.text ?? initialText ?? "");
   const [day, setDay] = useState(moment?.day ?? today());
   const [meal, setMeal] = useState<MealRef | undefined>(moment ? moment.meal : dish);
-  const [visibility, setVisibility] = useState<Visibility>(moment?.visibility === "private" ? "private" : "shared");
+  const [visibility, setVisibility] = useState<Visibility>(moment?.visibility ?? "shared");
+  const [revealAt, setRevealAt] = useState(moment?.revealAt ? toLocalDate(moment.revealAt) : "");
   // undefined keeps the photo as it is, null removes it, a Blob replaces it.
   const [photo, setPhoto] = useState<Blob | null | undefined>(undefined);
   const [preview, setPreview] = useState<string | undefined>(moment?.photoUrl);
@@ -88,7 +90,13 @@ export function MomentSheet({ household, me, moment, meal: dish, initialText, on
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const body = { text: text.trim(), visibility, day, meal };
+    const body: MomentFields = {
+      text: text.trim(),
+      visibility,
+      day,
+      ...(visibility === "reveal" && revealAt ? { revealAt: fromLocal(`${revealAt}T00:00`) } : {}),
+      ...(meal ? { meal } : {}),
+    };
     const current = saved.current;
     const res = await (current
       ? api.PUT("/v1/moments/{momentId}", { params: { path: { momentId: current.id } }, body })
@@ -143,7 +151,7 @@ export function MomentSheet({ household, me, moment, meal: dish, initialText, on
         </Button>
       }
       trailing={
-        <Button type="submit" size="sm" disabled={busy || compressing !== null || !text.trim() || !day}>
+        <Button type="submit" size="sm" disabled={busy || compressing !== null || !text.trim() || !day || (visibility === "reveal" && !revealAt)}>
           {t("entries.save")}
         </Button>
       }
@@ -206,11 +214,17 @@ export function MomentSheet({ household, me, moment, meal: dish, initialText, on
         <Segmented
           label={t("entries.who")}
           value={visibility}
-          options={(["private", "shared"] as const).map((v) => ({ value: v, label: t(`entries.visibility.${v}`), icon: v === "private" ? "lock" : v }))}
+          options={(["private", "shared", "reveal"] as const).map((v) => ({ value: v, label: t(`entries.visibility.${v}`), icon: v === "private" ? "lock" : v }))}
           onChange={setVisibility}
         />
         <p className="caption muted sheet-hint">{t(`entries.visibilityHint.${visibility}`, { name: partner?.name ?? "" })}</p>
       </div>
+
+      {visibility === "reveal" && (
+        <FormGroup>
+          <DateRow label={t("entries.revealAt")} type="date" value={revealAt} onChange={setRevealAt} placeholder={t("entries.pick")} required />
+        </FormGroup>
+      )}
 
       {error && (
         <p className="callout error" role="alert">

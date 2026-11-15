@@ -212,24 +212,36 @@ function Month({ month, me, people, onOpen }: { month: MomentMonth; me: User; pe
 }
 
 function MomentCard({ moment: m, me, people, onOpen }: { moment: Moment; me: User; people: People; onOpen: (m: Moment) => void }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const day = useDayFormat();
+  const formatReveal = (iso: string) => {
+    const d = new Date(iso);
+    const sameYear = d.getFullYear() === new Date().getFullYear();
+    return new Intl.DateTimeFormat(i18n.language, {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      ...(sameYear ? {} : { year: "numeric" }),
+    }).format(d);
+  };
   const eyebrow = (
     <>
       <span>{`${people.name(m.authorId)} · ${day.format(dayOf(m))}`}</span>
       {m.visibility === "private" && <Icon name="lock" size="sm" />}
+      {m.visibility === "reveal" && <Icon name="reveal" size="sm" />}
     </>
   );
   if (m.sealed) {
     return (
       <article className="hl-card hl-card-sunken">
         <div className="hl-eyebrow">{eyebrow}</div>
-        <p className="hl-card-body">{t("entries.sealed", { name: people.name(m.authorId), date: day.format(new Date(m.revealAt ?? m.createdAt)) })}</p>
+        <p className="hl-card-body">{t("entries.sealed", { name: people.name(m.authorId), date: formatReveal(m.revealAt ?? m.createdAt) })}</p>
       </article>
     );
   }
   const photo = m.photoUrl && <img className="moment-photo" src={m.photoUrl} alt="" loading="lazy" />;
   const reactions = m.kind === "moment" && <Reactions key={reactionKey(m)} moment={m} me={me} />;
+  const opensLater = m.visibility === "reveal" && m.revealAt && new Date(m.revealAt) > new Date();
   const text = (
     <>
       <span className="hl-eyebrow">{eyebrow}</span>
@@ -240,6 +252,7 @@ function MomentCard({ moment: m, me, people, onOpen }: { moment: Moment; me: Use
           <span>{m.meal.name}</span>
         </span>
       )}
+      {opensLater && m.revealAt && <span className="caption muted">{t("entries.opens", { date: formatReveal(m.revealAt) })}</span>}
     </>
   );
   if (m.videoUrl) {
