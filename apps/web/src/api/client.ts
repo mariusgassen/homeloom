@@ -41,6 +41,7 @@ export type DateIdea = components["schemas"]["DateIdea"];
 export type TonightPick = components["schemas"]["TonightPick"];
 export type Entry = components["schemas"]["Entry"];
 export type Moment = components["schemas"]["Moment"];
+export type MomentFields = components["schemas"]["MomentFields"];
 export type MomentKind = components["schemas"]["MomentKind"];
 export type MomentMonth = components["schemas"]["MomentMonth"];
 export type Resurfaced = components["schemas"]["Resurfaced"];
