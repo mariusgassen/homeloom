@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.4.0](https://github.com/mariusgassen/homeloom/compare/homeloom-v1.3.0...homeloom-v1.4.0) (2026-11-15)
+
+
+### Features
+
+* accept access tokens from further authentik providers ([#122](https://github.com/mariusgassen/homeloom/issues/122)) ([48e9d14](https://github.com/mariusgassen/homeloom/commit/48e9d14cc26c3822d01c820f563126b586df6cbc))
+* add yearly dates the household keeps, as a source for gift ideas ([#115](https://github.com/mariusgassen/homeloom/issues/115)) ([54e8f40](https://github.com/mariusgassen/homeloom/commit/54e8f40fefe73addb4b7ed2e7094f719c1c05abf))
+* choose how a date repeats and move gifts under Us ([#118](https://github.com/mariusgassen/homeloom/issues/118)) ([be314f2](https://github.com/mariusgassen/homeloom/commit/be314f244558afa8c8e256d2b4c9542103058a8d))
+* let the household owner delete any question ([#124](https://github.com/mariusgassen/homeloom/issues/124)) ([e5327fb](https://github.com/mariusgassen/homeloom/commit/e5327fb327463823180313977f35240dfc6b399b))
+* let the household owner keep members' birthday and picture ([#116](https://github.com/mariusgassen/homeloom/issues/116)) ([ab9ca54](https://github.com/mariusgassen/homeloom/commit/ab9ca5416cef6a30d3cf690acf1a70205e315eef))
+* show the shopping list as a shared list in Reminders ([#119](https://github.com/mariusgassen/homeloom/issues/119)) ([17f51ff](https://github.com/mariusgassen/homeloom/commit/17f51ffdd509466aa463311c5a41c1edd9f143ab))
+* **web:** desktop layout ([#121](https://github.com/mariusgassen/homeloom/issues/121)) ([61e0e9e](https://github.com/mariusgassen/homeloom/commit/61e0e9e4e1c1af5c094745aac81692f3ee67bc24))
+* **web:** offline outbox support for trips and packing ([#129](https://github.com/mariusgassen/homeloom/issues/129)) ([efd54fa](https://github.com/mariusgassen/homeloom/commit/efd54facd56a207cc9d4b378318a178a6d8a0371))
+* **web:** one column and master-detail notes on desktop ([#125](https://github.com/mariusgassen/homeloom/issues/125)) ([fcd7969](https://github.com/mariusgassen/homeloom/commit/fcd7969a8a34faf988d00fb970b9e30a2d6fd964))
+* **web:** save revealed questions as moments ([#127](https://github.com/mariusgassen/homeloom/issues/127)) ([18901be](https://github.com/mariusgassen/homeloom/commit/18901bed33f8a9a29a66de8876fddf608f58e4a7))
+* **web:** time-capsule letters on Moments ([#126](https://github.com/mariusgassen/homeloom/issues/126)) ([ebaca40](https://github.com/mariusgassen/homeloom/commit/ebaca407f405017bbbb6e85e27135925177daa45))
+* **web:** write today's gratitude inline on Today ([#128](https://github.com/mariusgassen/homeloom/issues/128)) ([3f998af](https://github.com/mariusgassen/homeloom/commit/3f998af58245f7de8e1722c01197946c53c515a5))
+
+
+### Bug Fixes
+
+* give wish sheet labels their own spacing ([#123](https://github.com/mariusgassen/homeloom/issues/123)) ([298468a](https://github.com/mariusgassen/homeloom/commit/298468af2e867368e391d6a385de9df209025631))
+
 ## [1.3.0](https://github.com/mariusgassen/homeloom/compare/homeloom-v1.2.0...homeloom-v1.3.0) (2026-11-11)
 
 
