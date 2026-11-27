@@ -11,6 +11,8 @@ RUN npm run build && npm prune --omit=dev
 FROM node:26-slim
 WORKDIR /app
 ENV NODE_ENV=production
+# Runtime only executes node; drop npm so its bundled deps (undici, brace-expansion, etc.) are not shipped.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 COPY --from=build /src/node_modules node_modules
 COPY --from=build /src/dist dist
 COPY package.json ./
