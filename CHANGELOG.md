@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.4.1](https://github.com/mariusgassen/homeloom/compare/homeloom-v1.4.0...homeloom-v1.4.1) (2026-11-27)
+
+
+### Bug Fixes
+
+* **deps:** bump the go-modules group in /apps/api with 3 updates ([#134](https://github.com/mariusgassen/homeloom/issues/134)) ([49d8df8](https://github.com/mariusgassen/homeloom/commit/49d8df8532eb283c08efd45b6ebb254109a9e378))
+* **deps:** bump the go-modules group in /apps/api with 6 updates ([#132](https://github.com/mariusgassen/homeloom/issues/132)) ([b18e4a6](https://github.com/mariusgassen/homeloom/commit/b18e4a6abbdda377bb8973c22d31a66de0cbadc4))
+* **deps:** bump the npm group in /apps/agent with 7 updates ([#131](https://github.com/mariusgassen/homeloom/issues/131)) ([a25bed2](https://github.com/mariusgassen/homeloom/commit/a25bed2f541701d03689a87639f9e1ab2209e71e))
+* **deps:** bump the npm group in /apps/agent with 7 updates ([#135](https://github.com/mariusgassen/homeloom/issues/135)) ([f840fad](https://github.com/mariusgassen/homeloom/commit/f840fadbfed5cfe525bd170633114a1f7fdde869))
+* **deps:** bump the npm group in /apps/web with 13 updates ([#133](https://github.com/mariusgassen/homeloom/issues/133)) ([fa12773](https://github.com/mariusgassen/homeloom/commit/fa127733a8eff1e0a65fbcfec11f913d0f915edb))
+* **deps:** bump the npm group in /apps/web with 9 updates ([#136](https://github.com/mariusgassen/homeloom/issues/136)) ([33e772e](https://github.com/mariusgassen/homeloom/commit/33e772e90abe54a253e13c52f54a433533ada960))
+* **deps:** patch vulnerable deps in agent and web images ([#138](https://github.com/mariusgassen/homeloom/issues/138)) ([aa2b08b](https://github.com/mariusgassen/homeloom/commit/aa2b08bcf2bc12e5e1e50e9a5a615af32cd85a14))
+
 ## [1.4.0](https://github.com/mariusgassen/homeloom/compare/homeloom-v1.3.0...homeloom-v1.4.0) (2026-11-15)
 
 
